@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>synclocal mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void:     #0a0a0c;
+    --surface:  #111114;
+    --surface2: #18181d;
+    --border:   #1e1e25;
+    --border2:  #2a2a35;
+    --teal:     #00d4aa;
+    --teal-dim: rgba(0,212,170,0.12);
+    --star:     #e8e8f0;
+    --mid:      #8888a0;
+    --dim:      #44445a;
+    --amber:    #f59e0b;
+    --amber-dim:rgba(245,158,11,0.12);
+    --red:      #f04060;
+    --red-dim:  rgba(240,64,96,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #07070a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 40px 20px;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    text-transform: uppercase;
+  }
+
+  /* iPhone shell */
+  .phone {
+    width: 375px;
+    height: 780px;
+    background: var(--void);
+    border-radius: 44px;
+    border: 1.5px solid var(--border2);
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px #000;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Notch */
+  .notch {
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 120px; height: 30px;
+    background: #000;
+    border-radius: 0 0 20px 20px;
+    z-index: 10;
+  }
+
+  /* Status bar */
+  .status-bar {
+    height: 44px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 24px 6px;
+    flex-shrink: 0;
+  }
+  .status-bar span {
+    font-size: 10px;
+    color: var(--mid);
+    letter-spacing: 0.5px;
+  }
+
+  /* App bar */
+  .app-bar {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .app-bar-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--star);
+  }
+  .app-bar-back {
+    font-size: 11px;
+    color: var(--teal);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .app-bar-back:hover { opacity: 0.7; }
+
+  /* Screen container */
+  .screen-wrap {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
+  }
+  .screen.active { display: flex; }
+
+  /* ── HOME SCREEN ── */
+
+  .repo-list { flex: 1; }
+
+  .repo-tile {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .repo-tile:hover { background: var(--surface); }
+  .repo-tile:active { background: var(--surface2); }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .dot-ok      { background: var(--teal); }
+  .dot-syncing { background: var(--amber); animation: pulse 1.2s ease-in-out infinite; }
+  .dot-error   { background: var(--red); }
+  .dot-idle    { background: var(--dim); }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+
+  .repo-info { flex: 1; min-width: 0; }
+  .repo-name-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .repo-name {
+    font-size: 13px; font-weight: 600; color: var(--star);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .badge {
+    font-size: 8px; font-weight: 700; letter-spacing: 1px;
+    padding: 2px 5px; border-radius: 3px; flex-shrink: 0;
+  }
+  .badge-auto   { background: var(--teal-dim); color: var(--teal); }
+  .badge-manual { background: var(--border2); color: var(--mid); }
+
+  .repo-meta {
+    font-size: 10px; color: var(--dim); letter-spacing: 0.4px; margin-top: 3px;
+  }
+  .repo-meta.phase { color: var(--teal); font-style: italic; }
+  .repo-meta.error { color: var(--red); }
+
+  .repo-actions {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  }
+  .icon-btn {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border-radius: 4px;
+    color: var(--mid); font-size: 16px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .icon-btn:hover { color: var(--teal); background: var(--teal-dim); }
+  .sync-icon { color: var(--teal); }
+  .spin { animation: spin 1.2s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* FAB */
+  .fab {
+    position: absolute; bottom: 24px; right: 20px;
+    width: 52px; height: 52px;
+    background: var(--teal); color: var(--void);
+    border-radius: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0,212,170,0.3);
+    transition: opacity 0.15s;
+  }
+  .fab:hover { opacity: 0.85; }
+
+  /* Top-right status */
+  .topright-icon { font-size: 18px; cursor: pointer; }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    height: 2px; background: var(--border);
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: var(--teal);
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── LINKING SCREEN ── */
+  .linking-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; text-align: center;
+  }
+
+  .big-icon { font-size: 52px; margin-bottom: 20px; }
+
+  .heading {
+    font-size: 16px; font-weight: 600; color: var(--star);
+    letter-spacing: 0.5px; margin-bottom: 10px;
+  }
+  .subtext {
+    font-size: 12px; color: var(--mid); line-height: 1.7;
+    margin-bottom: 32px;
+  }
+
+  .primary-btn {
+    width: 100%; padding: 16px;
+    background: var(--teal); color: var(--void);
+    border: none; border-radius: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .primary-btn:hover { opacity: 0.85; }
+  .primary-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .ghost-btn {
+    background: none; border: none;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--dim); letter-spacing: 1px;
+    cursor: pointer; padding: 12px; margin-top: 4px;
+  }
+  .ghost-btn:hover { color: var(--mid); }
+
+  /* Running state */
+  .dots-wrap {
+    display: flex; gap: 8px; margin-bottom: 28px;
+  }
+  .dot-anim {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--teal);
+    animation: dotPulse 1.4s ease-in-out infinite;
+  }
+  .dot-anim:nth-child(2) { animation-delay: 0.2s; }
+  .dot-anim:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse {
+    0%,100% { transform: scale(0.5); opacity:0.3; }
+    50%      { transform: scale(1);   opacity:1; }
+  }
+
+  .step-label {
+    font-size: 14px; font-weight: 500; color: var(--star);
+    margin-bottom: 8px;
+  }
+  .step-sub {
+    font-size: 10px; color: var(--dim); letter-spacing: 0.4px;
+    margin-bottom: 28px; line-height: 1.6;
+  }
+  .step-counter {
+    font-size: 9px; color: var(--dim); letter-spacing: 1.5px;
+  }
+
+  /* Parked state */
+  .park-badge {
+    display: inline-block;
+    padding: 4px 12px; border-radius: 3px;
+    background: var(--amber-dim); color: var(--amber);
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    margin-bottom: 20px;
+  }
+  .instruction-card {
+    width: 100%; padding: 18px 16px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 6px; text-align: left;
+    font-size: 12px; color: var(--star); line-height: 1.8;
+    margin-bottom: 10px; white-space: pre-line;
+  }
+  .ios-note {
+    font-size: 9px; color: var(--dim); letter-spacing: 0.3px;
+    margin-bottom: 28px; line-height: 1.5;
+  }
+
+  /* Error state */
+  .diag-card {
+    width: 100%; padding: 14px 16px;
+    background: var(--surface);
+    text-align: left; margin-bottom: 10px;
+  }
+  .diag-card.what { border-left: 2px solid var(--red); }
+  .diag-card.fix  { border-left: 2px solid var(--teal); }
+  .diag-label {
+    font-size: 8px; font-weight: 700; letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .diag-label.red  { color: var(--red); }
+  .diag-label.teal { color: var(--teal); }
+  .diag-text { font-size: 11px; color: var(--star); line-height: 1.6; }
+
+  /* Complete */
+  .complete-icon { font-size: 52px; color: var(--teal); margin-bottom: 20px; }
+
+  /* ── COMMIT SCREEN ── */
+  .commit-body { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 16px; }
+
+  .section-label {
+    font-size: 9px; color: var(--dim); letter-spacing: 1.5px;
+    margin-bottom: 8px; font-weight: 700;
+  }
+
+  .templates { display: flex; flex-direction: column; gap: 1px; }
+  .template-row {
+    padding: 10px 14px; background: var(--surface);
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; transition: background 0.15s;
+    border-bottom: 1px solid var(--border);
+  }
+  .template-row:hover { background: var(--surface2); }
+  .template-text { font-size: 11px; color: var(--star); }
+  .template-count { font-size: 9px; color: var(--dim); }
+
+  .msg-input {
+    width: 100%; padding: 12px 14px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 0; color: var(--star);
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    resize: none; outline: none; line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  .msg-input:focus { border-color: var(--teal); }
+
+  .commit-actions { display: flex; gap: 8px; }
+  .commit-btn {
+    flex: 1; padding: 14px;
+    background: var(--teal); color: var(--void);
+    border: none; border-radius: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .commit-btn:hover { opacity: 0.85; }
+  .push-only-btn {
+    padding: 14px 16px;
+    background: var(--surface); color: var(--teal);
+    border: 1px solid var(--border2); border-radius: 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .push-only-btn:hover { background: var(--teal-dim); }
+
+  /* ── SCREEN NAV TABS ── */
+  .nav-tabs {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  }
+  .nav-tab {
+    padding: 6px 14px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 3px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px; color: var(--mid); letter-spacing: 1px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .nav-tab:hover { border-color: var(--teal); color: var(--teal); }
+  .nav-tab.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="label">synclocal · interactive mockup</div>
+
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar">
+      <span>9:41</span>
+      <span>●●●</span>
+    </div>
+
+    <!-- APP BAR (dynamic) -->
+    <div class="app-bar" id="appBar">
+      <div class="app-bar-back" id="backBtn" style="display:none" onclick="goBack()">← back</div>
+      <div class="app-bar-title" id="appTitle">SYNCLOCAL</div>
+      <div id="appBarRight">
+        <span class="topright-icon" title="All synced">✓</span>
+      </div>
+    </div>
+
+    <!-- SCREEN WRAP -->
+    <div class="screen-wrap">
+
+      <!-- ══ HOME SCREEN ══ -->
+      <div class="screen active" id="screen-home">
+        <div class="repo-list">
+
+          <!-- Repo 1: auto, syncing -->
+          <div class="repo-tile" onclick="navigate('screen-commit', 'COMMIT & PUSH', true)">
+            <div class="status-dot dot-syncing" style="align-self:flex-start; margin-top:5px"></div>
+            <div class="repo-info">
+              <div class="repo-name-row">
+                <span class="repo-name">Obsidian_phone_vault</span>
+                <span class="badge badge-auto">AUTO</span>
+              </div>
+              <div class="repo-meta phase" id="phaseText">detecting changes...</div>
+            </div>
+            <div class="repo-actions">
+              <div class="icon-btn"><span class="spin">↻</span></div>
+              <div class="icon-btn" onclick="event.stopPropagation()">⋮</div>
+            </div>
+          </div>
+
+          <!-- Repo 2: manual, ok -->
+          <div class="repo-tile" onclick="navigate('screen-commit', 'COMMIT & PUSH', true)">
+            <div class="status-dot dot-ok" style="align-self:flex-start; margin-top:5px"></div>
+            <div class="repo-info">
+              <div class="repo-name-row">
+                <span class="repo-name">Work_notes</span>
+                <span class="badge badge-manual">MANUAL</span>
+              </div>
+              <div class="repo-meta">synced 12m ago · 847 files</div>
+            </div>
+            <div class="repo-actions">
+              <div class="icon-btn sync-icon" onclick="event.stopPropagation(); triggerSync(this)">↻</div>
+              <div class="icon-btn" onclick="event.stopPropagation()">⋮</div>
+            </div>
+          </div>
+
+          <!-- Repo 3: error -->
+          <div class="repo-tile">
+            <div class="status-dot dot-error" style="align-self:flex-start; margin-top:5px"></div>
+            <div class="repo-info">
+              <div class="repo-name-row">
+                <span class="repo-name">Archive_2024</span>
+                <span class="badge badge-auto">AUTO</span>
+              </div>
+              <div class="repo-meta error">Cannot reach desktop — check WiFi</div>
+            </div>
+            <div class="repo-actions">
+              <div class="icon-btn sync-icon">↻</div>
+              <div class="icon-btn">⋮</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Setup vault link button -->
+        <div style="padding:20px 20px 100px">
+          <div class="section-label">SETUP</div>
+          <div class="repo-tile" style="border:1px solid var(--border2); background:var(--surface)"
+               onclick="navigate('screen-link-idle', 'VAULT SETUP', true)">
+            <div style="font-size:18px">⇄</div>
+            <div class="repo-info">
+              <div class="repo-name">Link new vault</div>
+              <div class="repo-meta">Run the 8-step linking sequence</div>
+            </div>
+            <div style="color:var(--teal); font-size:14px">›</div>
+          </div>
+        </div>
+
+        <div class="fab" onclick="navigate('screen-link-idle','VAULT SETUP',true)">+</div>
+      </div>
+
+      <!-- ══ LINKING: IDLE ══ -->
+      <div class="screen" id="screen-link-idle">
+        <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+        <div class="linking-body">
+          <div class="big-icon">⇄</div>
+          <div class="heading">Link your vault</div>
+          <div class="subtext">
+            synclocal runs the 8-step linking sequence automatically.<br><br>
+            You'll be prompted at two points to interact with Obsidian.
+          </div>
+          <button class="primary-btn" onclick="navigate('screen-link-running','VAULT SETUP',true)">START LINKING</button>
+        </div>
+      </div>
+
+      <!-- ══ LINKING: RUNNING ══ -->
+      <div class="screen" id="screen-link-running">
+        <div class="progress-bar"><div class="progress-fill" style="width:37.5%"></div></div>
+        <div class="linking-body">
+          <div class="dots-wrap">
+            <div class="dot-anim"></div>
+            <div class="dot-anim"></div>
+            <div class="dot-anim"></div>
+          </div>
+          <div class="step-label">Attempting vault link…</div>
+          <div class="step-sub">
+            This step is expected to fail — that is normal<br>
+            iOS is processing — this is not frozen
+          </div>
+          <div class="step-counter">step 3 of 8</div>
+        </div>
+      </div>
+
+      <!-- ══ LINKING: PARKED (step 4-5) ══ -->
+      <div class="screen" id="screen-link-parked">
+        <div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div>
+        <div class="linking-body">
+          <div class="park-badge">STEP 4–5 · YOUR TURN</div>
+          <div class="instruction-card">Working Copy tried to link but the vault has no index yet.
+
+→ Force-close Obsidian now
+   (swipe it away in app switcher)
+
+→ Then tap Continue below</div>
+          <div class="ios-note">synclocal is paused — iOS needs a moment between these steps.</div>
+          <button class="primary-btn" onclick="navigate('screen-link-parked2','VAULT SETUP',false)">CONTINUE</button>
+        </div>
+      </div>
+
+      <!-- ══ LINKING: PARKED (step 6) ══ -->
+      <div class="screen" id="screen-link-parked2">
+        <div class="progress-bar"><div class="progress-fill" style="width:62.5%"></div></div>
+        <div class="linking-body">
+          <div class="park-badge">STEP 6 · YOUR TURN</div>
+          <div class="instruction-card">Obsidian is opening for the first time with your vault.
+
+→ Tap "Trust author and enable plugins"
+
+→ Wait for indexing to finish
+   (spinner in bottom-left of Obsidian)
+
+→ Return here and tap Continue</div>
+          <div class="ios-note">synclocal is paused — iOS needs a moment between these steps.</div>
+          <button class="primary-btn" onclick="navigate('screen-link-complete','VAULT SETUP',false)">CONTINUE</button>
+        </div>
+      </div>
+
+      <!-- ══ LINKING: COMPLETE ══ -->
+      <div class="screen" id="screen-link-complete">
+        <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+        <div class="linking-body">
+          <div class="complete-icon">✓</div>
+          <div class="heading">Vault linked</div>
+          <div class="subtext">
+            Your Obsidian vault is connected to your desktop repository.<br><br>
+            synclocal will sync automatically on open and close.
+          </div>
+          <button class="primary-btn" onclick="navigate('screen-home','SYNCLOCAL',false)">DONE</button>
+        </div>
+      </div>
+
+      <!-- ══ LINKING: FAILED ══ -->
+      <div class="screen" id="screen-link-failed">
+        <div class="progress-bar"><div class="progress-fill" style="width:50%; background:var(--red)"></div></div>
+        <div class="linking-body">
+          <div style="font-size:44px; margin-bottom:16px; color:var(--red)">⚠</div>
+          <div class="heading">Linking stopped</div>
+          <div style="height:16px"></div>
+          <div class="diag-card what">
+            <div class="diag-label red">WHAT HAPPENED</div>
+            <div class="diag-text">Cannot reach desktop. SSH connection refused at 172.20.10.6:22.</div>
+          </div>
+          <div class="diag-card fix">
+            <div class="diag-label teal">HOW TO FIX IT</div>
+            <div class="diag-text">Ensure your desktop is awake and on the same WiFi hotspot. Run <code style="color:var(--teal)">synco status</code> on desktop to confirm.</div>
+          </div>
+          <div style="height:24px"></div>
+          <button class="primary-btn" onclick="navigate('screen-link-idle','VAULT SETUP',false)">TRY AGAIN</button>
+          <button class="ghost-btn" onclick="navigate('screen-home','SYNCLOCAL',false)">CANCEL</button>
+        </div>
+      </div>
+
+      <!-- ══ COMMIT SCREEN ══ -->
+      <div class="screen" id="screen-commit">
+        <div class="commit-body">
+          <div>
+            <div class="section-label">QUICK TEMPLATES</div>
+            <div class="templates">
+              <div class="template-row" onclick="setMsg('phone edit')">
+                <span class="template-text">phone edit</span>
+                <span class="template-count">used 24×</span>
+              </div>
+              <div class="template-row" onclick="setMsg('meeting notes')">
+                <span class="template-text">meeting notes</span>
+                <span class="template-count">used 11×</span>
+              </div>
+              <div class="template-row" onclick="setMsg('wip')">
+                <span class="template-text">wip</span>
+                <span class="template-count">used 8×</span>
+              </div>
+              <div class="template-row" onclick="setMsg('daily review')">
+                <span class="template-text">daily review</span>
+                <span class="template-count">used 3×</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-label">COMMIT MESSAGE</div>
+            <textarea class="msg-input" id="commitMsg" rows="3"
+              placeholder="describe your changes…"></textarea>
+          </div>
+
+          <div class="commit-actions">
+            <button class="commit-btn" onclick="doCommit()">COMMIT & PUSH</button>
+            <button class="push-only-btn" title="Push only">↑</button>
+          </div>
+
+          <div style="font-size:9px; color:var(--dim); letter-spacing:0.3px; line-height:1.6">
+            Long-press any repo on home screen to get here fast.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /screen-wrap -->
+  </div><!-- /phone -->
+
+  <!-- NAV TABS -->
+  <div class="nav-tabs">
+    <div class="nav-tab active" id="tab-home" onclick="jumpTo('screen-home','SYNCLOCAL',false,'tab-home')">Home</div>
+    <div class="nav-tab" id="tab-idle"    onclick="jumpTo('screen-link-idle','VAULT SETUP',true,'tab-idle')">Setup: idle</div>
+    <div class="nav-tab" id="tab-run"     onclick="jumpTo('screen-link-running','VAULT SETUP',true,'tab-run')">Setup: running</div>
+    <div class="nav-tab" id="tab-park"    onclick="jumpTo('screen-link-parked','VAULT SETUP',true,'tab-park')">Setup: parked</div>
+    <div class="nav-tab" id="tab-done"    onclick="jumpTo('screen-link-complete','VAULT SETUP',true,'tab-done')">Setup: done</div>
+    <div class="nav-tab" id="tab-fail"    onclick="jumpTo('screen-link-failed','VAULT SETUP',true,'tab-fail')">Setup: error</div>
+    <div class="nav-tab" id="tab-commit"  onclick="jumpTo('screen-commit','COMMIT & PUSH',true,'tab-commit')">Commit</div>
+  </div>
+
+  <div class="label">tap tabs to jump · tap tiles to navigate · try the flow</div>
+</div>
+
+<script>
+  let currentScreen = 'screen-home';
+  let history = [];
+
+  // Animate phase text cycling
+  const phases = ['detecting changes...','pulling from desktop...','staging files...','committing...','pushing to desktop...'];
+  let phaseIdx = 0;
+  setInterval(() => {
+    phaseIdx = (phaseIdx + 1) % phases.length;
+    const el = document.getElementById('phaseText');
+    if (el) {
+      el.style.opacity = 0;
+      setTimeout(() => { el.textContent = phases[phaseIdx]; el.style.opacity = 1; }, 150);
+    }
+  }, 2000);
+  document.getElementById('phaseText').style.transition = 'opacity 0.15s';
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    currentScreen = id;
+  }
+
+  function navigate(screenId, title, showBack) {
+    history.push({screen: currentScreen, title: document.getElementById('appTitle').textContent});
+    showScreen(screenId);
+    document.getElementById('appTitle').textContent = title;
+    document.getElementById('backBtn').style.display = showBack ? 'flex' : 'none';
+    if (screenId === 'screen-link-running') {
+      setTimeout(() => navigate('screen-link-parked','VAULT SETUP',false), 2800);
+    }
+  }
+
+  function goBack() {
+    const prev = history.pop();
+    if (!prev) return;
+    showScreen(prev.screen);
+    document.getElementById('appTitle').textContent = prev.title;
+    document.getElementById('backBtn').style.display = history.length > 0 ? 'flex' : 'none';
+  }
+
+  function jumpTo(screenId, title, showBack, tabId) {
+    history = [];
+    showScreen(screenId);
+    document.getElementById('appTitle').textContent = title;
+    document.getElementById('backBtn').style.display = showBack ? 'flex' : 'none';
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+  }
+
+  function setMsg(text) {
+    document.getElementById('commitMsg').value = text;
+    document.getElementById('commitMsg').focus();
+  }
+
+  function doCommit() {
+    const btn = document.querySelector('.commit-btn');
+    btn.textContent = 'PUSHING...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = '✓ PUSHED';
+      btn.style.background = '#10b981';
+      setTimeout(() => {
+        btn.textContent = 'COMMIT & PUSH';
+        btn.disabled = false;
+        btn.style.background = '';
+        goBack();
+      }, 1200);
+    }, 1800);
+  }
+
+  function triggerSync(el) {
+    el.innerHTML = '<span class="spin">↻</span>';
+    el.style.color = 'var(--amber)';
+    setTimeout(() => {
+      el.innerHTML = '↻';
+      el.style.color = 'var(--teal)';
+    }, 3000);
+  }
+</script>
+</body>
+</html>

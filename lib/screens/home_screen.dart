@@ -1,0 +1,436 @@
+// screens/home_screen.dart
+
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../theme.dart';
+import '../models/repository.dart';
+import '../services/repository_provider.dart';
+import 'add_repository_screen.dart';
+import 'commit_screen.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('SYNCLOCAL'),
+        actions: [
+          Consumer<RepositoryProvider>(
+            builder: (_, p, __) => Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _StatusIcon(repos: p.repos),
+            ),
+          ),
+        ],
+      ),
+      body: Consumer<RepositoryProvider>(
+        builder: (_, provider, __) {
+          if (provider.loading) {
+            return const Center(
+              child: CircularProgressIndicator(color: kTeal, strokeWidth: 1),
+            );
+          }
+          if (provider.repos.isEmpty) {
+            return _EmptyState(onAdd: () => _openAddRepo(context));
+          }
+          return ListView.separated(
+            itemCount: provider.repos.length,
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, color: kBorder),
+            itemBuilder: (_, i) => _RepoTile(
+              repo: provider.repos[i],
+              onSync: () =>
+                  provider.syncRepository(provider.repos[i].id!),
+              onCommit: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      CommitScreen(repo: provider.repos[i]),
+                ),
+              ),
+              onToggleAutoSync: () =>
+                  provider.toggleAutoSync(provider.repos[i].id!),
+              onDelete: () =>
+                  _confirmDelete(context, provider, provider.repos[i]),
+            ),
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openAddRepo(context),
+        backgroundColor: kTeal,
+        foregroundColor: kVoid,
+        shape: const RoundedRectangleBorder(),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  void _openAddRepo(BuildContext context) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AddRepositoryScreen()),
+      );
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    RepositoryProvider provider,
+    Repository repo,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Remove repository',
+            style: TextStyle(color: kStar, fontSize: 14)),
+        content: Text(
+          'Remove "${repo.name}"? Files are not deleted.',
+          style: const TextStyle(color: kTextMid, fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child:
+                const Text('Cancel', style: TextStyle(color: kTextDim)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove',
+                style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && repo.id != null) {
+      await provider.removeRepository(repo.id!);
+    }
+  }
+}
+
+// ── Repo tile ──────────────────────────────────────────────────────────────────
+
+class _RepoTile extends StatelessWidget {
+  final Repository      repo;
+  final VoidCallback    onSync;
+  final VoidCallback    onCommit;
+  final VoidCallback    onToggleAutoSync;
+  final VoidCallback    onDelete;
+
+  const _RepoTile({
+    required this.repo,
+    required this.onSync,
+    required this.onCommit,
+    required this.onToggleAutoSync,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSyncing = repo.status == SyncStatus.syncing;
+
+    return GestureDetector(
+      // Long press = commit screen (manual trigger, always visible)
+      onLongPress: onCommit,
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        title: Row(
+          children: [
+            _StatusDot(status: repo.status),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        repo.name,
+                        style: const TextStyle(
+                            color: kStar,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 8),
+                      // Auto/manual badge
+                      _AutoBadge(autoSync: repo.autoSync),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // Phase text — animated in, replaces last-sync when active
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: isSyncing
+                        ? _PhaseText(
+                            key: ValueKey(repo.syncPhase),
+                            label: repo.syncPhase.label,
+                          )
+                        : _MetaText(repo: repo),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Sync button — animates while syncing
+            isSyncing
+                ? const _SpinningSync()
+                : GestureDetector(
+                    onTap: onSync,
+                    child:
+                        const Icon(Icons.sync, color: kTeal, size: 22),
+                  ),
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              color: kSurface,
+              icon: const Icon(Icons.more_vert,
+                  color: kTextDim, size: 18),
+              onSelected: (v) {
+                if (v == 'commit') onCommit();
+                if (v == 'toggle_auto') onToggleAutoSync();
+                if (v == 'delete') onDelete();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'commit',
+                  child: Text('Commit & push',
+                      style: TextStyle(color: kStar, fontSize: 12)),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_auto',
+                  child: Text(
+                    repo.autoSync ? 'Switch to manual' : 'Switch to auto',
+                    style: const TextStyle(color: kStar, fontSize: 12),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Remove',
+                      style:
+                          TextStyle(color: Colors.redAccent, fontSize: 12)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Spinning sync icon ─────────────────────────────────────────────────────────
+
+class _SpinningSync extends StatefulWidget {
+  const _SpinningSync();
+
+  @override
+  State<_SpinningSync> createState() => _SpinningSyncState();
+}
+
+class _SpinningSyncState extends State<_SpinningSync>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, child) => Transform.rotate(
+        angle: _ctrl.value * 2 * math.pi,
+        child: child,
+      ),
+      child: const Icon(Icons.sync, color: kTeal, size: 22),
+    );
+  }
+}
+
+// ── Phase text ─────────────────────────────────────────────────────────────────
+
+class _PhaseText extends StatelessWidget {
+  final String label;
+  const _PhaseText({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        color: kTeal,
+        fontSize: 10,
+        letterSpacing: 0.5,
+        fontStyle: FontStyle.italic,
+      ),
+    );
+  }
+}
+
+// ── Static meta text (last sync, file count, error) ───────────────────────────
+
+class _MetaText extends StatelessWidget {
+  final Repository repo;
+  const _MetaText({required this.repo});
+
+  @override
+  Widget build(BuildContext context) {
+    if (repo.status == SyncStatus.error && repo.lastError != null) {
+      // Show just the reason line, not the resolution (keep tile compact)
+      final reason = repo.lastError!.split('\n').first;
+      return Text(
+        reason,
+        style: const TextStyle(color: Colors.redAccent, fontSize: 10),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (repo.lastSync != null)
+          Text(
+            'synced ${_timeAgo(repo.lastSync!)}',
+            style: const TextStyle(
+                color: kTextDim, fontSize: 10, letterSpacing: 0.5),
+          ),
+        if (repo.fileCount > 0)
+          Text(
+            '${repo.fileCount} files · ${repo.folderCount} folders',
+            style: const TextStyle(
+                color: kTextDim, fontSize: 10, letterSpacing: 0.5),
+          ),
+      ],
+    );
+  }
+
+  String _timeAgo(DateTime t) {
+    final d = DateTime.now().difference(t);
+    if (d.inSeconds < 60)  return 'just now';
+    if (d.inMinutes < 60)  return '${d.inMinutes}m ago';
+    if (d.inHours < 24)    return '${d.inHours}h ago';
+    return '${d.inDays}d ago';
+  }
+}
+
+// ── Auto/manual badge ──────────────────────────────────────────────────────────
+
+class _AutoBadge extends StatelessWidget {
+  final bool autoSync;
+  const _AutoBadge({required this.autoSync});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: autoSync ? kTeal.withOpacity(0.15) : kBorder,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        autoSync ? 'AUTO' : 'MANUAL',
+        style: TextStyle(
+          color: autoSync ? kTeal : kTextDim,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Status dot ─────────────────────────────────────────────────────────────────
+
+class _StatusDot extends StatelessWidget {
+  final SyncStatus status;
+  const _StatusDot({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      SyncStatus.ok      => kTeal,
+      SyncStatus.syncing => Colors.amber,
+      SyncStatus.error   => Colors.redAccent,
+      SyncStatus.idle    => kTextDim,
+    };
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+// ── Top-right status icon ──────────────────────────────────────────────────────
+
+class _StatusIcon extends StatelessWidget {
+  final List<Repository> repos;
+  const _StatusIcon({required this.repos});
+
+  @override
+  Widget build(BuildContext context) {
+    if (repos.isEmpty) {
+      return const Icon(Icons.add_circle_outline, color: kTeal, size: 22);
+    }
+    final hasError   = repos.any((r) => r.status == SyncStatus.error);
+    final hasSyncing = repos.any((r) => r.status == SyncStatus.syncing);
+    final allOk      = repos.every((r) => r.status == SyncStatus.ok);
+
+    if (hasSyncing) return const Icon(Icons.sync,               color: Colors.amber,     size: 22);
+    if (hasError)   return const Icon(Icons.error_outline,      color: Colors.redAccent, size: 22);
+    if (allOk)      return const Icon(Icons.check_circle_outline, color: kTeal,          size: 22);
+    return           const Icon(Icons.circle_outlined,          color: kTextDim,         size: 22);
+  }
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _EmptyState({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('↕', style: TextStyle(fontSize: 48, color: kTextDim)),
+          const SizedBox(height: 16),
+          const Text('No repositories',
+              style: TextStyle(
+                  color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          const Text(
+            'Tap + to connect your desktop git bare repository.',
+            style: TextStyle(color: kTextDim, fontSize: 11),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: onAdd,
+            child: const Text('ADD REPOSITORY'),
+          ),
+        ],
+      ),
+    );
+  }
+}

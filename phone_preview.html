@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>synclocal · preview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --void:   #0a0a0a;
+    --surface:#111111;
+    --border: #222222;
+    --teal:   #00c9a7;
+    --dim:    #444444;
+    --text:   #e8e8e8;
+    --phone-w: 375px;
+    --phone-h: 812px;
+    --bezel:  14px;
+    --radius: 52px;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--void);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    gap: 24px;
+    overflow: auto;
+    padding: 40px 20px;
+  }
+
+  /* ── label bar ── */
+  .label-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .label-bar .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  /* ── phone shell ── */
+  .phone {
+    position: relative;
+    width: calc(var(--phone-w) + var(--bezel) * 2);
+    height: calc(var(--phone-h) + var(--bezel) * 2 + 60px); /* extra for notch */
+    background: #1a1a1a;
+    border-radius: var(--radius);
+    box-shadow:
+      0 0 0 1px #333,
+      0 0 0 2px #111,
+      0 40px 120px rgba(0,0,0,0.9),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* side buttons */
+  .phone::before {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 120px;
+    width: 3px;
+    height: 36px;
+    background: #222;
+    border-radius: 2px 0 0 2px;
+    box-shadow: 0 50px 0 #222, 0 100px 0 #222;
+  }
+  .phone::after {
+    content: '';
+    position: absolute;
+    right: -3px;
+    top: 160px;
+    width: 3px;
+    height: 64px;
+    background: #222;
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* ── notch ── */
+  .notch {
+    width: 150px;
+    height: 28px;
+    background: #111;
+    border-radius: 0 0 20px 20px;
+    margin-top: var(--bezel);
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .notch .camera {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #0d0d0d;
+    border: 1px solid #1a1a1a;
+    box-shadow: inset 0 0 4px rgba(0,150,255,0.3);
+  }
+  .notch .speaker {
+    width: 52px; height: 5px;
+    background: #0d0d0d;
+    border-radius: 3px;
+  }
+
+  /* ── screen ── */
+  .screen {
+    width: var(--phone-w);
+    height: var(--phone-h);
+    background: #000;
+    overflow: hidden;
+    position: relative;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .screen iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  /* ── home indicator ── */
+  .home-bar {
+    width: 134px;
+    height: 5px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 3px;
+    margin: 10px auto 12px;
+    flex-shrink: 0;
+  }
+
+  /* ── bottom hint ── */
+  .hint {
+    color: var(--dim);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .hint a {
+    color: var(--teal);
+    text-decoration: none;
+  }
+  .hint a:hover {
+    text-decoration: underline;
+  }
+
+  /* ── screen glare overlay ── */
+  .screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(255,255,255,0.03) 0%,
+      transparent 50%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+</style>
+</head>
+<body>
+
+  <div class="label-bar">
+    <span class="dot"></span>
+    synclocal · flutter web preview · iPhone 11 · 375×812
+  </div>
+
+  <div class="phone">
+    <div class="notch">
+      <div class="speaker"></div>
+      <div class="camera"></div>
+    </div>
+    <div class="screen">
+      <iframe
+        src="http://localhost:8081"
+        title="synclocal app preview"
+        allow="same-origin"
+      ></iframe>
+    </div>
+    <div class="home-bar"></div>
+  </div>
+
+  <div class="hint">
+    live preview · <a href="http://localhost:8081" target="_blank">open full screen ↗</a><br>
+    rebuild: docker run … flutter build web
+  </div>
+
+</body>
+</html>
