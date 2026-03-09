@@ -12,6 +12,7 @@ workflows:
       - name: Build iOS archive
         script: |
           flutter build ipa --release --no-codesign
+          mkdir -p build/ios/ipa
           cd build/ios/archive
           mkdir -p Payload
           cp -r Runner.xcarchive/Products/Applications/Runner.app Payload/
