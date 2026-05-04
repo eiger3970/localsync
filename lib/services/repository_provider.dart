@@ -42,44 +42,56 @@ class RepositoryProvider extends ChangeNotifier {
 
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
 
-    await for (final event in service.fullSync(commitMessage: commitMessage)) {
+    try {
+      await for (final event in service.fullSync(commitMessage: commitMessage)) {
+        final i = _repos.indexWhere((r) => r.id == id);
+        if (i == -1) return;
+
+        if (event.phase != null) {
+          _repos[i] = _repos[i].copyWith(
+            status:    SyncStatus.syncing,
+            syncPhase: event.phase,
+          );
+          notifyListeners();
+        } else if (event.result case final result?) {
+          switch (result) {
+            case SyncNoChanges():
+            case SyncOk():
+              _repos[i] = _repos[i].copyWith(
+                status:    SyncStatus.ok,
+                syncPhase: SyncPhase.done,
+                lastSync:  DateTime.now(),
+                lastError: null,
+              );
+            case SyncConflict(:final conflictingFiles):
+              _repos[i] = _repos[i].copyWith(
+                status:    SyncStatus.error,
+                syncPhase: SyncPhase.idle,
+                lastError: 'Conflict in: $conflictingFiles\n'
+                           'Edit on desktop, resolve markers, then sync again.',
+              );
+            case SyncFailed(:final diagnosis, :final resolution):
+              _repos[i] = _repos[i].copyWith(
+                status:    SyncStatus.error,
+                syncPhase: SyncPhase.idle,
+                lastError: '$diagnosis\n$resolution',
+              );
+          }
+          notifyListeners();
+          await _db.updateRepository(_repos[i]);
+          return;
+        }
+      }
+    } catch (e) {
       final i = _repos.indexWhere((r) => r.id == id);
       if (i == -1) return;
-
-      if (event.phase != null) {
-        _repos[i] = _repos[i].copyWith(
-          status:    SyncStatus.syncing,
-          syncPhase: event.phase,
-        );
-        notifyListeners();
-      } else if (event.result case final result?) {
-        switch (result) {
-          case SyncNoChanges():
-          case SyncOk():
-            _repos[i] = _repos[i].copyWith(
-              status:    SyncStatus.ok,
-              syncPhase: SyncPhase.done,
-              lastSync:  DateTime.now(),
-              lastError: null,
-            );
-          case SyncConflict(:final conflictingFiles):
-            _repos[i] = _repos[i].copyWith(
-              status:    SyncStatus.error,
-              syncPhase: SyncPhase.idle,
-              lastError: 'Conflict in: $conflictingFiles\n'
-                         'Edit on desktop, resolve markers, then sync again.',
-            );
-          case SyncFailed(:final diagnosis, :final resolution):
-            _repos[i] = _repos[i].copyWith(
-              status:    SyncStatus.error,
-              syncPhase: SyncPhase.idle,
-              lastError: '$diagnosis\n$resolution',
-            );
-        }
-        notifyListeners();
-        await _db.updateRepository(_repos[i]);
-        return;
-      }
+      _repos[i] = _repos[i].copyWith(
+        status:    SyncStatus.error,
+        syncPhase: SyncPhase.idle,
+        lastError: 'Sync error: $e',
+      );
+      notifyListeners();
+      await _db.updateRepository(_repos[i]);
     }
   }
 
