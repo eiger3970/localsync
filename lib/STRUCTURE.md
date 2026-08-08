@@ -218,6 +218,23 @@ a dead end, just something to confirm once there's a real build to test.
   not exist as a separate loadable file when statically linked - that
   would be a git2dart package bug, not fixable from this app's side,
   and would need an upstream issue filed.
+  **Update: checked this directly by reading git2dart_binaries' actual
+  source (`lib/src/util.dart` in the pub cache) instead of guessing -
+  it does use `DynamicLibrary.process()` on iOS, confirming the fix
+  category was right.** But `-all_load`/strip settings only modified
+  the Pods' own build targets in `post_install` - they didn't address
+  that plain `use_frameworks!` (Flutter's default) builds
+  `git2dart_binaries` as a **separate dynamic framework**, not merged
+  into the main Runner binary, which is what `DynamicLibrary.process()`
+  actually needs. Changed to `use_frameworks! :linkage => :static`.
+  This is the most confident fix yet, but still **completely untested
+  on a real device** - ran out of session time. Next session: rebuild,
+  sideload, test. If this specific error is finally gone, revert the
+  diagnostic boot screen in `main()` back to the plain version (noted
+  in its own comment). If it's still not fixed after this, the
+  remaining fallback theory (open a git2dart GitHub issue - this would
+  likely be useful upstream regardless, iOS release-mode dlsym failures
+  affect anyone using this package for real iOS apps, not just this one).
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.
