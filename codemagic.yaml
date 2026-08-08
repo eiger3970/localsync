@@ -9,6 +9,8 @@ workflows:
     scripts:
       - name: Clean stale build/Pods cache
         script: flutter clean
+      - name: Disable Swift Package Manager, force CocoaPods
+        script: flutter config --no-enable-swift-package-manager
       - name: Get Flutter packages
         script: flutter pub get
       - name: Build iOS archive
