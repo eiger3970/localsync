@@ -151,10 +151,24 @@ a dead end, just something to confirm once there's a real build to test.
   the SSH-equivalent of `ssh-copy-id`. Reachable from a permanent
   AppBar icon and from the linking failure screen's "PAIR NOW" button
   when the error is `pairingNotComplete`.
-- **Not done yet:** No real device or Codemagic build has been
-  attempted - everything verified so far is `flutter analyze` + a
-  non-network widget test. Nothing here has run against a real SSH
-  connection.
+- **First real Codemagic build succeeded (2026-08-08).** `ios-release`
+  workflow, branch `main`, unsigned `.ipa` artifact produced. This
+  confirms the whole native toolchain actually compiles and links for
+  iOS - `git2dart` + statically-linked libgit2/libssh2/OpenSSL via
+  CocoaPods, `dartssh2`, `openssh_ed25519`, `cryptography` - not just
+  `flutter analyze` type-checking. This was the single biggest
+  unverified risk from this session's work; it's resolved.
+  Codeberg push required generating a new token scoped to this repo -
+  the previously stored one only had access to other kworld repos
+  (pi5-website/pages etc.), not this one.
+- **Still not done:** the `.ipa` is unsigned (`--no-codesign` in
+  `codemagic.yaml`) so it can't be installed on a real device yet -
+  that needs an Apple Developer account + signing setup, separate from
+  today's work. Nothing has run against a real SSH connection or been
+  used on an actual phone. The user has a list of real Working
+  Copy/sync errors from actual usage history, still not yet handed
+  over - see the note earlier in this doc about slotting those into
+  `LinkingError` when it arrives.
 - **User has a list of real Working Copy / sync errors from actual
   usage history, not yet handed over (2026-08-08).** The state machine
   is deliberately step-based with a single `LinkingError` enum so that
