@@ -1,8 +1,9 @@
 // screens/linking_screen.dart
 //
-// UI for Fresh Setup linking sequence (SSOT steps 11–15).
-// Three park points — each shows plain instructions, no tech language.
-// Error screen shows plain diagnosis + exact fix steps.
+// UI for the vault setup sequence (see linking_controller.dart).
+// One park point — opening Obsidian's vault picker — shows plain
+// instructions, no tech language. Error screen shows plain diagnosis +
+// exact fix steps.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -104,11 +105,11 @@ class _IdleView extends StatelessWidget {
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           const Text(
-            'synclocal will set up your phone vault and connect it '
+            'synclocal will download your notes and connect them '
             'to your desktop.\n\n'
-            'You will need Obsidian and Working Copy installed.\n\n'
-            'At two points you will be asked to do something simple '
-            'in another app — instructions will be clear.',
+            'You will need Obsidian installed.\n\n'
+            'At the end you will point Obsidian at the downloaded '
+            'folder — instructions will be clear.',
             style: TextStyle(color: kTextMid, fontSize: 13, height: 1.7),
             textAlign: TextAlign.center,
           ),
@@ -173,9 +174,7 @@ class _ParkedView extends StatelessWidget {
   Widget build(BuildContext context) {
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
-      LinkingStep.awaitingObsidianForceClose => 'Create your vault',
-      LinkingStep.awaitingObsidianIndex      => 'One more thing in Obsidian',
-      LinkingStep.awaitingWorkingCopyRelaunch => 'Almost done',
+      LinkingStep.awaitingObsidianVaultOpen => 'Open your vault',
       _ => 'Your turn',
     };
 

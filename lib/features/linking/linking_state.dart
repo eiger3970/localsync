@@ -1,48 +1,36 @@
 // features/linking/linking_state.dart
 //
-// The phone-side linking sequence for Fresh Setup.
-// Desktop vault already exists. Phone gets a copy.
-//
-// Exact steps from SSOT (Fresh Setup, steps 11–15):
-//   11. Create Obsidian vault on phone → force close app
-//   12. Clone bare repo in Working Copy via SSH URL
-//   13. Link Working Copy repo → On My iPhone/Obsidian/Obsidian_phone_vault
-//   14. Pull desktop data to phone
-//   15. Verify identity → commit → push test
-//
-// Non-commutative. Any deviation requires full reset to idle.
+// The phone-side vault setup sequence. Desktop bare repo already exists.
+// Phone clones it (via git2dart, in-process - see git_service.dart) into
+// Synclocal's own Documents folder, then the user points Obsidian at that
+// folder using its standard "Open folder as vault" picker. Rewritten
+// 2026-08-08 - see lib/STRUCTURE.md for why this replaced the old
+// Working Copy-driven multi-step link/retry sequence.
 
 enum LinkingStep {
   idle,
 
-  /// Step 11a: Open Obsidian — user creates vault named Obsidian_phone_vault.
-  obsidianCreateVault,
+  /// Precondition check: does the phone already have its own SSH keypair
+  /// (from pairing - lib/features/pairing/, still unbuilt)? If not, fails
+  /// clearly rather than attempting a clone that can't authenticate.
+  checkingPairing,
 
-  /// Step 11b: PARKED — user must force-close Obsidian after vault created.
-  awaitingObsidianForceClose,
+  /// Real git2dart clone of the bare repo into Synclocal's own Documents
+  /// directory. In-process - no external app, no parking. Replaces the old
+  /// workingCopyClone + workingCopyLink + awaitingObsidianIndex +
+  /// workingCopyLinkRetry + awaitingWorkingCopyRelaunch + workingCopyPull
+  /// steps entirely: those existed to work around Working Copy's own
+  /// "link" feature quirks, which no longer apply.
+  cloning,
 
-  /// Step 12: Clone bare repo in Working Copy via SSH URL.
-  workingCopyClone,
+  /// PARKED — user opens Obsidian and uses its standard "Open folder as
+  /// vault" to point at Files > On My iPhone > Synclocal (already
+  /// populated by the clone above). This is the only remaining
+  /// another-app step, and it's Obsidian's own normal onboarding flow,
+  /// not a Working Copy-specific workaround.
+  awaitingObsidianVaultOpen,
 
-  /// Step 13a: Link Working Copy repo to On My iPhone/Obsidian/Obsidian_phone_vault.
-  workingCopyLink,
-
-  /// Step 13b: PARKED — link attempt fails (no index yet).
-  /// User: force-close Obsidian → reopen → trust author → wait for indexing
-  /// → force-close again → return here.
-  awaitingObsidianIndex,
-
-  /// Step 13c: Retry link after Obsidian has indexed.
-  workingCopyLinkRetry,
-
-  /// Step 13d: PARKED — link succeeds but Working Copy shows error banner.
-  /// User must relaunch Working Copy to clear banner.
-  awaitingWorkingCopyRelaunch,
-
-  /// Step 14: Pull desktop data to phone.
-  workingCopyPull,
-
-  /// Step 15: Set identity, commit, push to verify sync works.
+  /// Confirm the vault folder has the expected content.
   verifySync,
 
   /// Terminal success.
@@ -133,6 +121,11 @@ enum LinkingError {
 
   /// Launching an external app's URL scheme threw an unexpected error.
   unexpectedLinkError,
+
+  /// No SSH keypair found on-device yet - pairing (lib/features/pairing/,
+  /// still unbuilt) hasn't run, so there's nothing to authenticate a clone
+  /// with.
+  pairingNotComplete,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -173,6 +166,8 @@ extension LinkingErrorDetails on LinkingError {
       'Vault name is empty.',
     LinkingError.unexpectedLinkError =>
       'Launching an external app failed unexpectedly.',
+    LinkingError.pairingNotComplete =>
+      'This phone has not been paired with your desktop yet.',
   };
 
   String get resolution => switch (this) {
@@ -257,5 +252,7 @@ extension LinkingErrorDetails on LinkingError {
       'Set a vault name in Settings before running setup.',
     LinkingError.unexpectedLinkError =>
       'Check the target app is installed and try again.',
+    LinkingError.pairingNotComplete =>
+      'Run pairing first from Settings, then try setup again.',
   };
 }

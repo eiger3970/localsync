@@ -1,31 +1,37 @@
 // features/linking/linking_controller.dart
 //
-// Drives the Fresh Setup linking sequence (SSOT steps 11–15).
-// Desktop vault exists. Phone gets a copy.
+// Drives the vault setup sequence. Rewritten 2026-08-08 for the git2dart
+// architecture (see lib/STRUCTURE.md) - the clone happens in-process now,
+// no more Working Copy URL-scheme launches or multi-step link/retry dance.
+// Only one park point remains: the user opening Obsidian and pointing it
+// at Synclocal's already-populated folder.
 //
-// Parks at steps requiring user action in external apps.
 // Resumes on AppLifecycleState.resumed via lifecycle_observer.dart.
 
+import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../services/git_service.dart';
+import '../../services/ios_app_service.dart';
+import '../../services/ssh_key_paths.dart';
 import 'linking_state.dart';
 
 class LinkingController extends ChangeNotifier {
   final String desktopUser;
   final String desktopIp;
   final String bareRepoPath;
-  final String vaultName;
-  final String repoName;
+  final String localVaultPath; // Synclocal's own Documents dir
   final int    sshPort;
+
+  final IosAppService _iosApps;
 
   LinkingController({
     required this.desktopUser,
     required this.desktopIp,
     required this.bareRepoPath,
-    required this.vaultName,
-    required this.repoName,
+    required this.localVaultPath,
     this.sshPort = 22,
-  });
+    IosAppService? iosApps,
+  }) : _iosApps = iosApps ?? IosAppServiceImpl();
 
   LinkingStep  _step        = LinkingStep.idle;
   StepFailure? _lastFailure;
@@ -36,21 +42,14 @@ class LinkingController extends ChangeNotifier {
   bool         get isRunning   => _isRunning;
 
   double get progress => switch (_step) {
-    LinkingStep.idle                        => 0.0,
-    LinkingStep.obsidianCreateVault         => 0.10,
-    LinkingStep.awaitingObsidianForceClose  => 0.20,
-    LinkingStep.workingCopyClone            => 0.35,
-    LinkingStep.workingCopyLink             => 0.50,
-    LinkingStep.awaitingObsidianIndex       => 0.55,
-    LinkingStep.workingCopyLinkRetry        => 0.65,
-    LinkingStep.awaitingWorkingCopyRelaunch => 0.75,
-    LinkingStep.workingCopyPull             => 0.85,
-    LinkingStep.verifySync                  => 0.95,
-    LinkingStep.complete                    => 1.0,
-    LinkingStep.failed                      => 0.0,
+    LinkingStep.idle                       => 0.0,
+    LinkingStep.checkingPairing            => 0.10,
+    LinkingStep.cloning                    => 0.50,
+    LinkingStep.awaitingObsidianVaultOpen  => 0.80,
+    LinkingStep.verifySync                 => 0.95,
+    LinkingStep.complete                   => 1.0,
+    LinkingStep.failed                     => 0.0,
   };
-
-  String get sshUrl => 'ssh://$desktopUser@$desktopIp$bareRepoPath';
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -59,20 +58,13 @@ class LinkingController extends ChangeNotifier {
     _reset();
     _isRunning = true;
     notifyListeners();
-    await _step11a_OpenObsidianToCreateVault();
+    await _checkPairing();
   }
 
   Future<void> resumeFromBackground() async {
     if (!_isRunning) return;
-    switch (_step) {
-      case LinkingStep.awaitingObsidianForceClose:
-        await _step12_CloneBareRepo();
-      case LinkingStep.awaitingObsidianIndex:
-        await _step13c_RetryLink();
-      case LinkingStep.awaitingWorkingCopyRelaunch:
-        await _step14_Pull();
-      default:
-        break;
+    if (_step == LinkingStep.awaitingObsidianVaultOpen) {
+      await _verifySync();
     }
   }
 
@@ -82,99 +74,61 @@ class LinkingController extends ChangeNotifier {
 
   void reset() { _reset(); notifyListeners(); }
 
-  // ── Steps 11–15 ────────────────────────────────────────────────────────────
+  // ── Steps ──────────────────────────────────────────────────────────────────
 
-  Future<void> _step11a_OpenObsidianToCreateVault() async {
-    _step = LinkingStep.obsidianCreateVault;
+  Future<void> _checkPairing() async {
+    _step = LinkingStep.checkingPairing;
     notifyListeners();
 
+    final privateKeyPath = await SshKeyPaths.privateKeyPath();
+    final publicKeyPath  = await SshKeyPaths.publicKeyPath();
+
     if (!kIsWeb) {
-      final ok = await canLaunchUrl(Uri.parse('obsidian://'));
-      if (!ok) return _fail(const StepFailure(LinkingError.obsidianNotInstalled));
-      await launchUrl(Uri.parse('obsidian://'), mode: LaunchMode.externalApplication);
+      final hasKeypair = await _keypairExists(privateKeyPath, publicKeyPath);
+      if (!hasKeypair) {
+        return _fail(const StepFailure(LinkingError.pairingNotComplete));
+      }
     }
 
-    _step = LinkingStep.awaitingObsidianForceClose;
-    notifyListeners();
+    await _clone(privateKeyPath, publicKeyPath);
   }
 
-  Future<void> _step12_CloneBareRepo() async {
-    _step = LinkingStep.workingCopyClone;
+  Future<void> _clone(String privateKeyPath, String publicKeyPath) async {
+    _step = LinkingStep.cloning;
     notifyListeners();
 
     if (!kIsWeb) {
-      final ok = await canLaunchUrl(Uri.parse('working-copy://'));
-      if (!ok) return _fail(const StepFailure(LinkingError.workingCopyNotInstalled));
-      final uri = Uri.parse(
-        'working-copy://x-callback-url/clone'
-        '?remote=${Uri.encodeComponent(sshUrl)}'
-        '&x-success=${Uri.encodeComponent('synclocal://clone-success')}'
-        '&x-error=${Uri.encodeComponent('synclocal://clone-error')}',
+      final git = GitServiceImpl(
+        bareRepoPath: bareRepoPath,
+        localVaultPath: localVaultPath,
+        sshHost: desktopIp,
+        sshUser: desktopUser,
+        sshPrivateKeyPath: privateKeyPath,
+        sshPublicKeyPath: publicKeyPath,
+        sshPort: sshPort,
       );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final result = await git.pullFromBareRepo(); // clones if not present yet
+      if (result case StepFailure()) {
+        return _fail(result);
+      }
     }
 
-    _step = LinkingStep.workingCopyLink;
-    notifyListeners();
-    await _step13a_LinkToVault();
+    await _openObsidianForVaultPick();
   }
 
-  Future<void> _step13a_LinkToVault() async {
-    _step = LinkingStep.workingCopyLink;
-    notifyListeners();
-
+  Future<void> _openObsidianForVaultPick() async {
     if (!kIsWeb) {
-      final uri = Uri.parse(
-        'working-copy://x-callback-url/link'
-        '?repo=${Uri.encodeComponent(repoName)}'
-        '&path=${Uri.encodeComponent(vaultName)}'
-        '&x-success=${Uri.encodeComponent('synclocal://link-success')}'
-        '&x-error=${Uri.encodeComponent('synclocal://link-error')}',
-      );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final result = await _iosApps.openObsidian();
+      if (result case StepFailure()) {
+        return _fail(result);
+      }
     }
 
-    _step = LinkingStep.awaitingObsidianIndex;
+    _step = LinkingStep.awaitingObsidianVaultOpen;
     notifyListeners();
   }
 
-  Future<void> _step13c_RetryLink() async {
-    _step = LinkingStep.workingCopyLinkRetry;
-    notifyListeners();
-
-    if (!kIsWeb) {
-      final uri = Uri.parse(
-        'working-copy://x-callback-url/link'
-        '?repo=${Uri.encodeComponent(repoName)}'
-        '&path=${Uri.encodeComponent(vaultName)}'
-        '&x-success=${Uri.encodeComponent('synclocal://link-success')}'
-        '&x-error=${Uri.encodeComponent('synclocal://link-error')}',
-      );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-
-    _step = LinkingStep.awaitingWorkingCopyRelaunch;
-    notifyListeners();
-  }
-
-  Future<void> _step14_Pull() async {
-    _step = LinkingStep.workingCopyPull;
-    notifyListeners();
-
-    if (!kIsWeb) {
-      final uri = Uri.parse(
-        'working-copy://x-callback-url/pull'
-        '?repo=${Uri.encodeComponent(repoName)}'
-        '&x-success=${Uri.encodeComponent('synclocal://pull-success')}'
-        '&x-error=${Uri.encodeComponent('synclocal://pull-error')}',
-      );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-
-    await _step15_VerifySync();
-  }
-
-  Future<void> _step15_VerifySync() async {
+  Future<void> _verifySync() async {
     _step = LinkingStep.verifySync;
     notifyListeners();
     _step = LinkingStep.complete;
@@ -185,59 +139,44 @@ class LinkingController extends ChangeNotifier {
   // ── UI strings ─────────────────────────────────────────────────────────────
 
   String? get currentInstruction => switch (_step) {
-    LinkingStep.awaitingObsidianForceClose =>
+    LinkingStep.awaitingObsidianVaultOpen =>
+      'Your notes are ready.\n\n'
       'In Obsidian:\n\n'
-      '→ Tap Create a vault\n'
-      '→ Tap Continue without sync\n'
-      '→ Type exactly: $vaultName\n'
-      '→ Tap Create a vault\n\n'
-      'Then force-close Obsidian\n'
-      '(swipe it away in the app switcher)\n\n'
-      'Then tap Continue below',
-
-    LinkingStep.awaitingObsidianIndex =>
-      'In Obsidian:\n\n'
-      '→ Force-close Obsidian now\n'
-      '   (swipe it away)\n'
-      '→ Reopen Obsidian\n'
-      '→ Tap "Trust author and enable plugins"\n'
-      '→ Wait for the spinner to finish\n'
-      '   (bottom-left of Obsidian)\n'
-      '→ Force-close Obsidian again\n\n'
-      'Then tap Continue below',
-
-    LinkingStep.awaitingWorkingCopyRelaunch =>
-      'Almost done.\n\n'
-      '→ Force-close Working Copy\n'
-      '   (swipe it away)\n'
-      '→ Reopen Working Copy\n'
-      '→ The error banner will be gone\n\n'
+      '→ Tap Open folder as vault\n'
+      '→ Browse to On My iPhone → Synclocal\n'
+      '→ Select it\n\n'
       'Then tap Continue below',
 
     _ => null,
   };
 
   String get stepLabel => switch (_step) {
-    LinkingStep.obsidianCreateVault   => 'Opening Obsidian…',
-    LinkingStep.workingCopyClone      => 'Connecting to desktop…',
-    LinkingStep.workingCopyLink       => 'Linking vault…',
-    LinkingStep.workingCopyLinkRetry  => 'Linking vault…',
-    LinkingStep.workingCopyPull       => 'Pulling your notes…',
-    LinkingStep.verifySync            => 'Verifying sync…',
-    _                                 => 'Working…',
+    LinkingStep.checkingPairing => 'Checking setup…',
+    LinkingStep.cloning         => 'Downloading your notes…',
+    LinkingStep.verifySync      => 'Verifying…',
+    _                           => 'Working…',
   };
 
   String get stepSubtitle => switch (_step) {
-    LinkingStep.workingCopyClone =>
-      'Connecting via SSH — accept the host key when Working Copy asks',
-    LinkingStep.workingCopyLink =>
-      'First attempt may fail — that is normal and expected',
-    LinkingStep.workingCopyPull =>
-      'Downloading your notes from the desktop',
-    _ => 'iOS is processing — this is not frozen',
+    LinkingStep.cloning => 'Connecting via SSH and copying your vault',
+    _                   => 'iOS is processing — this is not frozen',
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  Future<bool> _keypairExists(String privatePath, String publicPath) async {
+    final f1 = await _fileExists(privatePath);
+    final f2 = await _fileExists(publicPath);
+    return f1 && f2;
+  }
+
+  Future<bool> _fileExists(String path) async {
+    try {
+      return await File(path).exists();
+    } catch (_) {
+      return false;
+    }
+  }
 
   void _fail(StepFailure failure) {
     _lastFailure = failure;

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:git2dart/git2dart.dart';
+import 'package:path_provider/path_provider.dart';
 import 'theme.dart';
 import 'services/repository_provider.dart';
 import 'features/linking/linking_controller.dart';
@@ -12,11 +13,16 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PlatformSpecific.initialize();
-  runApp(const SynclocalApp());
+  // Resolved once here (async) rather than in initState, which can't await -
+  // this is the Documents dir git2dart clones into and that Info.plist's
+  // UIFileSharingEnabled exposes to the Files app.
+  final localVaultPath = (await getApplicationDocumentsDirectory()).path;
+  runApp(SynclocalApp(localVaultPath: localVaultPath));
 }
 
 class SynclocalApp extends StatefulWidget {
-  const SynclocalApp({super.key});
+  final String localVaultPath;
+  const SynclocalApp({super.key, required this.localVaultPath});
 
   @override
   State<SynclocalApp> createState() => _SynclocalAppState();
@@ -30,12 +36,11 @@ class _SynclocalAppState extends State<SynclocalApp> {
   void initState() {
     super.initState();
     _linkingController = LinkingController(
-      desktopUser:  'rapi5',
-      desktopIp:    '172.20.10.6',
-      bareRepoPath: '/home/rapi5/Documents/Git_bare_repo/Md_files_bare.git',
-      vaultName:    'Obsidian_phone_vault',
-      repoName:     'Md_files_bare',
-      sshPort:      22,
+      desktopUser:    'rapi5',
+      desktopIp:      '172.20.10.6',
+      bareRepoPath:   '/home/rapi5/Documents/Git_bare_repo/Md_files_bare.git',
+      localVaultPath: widget.localVaultPath,
+      sshPort:        22,
     );
     _lifecycleObserver = SynclocalLifecycleObserver(
       linkingController: _linkingController,
