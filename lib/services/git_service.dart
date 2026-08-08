@@ -1,16 +1,14 @@
 import 'dart:io';
+import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
 
-/// Git operations via process invocation.
+/// Git operations via git2dart (FFI bindings to libgit2, statically linked
+/// on iOS via CocoaPods - see lib/STRUCTURE.md for why this replaced the
+/// original Working Copy delegation plan).
 ///
-/// We shell out to `git` rather than using dart-git or libgit2 because:
-/// - dart-git: push/pull unimplemented, unmaintained since 2022
-/// - libgit2 via FFI: viable but App Store .dylib bundling is complex
-/// - git via SSH process: battle-tested, full feature set, git is
-///   available on iOS via a-shell or as a bundled binary
-///
-/// For MVP: use Working Copy's own git via URL scheme for on-device ops.
-/// For desktop `synco` command: standard system git.
+/// Not yet wired into linking_controller.dart / sync_service.dart - this
+/// file was previously dead code (never instantiated anywhere). That wiring
+/// is separate follow-up work.
 abstract class GitService {
   Future<StepResult> pullFromBareRepo();
   Future<StepResult> pushToBareRepo();
@@ -19,51 +17,138 @@ abstract class GitService {
 }
 
 class GitServiceImpl implements GitService {
-  final String bareRepoPath;    // Desktop: /home/rapi5/Documents/Git_bare_repo/Md_files_bare.git
-  final String localVaultPath;  // Phone: On My iPhone/Obsidian/Obsidian_phone_vault
-  final String sshHost;         // rapi5@172.20.10.6
+  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git_bare_repo/Md_files_bare.git
+  final String localVaultPath;    // Phone: Synclocal's own Documents dir (see Info.plist notes in STRUCTURE.md)
+  final String sshHost;           // 172.20.10.6
   final int sshPort;
+  final String sshUser;           // rapi5
+  final String sshPrivateKeyPath; // On-device path to the phone's own SSH private key
+  final String sshPublicKeyPath;  // On-device path to the phone's own SSH public key
+  final String sshPassphrase;     // Empty string if the key has no passphrase
+
+  /// Branch name on the bare repo. The codebase's own error-resolution text
+  /// disagreed with itself (some strings said "main", one said "master") -
+  /// making this a constructor param instead of hardcoding avoids guessing
+  /// wrong. Confirm against the real bare repo once Fresh Setup steps 1-10
+  /// have actually created it (it didn't exist yet as of 2026-08-08).
+  final String defaultBranch;
 
   GitServiceImpl({
     required this.bareRepoPath,
     required this.localVaultPath,
     required this.sshHost,
+    required this.sshUser,
+    required this.sshPrivateKeyPath,
+    required this.sshPublicKeyPath,
     this.sshPort = 22,
+    this.defaultBranch = 'main',
+    this.sshPassphrase = '',
   });
 
-  /// For MVP phase: delegate git pull to Working Copy via URL scheme.
-  /// Working Copy handles the SSH auth and git protocol natively on iOS.
-  ///
-  /// Full implementation (Phase 2): use ssh process + git bundle
-  /// or libgit2 FFI once App Store entitlements are confirmed.
+  String get _remoteUrl => 'ssh://$sshUser@$sshHost:$sshPort$bareRepoPath';
+
+  Credentials get _credentials => Keypair(
+        username: sshUser,
+        pubKey: sshPublicKeyPath,
+        privateKey: sshPrivateKeyPath,
+        passPhrase: sshPassphrase,
+      );
+
+  Callbacks get _callbacks => Callbacks(credentials: _credentials);
+
+  bool get _isCloned => Directory('$localVaultPath/.git').existsSync();
+
   @override
   Future<StepResult> pullFromBareRepo() async {
-    // Phase 1 MVP: Working Copy pull via URL scheme
-    // working-copy://x-callback-url/pull?repo=REPO_NAME
-    //
-    // This is launched before the linking flow begins (precondition).
-    // If Working Copy has already pulled recently, this is a no-op.
+    try {
+      if (!_isCloned) {
+        Repository.clone(
+          url: _remoteUrl,
+          localPath: localVaultPath,
+          callbacks: _callbacks,
+        );
+        return const StepSuccess(message: 'Cloned bare repo');
+      }
 
-    // TODO(phase2): replace with direct SSH git pull
-    // final result = await _runGit(['pull', 'origin', 'main']);
+      final repo = Repository.open(localVaultPath);
+      try {
+        final remote = Remote.lookup(repo: repo, name: 'origin');
+        remote.fetch(callbacks: _callbacks);
 
-    return const StepSuccess(message: 'Pull delegated to Working Copy');
+        final remoteBranch = Branch.lookup(
+          repo: repo,
+          name: 'origin/$defaultBranch',
+          type: GitBranch.remote,
+        );
+        final analysis = Merge.analysis(
+          repo: repo,
+          theirHead: remoteBranch.target,
+        );
+
+        if (analysis.result.contains(GitMergeAnalysis.upToDate)) {
+          return const StepSuccess(message: 'Already up to date');
+        }
+        if (analysis.result.contains(GitMergeAnalysis.fastForward)) {
+          repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+          return const StepSuccess(message: 'Pulled (fast-forward)');
+        }
+
+        // Diverged history - real merge-conflict resolution deferred per
+        // 2026-08-08 scope decision (minimal happy-path now, hard recovery
+        // cases later). Surfacing this as a clear failure rather than
+        // attempting an automatic merge.
+        return const StepFailure(LinkingError.mergeConflict);
+      } finally {
+        repo.free();
+      }
+    } catch (e) {
+      return const StepFailure(LinkingError.connectionRefused);
+    }
   }
 
   @override
   Future<StepResult> pushToBareRepo() async {
-    // TODO(phase2): SSH git push
-    return const StepSuccess(message: 'Push delegated to Working Copy');
+    if (!_isCloned) {
+      return const StepFailure(LinkingError.bareRepoNotFound);
+    }
+    try {
+      final repo = Repository.open(localVaultPath);
+      try {
+        final remote = Remote.lookup(repo: repo, name: 'origin');
+        remote.push(
+          refspecs: ['refs/heads/$defaultBranch:refs/heads/$defaultBranch'],
+          callbacks: _callbacks,
+        );
+        return const StepSuccess(message: 'Pushed to bare repo');
+      } finally {
+        repo.free();
+      }
+    } catch (e) {
+      // libgit2 surfaces a non-fast-forward push as a LibGit2Error, not a
+      // distinct return value - can't currently tell that apart from other
+      // push failures (auth, network) without inspecting the message.
+      return const StepFailure(LinkingError.cannotFastForward);
+    }
   }
 
   @override
   Future<StepResult> getStatus() async {
+    if (!_isCloned) {
+      return const StepFailure(LinkingError.bareRepoNotFound);
+    }
     try {
-      final result = await _runSshCommand('git -C $bareRepoPath log --oneline -1');
-      if (result.exitCode != 0) {
-        return const StepFailure(LinkingError.bareRepoNotFound);
+      final repo = Repository.open(localVaultPath);
+      try {
+        final remote = Remote.lookup(repo: repo, name: 'origin');
+        final refs = remote.ls(callbacks: _callbacks);
+        final head = refs.firstWhere(
+          (r) => r.name == 'refs/heads/$defaultBranch',
+          orElse: () => refs.first,
+        );
+        return StepSuccess(message: head.oid.sha.substring(0, 7));
+      } finally {
+        repo.free();
       }
-      return StepSuccess(message: result.stdout.toString().trim());
     } catch (e) {
       return const StepFailure(LinkingError.connectionRefused);
     }
@@ -71,27 +156,16 @@ class GitServiceImpl implements GitService {
 
   @override
   Future<bool> hasUncommittedChanges() async {
-    // Phase 1: defer to Working Copy for on-device status
-    return false;
-  }
-
-  // ─────────────────────────────────────────────
-  // Internals
-  // ─────────────────────────────────────────────
-
-  Future<ProcessResult> _runSshCommand(String command) async {
-    return Process.run('ssh', [
-      '-p', sshPort.toString(),
-      '-o', 'ConnectTimeout=5',
-      '-o', 'StrictHostKeyChecking=no',
-      sshHost,
-      command,
-    ]);
-  }
-
-  // Kept for Phase 2 direct git implementation
-  // ignore: unused_element
-  Future<ProcessResult> _runGit(List<String> args) async {
-    return Process.run('git', ['-C', localVaultPath, ...args]);
+    if (!_isCloned) return false;
+    try {
+      final repo = Repository.open(localVaultPath);
+      try {
+        return repo.status.isNotEmpty;
+      } finally {
+        repo.free();
+      }
+    } catch (_) {
+      return false;
+    }
   }
 }

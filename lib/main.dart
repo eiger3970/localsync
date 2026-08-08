@@ -2,14 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:git2dart/git2dart.dart';
 import 'theme.dart';
 import 'services/repository_provider.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PlatformSpecific.initialize();
   runApp(const SynclocalApp());
 }
 
