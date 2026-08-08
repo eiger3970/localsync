@@ -170,11 +170,39 @@ a dead end, just something to confirm once there's a real build to test.
 - **Still not done:** the `.ipa` is unsigned (`--no-codesign` in
   `codemagic.yaml`) so it can't be installed on a real device yet -
   that needs an Apple Developer account + signing setup, separate from
-  today's work. Nothing has run against a real SSH connection or been
-  used on an actual phone. The user has a list of real Working
-  Copy/sync errors from actual usage history, still not yet handed
-  over - see the note earlier in this doc about slotting those into
-  `LinkingError` when it arrives.
+  today's work.
+- **Real device install achieved (2026-08-08) via SideStore/iloader** -
+  free Apple ID sideloading, no Mac, no $99/yr Program. `iloader`
+  needed `WEBKIT_DISABLE_DMABUF_RENDERER=1` to render on this Pi's
+  Wayland compositor. Apple ID sign-in was flaky (bad Anisette
+  servers/stale adi.pb) but retrying, resetting adi.pb, and getting
+  the 2FA code on-device (Settings -> name -> Sign-In & Security ->
+  Get Verification Code, Wi-Fi/cellular briefly off) worked. Once
+  `iloader`'s desktop session was signed in, "Import IPA" installed
+  the `.ipa` directly - never needed SideStore's on-device sign-in to
+  actually work.
+- **First real-device run hung on a white screen indefinitely, no
+  crash** (confirmed via `idevicesyslog`). Added an on-screen boot
+  diagnostic to `main()` instead of guessing blind (release builds
+  don't reliably surface print() in device syslog) - it surfaced the
+  real error directly: `Failed to lookup symbol 'git_libgit2_init'`,
+  a known Dart FFI/iOS issue (dart-lang/native#897) where Release-mode
+  dead-code-stripping removes C symbols only referenced via FFI.
+  **Fix applied, NOT YET CONFIRMED WORKING:** added `ios/Podfile`
+  (didn't exist before) with `-all_load` in `OTHER_LDFLAGS`. First
+  rebuild after adding it produced a byte-identical `.ipa` to the
+  broken one (7768988 bytes, both build 2 and 3) and hit the same
+  error - Codemagic likely reused cached Pods/build state. Added
+  `flutter clean` to `codemagic.yaml` before `pub get` to force a
+  fresh build - ran out of session time before testing this specific
+  build on the real device. **Next session: check if this build's
+  file size differs from 7768988** - if still identical, the caching
+  issue is deeper than `flutter clean` reaches (maybe Codemagic's own
+  cache layer) and needs a different approach (explicit
+  `pod install --repo-update`, or check Codemagic's cache settings).
+- The user has a list of real Working Copy/sync errors from actual
+  usage history, still not yet handed over - see the note earlier in
+  this doc about slotting those into `LinkingError` when it arrives.
 - **User has a list of real Working Copy / sync errors from actual
   usage history, not yet handed over (2026-08-08).** The state machine
   is deliberately step-based with a single `LinkingError` enum so that
