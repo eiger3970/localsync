@@ -142,12 +142,19 @@ a dead end, just something to confirm once there's a real build to test.
   (confirmed unused anywhere else first). `linking_screen.dart` barely
   changed - it was already built generically off the controller's
   abstract getters.
-- **Not done yet:** Pairing feature (SSH key generation + exchange,
-  `lib/features/pairing/`) still doesn't exist - `ssh_key_paths.dart`
-  only defines where it will write to; `checkingPairing` step just
-  fails clearly (`LinkingError.pairingNotComplete`) until it does.
-  No real device or Codemagic build has been attempted - everything
-  verified so far is `flutter analyze` + a non-network widget test.
+- **Pairing built (2026-08-08).** One-time-password flow, not QR+token -
+  user's own call when asked directly (avoids a new network-facing
+  desktop service). Generates the phone's ed25519 keypair on-device
+  (`cryptography` + `openssh_ed25519` for real OpenSSH serialization),
+  connects to the desktop with the login password via `dartssh2`
+  (never stored), appends the public key to `~/.ssh/authorized_keys` -
+  the SSH-equivalent of `ssh-copy-id`. Reachable from a permanent
+  AppBar icon and from the linking failure screen's "PAIR NOW" button
+  when the error is `pairingNotComplete`.
+- **Not done yet:** No real device or Codemagic build has been
+  attempted - everything verified so far is `flutter analyze` + a
+  non-network widget test. Nothing here has run against a real SSH
+  connection.
 - **User has a list of real Working Copy / sync errors from actual
   usage history, not yet handed over (2026-08-08).** The state machine
   is deliberately step-based with a single `LinkingError` enum so that
