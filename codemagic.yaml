@@ -7,6 +7,8 @@ workflows:
       flutter: stable
       xcode: latest
     scripts:
+      - name: Clean stale build/Pods cache
+        script: flutter clean
       - name: Get Flutter packages
         script: flutter pub get
       - name: Build iOS archive
