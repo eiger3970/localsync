@@ -151,9 +151,15 @@ a dead end, just something to confirm once there's a real build to test.
   the SSH-equivalent of `ssh-copy-id`. Reachable from a permanent
   AppBar icon and from the linking failure screen's "PAIR NOW" button
   when the error is `pairingNotComplete`.
-- **First real Codemagic build succeeded (2026-08-08).** `ios-release`
-  workflow, branch `main`, unsigned `.ipa` artifact produced. This
-  confirms the whole native toolchain actually compiles and links for
+- **Codemagic build succeeded (2026-08-08) - 2nd ever `.ipa`, not the
+  first.** User confirmed a prior build had already produced one before
+  today (from an earlier, likely pre-refactor commit - unclear which
+  one, not investigated). What's new here specifically: this is the
+  first build that includes today's work (git2dart, real persistence,
+  pairing, the rewritten linking flow) and the first one built by this
+  session. Ran the `ios-release` workflow, branch `main`, unsigned
+  `.ipa` artifact produced. This confirms the whole native toolchain
+  actually compiles and links for
   iOS - `git2dart` + statically-linked libgit2/libssh2/OpenSSL via
   CocoaPods, `dartssh2`, `openssh_ed25519`, `cryptography` - not just
   `flutter analyze` type-checking. This was the single biggest
