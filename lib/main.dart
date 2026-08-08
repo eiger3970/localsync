@@ -10,14 +10,87 @@ import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await PlatformSpecific.initialize();
-  // Resolved once here (async) rather than in initState, which can't await -
-  // this is the Documents dir git2dart clones into and that Info.plist's
-  // UIFileSharingEnabled exposes to the Files app.
-  final localVaultPath = (await getApplicationDocumentsDirectory()).path;
-  runApp(SynclocalApp(localVaultPath: localVaultPath));
+  // Diagnostic boot screen (2026-08-08): first real-device run hung on a
+  // white screen indefinitely, no crash, process stayed alive - meaning
+  // something in the old main()'s pre-runApp async init (PlatformSpecific
+  // .initialize() eagerly loading git2dart's native lib, or
+  // getApplicationDocumentsDirectory()) was blocking before any UI ever
+  // drew. Release builds don't reliably surface print()/debugPrint() in
+  // the device syslog, so rather than guess blind, runApp() now happens
+  // immediately with each init step run afterward and its status shown
+  // directly on screen - gives a definitive answer without needing
+  // syslog to cooperate. Remove this once a real device run succeeds
+  // cleanly and revert to the plain async main() + runApp(SynclocalApp).
+  runApp(const _BootScreen());
+}
+
+class _BootScreen extends StatefulWidget {
+  const _BootScreen();
+
+  @override
+  State<_BootScreen> createState() => _BootScreenState();
+}
+
+class _BootScreenState extends State<_BootScreen> {
+  String _status = 'Starting…';
+  String? _error;
+  String? _localVaultPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    try {
+      setState(() => _status = 'PlatformSpecific.initialize()…');
+      await PlatformSpecific.initialize();
+
+      setState(() => _status = 'getApplicationDocumentsDirectory()…');
+      final localVaultPath = (await getApplicationDocumentsDirectory()).path;
+
+      setState(() => _status = 'Done - launching app');
+      setState(() => _localVaultPath = localVaultPath);
+    } catch (e, st) {
+      setState(() {
+        _error = '$e\n\n$st';
+        _status = 'Failed';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_localVaultPath != null) {
+      return SynclocalApp(localVaultPath: _localVaultPath!);
+    }
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_status,
+                    style: const TextStyle(color: Colors.white, fontSize: 16)),
+                if (_error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(_error!,
+                      style: const TextStyle(color: Colors.redAccent, fontSize: 11)),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SynclocalApp extends StatefulWidget {
