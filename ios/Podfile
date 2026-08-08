@@ -49,6 +49,16 @@ post_install do |installer|
       # 2026-08-08 real-device run hit this exact error.
       config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
       config.build_settings['OTHER_LDFLAGS'] << '-all_load'
+
+      # -all_load alone wasn't enough (confirmed 2026-08-08, same error
+      # persisted after it) - it only stops the linker dropping whole
+      # unreferenced object files during linking. Separately, Release
+      # builds strip the symbol table from the FINAL installed binary
+      # afterward, which is what dlsym() (Dart FFI's runtime lookup
+      # mechanism) actually depends on. Disabling that post-link
+      # stripping is the other half of this fix.
+      config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+      config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
     end
   end
 end
