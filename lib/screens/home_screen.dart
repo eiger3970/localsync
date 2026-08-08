@@ -9,6 +9,7 @@ import '../services/repository_provider.dart';
 import 'add_repository_screen.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
+import 'pairing_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,13 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('SYNCLOCAL'),
         actions: [
+          // PAIR — always visible in AppBar, needed before Set up vault
+          // can succeed (no keypair -> LinkingError.pairingNotComplete)
+          IconButton(
+            icon: const Icon(Icons.vpn_key_outlined, color: kTeal, size: 20),
+            tooltip: 'Pair with desktop',
+            onPressed: () => _openPairing(context),
+          ),
           // SET UP VAULT — always visible in AppBar
           IconButton(
             icon: const Icon(Icons.phone_iphone, color: kTeal, size: 20),
@@ -82,6 +90,16 @@ class HomeScreen extends StatelessWidget {
   void _openAddRepo(BuildContext context) => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AddRepositoryScreen()),
+      );
+
+  void _openPairing(BuildContext context) => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const PairingScreen(
+            desktopUser: 'rapi5',
+            desktopIp:   '172.20.10.6',
+          ),
+        ),
       );
 
   void _openLinking(BuildContext context) => Navigator.push(

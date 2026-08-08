@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
+import 'pairing_screen.dart';
 
 class LinkingScreen extends StatelessWidget {
   const LinkingScreen({super.key});
@@ -309,6 +310,22 @@ class _FailedView extends StatelessWidget {
             accent: kTeal,
           ),
           const SizedBox(height: 32),
+
+          if (failure.error == LinkingError.pairingNotComplete) ...[
+            _PrimaryButton(
+              label: 'PAIR NOW',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const PairingScreen(
+                    desktopUser: 'rapi5',
+                    desktopIp:   '172.20.10.6',
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           _PrimaryButton(
             label: 'TRY AGAIN',

@@ -1,0 +1,55 @@
+// services/keypair_service.dart
+//
+// Generates the phone's own SSH keypair (ed25519, OpenSSH format) and
+// writes it to the fixed location ssh_key_paths.dart defines. Part of the
+// pairing feature - see lib/features/pairing/.
+
+import 'dart:io';
+import 'package:cryptography/cryptography.dart';
+import 'package:openssh_ed25519/openssh_ed25519.dart';
+import 'ssh_key_paths.dart';
+
+class KeypairService {
+  /// Generates and writes the keypair if it doesn't already exist.
+  /// Returns the public key line (e.g. "ssh-ed25519 AAAA... synclocal").
+  /// Idempotent - safe to call every time pairing starts.
+  Future<String> ensureKeypair() async {
+    final privatePath = await SshKeyPaths.privateKeyPath();
+    final publicPath  = await SshKeyPaths.publicKeyPath();
+
+    final privateFile = File(privatePath);
+    final publicFile  = File(publicPath);
+
+    if (await privateFile.exists() && await publicFile.exists()) {
+      return publicFile.readAsString();
+    }
+
+    final keyPair      = await Ed25519().newKeyPair();
+    final privateBytes = await keyPair.extractPrivateKeyBytes();
+    final publicKey    = await keyPair.extractPublicKey();
+    final publicBytes  = publicKey.bytes;
+
+    final publicLine = '${encodeEd25519Public(publicBytes)} synclocal';
+    final privateText = encodeEd25519Private(
+      privateBytes: privateBytes,
+      publicBytes: publicBytes,
+    );
+
+    await privateFile.create(recursive: true);
+    await privateFile.writeAsString(privateText);
+    await publicFile.writeAsString(publicLine);
+
+    // Private key should not be group/world readable, matching standard
+    // SSH key file permissions (chmod 600). Best-effort - not every
+    // platform's Dart io supports POSIX chmod bits the same way, but this
+    // is the private Application Support dir either way, not the exposed
+    // Documents folder, so this is defence in depth, not the only guard.
+    try {
+      await Process.run('chmod', ['600', privatePath]);
+    } catch (_) {
+      // Not fatal - e.g. not available on this platform.
+    }
+
+    return publicLine;
+  }
+}

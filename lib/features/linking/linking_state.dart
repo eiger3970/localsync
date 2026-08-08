@@ -126,6 +126,11 @@ enum LinkingError {
   /// still unbuilt) hasn't run, so there's nothing to authenticate a clone
   /// with.
   pairingNotComplete,
+
+  /// The one-time desktop password entered during pairing was rejected.
+  /// Distinct from sshAuthFailed, which is about the phone's already-
+  /// paired key being rejected later (different cause, different fix).
+  pairingPasswordRejected,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -168,6 +173,8 @@ extension LinkingErrorDetails on LinkingError {
       'Launching an external app failed unexpectedly.',
     LinkingError.pairingNotComplete =>
       'This phone has not been paired with your desktop yet.',
+    LinkingError.pairingPasswordRejected =>
+      'The desktop password entered was not accepted.',
   };
 
   String get resolution => switch (this) {
@@ -254,5 +261,9 @@ extension LinkingErrorDetails on LinkingError {
       'Check the target app is installed and try again.',
     LinkingError.pairingNotComplete =>
       'Run pairing first from Settings, then try setup again.',
+    LinkingError.pairingPasswordRejected =>
+      'Check the password and try again. This is your desktop login\n'
+      'password, entered once just to install this phone\'s key - it\n'
+      'is never stored.',
   };
 }
