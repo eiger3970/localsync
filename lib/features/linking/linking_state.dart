@@ -183,10 +183,10 @@ extension LinkingErrorDetails on LinkingError {
       '4. On desktop: ip addr show\n'
       '   Verify IP matches what is set in this app',
     LinkingError.sshAuthFailed =>
-      '1. Working Copy → Settings → SSH Keys → Export Public Key\n'
-      '2. Desktop: vi ~/.ssh/authorized_keys\n'
-      '3. Paste the key, save (:wq)\n'
-      '4. Desktop: chmod 600 ~/.ssh/authorized_keys',
+      'Synclocal\'s own key was not accepted. During pairing this app\n'
+      'shows a QR code containing its public key - scan it on the\n'
+      'desktop to add it to ~/.ssh/authorized_keys automatically.\n'
+      'If pairing was already completed, try it again.',
     LinkingError.bareRepoNotFound =>
       'On desktop, verify the bare repo exists:\n'
       'ls ~/Documents/Git_bare_repo/Md_files_bare.git\n\n'

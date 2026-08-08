@@ -1,9 +1,15 @@
 // services/sync_service.dart
 //
-// Dart port of live synco script (202603021301).
+// git2dart port of the original synco.sh-derived Dart port (which shelled
+// out to `git`/`ssh` via Process.run - impossible on iOS, that file's own
+// comment already flagged this). The phase flow and conflict strategy below
+// are unchanged from that version - only the git implementation moved from
+// shelling out to git2dart FFI calls. See lib/STRUCTURE.md.
+//
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
 import 'dart:io';
+import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 
@@ -50,153 +56,168 @@ class SyncService {
   final String remoteHost;
   final int    remotePort;
   final String branch;
+  final String sshPrivateKeyPath;
+  final String sshPublicKeyPath;
+  final String sshPassphrase;
 
   SyncService({
     required this.vaultPath,
     required this.remoteUser,
     required this.remoteHost,
-    this.remotePort = 22,
-    this.branch     = 'main',
+    required this.sshPrivateKeyPath,
+    required this.sshPublicKeyPath,
+    this.remotePort      = 22,
+    this.branch           = 'main',
+    this.sshPassphrase    = '',
   });
 
-  factory SyncService.fromRepo(Repository repo) => SyncService(
-    vaultPath:  repo.obsidianVaultPath,
-    remoteUser: repo.remoteUser,
-    remoteHost: repo.remoteHost,
-    remotePort: repo.remotePort,
-    branch:     'main',
+  factory SyncService.fromRepo(
+    Repository repo, {
+    required String sshPrivateKeyPath,
+    required String sshPublicKeyPath,
+  }) => SyncService(
+    vaultPath:         repo.obsidianVaultPath,
+    remoteUser:        repo.remoteUser,
+    remoteHost:        repo.remoteHost,
+    remotePort:        repo.remotePort,
+    branch:            'main',
+    sshPrivateKeyPath: sshPrivateKeyPath,
+    sshPublicKeyPath:  sshPublicKeyPath,
   );
+
+  git.Credentials get _credentials => git.Keypair(
+        username: remoteUser,
+        pubKey: sshPublicKeyPath,
+        privateKey: sshPrivateKeyPath,
+        passPhrase: sshPassphrase,
+      );
+
+  git.Callbacks get _callbacks => git.Callbacks(credentials: _credentials);
+
+  // Fixed local identity, same convention the old Working Copy resolution
+  // text used to tell users to type in manually ("Git phone obsidian" /
+  // "phone@obsidian.local") - the app sets this itself now, nothing to ask
+  // the user for.
+  git.Signature get _signature =>
+      git.Signature.create(name: 'Synclocal', email: 'synclocal@device.local');
 
   // ── Full sync ──────────────────────────────────────────────────────────────
 
   Stream<SyncEvent> fullSync({String? commitMessage}) async* {
-    // Guard: Process.run is not supported on iOS
-    if (!Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
-      yield SyncEvent.done(const SyncFailed(LinkingError.connectionRefused));
-      return;
-    }
-
-    // 1. Recover from any stuck merge from a previous crashed run
-    if (await _fileExists('$vaultPath/.git/MERGE_HEAD')) {
-      await _repairAllConflicts();
-      if (await _fileExists('$vaultPath/.git/MERGE_HEAD')) {
-        await _runGit(['commit', '--no-edit']);
-      }
-    }
-
-    // 2. Commit any unsaved local changes
-    yield SyncEvent.phase(SyncPhase.detecting);
-    final hasChanges = await _hasUncommittedChanges();
-
-    if (hasChanges) {
-      yield SyncEvent.phase(SyncPhase.committing);
-      final addResult = await _runGit(['add', '.']);
-      if (addResult.exitCode != 0) {
-        yield SyncEvent.done(SyncFailed(_diagnose(addResult.stderr.toString())));
-        return;
-      }
-      final msg = commitMessage ?? 'synclocal ${_timestamp()}';
-      final commitResult = await _runGit(['commit', '-m', msg]);
-      if (commitResult.exitCode != 0 &&
-          !commitResult.stdout.toString().contains('nothing to commit')) {
-        yield SyncEvent.done(SyncFailed(_diagnose(commitResult.stderr.toString())));
-        return;
-      }
-    }
-
-    // 3. Fetch
-    yield SyncEvent.phase(SyncPhase.fetching);
-    final fetchResult = await _runGit(['fetch', 'origin']);
-    if (fetchResult.exitCode != 0) {
-      yield SyncEvent.done(SyncFailed(_diagnose(fetchResult.stderr.toString())));
-      return;
-    }
-
-    // 4. Compare LOCAL / REMOTE / BASE
-    final local  = await _revParse('HEAD');
-    final remote = await _revParse('origin/$branch');
-    final base   = await _mergeBase('HEAD', 'origin/$branch');
-
-    if (local == null || remote == null || base == null) {
+    if (!await Directory('$vaultPath/.git').exists()) {
       yield SyncEvent.done(const SyncFailed(LinkingError.bareRepoNotFound));
       return;
     }
 
-    if (local == remote) {
-      yield SyncEvent.done(const SyncNoChanges());
+    late final git.Repository repo;
+    try {
+      repo = git.Repository.open(vaultPath);
+    } catch (e) {
+      yield SyncEvent.done(const SyncFailed(LinkingError.bareRepoNotFound));
       return;
     }
 
-    if (local == base) {
-      yield SyncEvent.phase(SyncPhase.pulling);
-      final r = await _runGit(['merge', '--ff-only', 'origin/$branch']);
-      if (r.exitCode != 0) {
-        yield SyncEvent.done(SyncFailed(_diagnose(r.stderr.toString())));
+    try {
+      // 1. Recover from any stuck merge from a previous crashed run
+      if (repo.state == git.GitRepositoryState.merge) {
+        _repairAllConflictsOnDisk();
+        if (repo.index.hasConflicts) {
+          // Repair pass found nothing new to fix but conflicts remain -
+          // same "tree was clean but merge not committed" edge case the
+          // shell version handled by committing anyway.
+        }
+        _finishMergeCommit(repo);
+        repo.stateCleanup();
+      }
+
+      // 2. Commit any unsaved local changes
+      yield SyncEvent.phase(SyncPhase.detecting);
+      if (repo.status.isNotEmpty) {
+        yield SyncEvent.phase(SyncPhase.committing);
+        _commitAll(repo, commitMessage ?? 'synclocal ${_timestamp()}');
+      }
+
+      // 3. Fetch
+      yield SyncEvent.phase(SyncPhase.fetching);
+      final remote = git.Remote.lookup(repo: repo, name: 'origin');
+      remote.fetch(callbacks: _callbacks);
+
+      // 4. Compare LOCAL / REMOTE / BASE
+      final localOid  = repo.head.target;
+      final remoteBranch = git.Branch.lookup(
+        repo: repo,
+        name: 'origin/$branch',
+        type: git.GitBranch.remote,
+      );
+      final remoteOid = remoteBranch.target;
+      final baseOid    = git.Merge.base(repo, localOid, remoteOid);
+
+      if (localOid == remoteOid) {
+        yield SyncEvent.done(const SyncNoChanges());
         return;
       }
-      yield SyncEvent.done(SyncOk('Downloaded latest notes'));
-      return;
-    }
 
-    if (remote == base) {
-      yield SyncEvent.phase(SyncPhase.pushing);
-      final r = await _pushWithRetry();
-      if (r != null) {
-        yield SyncEvent.done(SyncFailed(_diagnose(r)));
+      if (localOid == baseOid) {
+        yield SyncEvent.phase(SyncPhase.pulling);
+        repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
+        yield SyncEvent.done(const SyncOk('Downloaded latest notes'));
         return;
       }
-      yield SyncEvent.done(SyncOk('Uploaded notes to desktop'));
-      return;
-    }
 
-    // Diverged — three-way merge
-    yield SyncEvent.phase(SyncPhase.merging);
-    final mergeResult = await _runGit([
-      'merge', '--no-ff', '-m',
-      'Merge desktop and phone ${_timestamp()}',
-      'origin/$branch',
-    ]);
-
-    if (mergeResult.exitCode != 0) {
-      // Conflict: repair both sides instead of aborting
-      await _repairAllConflicts();
-      if (await _fileExists('$vaultPath/.git/MERGE_HEAD')) {
-        // repair found nothing — tree was clean but merge not committed
-        await _runGit(['commit', '--no-edit']);
+      if (remoteOid == baseOid) {
+        yield SyncEvent.phase(SyncPhase.pushing);
+        final err = _pushWithRetry(repo, remote);
+        if (err != null) {
+          yield SyncEvent.done(SyncFailed(err));
+          return;
+        }
+        yield SyncEvent.done(const SyncOk('Uploaded notes to desktop'));
+        return;
       }
-    }
 
-    final pushErr = await _pushWithRetry();
-    if (pushErr != null) {
-      yield SyncEvent.done(SyncFailed(_diagnose(pushErr)));
-      return;
+      // Diverged — three-way merge. Conflicts are not aborted: repaired in
+      // place (both versions kept, other side quoted in an Obsidian
+      // callout) so nothing is ever silently lost, then committed.
+      yield SyncEvent.phase(SyncPhase.merging);
+      final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
+      git.Merge.commit(repo: repo, commit: annotated);
+
+      if (repo.index.hasConflicts) {
+        _repairAllConflictsOnDisk();
+      }
+      _finishMergeCommit(repo, message: 'Merge desktop and phone ${_timestamp()}');
+      repo.stateCleanup();
+
+      final pushErr = _pushWithRetry(repo, remote);
+      if (pushErr != null) {
+        yield SyncEvent.done(SyncFailed(pushErr));
+        return;
+      }
+      yield SyncEvent.done(const SyncOk('Merged and synced'));
+    } catch (e) {
+      yield SyncEvent.done(SyncFailed(_diagnose(e)));
+    } finally {
+      repo.free();
     }
-    yield SyncEvent.done(SyncOk('Merged and synced'));
   }
 
-  // ── Conflict repair — mirrors repair_conflicts.py ──────────────────────────
+  // ── Conflict repair — ports repair_conflicts.py's text strategy verbatim,
+  //    just triggered after git2dart's Merge.commit instead of `git merge`.
+  //    Operates on working-directory files as plain text, not git's index/
+  //    tree objects, so nothing here needed the low-level conflict API. ────
 
-  Future<void> _repairAllConflicts() async {
+  void _repairAllConflictsOnDisk() {
     final dir = Directory(vaultPath);
-    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       if (!entity.path.endsWith('.md')) continue;
       try {
-        final content = await entity.readAsString();
+        final content = entity.readAsStringSync();
         if (!content.contains('<<<<<<< ')) continue;
-        final repaired = _repairConflictMarkers(content);
-        await entity.writeAsString(repaired);
+        entity.writeAsStringSync(_repairConflictMarkers(content));
       } catch (_) {
         // Skip unreadable files
       }
-    }
-    await _runGit(['add', '.']);
-    final r = await _runGit(['diff', '--cached', '--quiet']);
-    if (r.exitCode != 0) {
-      await _runGit([
-        'commit', '-m',
-        'Merge conflicts (both sides kept) ${_timestamp()}',
-      ]);
     }
   }
 
@@ -216,54 +237,99 @@ class SyncService {
     });
   }
 
+  // ── Commit helpers ───────────────────────────────────────────────────────────
+
+  void _commitAll(git.Repository repo, String message) {
+    final headOid = repo.head.target;
+    final parent  = git.Commit.lookup(repo: repo, oid: headOid);
+    final tree    = _stageAndWriteTree(repo);
+    git.Commit.create(
+      repo: repo,
+      updateRef: 'HEAD',
+      author: _signature,
+      committer: _signature,
+      message: message,
+      tree: tree,
+      parents: [parent],
+    );
+  }
+
+  /// Completes an in-progress merge (from Merge.commit) by staging whatever
+  /// is in the working directory now (post-repair) and creating the merge
+  /// commit with both parents.
+  void _finishMergeCommit(git.Repository repo, {String? message}) {
+    final localOid = repo.head.target;
+    final git.Oid remoteOid;
+    try {
+      remoteOid = git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
+    } catch (_) {
+      return; // nothing to finish - not actually mid-merge
+    }
+
+    final localCommit  = git.Commit.lookup(repo: repo, oid: localOid);
+    final remoteCommit = git.Commit.lookup(repo: repo, oid: remoteOid);
+    final tree          = _stageAndWriteTree(repo);
+
+    git.Commit.create(
+      repo: repo,
+      updateRef: 'HEAD',
+      author: _signature,
+      committer: _signature,
+      message: message ?? 'Merge conflicts (both sides kept) ${_timestamp()}',
+      tree: tree,
+      parents: [localCommit, remoteCommit],
+    );
+  }
+
+  git.Tree _stageAndWriteTree(git.Repository repo) {
+    final index = repo.index;
+    index.addAll(['*']);
+    index.write();
+    final treeOid = index.writeTree(repo);
+    return git.Tree.lookup(repo: repo, oid: treeOid);
+  }
+
   // ── Push with one retry on non-fast-forward rejection ─────────────────────
 
-  Future<String?> _pushWithRetry() async {
-    final r = await _runGit(['push', 'origin', branch]);
-    if (r.exitCode == 0) return null;
-    final stderr = r.stderr.toString();
-    if (!stderr.contains('non-fast-forward') &&
-        !stderr.contains('could not be fast-forwarded')) {
-      return stderr;
+  LinkingError? _pushWithRetry(git.Repository repo, git.Remote remote) {
+    try {
+      remote.push(
+        refspecs: ['refs/heads/$branch:refs/heads/$branch'],
+        callbacks: _callbacks,
+      );
+      return null;
+    } catch (e) {
+      // Remote moved since our fetch — fetch again and fast-forward if
+      // possible, then retry once. A genuine divergence here is left for
+      // the next fullSync() call to handle via the real merge path above,
+      // rather than duplicating that logic mid-push.
+      try {
+        remote.fetch(callbacks: _callbacks);
+        final remoteBranch = git.Branch.lookup(
+          repo: repo,
+          name: 'origin/$branch',
+          type: git.GitBranch.remote,
+        );
+        final analysis = git.Merge.analysis(
+          repo: repo,
+          theirHead: remoteBranch.target,
+        );
+        if (!analysis.result.contains(git.GitMergeAnalysis.fastForward)) {
+          return LinkingError.cannotFastForward;
+        }
+        repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
+        remote.push(
+          refspecs: ['refs/heads/$branch:refs/heads/$branch'],
+          callbacks: _callbacks,
+        );
+        return null;
+      } catch (e2) {
+        return _diagnose(e2);
+      }
     }
-    // Remote moved — fetch and fast-forward, then retry
-    await _runGit(['fetch', 'origin']);
-    final ff = await _runGit(['merge', '--ff-only', 'origin/$branch']);
-    if (ff.exitCode != 0) return ff.stderr.toString();
-    final retry = await _runGit(['push', 'origin', branch]);
-    return retry.exitCode == 0 ? null : retry.stderr.toString();
   }
 
   // ── Internals ──────────────────────────────────────────────────────────────
-
-  Future<bool> _hasUncommittedChanges() async {
-    final r = await _runGit(['status', '--porcelain']);
-    return r.exitCode == 0 && r.stdout.toString().trim().isNotEmpty;
-  }
-
-  Future<String?> _revParse(String ref) async {
-    final r = await _runGit(['rev-parse', ref]);
-    if (r.exitCode != 0) return null;
-    return r.stdout.toString().trim();
-  }
-
-  Future<String?> _mergeBase(String a, String b) async {
-    final r = await _runGit(['merge-base', a, b]);
-    if (r.exitCode != 0) return null;
-    return r.stdout.toString().trim();
-  }
-
-  Future<bool> _fileExists(String path) async =>
-      File(path).exists();
-
-  Future<ProcessResult> _runGit(List<String> args) => Process.run(
-    'git',
-    ['-C', vaultPath, ...args],
-    environment: {
-      'GIT_SSH_COMMAND':
-        'ssh -p $remotePort -o StrictHostKeyChecking=no -o ConnectTimeout=5',
-    },
-  );
 
   String _timestamp() {
     final n = DateTime.now();
@@ -273,23 +339,21 @@ class SyncService {
 
   String _p(int n) => n.toString().padLeft(2, '0');
 
-  LinkingError _diagnose(String stderr) {
-    if (stderr.contains('Connection refused') ||
-        stderr.contains('No route to host') ||
-        stderr.contains('timed out')) return LinkingError.connectionRefused;
-    if (stderr.contains('Permission denied') &&
-        stderr.contains('publickey'))         return LinkingError.sshAuthFailed;
-    if (stderr.contains('does not appear to be a git repository'))
-                                              return LinkingError.bareRepoNotFound;
-    if (stderr.contains('CONFLICT'))          return LinkingError.mergeConflict;
-    if (stderr.contains('rebase-merge') ||
-        stderr.contains('rebase in progress'))return LinkingError.rebaseStuck;
-    if (stderr.contains('untracked working tree files'))
-                                              return LinkingError.untrackedFilesOverwritten;
-    if (stderr.contains('non-fast-forward') ||
-        stderr.contains('could not be fast-forwarded'))
-                                              return LinkingError.cannotFastForward;
-    if (stderr.contains('index.lock'))        return LinkingError.indexLocked;
+  LinkingError _diagnose(Object e) {
+    final msg = e.toString();
+    if (msg.contains('Connection refused') ||
+        msg.contains('No route to host') ||
+        msg.contains('failed to connect') ||
+        msg.contains('timed out'))        return LinkingError.connectionRefused;
+    if (msg.contains('authentication') ||
+        msg.contains('Auth') ||
+        msg.contains('publickey'))        return LinkingError.sshAuthFailed;
+    if (msg.contains('does not appear to be a git repository') ||
+        msg.contains('repository not found')) return LinkingError.bareRepoNotFound;
+    if (msg.contains('non-fast-forward') ||
+        msg.contains('fast-forward'))     return LinkingError.cannotFastForward;
+    if (msg.contains('index is locked') ||
+        msg.contains('index.lock'))       return LinkingError.indexLocked;
     return LinkingError.mergeConflict;
   }
 }

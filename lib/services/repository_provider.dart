@@ -5,6 +5,7 @@ import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'database_service.dart';
 import 'sync_service.dart';
+import 'ssh_key_paths.dart';
 
 class RepositoryProvider extends ChangeNotifier {
   final _db = DatabaseService();
@@ -38,7 +39,11 @@ class RepositoryProvider extends ChangeNotifier {
     if (idx == -1) return;
 
     final repo    = _repos[idx];
-    final service = SyncService.fromRepo(repo);
+    final service = SyncService.fromRepo(
+      repo,
+      sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
+      sshPublicKeyPath:  await SshKeyPaths.publicKeyPath(),
+    );
 
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
 
