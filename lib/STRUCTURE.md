@@ -200,6 +200,24 @@ a dead end, just something to confirm once there's a real build to test.
   issue is deeper than `flutter clean` reaches (maybe Codemagic's own
   cache layer) and needs a different approach (explicit
   `pod install --repo-update`, or check Codemagic's cache settings).
+  **Update: flutter clean did NOT fix it either** - same error again
+  on the next real-device test. Added a second, distinct fix:
+  `STRIP_INSTALLED_PRODUCT = NO` + `DEPLOYMENT_POSTPROCESSING = NO` in
+  the Podfile post_install hook. Reasoning: `-all_load` only stops the
+  linker dropping whole unreferenced object files *during* linking -
+  it doesn't stop Release builds from stripping the symbol table off
+  the *final installed binary* afterward, which is what `dlsym()`
+  (Dart FFI's runtime lookup) actually reads. These are two separate
+  build phases needing two separate fixes. **Not yet tested on a real
+  device - ran out of session time.** Next session: rebuild, sideload,
+  check if this specific error is finally gone. If it persists even
+  after both fixes, the next thing to check is whether git2dart's own
+  FFI binding code is even using `DynamicLibrary.process()`/
+  `.executable()` (which read the current process's own symbol table)
+  versus trying to `DynamicLibrary.open()` a named library that may
+  not exist as a separate loadable file when statically linked - that
+  would be a git2dart package bug, not fixable from this app's side,
+  and would need an upstream issue filed.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.
