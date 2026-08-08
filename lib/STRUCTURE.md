@@ -111,10 +111,29 @@ a dead end, just something to confirm once there's a real build to test.
   added.
 - Compile-blocking errors fixed across git_service/ios_app_service/
   vault_service (`StepFailure` API mismatch from an earlier refactor).
-- **Not done yet:** `git_service.dart` isn't wired into
-  `linking_controller.dart` or `sync_service.dart` - confirmed via grep
-  that neither ever instantiated `GitService`, it was dead code even
-  before today. Pairing feature (SSH key exchange) still doesn't exist.
+- **The hard cases are ported, not deferred anymore:** `sync_service.dart`
+  already had every one correctly designed (it's a Dart port of a proven
+  desktop script, synco.sh) - conflicts get repaired in place (both
+  versions kept, other side quoted in an Obsidian callout, never
+  silently lost) rather than aborted, non-fast-forward pushes auto-
+  retry after a fetch+fast-forward. The design was never the problem;
+  it shelled out to `git`/`ssh` via `Process.run`, impossible on iOS.
+  Ported the same logic onto git2dart (`Merge.commit` + repair-on-disk
+  + `Commit.create` with both parents; push-retry via fetch+reset+retry).
+  `LinkingError.mergeConflict` is now a rare fallback for genuinely
+  unexpected failures, not the primary conflict path. `identityNotSet`
+  and `rebaseStuck` are now unreachable from this flow (fixed app
+  signature, no rebase machinery used) - left in the enum, not deleted.
+  Added `ssh_key_paths.dart` for where the phone's own keypair will
+  live (Application Support, NOT Documents - that's exposed to Files
+  app now, a private key there would be exportable via Files/Finder).
+- **Not done yet:** `git_service.dart` still isn't wired into
+  `linking_controller.dart` - that file (plus `ios_app_service.dart`)
+  still describes the *old* Working Copy-driven 8-step flow end to end,
+  unchanged since the pivot. Rewriting the actual user-facing linking
+  steps to match the new architecture is the next real chunk of work.
+  Pairing feature (SSH key generation + exchange) still doesn't exist -
+  `ssh_key_paths.dart` only defines where it will write to.
   No real device or Codemagic build has been attempted - everything
   verified so far is `flutter analyze` + a non-network widget test.
 
