@@ -98,6 +98,26 @@ of the Documents folder not appearing in Files despite both flags set,
 particularly on projects that had different settings previously. Not
 a dead end, just something to confirm once there's a real build to test.
 
+## Status as of 2026-08-08 (git2dart pivot landed)
+- `git_service.dart`: real implementation (clone/fetch/fast-forward-pull/
+  push via git2dart), replaces the old Working Copy stub. Compiles clean,
+  API verified against the actual package source in `.pub-cache`, not
+  just docs. **Not yet run against a live SSH remote** - the real bare
+  repo (`Md_files_bare.git`) doesn't exist on the desktop yet either.
+- `database_service.dart`: real mobile persistence via `shared_preferences`
+  (was a stub that threw on every call - the app would have crashed on
+  launch on a real phone before this).
+- `Info.plist`: `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace`
+  added.
+- Compile-blocking errors fixed across git_service/ios_app_service/
+  vault_service (`StepFailure` API mismatch from an earlier refactor).
+- **Not done yet:** `git_service.dart` isn't wired into
+  `linking_controller.dart` or `sync_service.dart` - confirmed via grep
+  that neither ever instantiated `GitService`, it was dead code even
+  before today. Pairing feature (SSH key exchange) still doesn't exist.
+  No real device or Codemagic build has been attempted - everything
+  verified so far is `flutter analyze` + a non-network widget test.
+
 ### URL schemes used
 - working-copy://x-callback-url/link?repo=NAME&path=VAULT
 - working-copy://x-callback-url/pull?repo=NAME
