@@ -127,15 +127,36 @@ a dead end, just something to confirm once there's a real build to test.
   Added `ssh_key_paths.dart` for where the phone's own keypair will
   live (Application Support, NOT Documents - that's exposed to Files
   app now, a private key there would be exportable via Files/Finder).
-- **Not done yet:** `git_service.dart` still isn't wired into
-  `linking_controller.dart` - that file (plus `ios_app_service.dart`)
-  still describes the *old* Working Copy-driven 8-step flow end to end,
-  unchanged since the pivot. Rewriting the actual user-facing linking
-  steps to match the new architecture is the next real chunk of work.
-  Pairing feature (SSH key generation + exchange) still doesn't exist -
-  `ssh_key_paths.dart` only defines where it will write to.
+- **`linking_controller.dart` rewritten (2026-08-08), wired to git2dart.**
+  Old flow: create empty Obsidian vault -> clone into a Working-Copy-
+  managed location -> link Working Copy's repo into the vault path ->
+  retry (expected to fail once) -> relaunch Working Copy to clear its
+  error banner -> pull. Most of that existed to work around Working
+  Copy's own "link" feature quirks. New flow: git2dart clones straight
+  into Synclocal's own exposed Documents folder (in-process, no
+  external app) -> user opens Obsidian's standard "Open folder as
+  vault" pointing at the already-populated folder. Nothing to link -
+  the vault folder simply *is* the git-managed folder from the start.
+  9 working states -> 4, three park points -> one.
+  `ios_app_service.dart`'s Working-Copy-launching methods removed
+  (confirmed unused anywhere else first). `linking_screen.dart` barely
+  changed - it was already built generically off the controller's
+  abstract getters.
+- **Not done yet:** Pairing feature (SSH key generation + exchange,
+  `lib/features/pairing/`) still doesn't exist - `ssh_key_paths.dart`
+  only defines where it will write to; `checkingPairing` step just
+  fails clearly (`LinkingError.pairingNotComplete`) until it does.
   No real device or Codemagic build has been attempted - everything
   verified so far is `flutter analyze` + a non-network widget test.
+- **User has a list of real Working Copy / sync errors from actual
+  usage history, not yet handed over (2026-08-08).** The state machine
+  is deliberately step-based with a single `LinkingError` enum so that
+  list can be absorbed as additional error cases slotted into the
+  existing steps later, without needing another architectural rewrite.
+  When it arrives: map each real error to the step it actually happens
+  in, add a `LinkingError` case + diagnosis/resolution text, don't
+  restructure `LinkingStep` unless a case genuinely doesn't fit any
+  existing step.
 
 ### URL schemes used
 - working-copy://x-callback-url/link?repo=NAME&path=VAULT
