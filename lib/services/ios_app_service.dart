@@ -53,11 +53,7 @@ class IosAppServiceImpl implements IosAppService {
   @override
   Future<StepResult> openWorkingCopyLinkURL() async {
     if (!await isWorkingCopyInstalled()) {
-      return const StepFailure(
-        error: LinkingError.workingCopyNotInstalled,
-        diagnosis: LinkingError.workingCopyNotInstalled.diagnosis,
-        resolution: LinkingError.workingCopyNotInstalled.resolution,
-      );
+      return const StepFailure(LinkingError.workingCopyNotInstalled);
     }
 
     try {
@@ -70,33 +66,21 @@ class IosAppServiceImpl implements IosAppService {
       );
       return const StepSuccess(message: 'Working Copy link URL launched');
     } catch (e) {
-      return StepFailure(
-        error: LinkingError.unexpectedLinkError,
-        diagnosis: 'URL launch failed: $e',
-        resolution: LinkingError.unexpectedLinkError.resolution,
-      );
+      return const StepFailure(LinkingError.unexpectedLinkError);
     }
   }
 
   @override
   Future<StepResult> openObsidian() async {
     if (!await isObsidianInstalled()) {
-      return const StepFailure(
-        error: LinkingError.obsidianNotInstalled,
-        diagnosis: LinkingError.obsidianNotInstalled.diagnosis,
-        resolution: LinkingError.obsidianNotInstalled.resolution,
-      );
+      return const StepFailure(LinkingError.obsidianNotInstalled);
     }
 
     try {
       await launchUrl(_obsidianUri, mode: LaunchMode.externalApplication);
       return const StepSuccess(message: 'Obsidian opened');
     } catch (e) {
-      return StepFailure(
-        error: LinkingError.obsidianNotInstalled,
-        diagnosis: 'Could not open Obsidian: $e',
-        resolution: LinkingError.obsidianNotInstalled.resolution,
-      );
+      return const StepFailure(LinkingError.obsidianNotInstalled);
     }
   }
 
@@ -106,11 +90,7 @@ class IosAppServiceImpl implements IosAppService {
       await launchUrl(_workingCopyBaseUri, mode: LaunchMode.externalApplication);
       return const StepSuccess(message: 'Working Copy opened');
     } catch (e) {
-      return StepFailure(
-        error: LinkingError.workingCopyNotInstalled,
-        diagnosis: 'Could not open Working Copy: $e',
-        resolution: LinkingError.workingCopyNotInstalled.resolution,
-      );
+      return const StepFailure(LinkingError.workingCopyNotInstalled);
     }
   }
 

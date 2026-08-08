@@ -19,11 +19,7 @@ class VaultServiceImpl implements VaultService {
   @override
   Future<StepResult> createVaultDirectory() async {
     if (vaultName.isEmpty) {
-      return const StepFailure(
-        error: LinkingError.vaultPathConflict,
-        diagnosis: 'Vault name is empty.',
-        resolution: 'Set a vault name in Settings before running setup.',
-      );
+      return const StepFailure(LinkingError.vaultNameEmpty);
     }
     return StepSuccess(message: 'Vault name validated: $vaultName');
   }

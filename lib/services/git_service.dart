@@ -61,19 +61,11 @@ class GitServiceImpl implements GitService {
     try {
       final result = await _runSshCommand('git -C $bareRepoPath log --oneline -1');
       if (result.exitCode != 0) {
-        return StepFailure(
-          error: LinkingError.bareRepoNotFound,
-          diagnosis: result.stderr.toString(),
-          resolution: LinkingError.bareRepoNotFound.resolution,
-        );
+        return const StepFailure(LinkingError.bareRepoNotFound);
       }
       return StepSuccess(message: result.stdout.toString().trim());
     } catch (e) {
-      return StepFailure(
-        error: LinkingError.sshConnectionFailed,
-        diagnosis: e.toString(),
-        resolution: LinkingError.sshConnectionFailed.resolution,
-      );
+      return const StepFailure(LinkingError.connectionRefused);
     }
   }
 

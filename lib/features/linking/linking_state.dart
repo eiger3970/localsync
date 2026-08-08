@@ -127,6 +127,12 @@ enum LinkingError {
 
   /// Old vault files not fully removed — phone reboot needed.
   filesNotDeleting,
+
+  /// Vault name field left empty in Settings.
+  vaultNameEmpty,
+
+  /// Launching an external app's URL scheme threw an unexpected error.
+  unexpectedLinkError,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -163,6 +169,10 @@ extension LinkingErrorDetails on LinkingError {
       'Working Copy has no commit identity. A name and email are required.',
     LinkingError.filesNotDeleting =>
       'Old vault files are not fully removed. A phone reboot is needed.',
+    LinkingError.vaultNameEmpty =>
+      'Vault name is empty.',
+    LinkingError.unexpectedLinkError =>
+      'Launching an external app failed unexpectedly.',
   };
 
   String get resolution => switch (this) {
@@ -243,5 +253,9 @@ extension LinkingErrorDetails on LinkingError {
       '3. Reboot phone — required\n'
       '4. Reinstall both apps\n'
       '5. Restart setup from the beginning',
+    LinkingError.vaultNameEmpty =>
+      'Set a vault name in Settings before running setup.',
+    LinkingError.unexpectedLinkError =>
+      'Check the target app is installed and try again.',
   };
 }
