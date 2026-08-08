@@ -8,6 +8,7 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import 'add_repository_screen.dart';
 import 'commit_screen.dart';
+import 'linking_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -18,6 +19,12 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('SYNCLOCAL'),
         actions: [
+          // SET UP VAULT — always visible in AppBar
+          IconButton(
+            icon: const Icon(Icons.phone_iphone, color: kTeal, size: 20),
+            tooltip: 'Set up vault',
+            onPressed: () => _openLinking(context),
+          ),
           Consumer<RepositoryProvider>(
             builder: (_, p, __) => Padding(
               padding: const EdgeInsets.only(right: 16),
@@ -34,7 +41,10 @@ class HomeScreen extends StatelessWidget {
             );
           }
           if (provider.repos.isEmpty) {
-            return _EmptyState(onAdd: () => _openAddRepo(context));
+            return _EmptyState(
+              onAdd:     () => _openAddRepo(context),
+              onSetup:   () => _openLinking(context),
+            );
           }
           return ListView.separated(
             itemCount: provider.repos.length,
@@ -72,6 +82,11 @@ class HomeScreen extends StatelessWidget {
   void _openAddRepo(BuildContext context) => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const AddRepositoryScreen()),
+      );
+
+  void _openLinking(BuildContext context) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LinkingScreen()),
       );
 
   Future<void> _confirmDelete(
@@ -131,7 +146,6 @@ class _RepoTile extends StatelessWidget {
     final isSyncing = repo.status == SyncStatus.syncing;
 
     return GestureDetector(
-      // Long press = commit screen (manual trigger, always visible)
       onLongPress: onCommit,
       child: ListTile(
         contentPadding:
@@ -154,12 +168,10 @@ class _RepoTile extends StatelessWidget {
                             fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 8),
-                      // Auto/manual badge
                       _AutoBadge(autoSync: repo.autoSync),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // Phase text — animated in, replaces last-sync when active
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: isSyncing
@@ -177,7 +189,6 @@ class _RepoTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Sync button — animates while syncing
             isSyncing
                 ? const _SpinningSync()
                 : GestureDetector(
@@ -284,7 +295,7 @@ class _PhaseText extends StatelessWidget {
   }
 }
 
-// ── Static meta text (last sync, file count, error) ───────────────────────────
+// ── Static meta text ───────────────────────────────────────────────────────────
 
 class _MetaText extends StatelessWidget {
   final Repository repo;
@@ -293,7 +304,6 @@ class _MetaText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (repo.status == SyncStatus.error && repo.lastError != null) {
-      // Show just the reason line, not the resolution (keep tile compact)
       final reason = repo.lastError!.split('\n').first;
       return Text(
         reason,
@@ -387,17 +397,15 @@ class _StatusIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (repos.isEmpty) {
-      return const Icon(Icons.add_circle_outline, color: kTeal, size: 22);
-    }
+    if (repos.isEmpty) return const SizedBox.shrink();
     final hasError   = repos.any((r) => r.status == SyncStatus.error);
     final hasSyncing = repos.any((r) => r.status == SyncStatus.syncing);
     final allOk      = repos.every((r) => r.status == SyncStatus.ok);
 
-    if (hasSyncing) return const Icon(Icons.sync,               color: Colors.amber,     size: 22);
-    if (hasError)   return const Icon(Icons.error_outline,      color: Colors.redAccent, size: 22);
-    if (allOk)      return const Icon(Icons.check_circle_outline, color: kTeal,          size: 22);
-    return           const Icon(Icons.circle_outlined,          color: kTextDim,         size: 22);
+    if (hasSyncing) return const Icon(Icons.sync,                color: Colors.amber,     size: 22);
+    if (hasError)   return const Icon(Icons.error_outline,       color: Colors.redAccent, size: 22);
+    if (allOk)      return const Icon(Icons.check_circle_outline, color: kTeal,           size: 22);
+    return           const Icon(Icons.circle_outlined,           color: kTextDim,         size: 22);
   }
 }
 
@@ -405,31 +413,59 @@ class _StatusIcon extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAdd;
-  const _EmptyState({required this.onAdd});
+  final VoidCallback onSetup;
+  const _EmptyState({required this.onAdd, required this.onSetup});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('↕', style: TextStyle(fontSize: 48, color: kTextDim)),
-          const SizedBox(height: 16),
-          const Text('No repositories',
-              style: TextStyle(
-                  color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          const Text(
-            'Tap + to connect your desktop git bare repository.',
-            style: TextStyle(color: kTextDim, fontSize: 11),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: onAdd,
-            child: const Text('ADD REPOSITORY'),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('↕', style: TextStyle(fontSize: 48, color: kTextDim)),
+            const SizedBox(height: 16),
+            const Text('No repositories',
+                style: TextStyle(
+                    color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            const Text(
+              'First time? Set up your vault to connect your phone to your desktop.',
+              style: TextStyle(color: kTextDim, fontSize: 11, height: 1.6),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            // Primary: SET UP VAULT
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onSetup,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kTeal,
+                  foregroundColor: kVoid,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: const RoundedRectangleBorder(),
+                  textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2),
+                ),
+                child: const Text('SET UP VAULT'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Secondary: manual add
+            TextButton(
+              onPressed: onAdd,
+              child: const Text(
+                'ADD EXISTING REPOSITORY',
+                style: TextStyle(
+                    color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
