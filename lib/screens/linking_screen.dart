@@ -23,7 +23,7 @@ class LinkingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VAULT SETUP'),
+        title: const Text('OBSIDIAN VAULT SETUP'),
         leading: Consumer<LinkingController>(
           builder: (_, ctrl, __) {
             // Prevent back-nav while machine is running between park points
@@ -99,33 +99,51 @@ class _IdleView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('⇄',
-              style: TextStyle(fontSize: 56, color: kTextDim)),
-          const SizedBox(height: 24),
-          const Text('Connect your vault',
+          const Text('Connect your Obsidian vault',
               style: TextStyle(
                   color: kStar,
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          // Fixed 2026-08-09, three times same day: first for vagueness
-          // (a real user proceeded without understanding this downloads
-          // their actual, active desktop vault, not placeholder data).
-          // Then for order, once the flow was corrected to match how
-          // Obsidian actually works on iOS. Then again for clarity:
-          // "this" didn't name Synclocal explicitly, "Nothing already...
-          // is touched" was confusing without saying what it meant, and
-          // the Obsidian-installed line duplicated (and could distract
-          // from) the dedicated instructions on the next screen - moved
-          // there entirely, not repeated here.
-          Text(
-            'You will first create a new vault in Obsidian.\n\n'
-            'Then Synclocal will download your notes from your\n'
-            'desktop (${ctrl.desktopUser}@${ctrl.desktopIp}) into\n'
-            'that vault.\n\n'
-            'Your other notes and apps on this phone are not\n'
-            'affected by this.',
-            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
+          const SizedBox(height: 28),
+          // Pictogram replacing the old wall of text (2026-08-09) - user
+          // feedback was that a paragraph explaining source -> destination
+          // is harder to parse at a glance than seeing it. Built-in
+          // Material icons only, no flutter_svg: this session already
+          // lost build time twice to native-dependency issues, not worth
+          // repeating for a cosmetic asset. Real branded artwork went to
+          // the app icon instead (assets/icon/icon.png), not here.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DeviceGlyph(
+                icon: Icons.computer_rounded,
+                label: 'Your desktop',
+                caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 14),
+                child: Icon(Icons.arrow_forward_rounded,
+                    color: kTeal, size: 26),
+              ),
+              _DeviceGlyph(
+                icon: Icons.auto_stories_rounded,
+                label: 'Obsidian vault',
+                caption: 'this phone',
+                accent: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          // Answers "what exactly gets downloaded" directly, in place of
+          // the old vaguer paragraph - fixed 2026-08-09 per real user
+          // feedback that START DOWNLOAD gave no sense of scope before
+          // committing to it.
+          const Text(
+            'Every note, folder, and attachment in your desktop\n'
+            'vault is copied into a new Obsidian vault here.\n'
+            'Nothing else on this phone is touched.',
+            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
@@ -644,6 +662,46 @@ class _PulsingDotsState extends State<_PulsingDots>
             ),
           );
         }),
+      ),
+    );
+  }
+}
+
+// ── Device glyph (pictogram for source/destination) ──────────────────────────────
+
+class _DeviceGlyph extends StatelessWidget {
+  final IconData icon;
+  final String   label;
+  final String   caption;
+  final bool     accent;
+  const _DeviceGlyph({
+    required this.icon,
+    required this.label,
+    required this.caption,
+    this.accent = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ? kTeal : kTextDim;
+    return SizedBox(
+      width: 110,
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: color),
+          const SizedBox(height: 10),
+          Text(label,
+              style: TextStyle(
+                  color: accent ? kStar : kTextMid,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 2),
+          Text(caption,
+              style: const TextStyle(color: kTextDim, fontSize: 11),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis),
+        ],
       ),
     );
   }
