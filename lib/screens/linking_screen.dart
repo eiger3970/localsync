@@ -319,6 +319,7 @@ class _CompleteViewState extends State<_CompleteView>
       remoteUser:        ctrl.desktopUser,
       remotePath:        ctrl.bareRepoPath,
       remotePort:        ctrl.sshPort,
+      localPath:         ctrl.localVaultPath,
       obsidianVaultPath: 'On My iPhone/Synclocal',
       autoSync:          true,
       status:            SyncStatus.ok,

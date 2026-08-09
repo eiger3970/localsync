@@ -27,6 +27,7 @@ class DatabaseService {
       remoteHost:        '172.20.10.11',
       remoteUser:        'rapi5',
       remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+      localPath:         '/web-demo-not-a-real-path',
       obsidianVaultPath: 'On My iPhone/Synclocal',
       autoSync:          true,
       status:            SyncStatus.ok,

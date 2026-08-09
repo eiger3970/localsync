@@ -20,18 +20,46 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('SYNCLOCAL'),
         actions: [
-          // PAIR — always visible in AppBar, needed before Set up vault
-          // can succeed (no keypair -> LinkingError.pairingNotComplete)
-          IconButton(
-            icon: const Icon(Icons.vpn_key_outlined, color: kTeal, size: 20),
-            tooltip: 'Pair with desktop',
-            onPressed: () => _openPairing(context),
-          ),
-          // SET UP VAULT — always visible in AppBar
-          IconButton(
-            icon: const Icon(Icons.phone_iphone, color: kTeal, size: 20),
-            tooltip: 'Set up vault',
-            onPressed: () => _openLinking(context),
+          // Fixed 2026-08-09: two bare icon buttons (key, phone) with only
+          // a long-press tooltip for explanation - on iOS a tap doesn't
+          // show the tooltip at all, so neither icon was actually self-
+          // explanatory at a glance. User's own words: "Key and phone
+          // image, why, if yes, make clearer." Consolidated into one menu
+          // with real text labels - still fully reachable (re-pairing a
+          // new phone, or linking an additional vault, are both genuine
+          // ongoing needs, not first-run-only), just not two unexplained
+          // icons sitting permanently in the app bar.
+          PopupMenuButton<String>(
+            color: kSurface,
+            icon: const Icon(Icons.more_vert, color: kTeal, size: 22),
+            onSelected: (v) {
+              if (v == 'pair') _openPairing(context);
+              if (v == 'link') _openLinking(context);
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'pair',
+                child: Row(
+                  children: const [
+                    Icon(Icons.vpn_key_outlined, color: kStar, size: 18),
+                    SizedBox(width: 12),
+                    Text('Pair with desktop',
+                        style: TextStyle(color: kStar, fontSize: 14)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'link',
+                child: Row(
+                  children: const [
+                    Icon(Icons.phone_iphone, color: kStar, size: 18),
+                    SizedBox(width: 12),
+                    Text('Set up a vault',
+                        style: TextStyle(color: kStar, fontSize: 14)),
+                  ],
+                ),
+              ),
+            ],
           ),
           Consumer<RepositoryProvider>(
             builder: (_, p, __) => Padding(
@@ -182,7 +210,7 @@ class _RepoTile extends StatelessWidget {
                         repo.name,
                         style: const TextStyle(
                             color: kStar,
-                            fontSize: 13,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 8),
@@ -228,20 +256,20 @@ class _RepoTile extends StatelessWidget {
                 PopupMenuItem(
                   value: 'commit',
                   child: Text('Commit & push',
-                      style: TextStyle(color: kStar, fontSize: 12)),
+                      style: TextStyle(color: kStar, fontSize: 15)),
                 ),
                 PopupMenuItem(
                   value: 'toggle_auto',
                   child: Text(
                     repo.autoSync ? 'Switch to manual' : 'Switch to auto',
-                    style: const TextStyle(color: kStar, fontSize: 12),
+                    style: const TextStyle(color: kStar, fontSize: 15),
                   ),
                 ),
                 const PopupMenuItem(
                   value: 'delete',
                   child: Text('Remove',
                       style:
-                          TextStyle(color: Colors.redAccent, fontSize: 12)),
+                          TextStyle(color: Colors.redAccent, fontSize: 15)),
                 ),
               ],
             ),
@@ -305,7 +333,7 @@ class _PhaseText extends StatelessWidget {
       label,
       style: const TextStyle(
         color: kTeal,
-        fontSize: 10,
+        fontSize: 12,
         letterSpacing: 0.5,
         fontStyle: FontStyle.italic,
       ),
@@ -325,8 +353,8 @@ class _MetaText extends StatelessWidget {
       final reason = repo.lastError!.split('\n').first;
       return Text(
         reason,
-        style: const TextStyle(color: Colors.redAccent, fontSize: 10),
-        maxLines: 1,
+        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+        maxLines: 2,
         overflow: TextOverflow.ellipsis,
       );
     }
@@ -337,13 +365,13 @@ class _MetaText extends StatelessWidget {
           Text(
             'synced ${_timeAgo(repo.lastSync!)}',
             style: const TextStyle(
-                color: kTextDim, fontSize: 10, letterSpacing: 0.5),
+                color: kTextDim, fontSize: 12, letterSpacing: 0.5),
           ),
         if (repo.fileCount > 0)
           Text(
             '${repo.fileCount} files · ${repo.folderCount} folders',
             style: const TextStyle(
-                color: kTextDim, fontSize: 10, letterSpacing: 0.5),
+                color: kTextDim, fontSize: 12, letterSpacing: 0.5),
           ),
       ],
     );

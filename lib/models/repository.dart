@@ -33,7 +33,16 @@ class Repository {
   final int        remotePort;        // 22
   final String     remoteUser;        // rapi5
   final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
-  final String     obsidianVaultPath; // On My iPhone/Synclocal
+  // Real on-disk absolute path this app's git operations actually run
+  // against (Synclocal's own exposed Documents dir - see STRUCTURE.md).
+  // Added 2026-08-09 after discovering SyncService had been using
+  // obsidianVaultPath (a cosmetic Files-app display label like "On My
+  // iPhone/Synclocal", not a real filesystem path) for actual git
+  // operations - every sync attempt failed with bareRepoNotFound
+  // regardless of network state, since Directory('On My iPhone/
+  // Synclocal/.git') can never resolve to anything real.
+  final String     localPath;
+  final String     obsidianVaultPath; // On My iPhone/Synclocal (display only)
   final bool       autoSync;
   final SyncStatus status;
   final SyncPhase  syncPhase;
@@ -48,6 +57,7 @@ class Repository {
     required this.remoteHost,
     required this.remoteUser,
     required this.remotePath,
+    required this.localPath,
     required this.obsidianVaultPath,
     this.remotePort   = 22,
     this.autoSync     = true,
@@ -66,6 +76,7 @@ class Repository {
     int?         remotePort,
     String?      remoteUser,
     String?      remotePath,
+    String?      localPath,
     String?      obsidianVaultPath,
     bool?        autoSync,
     SyncStatus?  status,
@@ -81,6 +92,7 @@ class Repository {
     remotePort:        remotePort       ?? this.remotePort,
     remoteUser:        remoteUser       ?? this.remoteUser,
     remotePath:        remotePath       ?? this.remotePath,
+    localPath:         localPath        ?? this.localPath,
     obsidianVaultPath: obsidianVaultPath ?? this.obsidianVaultPath,
     autoSync:          autoSync         ?? this.autoSync,
     status:            status           ?? this.status,
@@ -98,6 +110,7 @@ class Repository {
     'remote_port':    remotePort,
     'remote_user':    remoteUser,
     'remote_path':    remotePath,
+    'local_path':     localPath,
     'obsidian_vault': obsidianVaultPath,
     'auto_sync':      autoSync ? 1 : 0,
     'last_sync':      lastSync?.toIso8601String(),
@@ -113,6 +126,11 @@ class Repository {
     remotePort:        (m['remote_port'] as int?) ?? 22,
     remoteUser:        m['remote_user'] as String,
     remotePath:        m['remote_path'] as String,
+    // Old records saved before 2026-08-09 have no local_path at all -
+    // falls back to empty string rather than crashing on parse. A repo
+    // loaded this way will still fail to sync (same as before this fix)
+    // until it's removed and re-added via SET UP VAULT.
+    localPath:         (m['local_path'] as String?) ?? '',
     obsidianVaultPath: m['obsidian_vault'] as String,
     autoSync:          (m['auto_sync'] as int? ?? 1) == 1,
     status:            SyncStatus.idle,

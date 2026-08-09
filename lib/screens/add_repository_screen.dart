@@ -2,6 +2,7 @@
 // Form to configure a new git bare repository connection.
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/repository.dart';
@@ -122,12 +123,21 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
+    // This app has exactly one real local git working directory
+    // (Synclocal's own exposed Documents folder - see STRUCTURE.md) -
+    // not something a user could meaningfully type in as an iOS sandbox
+    // path, so it's computed here rather than exposed as a form field.
+    // Every Repository record needs it for sync to actually work (see
+    // models/repository.dart's localPath field, added 2026-08-09).
+    final localPath = (await getApplicationDocumentsDirectory()).path;
+
     final repo = Repository(
       name:             _nameCtrl.text.trim(),
       remoteHost:       _hostCtrl.text.trim(),
       remotePort:       int.tryParse(_portCtrl.text.trim()) ?? 22,
       remoteUser:       _userCtrl.text.trim(),
       remotePath:       _pathCtrl.text.trim(),
+      localPath:        localPath,
       obsidianVaultPath: _vaultCtrl.text.trim(),
     );
 

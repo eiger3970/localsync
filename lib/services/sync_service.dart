@@ -76,7 +76,12 @@ class SyncService {
     required String sshPrivateKeyPath,
     required String sshPublicKeyPath,
   }) => SyncService(
-    vaultPath:         repo.obsidianVaultPath,
+    // Fixed 2026-08-09: this was repo.obsidianVaultPath, a cosmetic
+    // Files-app display label ("On My iPhone/Synclocal"), not a real
+    // filesystem path - every sync failed with bareRepoNotFound
+    // immediately, regardless of network. repo.localPath is the real
+    // on-disk absolute path. See models/repository.dart.
+    vaultPath:         repo.localPath,
     remoteUser:        repo.remoteUser,
     remoteHost:        repo.remoteHost,
     remotePort:        repo.remotePort,
