@@ -108,18 +108,27 @@ class _IdleView extends StatelessWidget {
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          const Text(
-            'synclocal will download your notes and connect them '
-            'to your desktop.\n\n'
-            'You will need Obsidian installed.\n\n'
-            'At the end you will point Obsidian at the downloaded '
-            'folder — instructions will be clear.',
-            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.7),
+          // Fixed 2026-08-09: this used to just say "synclocal will
+          // download your notes" - vague enough that a real user
+          // proceeded without understanding that this downloads their
+          // actual, active desktop vault (not a placeholder/test
+          // dataset). Consent needs to happen BEFORE the download runs,
+          // not be explained afterward once someone's confused about
+          // what already happened. Now states the concrete source.
+          Text(
+            'This will download your Obsidian notes from your desktop\n'
+            '(${ctrl.desktopUser}@${ctrl.desktopIp}) onto this phone,\n'
+            'into a new folder that only Synclocal manages.\n\n'
+            'Nothing already on this phone is touched.\n\n'
+            'You will need Obsidian installed. Afterward, you will\n'
+            'tell Obsidian to open that new folder - instructions\n'
+            'will be clear.',
+            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
           _PrimaryButton(
-            label: 'START',
+            label: 'START DOWNLOAD',
             onPressed: ctrl.startLinking,
           ),
         ],
