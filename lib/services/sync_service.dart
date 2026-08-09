@@ -12,6 +12,7 @@ import 'dart:io';
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
+import 'vault_folder_service.dart';
 
 // ── Result types ───────────────────────────────────────────────────────────────
 
@@ -58,7 +59,15 @@ class SyncEvent {
 // ── SyncService ────────────────────────────────────────────────────────────────
 
 class SyncService {
+  // vaultPath is now just the last known/informational path - never
+  // trusted directly for git operations. vaultBookmark (2026-08-09) is
+  // the security-scoped bookmark for the user's own Obsidian vault
+  // folder; every operation resolves fresh access from it at the start
+  // of fullSync() and releases it at the end. See models/repository.dart
+  // and lib/STRUCTURE.md for why a plain path is not enough here - this
+  // is a different app's sandbox, not Synclocal's own.
   final String vaultPath;
+  final String vaultBookmark;
   final String remoteUser;
   final String remoteHost;
   final int    remotePort;
@@ -71,9 +80,11 @@ class SyncService {
   final String sshPrivateKeyPath;
   final String sshPublicKeyPath;
   final String sshPassphrase;
+  final VaultFolderService _vaultFolder;
 
   SyncService({
     required this.vaultPath,
+    required this.vaultBookmark,
     required this.remoteUser,
     required this.remoteHost,
     required this.remotePath,
@@ -82,19 +93,16 @@ class SyncService {
     this.remotePort      = 22,
     this.branch           = 'main',
     this.sshPassphrase    = '',
-  });
+    VaultFolderService? vaultFolder,
+  }) : _vaultFolder = vaultFolder ?? VaultFolderService();
 
   factory SyncService.fromRepo(
     Repository repo, {
     required String sshPrivateKeyPath,
     required String sshPublicKeyPath,
   }) => SyncService(
-    // Fixed 2026-08-09: this was repo.obsidianVaultPath, a cosmetic
-    // Files-app display label ("On My iPhone/Synclocal"), not a real
-    // filesystem path - every sync failed with bareRepoNotFound
-    // immediately, regardless of network. repo.localPath is the real
-    // on-disk absolute path. See models/repository.dart.
     vaultPath:         repo.localPath,
+    vaultBookmark:     repo.vaultBookmark,
     remoteUser:        repo.remoteUser,
     remoteHost:        repo.remoteHost,
     remotePath:        repo.remotePath,
@@ -133,6 +141,30 @@ class SyncService {
   // ── Full sync ──────────────────────────────────────────────────────────────
 
   Stream<SyncEvent> fullSync({String? commitMessage}) async* {
+    // Resolve real access to the vault folder first, for the whole
+    // operation - added 2026-08-09 alongside the vault-folder-picker
+    // rework. If this fails, the bookmark itself is stale (folder
+    // moved/deleted/permission revoked) - nothing past this point can
+    // work regardless of network state, so fail fast and clearly rather
+    // than proceeding with a path that will error out deeper in.
+    if (vaultBookmark.isEmpty) {
+      yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
+      return;
+    }
+    final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
+    if (resolvedPath == null) {
+      yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
+      return;
+    }
+
+    try {
+      yield* _syncAt(resolvedPath, commitMessage: commitMessage);
+    } finally {
+      await _vaultFolder.stopAccessing(vaultBookmark);
+    }
+  }
+
+  Stream<SyncEvent> _syncAt(String path, {String? commitMessage}) async* {
     // Fixed 2026-08-09: this used to fail immediately with
     // bareRepoNotFound whenever the local .git folder was missing - a
     // permanent dead end with no way to recover short of manually
@@ -143,15 +175,40 @@ class SyncService {
     // edge case. Now re-clones automatically instead of just failing -
     // the same recovery a fresh "Set up a vault" run would do, but
     // reachable from the ordinary sync/refresh action, no separate
-    // manual flow required.
-    if (!await Directory('$vaultPath/.git').exists()) {
+    // manual flow required. Should be far rarer now that the vault
+    // folder lives in Obsidian's own stable container rather than
+    // Synclocal's, but kept as a defensive path.
+    if (!await Directory('$path/.git').exists()) {
       yield SyncEvent.phase(SyncPhase.pulling);
       try {
-        git.Repository.clone(
-          url: _remoteUrl,
-          localPath: vaultPath,
-          callbacks: _callbacks,
+        // Was git.Repository.clone() until 2026-08-09 - required an
+        // empty target directory, but path is the user's own Obsidian
+        // vault folder (picked via the native folder picker, see
+        // VaultFolderService/AppDelegate.swift), which is never empty -
+        // it has real notes and a .obsidian/ config dir. Same
+        // init+fetch+reset approach as GitServiceImpl.pullFromBareRepo()
+        // uses for the initial setup clone.
+        // Residual risk, explicitly flagged rather than silently
+        // accepted: this hard-resets onto the desktop's state, which
+        // would discard any genuine local edits made in the window
+        // between .git going missing and this recovery running.
+        final repo = git.Repository.init(
+          path: path,
+          initialHead: branch,
+          originUrl: _remoteUrl,
         );
+        try {
+          final remote = git.Remote.lookup(repo: repo, name: 'origin');
+          remote.fetch(callbacks: _callbacks);
+          final remoteBranch = git.Branch.lookup(
+            repo: repo,
+            name: 'origin/$branch',
+            type: git.GitBranch.remote,
+          );
+          repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
+        } finally {
+          repo.free();
+        }
       } catch (e) {
         yield SyncEvent.done(SyncFailed(_diagnose(e), debugDetail: e.toString()));
         return;
@@ -162,7 +219,7 @@ class SyncService {
 
     late final git.Repository repo;
     try {
-      repo = git.Repository.open(vaultPath);
+      repo = git.Repository.open(path);
     } catch (e) {
       yield SyncEvent.done(const SyncFailed(LinkingError.bareRepoNotFound));
       return;
@@ -171,7 +228,7 @@ class SyncService {
     try {
       // 1. Recover from any stuck merge from a previous crashed run
       if (repo.state == git.GitRepositoryState.merge) {
-        _repairAllConflictsOnDisk();
+        _repairAllConflictsOnDisk(path);
         if (repo.index.hasConflicts) {
           // Repair pass found nothing new to fix but conflicts remain -
           // same "tree was clean but merge not committed" edge case the
@@ -234,7 +291,7 @@ class SyncService {
       git.Merge.commit(repo: repo, commit: annotated);
 
       if (repo.index.hasConflicts) {
-        _repairAllConflictsOnDisk();
+        _repairAllConflictsOnDisk(path);
       }
       _finishMergeCommit(repo, message: 'Merge desktop and phone ${_timestamp()}');
       repo.stateCleanup();
@@ -257,8 +314,8 @@ class SyncService {
   //    Operates on working-directory files as plain text, not git's index/
   //    tree objects, so nothing here needed the low-level conflict API. ────
 
-  void _repairAllConflictsOnDisk() {
-    final dir = Directory(vaultPath);
+  void _repairAllConflictsOnDisk(String path) {
+    final dir = Directory(path);
     for (final entity in dir.listSync(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       if (!entity.path.endsWith('.md')) continue;

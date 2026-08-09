@@ -108,21 +108,21 @@ class _IdleView extends StatelessWidget {
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          // Fixed 2026-08-09: this used to just say "synclocal will
-          // download your notes" - vague enough that a real user
-          // proceeded without understanding that this downloads their
-          // actual, active desktop vault (not a placeholder/test
-          // dataset). Consent needs to happen BEFORE the download runs,
-          // not be explained afterward once someone's confused about
-          // what already happened. Now states the concrete source.
+          // Fixed 2026-08-09, twice same day: first for vagueness (a
+          // real user proceeded without understanding this downloads
+          // their actual, active desktop vault, not placeholder data).
+          // Then again for order, once the flow was corrected to match
+          // how Obsidian actually works on iOS - real user documentation
+          // of years of working Working Copy usage showed Obsidian must
+          // create its own vault folder FIRST; Synclocal downloads into
+          // it SECOND, not the reverse.
           Text(
-            'This will download your Obsidian notes from your desktop\n'
-            '(${ctrl.desktopUser}@${ctrl.desktopIp}) onto this phone,\n'
-            'into a new folder that only Synclocal manages.\n\n'
+            'You will first create a new vault in Obsidian.\n\n'
+            'Then this will download your notes from your desktop\n'
+            '(${ctrl.desktopUser}@${ctrl.desktopIp}) into that vault.\n\n'
             'Nothing already on this phone is touched.\n\n'
-            'You will need Obsidian installed. Afterward, you will\n'
-            'tell Obsidian to open that new folder - instructions\n'
-            'will be clear.',
+            'You will need Obsidian installed - instructions will\n'
+            'be clear at each step.',
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
@@ -187,7 +187,8 @@ class _ParkedView extends StatelessWidget {
   Widget build(BuildContext context) {
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
-      LinkingStep.awaitingObsidianVaultOpen => 'Open your vault',
+      LinkingStep.awaitingVaultCreation => 'Create your vault',
+      LinkingStep.pickingVaultFolder    => 'Select your vault',
       _ => 'Your turn',
     };
 
@@ -237,18 +238,22 @@ class _ParkedView extends StatelessWidget {
           ),
           const SizedBox(height: 32),
 
-          if (ctrl.step == LinkingStep.awaitingObsidianVaultOpen) ...[
+          if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
             _PrimaryButton(
               label: 'OPEN OBSIDIAN',
               onPressed: ctrl.openObsidianNow,
             ),
             const SizedBox(height: 12),
+            _PrimaryButton(
+              label: 'I\'VE CREATED IT — CONTINUE',
+              onPressed: ctrl.confirmVaultCreated,
+            ),
+          ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
+            _PrimaryButton(
+              label: 'SELECT VAULT FOLDER',
+              onPressed: ctrl.pickVaultFolder,
+            ),
           ],
-
-          _PrimaryButton(
-            label: 'DONE — CONTINUE',
-            onPressed: ctrl.confirmParkedActionComplete,
-          ),
         ],
       ),
     );
@@ -322,14 +327,19 @@ class _CompleteViewState extends State<_CompleteView>
     );
     if (alreadySaved) return;
 
+    final vaultPath     = ctrl.pickedVaultPath;
+    final vaultBookmark = ctrl.pickedVaultBookmark;
+    if (vaultPath == null || vaultBookmark == null) return; // web target
+
     await provider.addRepository(Repository(
       name:              'Obsidian_vault',
       remoteHost:        ctrl.desktopIp,
       remoteUser:        ctrl.desktopUser,
       remotePath:        ctrl.bareRepoPath,
       remotePort:        ctrl.sshPort,
-      localPath:         ctrl.localVaultPath,
-      obsidianVaultPath: 'On My iPhone/Synclocal',
+      localPath:         vaultPath,
+      vaultBookmark:     vaultBookmark,
+      obsidianVaultPath: 'On My iPhone/Obsidian/Synclocal',
       autoSync:          true,
       status:            SyncStatus.ok,
       lastSync:          DateTime.now(),
@@ -385,10 +395,17 @@ class _CompleteViewState extends State<_CompleteView>
           // own vault list), and the old wording had already told them
           // they were fully linked. Now honest about what's actually
           // still required, with a direct way to do it from here.
+          // Rewritten 2026-08-09 alongside the vault-folder-picker
+          // rework: the old copy told the user to go select the vault
+          // in Obsidian "if you haven't already" - stale as of this
+          // rewrite, since selecting the vault folder is now a
+          // precondition of reaching this screen at all (it happens
+          // before the clone, not after). This screen is reached only
+          // once Synclocal already has real access to that same folder
+          // Obsidian is showing.
           const Text(
-            'Your notes have been downloaded to this phone.\n\n'
-            'If you haven\'t already, open Obsidian and select\n'
-            '"Synclocal" as your vault to see them.',
+            'Your notes have been downloaded into your\n'
+            '"Synclocal" vault in Obsidian.',
             style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),

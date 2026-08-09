@@ -1,7 +1,6 @@
 // services/repository_provider.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'database_service.dart';
@@ -22,40 +21,19 @@ class RepositoryProvider extends ChangeNotifier {
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {
+    // No path pre-refresh step needed anymore (2026-08-09 rework): the
+    // vault folder is now the user's own Obsidian vault, resolved fresh
+    // from its security-scoped bookmark inside SyncService.fullSync()
+    // itself at the start of every sync - not something this provider
+    // needs to precompute or cache. The old _refreshLocalPaths() existed
+    // because Synclocal used to own its own container path, which was
+    // NOT stable across reinstalls; that whole class of problem doesn't
+    // apply to a bookmark into a different app's stable storage.
     await Future.wait([_loadRepos(), _loadTemplates()]);
-    await _refreshLocalPaths();
     _loading = false;
     notifyListeners();
     for (final repo in _repos.where((r) => r.autoSync)) {
       syncRepository(repo.id!);
-    }
-  }
-
-  // Refreshes every repo's localPath on every launch, unconditionally -
-  // not just when empty. Originally (2026-08-09) this only repaired
-  // records with an empty local_path (from before the field existed),
-  // but real-device testing found the deeper problem: on iOS, the
-  // app's own container path (getApplicationDocumentsDirectory()) is
-  // NOT stable - it changes on every reinstall, which happens on every
-  // rebuild+resideload during development. A path that was valid last
-  // launch can be stale (pointing at a container that no longer
-  // exists) by this launch, even though it's non-empty and "looks"
-  // valid - hit exactly this as GIT_ERROR_OS "failed to make
-  // directory ... Operation not permitted" (trying to write into an
-  // orphaned old container). Since this app has exactly one real local
-  // vault folder, there's nothing to lose by always recomputing it live
-  // rather than trusting a cached value - cheap and removes an entire
-  // class of stale-path bugs, not just the one where it happened to be
-  // empty.
-  Future<void> _refreshLocalPaths() async {
-    if (kIsWeb || _repos.isEmpty) return;
-    final localPath = (await getApplicationDocumentsDirectory()).path;
-    for (final repo in _repos) {
-      if (repo.localPath == localPath) continue;
-      final idx = _repos.indexWhere((r) => r.id == repo.id);
-      if (idx == -1) continue;
-      _repos[idx] = _repos[idx].copyWith(localPath: localPath);
-      await _db.updateRepository(_repos[idx]);
     }
   }
 
@@ -65,12 +43,6 @@ class RepositoryProvider extends ChangeNotifier {
   // ── Sync ────────────────────────────────────────────────────────────────────
 
   Future<void> syncRepository(int id, {String? commitMessage}) async {
-    // Defense in depth alongside _refreshLocalPaths() in _init(): always
-    // use a live-computed path for the actual git call, never trust
-    // whatever's cached in _repos at this point, in case sync gets
-    // triggered through some path that didn't go through _init() first.
-    await _refreshLocalPaths();
-
     final idx = _repos.indexWhere((r) => r.id == id);
     if (idx == -1) return;
 

@@ -2,11 +2,11 @@
 // Form to configure a new git bare repository connection.
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
+import '../services/vault_folder_service.dart';
 
 class AddRepositoryScreen extends StatefulWidget {
   const AddRepositoryScreen({super.key});
@@ -24,14 +24,13 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   final _pathCtrl    = TextEditingController(
     text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
   );
-  final _vaultCtrl   = TextEditingController(
-    text: 'On My iPhone/Synclocal',
-  );
+  final _vaultFolder = VaultFolderService();
+  VaultFolderResult? _pickedVault;
   bool _saving = false;
 
   @override
   void dispose() {
-    for (final c in [_nameCtrl, _hostCtrl, _portCtrl, _userCtrl, _pathCtrl, _vaultCtrl]) {
+    for (final c in [_nameCtrl, _hostCtrl, _portCtrl, _userCtrl, _pathCtrl]) {
       c.dispose();
     }
     super.dispose();
@@ -67,11 +66,49 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
                 validator: _required,
               ),
               const SizedBox(height: 20),
-              _label('OBSIDIAN VAULT PATH ON PHONE'),
-              _field(
-                _vaultCtrl,
-                hint: 'On My iPhone/Synclocal',
-                validator: _required,
+              // Rewritten 2026-08-09 alongside the vault-folder-picker
+              // rework: this used to be a free-text field computed from
+              // getApplicationDocumentsDirectory() on save, same wrong
+              // assumption models/repository.dart's localPath field
+              // itself already moved past - there's no single fixed
+              // Synclocal-owned folder anymore. Obsidian creates and
+              // owns each vault folder; this screen now requests real
+              // access to it the same way linking_screen.dart's setup
+              // flow does.
+              _label('OBSIDIAN VAULT FOLDER'),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: kSurface,
+                  border: Border.all(color: kBorder),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _pickedVault?.path ?? 'No folder selected',
+                        style: TextStyle(
+                          color: _pickedVault != null ? kStar : kTextDim,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _pickVault,
+                      child: const Text('SELECT',
+                          style: TextStyle(color: kTeal, fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Must already exist as a vault in Obsidian - create it\n'
+                'there first (Create a vault → Continue without sync).',
+                style: TextStyle(color: kTextDim, fontSize: 11, height: 1.5),
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -119,26 +156,32 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   String? _required(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Required' : null;
 
+  Future<void> _pickVault() async {
+    final result = await _vaultFolder.pickFolder();
+    if (result == null) return;
+    setState(() => _pickedVault = result);
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final vault = _pickedVault;
+    if (vault == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select the Obsidian vault folder first')),
+      );
+      return;
+    }
     setState(() => _saving = true);
 
-    // This app has exactly one real local git working directory
-    // (Synclocal's own exposed Documents folder - see STRUCTURE.md) -
-    // not something a user could meaningfully type in as an iOS sandbox
-    // path, so it's computed here rather than exposed as a form field.
-    // Every Repository record needs it for sync to actually work (see
-    // models/repository.dart's localPath field, added 2026-08-09).
-    final localPath = (await getApplicationDocumentsDirectory()).path;
-
     final repo = Repository(
-      name:             _nameCtrl.text.trim(),
-      remoteHost:       _hostCtrl.text.trim(),
-      remotePort:       int.tryParse(_portCtrl.text.trim()) ?? 22,
-      remoteUser:       _userCtrl.text.trim(),
-      remotePath:       _pathCtrl.text.trim(),
-      localPath:        localPath,
-      obsidianVaultPath: _vaultCtrl.text.trim(),
+      name:              _nameCtrl.text.trim(),
+      remoteHost:        _hostCtrl.text.trim(),
+      remotePort:        int.tryParse(_portCtrl.text.trim()) ?? 22,
+      remoteUser:        _userCtrl.text.trim(),
+      remotePath:        _pathCtrl.text.trim(),
+      localPath:         vault.path,
+      vaultBookmark:     vault.bookmark,
+      obsidianVaultPath: 'On My iPhone/Obsidian/${_nameCtrl.text.trim()}',
     );
 
     await context.read<RepositoryProvider>().addRepository(repo);

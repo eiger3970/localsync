@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:git2dart/git2dart.dart';
-import 'package:path_provider/path_provider.dart';
 import 'theme.dart';
 import 'services/repository_provider.dart';
 import 'features/linking/linking_controller.dart';
@@ -13,13 +12,11 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PlatformSpecific.initialize();
-  final localVaultPath = (await getApplicationDocumentsDirectory()).path;
-  runApp(SynclocalApp(localVaultPath: localVaultPath));
+  runApp(const SynclocalApp());
 }
 
 class SynclocalApp extends StatefulWidget {
-  final String localVaultPath;
-  const SynclocalApp({super.key, required this.localVaultPath});
+  const SynclocalApp({super.key});
 
   @override
   State<SynclocalApp> createState() => _SynclocalAppState();
@@ -41,9 +38,15 @@ class _SynclocalAppState extends State<SynclocalApp> {
       // session. bareRepoPath was pointing at a path that never
       // existed; the real bare repo synco.sh and the desktop's actual
       // Obsidian vault use is at Git/pi5-obsidian/Git_bare_repo/.
+      //
+      // localVaultPath removed 2026-08-09: the vault folder is no
+      // longer a fixed app-owned path computed once at startup - it's
+      // the user's own Obsidian vault folder, selected during setup via
+      // VaultFolderService's native picker and tracked per-Repository
+      // (see models/repository.dart's vaultBookmark field). See
+      // lib/STRUCTURE.md for the full architecture correction.
       desktopIp:      '172.20.10.11',
       bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
-      localVaultPath: widget.localVaultPath,
       sshPort:        22,
     );
     _lifecycleObserver = SynclocalLifecycleObserver(

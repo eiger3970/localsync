@@ -33,16 +33,25 @@ class Repository {
   final int        remotePort;        // 22
   final String     remoteUser;        // rapi5
   final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
-  // Real on-disk absolute path this app's git operations actually run
-  // against (Synclocal's own exposed Documents dir - see STRUCTURE.md).
-  // Added 2026-08-09 after discovering SyncService had been using
-  // obsidianVaultPath (a cosmetic Files-app display label like "On My
-  // iPhone/Synclocal", not a real filesystem path) for actual git
-  // operations - every sync attempt failed with bareRepoNotFound
-  // regardless of network state, since Directory('On My iPhone/
-  // Synclocal/.git') can never resolve to anything real.
+  // Last known resolved on-disk path - informational/display only.
+  // Cannot be trusted directly for git operations: this is now the
+  // user's OWN Obsidian vault folder (a different app's sandbox),
+  // access to which requires resolving vaultBookmark fresh via
+  // VaultFolderService before every use, not just reading this string.
   final String     localPath;
-  final String     obsidianVaultPath; // On My iPhone/Synclocal (display only)
+  // Security-scoped bookmark (base64) granting access to the Obsidian
+  // vault folder the user picked via the native folder picker. Added
+  // 2026-08-09 - real user documentation of years of working Working
+  // Copy usage revealed the correct architecture: Obsidian creates and
+  // owns its vault folder itself; Synclocal requests access to it
+  // afterward, the same way Working Copy's "Link Repository to" does.
+  // localPath alone was never going to work for this - iOS requires a
+  // bookmark to retain cross-app folder access across launches, a
+  // plain path string silently loses access. Empty for repos created
+  // before this existed (see localPath's own prior empty-string
+  // migration note in STRUCTURE.md for the analogous earlier case).
+  final String     vaultBookmark;
+  final String     obsidianVaultPath; // On My iPhone/Obsidian/<vault name> (display only)
   final bool       autoSync;
   final SyncStatus status;
   final SyncPhase  syncPhase;
@@ -58,6 +67,7 @@ class Repository {
     required this.remoteUser,
     required this.remotePath,
     required this.localPath,
+    this.vaultBookmark = '',
     required this.obsidianVaultPath,
     this.remotePort   = 22,
     this.autoSync     = true,
@@ -77,6 +87,7 @@ class Repository {
     String?      remoteUser,
     String?      remotePath,
     String?      localPath,
+    String?      vaultBookmark,
     String?      obsidianVaultPath,
     bool?        autoSync,
     SyncStatus?  status,
@@ -93,6 +104,7 @@ class Repository {
     remoteUser:        remoteUser       ?? this.remoteUser,
     remotePath:        remotePath       ?? this.remotePath,
     localPath:         localPath        ?? this.localPath,
+    vaultBookmark:     vaultBookmark    ?? this.vaultBookmark,
     obsidianVaultPath: obsidianVaultPath ?? this.obsidianVaultPath,
     autoSync:          autoSync         ?? this.autoSync,
     status:            status           ?? this.status,
@@ -111,6 +123,7 @@ class Repository {
     'remote_user':    remoteUser,
     'remote_path':    remotePath,
     'local_path':     localPath,
+    'vault_bookmark': vaultBookmark,
     'obsidian_vault': obsidianVaultPath,
     'auto_sync':      autoSync ? 1 : 0,
     'last_sync':      lastSync?.toIso8601String(),
@@ -131,6 +144,7 @@ class Repository {
     // loaded this way will still fail to sync (same as before this fix)
     // until it's removed and re-added via SET UP VAULT.
     localPath:         (m['local_path'] as String?) ?? '',
+    vaultBookmark:     (m['vault_bookmark'] as String?) ?? '',
     obsidianVaultPath: m['obsidian_vault'] as String,
     autoSync:          (m['auto_sync'] as int? ?? 1) == 1,
     status:            SyncStatus.idle,

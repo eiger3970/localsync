@@ -93,11 +93,39 @@ class GitServiceImpl implements GitService {
   Future<StepResult> pullFromBareRepo() async {
     try {
       if (!_isCloned) {
-        Repository.clone(
-          url: _remoteUrl,
-          localPath: localVaultPath,
-          callbacks: _callbacks,
+        // Was Repository.clone() until 2026-08-09 - required an empty
+        // target directory, but localVaultPath is now the user's own
+        // Obsidian vault folder (created via Obsidian's own "Create a
+        // vault" flow, per the corrected architecture in STRUCTURE.md -
+        // real user documentation of years of working Working Copy
+        // usage showed Obsidian must create/own the vault folder
+        // first). That folder already has a .obsidian/ config dir and
+        // possibly a welcome note from Obsidian's own vault creation -
+        // a plain clone would reject the non-empty directory. Instead:
+        // init a repo in place, fetch, then hard-reset onto the fetched
+        // branch - the same thing real `git init && git remote add &&
+        // git fetch && git reset --hard origin/main` does on a fresh
+        // non-empty directory, and libgit2's hard reset force-
+        // overwrites conflicting untracked files during its checkout
+        // step, so Obsidian's brand-new placeholder content is safely
+        // replaced by the desktop's real vault content.
+        final repo = Repository.init(
+          path: localVaultPath,
+          initialHead: defaultBranch,
+          originUrl: _remoteUrl,
         );
+        try {
+          final remote = Remote.lookup(repo: repo, name: 'origin');
+          remote.fetch(callbacks: _callbacks);
+          final remoteBranch = Branch.lookup(
+            repo: repo,
+            name: 'origin/$defaultBranch',
+            type: GitBranch.remote,
+          );
+          repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+        } finally {
+          repo.free();
+        }
         return const StepSuccess(message: 'Cloned bare repo');
       }
 

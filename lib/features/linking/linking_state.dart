@@ -1,34 +1,43 @@
 // features/linking/linking_state.dart
 //
 // The phone-side vault setup sequence. Desktop bare repo already exists.
-// Phone clones it (via git2dart, in-process - see git_service.dart) into
-// Synclocal's own Documents folder, then the user points Obsidian at that
-// folder using its standard "Open folder as vault" picker. Rewritten
-// 2026-08-08 - see lib/STRUCTURE.md for why this replaced the old
-// Working Copy-driven multi-step link/retry sequence.
+//
+// Rewritten 2026-08-09 with the flow direction corrected - real user
+// documentation of years of working Working Copy usage revealed that
+// Obsidian must create and own its vault folder first, and the sync
+// tool requests access to it afterward via iOS's real cross-app folder
+// picker (a security-scoped bookmark - see VaultFolderService and
+// AppDelegate.swift's VaultFolderChannel). The previous 2026-08-08
+// version had this backwards: cloning into Synclocal's own private
+// folder and expecting Obsidian to later "open" it - no such import
+// path exists in Obsidian's iOS UI ("Open folder as vault" was never
+// real). See lib/STRUCTURE.md for the full finding.
 
 enum LinkingStep {
   idle,
 
   /// Precondition check: does the phone already have its own SSH keypair
-  /// (from pairing - lib/features/pairing/, still unbuilt)? If not, fails
-  /// clearly rather than attempting a clone that can't authenticate.
+  /// (from pairing - lib/features/pairing/)? If not, fails clearly rather
+  /// than attempting a clone that can't authenticate.
   checkingPairing,
 
-  /// Real git2dart clone of the bare repo into Synclocal's own Documents
-  /// directory. In-process - no external app, no parking. Replaces the old
-  /// workingCopyClone + workingCopyLink + awaitingObsidianIndex +
-  /// workingCopyLinkRetry + awaitingWorkingCopyRelaunch + workingCopyPull
-  /// steps entirely: those existed to work around Working Copy's own
-  /// "link" feature quirks, which no longer apply.
-  cloning,
+  /// PARKED — user creates a brand new, empty vault directly in Obsidian
+  /// ("Create a vault" -> "Continue without sync" -> name it -> "Create
+  /// a vault"), on-device, not iCloud. This has to happen first: Obsidian
+  /// is the only thing that can create a vault folder Obsidian will
+  /// actually recognize.
+  awaitingVaultCreation,
 
-  /// PARKED — user opens Obsidian and uses its standard "Open folder as
-  /// vault" to point at Files > On My iPhone > Synclocal (already
-  /// populated by the clone above). This is the only remaining
-  /// another-app step, and it's Obsidian's own normal onboarding flow,
-  /// not a Working Copy-specific workaround.
-  awaitingObsidianVaultOpen,
+  /// User taps "Select vault folder" - presents iOS's native folder
+  /// picker so Synclocal can request access to the vault folder just
+  /// created, obtaining a security-scoped bookmark.
+  pickingVaultFolder,
+
+  /// Real git2dart clone (technically init+fetch+reset, not a plain
+  /// clone - the target folder is never empty, Obsidian already put a
+  /// .obsidian/ dir there) of the bare repo into the picked vault
+  /// folder. In-process, no parking.
+  cloning,
 
   /// Confirm the vault folder has the expected content.
   verifySync,
@@ -148,6 +157,15 @@ enum LinkingError {
   /// confirm the folder was opened as a vault there, iOS doesn't allow
   /// one app to inspect another's state.
   cloneVerificationFailed,
+
+  /// Could not resolve/re-access the security-scoped bookmark for the
+  /// user's picked vault folder - added 2026-08-09 alongside the
+  /// vault-folder-picker rework. Can happen if the folder was moved,
+  /// renamed, or deleted after being picked, or if iOS revoked the
+  /// bookmark for some other reason. Distinct from cloneVerificationFailed
+  /// (that's about the download itself; this is about losing the
+  /// permission to reach the folder at all).
+  vaultFolderAccessLost,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -194,6 +212,8 @@ extension LinkingErrorDetails on LinkingError {
       'The desktop password entered was not accepted.',
     LinkingError.cloneVerificationFailed =>
       'Your notes were not found in the expected folder on this phone.',
+    LinkingError.vaultFolderAccessLost =>
+      'Synclocal lost access to your vault folder.',
   };
 
   String get resolution => switch (this) {
@@ -288,5 +308,10 @@ extension LinkingErrorDetails on LinkingError {
       'The download may not have finished, or the folder was moved or\n'
       'deleted after setup. Tap TRY AGAIN to re-download your notes.\n'
       'Nothing on your desktop is affected either way.',
+    LinkingError.vaultFolderAccessLost =>
+      'This can happen if the folder was moved, renamed, or deleted\n'
+      'after you picked it. Tap TRY AGAIN and select the vault folder\n'
+      'again. Nothing on your desktop or in the folder itself is\n'
+      'affected.',
   };
 }
