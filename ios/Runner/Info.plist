@@ -70,5 +70,15 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<!-- Required for canLaunchUrl('obsidian://') to work at all - iOS
+	     always returns false for canOpenURL on schemes not explicitly
+	     whitelisted here, regardless of whether the app is actually
+	     installed. Missing entirely until 2026-08-09, so ios_app_service
+	     .dart's Obsidian-installed check always reported "not installed"
+	     even when it was. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>obsidian</string>
+	</array>
 </dict>
 </plist>
