@@ -139,6 +139,15 @@ enum LinkingError {
   /// Distinct from sshAuthFailed, which is about the phone's already-
   /// paired key being rejected later (different cause, different fix).
   pairingPasswordRejected,
+
+  /// The cloned folder is missing or empty when reaching verifySync -
+  /// added 2026-08-09 after _verifySync() was found to be a no-op that
+  /// unconditionally reported success. This is the one thing Synclocal
+  /// can actually check from its own sandbox (whether the download
+  /// produced real files) - it genuinely cannot see into Obsidian to
+  /// confirm the folder was opened as a vault there, iOS doesn't allow
+  /// one app to inspect another's state.
+  cloneVerificationFailed,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -183,6 +192,8 @@ extension LinkingErrorDetails on LinkingError {
       'This phone has not been paired with your desktop yet.',
     LinkingError.pairingPasswordRejected =>
       'The desktop password entered was not accepted.',
+    LinkingError.cloneVerificationFailed =>
+      'Your notes were not found in the expected folder on this phone.',
   };
 
   String get resolution => switch (this) {
@@ -273,5 +284,9 @@ extension LinkingErrorDetails on LinkingError {
       'Check the password and try again. This is your desktop login\n'
       'password, entered once just to install this phone\'s key - it\n'
       'is never stored.',
+    LinkingError.cloneVerificationFailed =>
+      'The download may not have finished, or the folder was moved or\n'
+      'deleted after setup. Tap TRY AGAIN to re-download your notes.\n'
+      'Nothing on your desktop is affected either way.',
   };
 }

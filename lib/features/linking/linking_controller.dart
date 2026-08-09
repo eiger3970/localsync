@@ -147,6 +147,24 @@ class LinkingController extends ChangeNotifier {
   Future<void> _verifySync() async {
     _step = LinkingStep.verifySync;
     notifyListeners();
+
+    // Fixed 2026-08-09: this was a no-op that unconditionally reported
+    // success regardless of what actually happened - confirmed on a
+    // real device, user did nothing in Obsidian, switched straight back,
+    // and the app still said "You're all set!" The one thing Synclocal
+    // can genuinely check from its own sandbox is whether the download
+    // actually produced real files - it cannot see into Obsidian to
+    // confirm the folder was opened as a vault there (no cross-app
+    // introspection on iOS). Being honest about that limit rather than
+    // pretending to verify something unverifiable.
+    if (!kIsWeb) {
+      final gitDirExists = await Directory('$localVaultPath/.git').exists();
+      final isEmpty = await Directory(localVaultPath).list().isEmpty;
+      if (!gitDirExists || isEmpty) {
+        return _fail(const StepFailure(LinkingError.cloneVerificationFailed));
+      }
+    }
+
     _step = LinkingStep.complete;
     _isRunning = false;
     notifyListeners();
@@ -164,7 +182,8 @@ class LinkingController extends ChangeNotifier {
     // switching back, tapping Continue) is self-evident from the UI
     // itself when they get there.
     LinkingStep.awaitingObsidianVaultOpen =>
-      'Your notes are downloaded and ready to open.\n\n'
+      'Your notes have arrived on this phone.\n\n'
+      'Next, tell Obsidian where to find them:\n'
       'Tap OPEN OBSIDIAN, then in Obsidian:\n'
       'Open folder as vault → On My iPhone → Synclocal\n\n'
       'Come back here when you\'re done.',
