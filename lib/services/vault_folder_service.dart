@@ -25,6 +25,15 @@ class VaultFolderService {
   /// Presents the native folder picker so the user can select the
   /// Obsidian vault folder they already created (On My iPhone ->
   /// Obsidian -> <vault name>). Returns null if the user cancelled.
+  /// Throws [PlatformException] for a genuine failure (e.g. the native
+  /// channel isn't registered, or no root view controller was available
+  /// to present from) - deliberately NOT swallowed to null here, so a
+  /// real error doesn't look identical to "user tapped Cancel" to the
+  /// caller. Fixed 2026-08-09 after real-device testing found tapping
+  /// SELECT VAULT FOLDER did nothing with no visible error at all - an
+  /// unhandled exception from an unawaited-looking button handler is
+  /// invisible in the UI unless something explicitly catches and
+  /// surfaces it.
   Future<VaultFolderResult?> pickFolder() async {
     final result = await _channel.invokeMapMethod<String, dynamic>('pickFolder');
     if (result == null) return null;

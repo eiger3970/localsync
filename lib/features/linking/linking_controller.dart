@@ -14,6 +14,7 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../../services/git_service.dart';
 import '../../services/ios_app_service.dart';
 import '../../services/ssh_key_paths.dart';
@@ -117,7 +118,20 @@ class LinkingController extends ChangeNotifier {
       return;
     }
 
-    final result = await _vaultFolder.pickFolder();
+    VaultFolderResult? result;
+    try {
+      result = await _vaultFolder.pickFolder();
+    } on PlatformException catch (e) {
+      // Fixed 2026-08-09: real device confirmed tapping this button did
+      // nothing at all - a genuine native-side failure (the channel not
+      // registered, no root view controller to present from) was being
+      // silently dropped instead of shown. Now surfaces as a real,
+      // visible failure with the raw platform error attached.
+      return _fail(StepFailure(
+        LinkingError.vaultPickerFailed,
+        debugDetail: '${e.code}: ${e.message}',
+      ));
+    }
     if (result == null) {
       // User cancelled the picker - stay on this step, let them retry.
       notifyListeners();

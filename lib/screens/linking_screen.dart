@@ -108,21 +108,23 @@ class _IdleView extends StatelessWidget {
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          // Fixed 2026-08-09, twice same day: first for vagueness (a
-          // real user proceeded without understanding this downloads
+          // Fixed 2026-08-09, three times same day: first for vagueness
+          // (a real user proceeded without understanding this downloads
           // their actual, active desktop vault, not placeholder data).
-          // Then again for order, once the flow was corrected to match
-          // how Obsidian actually works on iOS - real user documentation
-          // of years of working Working Copy usage showed Obsidian must
-          // create its own vault folder FIRST; Synclocal downloads into
-          // it SECOND, not the reverse.
+          // Then for order, once the flow was corrected to match how
+          // Obsidian actually works on iOS. Then again for clarity:
+          // "this" didn't name Synclocal explicitly, "Nothing already...
+          // is touched" was confusing without saying what it meant, and
+          // the Obsidian-installed line duplicated (and could distract
+          // from) the dedicated instructions on the next screen - moved
+          // there entirely, not repeated here.
           Text(
             'You will first create a new vault in Obsidian.\n\n'
-            'Then this will download your notes from your desktop\n'
-            '(${ctrl.desktopUser}@${ctrl.desktopIp}) into that vault.\n\n'
-            'Nothing already on this phone is touched.\n\n'
-            'You will need Obsidian installed - instructions will\n'
-            'be clear at each step.',
+            'Then Synclocal will download your notes from your\n'
+            'desktop (${ctrl.desktopUser}@${ctrl.desktopIp}) into\n'
+            'that vault.\n\n'
+            'Your other notes and apps on this phone are not\n'
+            'affected by this.',
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),

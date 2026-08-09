@@ -166,6 +166,14 @@ enum LinkingError {
   /// (that's about the download itself; this is about losing the
   /// permission to reach the folder at all).
   vaultFolderAccessLost,
+
+  /// The native folder picker itself failed to open - added 2026-08-09
+  /// after real-device testing found tapping SELECT VAULT FOLDER did
+  /// nothing at all, silently. Distinct from vaultFolderAccessLost
+  /// (that's a bookmark that stopped resolving after being picked
+  /// successfully; this is the picker never launching in the first
+  /// place).
+  vaultPickerFailed,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -214,6 +222,8 @@ extension LinkingErrorDetails on LinkingError {
       'Your notes were not found in the expected folder on this phone.',
     LinkingError.vaultFolderAccessLost =>
       'Synclocal lost access to your vault folder.',
+    LinkingError.vaultPickerFailed =>
+      'Could not open the folder picker.',
   };
 
   String get resolution => switch (this) {
@@ -313,5 +323,8 @@ extension LinkingErrorDetails on LinkingError {
       'after you picked it. Tap TRY AGAIN and select the vault folder\n'
       'again. Nothing on your desktop or in the folder itself is\n'
       'affected.',
+    LinkingError.vaultPickerFailed =>
+      'Tap TRY AGAIN. If this keeps happening, force-closing and\n'
+      'reopening Synclocal may help.',
   };
 }

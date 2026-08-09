@@ -58,7 +58,22 @@ private func retainLibgit2Symbols() {
 class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
   private var pendingResult: FlutterResult?
 
-  func register(with messenger: FlutterBinaryMessenger, rootViewController: UIViewController) {
+  // Fixed 2026-08-09: real device confirmed "tapping SELECT VAULT
+  // FOLDER does nothing" - exactly the risk flagged in STRUCTURE.md
+  // before this was ever tested. Root cause: register(with:
+  // rootViewController:) was called from application(_:
+  // didFinishLaunchingWithOptions:) right after super's call, assuming
+  // window?.rootViewController already resolved to a live
+  // FlutterViewController at that exact point. This app uses the
+  // implicit-engine pattern (FlutterImplicitEngineDelegate) - the
+  // engine/root view controller isn't guaranteed to exist yet that
+  // early; GeneratedPluginRegistrant.register() is deliberately called
+  // later, from didInitializeImplicitFlutterEngine, for the same
+  // reason. Registration no longer requires a root view controller up
+  // front - it's looked up fresh at the moment the picker is actually
+  // presented instead, by which point the user has already navigated
+  // through several screens and the view controller is definitely live.
+  func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: "synclocal/vault_folder",
       binaryMessenger: messenger
@@ -67,7 +82,7 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
       guard let self = self else { return }
       switch call.method {
       case "pickFolder":
-        self.pickFolder(from: rootViewController, result: result)
+        self.pickFolder(result: result)
       case "startAccessing":
         self.startAccessing(call: call, result: result)
       case "stopAccessing":
@@ -78,7 +93,11 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
     }
   }
 
-  private func pickFolder(from rootViewController: UIViewController, result: @escaping FlutterResult) {
+  private func pickFolder(result: @escaping FlutterResult) {
+    guard let rootViewController = UIApplication.shared.delegate?.window??.rootViewController else {
+      result(FlutterError(code: "NO_ROOT_VC", message: "No root view controller available to present the picker", details: nil))
+      return
+    }
     pendingResult = result
     let picker = UIDocumentPickerViewController(documentTypes: ["public.folder"], in: .open)
     picker.delegate = self
@@ -167,14 +186,14 @@ private let vaultFolderChannel = VaultFolderChannel()
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     retainLibgit2Symbols()
-    let launched = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    if let controller = window?.rootViewController as? FlutterViewController {
-      vaultFolderChannel.register(with: controller.binaryMessenger, rootViewController: controller)
-    }
-    return launched
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // Registered here, not in application(_:didFinishLaunchingWithOptions:)
+    // - see VaultFolderChannel.register()'s comment for why.
+    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VaultFolderChannel")
+    vaultFolderChannel.register(with: registrar.messenger())
   }
 }
