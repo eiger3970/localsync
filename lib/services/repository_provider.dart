@@ -1,6 +1,7 @@
 // services/repository_provider.dart
 
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'database_service.dart';
@@ -22,10 +23,32 @@ class RepositoryProvider extends ChangeNotifier {
 
   Future<void> _init() async {
     await Future.wait([_loadRepos(), _loadTemplates()]);
+    await _repairMissingLocalPaths();
     _loading = false;
     notifyListeners();
     for (final repo in _repos.where((r) => r.autoSync)) {
       syncRepository(repo.id!);
+    }
+  }
+
+  // Self-heals records saved before Repository.localPath existed
+  // (2026-08-09) - those persisted with an empty local_path and would
+  // fail every sync with bareRepoNotFound forever, with no way for the
+  // user to know why or what to do about it. Since this app has exactly
+  // one real local vault folder, there's nothing ambiguous to ask the
+  // user about - just repair it automatically on next launch. No
+  // "remove and re-add" workaround should ever be needed for this.
+  Future<void> _repairMissingLocalPaths() async {
+    if (kIsWeb) return;
+    final broken = _repos.where((r) => r.localPath.isEmpty).toList();
+    if (broken.isEmpty) return;
+
+    final localPath = (await getApplicationDocumentsDirectory()).path;
+    for (final repo in broken) {
+      final idx = _repos.indexWhere((r) => r.id == repo.id);
+      if (idx == -1) continue;
+      _repos[idx] = _repos[idx].copyWith(localPath: localPath);
+      await _db.updateRepository(_repos[idx]);
     }
   }
 
