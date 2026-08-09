@@ -5,9 +5,12 @@
 // local state for the duration of the request.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
+import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
+import 'linking_screen.dart';
 
 class PairingScreen extends StatefulWidget {
   final String desktopUser;
@@ -50,6 +53,15 @@ class _PairingScreenState extends State<PairingScreen> {
   @override
   Widget build(BuildContext context) {
     final result = _ctrl.result;
+
+    if (result is StepSuccess) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
+        body: _PairedSuccessView(
+          onContinue: () => _continueToVaultSetup(context),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
@@ -130,16 +142,6 @@ class _PairingScreenState extends State<PairingScreen> {
                 ),
               ),
             ],
-            if (result is StepSuccess) ...[
-              const SizedBox(height: 20),
-              Row(
-                children: const [
-                  Icon(Icons.check_circle_outline, color: kTeal, size: 20),
-                  SizedBox(width: 8),
-                  Text('Paired', style: TextStyle(color: kTeal, fontSize: 14)),
-                ],
-              ),
-            ],
           ],
         ),
       ),
@@ -150,5 +152,67 @@ class _PairingScreenState extends State<PairingScreen> {
     if (_passwordCtrl.text.isEmpty) return;
     await _ctrl.pairWithPassword(_passwordCtrl.text);
     _passwordCtrl.clear();
+  }
+
+  void _continueToVaultSetup(BuildContext context) {
+    final linkingCtrl = context.read<LinkingController>();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LinkingScreen()),
+    );
+    // Kicks off immediately rather than landing on another idle screen
+    // with its own START button - user just finished one setup step,
+    // don't make them find and tap a second one.
+    linkingCtrl.startLinking();
+  }
+}
+
+// ── Big, unmissable pairing success ─────────────────────────────────────────
+//
+// 2026-08-09: the previous success state was a single small teal line
+// ("Paired", 14px) easy to miss entirely when scanning a stressed,
+// error-fatigued screen - the user reported overlooking it outright and
+// being left not knowing what to do next. Full-screen, high-contrast,
+// with one obvious next action.
+class _PairedSuccessView extends StatelessWidget {
+  final VoidCallback onContinue;
+  const _PairedSuccessView({required this.onContinue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle, color: kTeal, size: 88),
+          const SizedBox(height: 24),
+          const Text('Paired!',
+              style: TextStyle(
+                  color: kStar, fontSize: 28, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          const Text(
+            'Your phone is now trusted by your desktop.',
+            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.6),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 40),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: onContinue,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kTeal,
+                foregroundColor: kVoid,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: const RoundedRectangleBorder(),
+              ),
+              child: const Text('CONTINUE — SET UP VAULT',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
