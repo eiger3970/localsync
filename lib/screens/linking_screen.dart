@@ -7,6 +7,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
@@ -262,11 +263,46 @@ class _CompleteView extends StatefulWidget {
   State<_CompleteView> createState() => _CompleteViewState();
 }
 
-class _CompleteViewState extends State<_CompleteView> {
+class _CompleteViewState extends State<_CompleteView>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _burstCtrl;
+  late final List<_Particle> _particles;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _saveRepository());
+
+    // 2026-08-09: first-run completion was a quiet 64px outline icon and
+    // a 20px heading - user's own words, "not a very clear win... a
+    // successful setup is THE major milestone." This is the one moment
+    // in the whole app that deserves to feel unmistakably like an
+    // achievement, not just another status screen. No new package added
+    // for this (particle burst is a plain CustomPainter) - every native
+    // dependency this session has cost real build-pipeline days, not
+    // worth the risk for a one-off animation.
+    HapticFeedback.heavyImpact();
+    final rand = math.Random();
+    _particles = List.generate(16, (_) {
+      final angle = rand.nextDouble() * 2 * math.pi;
+      final distance = 60 + rand.nextDouble() * 50;
+      return _Particle(
+        angle: angle,
+        distance: distance,
+        color: [kTeal, kStar, Colors.amber][rand.nextInt(3)],
+        size: 4 + rand.nextDouble() * 5,
+      );
+    });
+    _burstCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _burstCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _saveRepository() async {
@@ -297,13 +333,36 @@ class _CompleteViewState extends State<_CompleteView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle_outline, color: kTeal, size: 64),
-          const SizedBox(height: 24),
-          const Text('You\'re connected',
+          SizedBox(
+            width: 180,
+            height: 180,
+            child: AnimatedBuilder(
+              animation: _burstCtrl,
+              builder: (_, __) => CustomPaint(
+                painter: _BurstPainter(
+                  particles: _particles,
+                  progress: _burstCtrl.value,
+                ),
+                child: Center(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.elasticOut,
+                    builder: (_, scale, child) =>
+                        Transform.scale(scale: scale, child: child),
+                    child: const Icon(Icons.check_circle,
+                        color: kTeal, size: 88),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('You\'re all set! 🎉',
               style: TextStyle(
                   color: kStar,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 14),
           const Text(
             'Your phone vault is linked to your desktop.\n\n'
@@ -313,13 +372,52 @@ class _CompleteViewState extends State<_CompleteView> {
           ),
           const SizedBox(height: 40),
           _PrimaryButton(
-            label: 'DONE',
+            label: 'TAKE ME TO MY VAULT',
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
     );
   }
+}
+
+class _Particle {
+  final double angle;
+  final double distance;
+  final Color  color;
+  final double size;
+  const _Particle({
+    required this.angle,
+    required this.distance,
+    required this.color,
+    required this.size,
+  });
+}
+
+class _BurstPainter extends CustomPainter {
+  final List<_Particle> particles;
+  final double progress; // 0..1
+  const _BurstPainter({required this.particles, required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    // Ease-out so particles decelerate outward, and fade in the back half.
+    final travel = Curves.easeOut.transform(progress);
+    final opacity = (1 - progress).clamp(0.0, 1.0);
+    for (final p in particles) {
+      final offset = Offset(
+        center.dx + math.cos(p.angle) * p.distance * travel,
+        center.dy + math.sin(p.angle) * p.distance * travel,
+      );
+      final paint = Paint()..color = p.color.withOpacity(opacity);
+      canvas.drawCircle(offset, p.size * (1 - progress * 0.4), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BurstPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 // ── Failed ─────────────────────────────────────────────────────────────────────
