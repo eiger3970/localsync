@@ -53,7 +53,21 @@ class GitServiceImpl implements GitService {
         passPhrase: sshPassphrase,
       );
 
-  Callbacks get _callbacks => Callbacks(credentials: _credentials);
+  // certificateCheck: without this, libgit2 falls back to its default
+  // strict SSH host-key check against a known_hosts file - which doesn't
+  // exist on iOS (git2dart's own docs flag this exact gap, "especially
+  // useful on platforms such as Android where SSH known_hosts lookup may
+  // not be available"). Every connection failed with GIT_ERROR_SSH
+  // "invalid or unknown remote ssh hostkey" until this was added.
+  // Accepting unconditionally is acceptable for this app's actual threat
+  // model: a single personal desktop reached over a private USB/WiFi
+  // hotspot link, not routed over the open internet, with trust already
+  // established via the password-based pairing step (features/pairing/) -
+  // not a general-purpose SSH client connecting to arbitrary hosts.
+  Callbacks get _callbacks => Callbacks(
+        credentials: _credentials,
+        certificateCheck: (certificate, host, {required valid}) => true,
+      );
 
   bool get _isCloned => Directory('$localVaultPath/.git').existsSync();
 
