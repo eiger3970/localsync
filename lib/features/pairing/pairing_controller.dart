@@ -66,7 +66,7 @@ class PairingController extends ChangeNotifier {
         _result = const StepSuccess(message: 'Paired with desktop');
       }
     } catch (e) {
-      _result = StepFailure(_diagnose(e));
+      _result = StepFailure(_diagnose(e), debugDetail: e.toString());
     } finally {
       _isRunning = false;
       notifyListeners();

@@ -117,6 +117,15 @@ class _PairingScreenState extends State<PairingScreen> {
                     const SizedBox(height: 8),
                     Text(result.resolution,
                         style: const TextStyle(color: kTextDim, fontSize: 12, height: 1.6)),
+                    if (result.debugDetail != null) ...[
+                      const SizedBox(height: 12),
+                      Text('Raw error (temporary diagnostic):',
+                          style: const TextStyle(color: kTextDim, fontSize: 11)),
+                      const SizedBox(height: 4),
+                      Text(result.debugDetail!,
+                          style: const TextStyle(
+                              color: Colors.redAccent, fontSize: 11)),
+                    ],
                   ],
                 ),
               ),

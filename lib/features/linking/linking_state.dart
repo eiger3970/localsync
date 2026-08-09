@@ -55,7 +55,15 @@ class StepSuccess extends StepResult {
 
 class StepFailure extends StepResult {
   final LinkingError error;
-  const StepFailure(this.error);
+  // Raw exception text, when available (2026-08-09: added after a real
+  // pairing failure turned out to be misdiagnosed - sshd logs showed a
+  // clean TCP connect immediately closed before any SSH protocol data,
+  // pointing at a client-side dartssh2 failure, but the app's own
+  // generic LinkingError message couldn't distinguish that from a
+  // genuine unreachable-host case. Optional and purely diagnostic -
+  // not shown unless present.
+  final String? debugDetail;
+  const StepFailure(this.error, {this.debugDetail});
 
   String get diagnosis  => error.diagnosis;
   String get resolution => error.resolution;
