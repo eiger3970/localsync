@@ -359,21 +359,38 @@ class _CompleteViewState extends State<_CompleteView>
             ),
           ),
           const SizedBox(height: 16),
-          const Text('You\'re all set! 🎉',
+          const Text('Your notes have arrived! 🎉',
               style: TextStyle(
                   color: kStar,
                   fontSize: 28,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 14),
+          // Fixed 2026-08-09: this used to say "Your phone vault is
+          // linked to your desktop" - overclaiming. Synclocal can only
+          // verify that files were downloaded onto the phone (checked
+          // in _verifySync()); it has no way to confirm Obsidian was
+          // ever actually pointed at that folder - no cross-app
+          // introspection on iOS. Real device feedback: a user reached
+          // this screen without ever having opened the folder as a
+          // vault in Obsidian ("Synclocal" never appeared in Obsidian's
+          // own vault list), and the old wording had already told them
+          // they were fully linked. Now honest about what's actually
+          // still required, with a direct way to do it from here.
           const Text(
-            'Your phone vault is linked to your desktop.\n\n'
-            'synclocal will keep them in sync automatically.',
+            'Your notes have been downloaded to this phone.\n\n'
+            'If you haven\'t already, open Obsidian and select\n'
+            '"Synclocal" as your vault to see them.',
             style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
           _PrimaryButton(
-            label: 'TAKE ME TO MY VAULT',
+            label: 'OPEN OBSIDIAN',
+            onPressed: widget.ctrl.openObsidianNow,
+          ),
+          const SizedBox(height: 12),
+          _PrimaryButton(
+            label: 'CONTINUE TO SYNCLOCAL',
             onPressed: () => Navigator.pop(context),
           ),
         ],
