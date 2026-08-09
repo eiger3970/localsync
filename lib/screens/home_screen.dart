@@ -145,21 +145,21 @@ class HomeScreen extends StatelessWidget {
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
         title: const Text('Remove repository',
-            style: TextStyle(color: kStar, fontSize: 14)),
+            style: TextStyle(color: kStar, fontSize: 17)),
         content: Text(
           'Remove "${repo.name}"? Files are not deleted.',
-          style: const TextStyle(color: kTextMid, fontSize: 12),
+          style: const TextStyle(color: kTextMid, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child:
-                const Text('Cancel', style: TextStyle(color: kTextDim)),
+            child: const Text('Cancel',
+                style: TextStyle(color: kTextDim, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Remove',
-                style: TextStyle(color: Colors.redAccent)),
+                style: TextStyle(color: Colors.redAccent, fontSize: 15)),
           ),
         ],
       ),
