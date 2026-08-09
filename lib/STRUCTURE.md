@@ -235,6 +235,54 @@ a dead end, just something to confirm once there's a real build to test.
   remaining fallback theory (open a git2dart GitHub issue - this would
   likely be useful upstream regardless, iOS release-mode dlsym failures
   affect anyone using this package for real iOS apps, not just this one).
+- **Static linkage fix (above) also failed on a real device (tested
+  2026-08-08 evening), same identical error.** Two more attempts
+  followed, both since superseded or unconfirmed:
+  1. `4692a56` - added `@_silgen_name`-referenced Swift wrapper
+     functions for `git_libgit2_init`/`git_libgit2_shutdown` in
+     `AppDelegate.swift`, to stop the linker dead-stripping symbols it
+     can't see are used (Dart FFI's `dlsym()` lookup is invisible to
+     the linker at compile time). Never independently tested - before
+     a device run happened, the actual Codemagic build log was read
+     directly (not guessed from) and showed a different, more
+     fundamental problem.
+  2. `4dc544c` - the build log showed `pod install` completing in
+     990ms (too fast to be real) and printing "The following plugins
+     do not support Swift Package Manager for ios: - git2dart_binaries".
+     Read as: Flutter's newer default builds most plugins via SPM
+     instead of CocoaPods, and the packaged `.ipa`'s `Frameworks/`
+     folder had no framework for git2dart_binaries at all - so none of
+     the Podfile-level fixes ever had a chance to apply, because
+     CocoaPods was never actually building that plugin. Fix:
+     `flutter config --no-enable-swift-package-manager` before
+     `flutter pub get`, forcing pure CocoaPods.
+  - **Tested on the real device the night of 2026-08-08 (via desktop
+    sideload to phone): identical error persisted.** This means either
+    the SPM-disable flag didn't take effect for this build, or the SPM
+    theory itself was a misread of the log - "plugin does not support
+    Swift Package Manager" is Flutter's *normal* per-plugin fallback
+    message (it mixes SPM for supported plugins with CocoaPods for
+    unsupported ones automatically) and isn't necessarily evidence the
+    framework was dropped. Confirmed locally 2026-08-09: no
+    `Podfile.lock` or `.flutter-plugins-dependencies` is git-tracked in
+    this repo, and `project.pbxproj` has zero SPM package references
+    - so there's no stale committed state explaining it either; each
+    Codemagic build starts from a genuinely clean checkout.
+  - **Decided against guessing a fourth fix blind** (three straight
+    guesses have now failed real-device testing, each costing a full
+    day-long build+sideload+test cycle). Instead, `codemagic.yaml` gained
+    a new "Verify libgit2 is actually embedded" script step, run right
+    after the archive build, that greps `Podfile.lock` for `git2dart`,
+    lists `Runner.app/Frameworks/`, and runs `otool -L` / `nm` on the
+    built `Runner` binary to check directly whether libgit2/libssh2 are
+    linked and whether `git_libgit2_init` exists in the binary's symbol
+    table. **Next session: read that log output first**, before touching
+    any more Podfile/AppDelegate/codemagic.yaml code - it will show
+    definitively whether the problem is "framework never got built by
+    CocoaPods" (SPM/Podfile config problem) or "framework is present
+    but the symbol still isn't reachable at runtime" (a genuinely
+    different, deeper problem - possibly a git2dart_binaries packaging
+    bug worth an upstream issue).
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.

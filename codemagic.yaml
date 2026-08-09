@@ -21,5 +21,16 @@ workflows:
           mkdir -p Payload
           cp -r Runner.xcarchive/Products/Applications/Runner.app Payload/
           zip -r ../ipa/Runner.ipa Payload/
+      - name: Verify libgit2 is actually embedded (diagnostic, not a fix)
+        script: |
+          APP=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          echo "=== Podfile.lock: was git2dart_binaries built via CocoaPods? ==="
+          grep -A3 -i "git2dart" ios/Podfile.lock || echo "MISSING: git2dart not in Podfile.lock at all"
+          echo "=== Frameworks/ inside Runner.app ==="
+          ls -la "$APP/Frameworks/" 2>&1 || echo "MISSING: no Frameworks dir in Runner.app"
+          echo "=== Does the Runner binary link libgit2/libssh2 at all? ==="
+          otool -L "$APP/Runner" 2>&1 | grep -i "git\|ssh2\|crypto" || echo "MISSING: no git/ssh2/crypto linkage found via otool -L"
+          echo "=== Is git_libgit2_init present in the Runner binary's own symbol table? ==="
+          nm "$APP/Runner" 2>&1 | grep git_libgit2 || echo "MISSING: git_libgit2_init not found via nm on Runner binary"
     artifacts:
       - build/ios/ipa/*.ipa
