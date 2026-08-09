@@ -398,6 +398,42 @@ a dead end, just something to confirm once there's a real build to test.
     the app gets past the white screen. If it does, revert the
     diagnostic boot screen in `main()` back to the plain version (noted
     in its own comment) and this multi-day debugging arc is closed.
+  - **Real-device result 2026-08-09: same error text, but a genuinely
+    different failure mode - not the same bug persisting.** Screenshot
+    of the boot diagnostic showed the exact runtime error for the first
+    time: `Invalid argument(s): Failed to lookup symbol
+    'git_libgit2_init': dlsym(RTLD_DEFAULT, git_libgit2_init): symbol
+    not found`. Given `nm` had just confirmed the symbol IS compiled
+    into the binary, this isn't "missing from the binary" anymore -
+    it's that `dlsym(RTLD_DEFAULT, ...)` can't find a symbol that's
+    genuinely present. Root cause: on iOS, `dlsym(RTLD_DEFAULT, ...)`
+    resolves against each loaded image's **export trie**, not its raw
+    `nlist` symbol table. Dylibs get an export trie automatically; the
+    **main app executable does not**, by default. `-force_load`/
+    `-all_load` only ever controlled whether the code gets linked in -
+    a fully separate concern from whether it ends up in the export
+    trie afterward, which is what `dlsym(RTLD_DEFAULT, ...)` (what
+    `DynamicLibrary.process()` uses under the hood, per git2dart_binaries'
+    own source) actually reads.
+    **Fix applied 2026-08-09:** added `ios/Runner/
+    git2dart_exported_symbols.txt` (wildcard patterns `_git_*` and
+    `_giterr_*`, covering the whole libgit2 C API surface rather than
+    one symbol at a time) and, in `Podfile`'s `post_install` (the
+    `installer.aggregate_targets` loop that reaches Runner's own
+    target), added `-exported_symbols_list
+    "$(SRCROOT)/Runner/git2dart_exported_symbols.txt"` to Runner's
+    `OTHER_LDFLAGS`, explicitly telling the linker to add those symbols
+    to Runner's export trie. **Not yet tested on a real device.**
+    Risk to watch: `-exported_symbols_list` restricts a target's export
+    trie to *only* the listed symbols by default - for a plain app
+    main executable with no extensions/no other image dynamically
+    loading into it, this should be safe, but if some other unrelated
+    dlsym(RTLD_DEFAULT) call elsewhere in the app (Flutter engine,
+    another plugin) unexpectedly relied on a symbol NOT matching
+    `_git_*`/`_giterr_*` previously being exported by default, this
+    could introduce a new, different failure. Watch for a different
+    "Failed to lookup symbol" error naming something other than a
+    libgit2 function if this happens.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.

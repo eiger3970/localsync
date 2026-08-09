@@ -89,6 +89,35 @@ post_install do |installer|
       native_target.build_configurations.each do |config|
         config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
         config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
+
+        # 2026-08-09, second fix needed the same day: nm confirmed
+        # git_libgit2_init IS compiled into the packaged Runner binary
+        # (the two fixes above worked), yet the real-device error is
+        # still "Failed to lookup symbol 'git_libgit2_init':
+        # dlsym(RTLD_DEFAULT, git_libgit2_init): symbol not found" - a
+        # DIFFERENT failure mode than before, not the same bug
+        # persisting. Root cause: dlsym(RTLD_DEFAULT, ...) on iOS
+        # resolves against each loaded image's EXPORT TRIE, not its raw
+        # symbol table. Dylibs get an export trie automatically; the
+        # MAIN APP EXECUTABLE does not, by default. -force_load/
+        # -all_load only control whether code gets linked in, not
+        # whether it's in the export trie afterward - a fully separate
+        # concern. -exported_symbols_list explicitly tells the linker
+        # to add matching symbols to Runner's own export trie.
+        # Wildcarding `_git_*` covers the whole libgit2 C API surface
+        # git2dart's Dart FFI bindings call into (not just init/
+        # shutdown), so this doesn't need updating every time a new
+        # libgit2 function gets called for the first time.
+        existing_ldflags = config.build_settings['OTHER_LDFLAGS']
+        export_flags = ['-Xlinker', '-exported_symbols_list', '-Xlinker', '"$(SRCROOT)/Runner/git2dart_exported_symbols.txt"']
+        case existing_ldflags
+        when Array
+          config.build_settings['OTHER_LDFLAGS'] = existing_ldflags + export_flags
+        when String
+          config.build_settings['OTHER_LDFLAGS'] = "#{existing_ldflags} #{export_flags.join(' ')}"
+        else
+          config.build_settings['OTHER_LDFLAGS'] = ['$(inherited)'] + export_flags
+        end
       end
     end
     aggregate_target.user_project.save
