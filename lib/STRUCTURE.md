@@ -573,6 +573,33 @@ this has now happened enough times across enough screens that any
 *new* screen should default to ~14-16px body text from the start
 rather than iterating up from ~10-12px each time.
 
+### Important architectural finding: iOS container paths are not stable (2026-08-09)
+The first attempt at the `localPath` fix only repaired records with an
+*empty* path (from before the field existed). Real-device testing then
+surfaced a deeper problem via the same `debugDetail` plumbing: a
+genuinely different, non-empty, previously-valid path still failed -
+`GIT_ERROR_OS: failed to make directory '.../4642BD76-.../': Operation
+not permitted`. Root cause: `getApplicationDocumentsDirectory()`'s
+underlying container UUID **changes on every app reinstall**, which
+happens on every rebuild+resideload during development (each new
+`.ipa` install is not a same-container update the way a normal App
+Store update would be). A path cached from a previous launch can point
+at an orphaned container the current process's sandbox has no access
+to - EPERM, not ENOENT, since the path may still exist at the
+filesystem level generally, just outside this process's MAC profile.
+
+**Fix**: `RepositoryProvider._refreshLocalPaths()` now unconditionally
+recomputes and re-persists the live container path on every launch
+(not just when empty), plus defensively again at the top of
+`syncRepository()` itself.
+
+**General rule for this codebase going forward**: never persist an
+absolute `getApplicationDocumentsDirectory()`-derived path and trust it
+later - always recompute it live at the point of use. This app has
+exactly one real local vault folder, so there's no cost to doing that
+every time. Any *new* code that touches local file paths should follow
+this from the start rather than needing the same bug found twice.
+
 **Next real gaps**: `pushToBareRepo()` (phone -> desktop direction) is
 still completely untested - only the pull/clone direction has run for
 real, and only just started working at all today. Settings feature
