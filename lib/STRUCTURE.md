@@ -606,6 +606,93 @@ real, and only just started working at all today. Settings feature
 (would fix the hardcoded-IP problem) and the user's list of real
 Working Copy/sync errors (below) are both still outstanding.
 
+### Major architecture correction: Obsidian owns the vault folder, not Synclocal (2026-08-09)
+Everything above this point in the doc describes the *previous*
+architecture: Synclocal clones into its own private Documents folder,
+then the user is told to "open folder as vault" in Obsidian to point
+at it. **That direction was wrong**, and it's why full end-to-end
+completion kept reporting success without the user ever actually
+having a working Obsidian vault.
+
+Root cause found by asking the user for their own hard-won
+documentation (years of real Working Copy + Obsidian iOS usage,
+described by the user as "secret sauce" they'd already solved through
+real pain - the correct move was to stop guessing/web-searching and
+work directly from that) rather than continuing to guess at Obsidian's
+iOS UI from training-data memory. Two concrete confirmations:
+- The user's own real Obsidian 1.12.4 "Manage vaults..." screen has no
+  "Open folder as vault" option at all - only "Create new vault"
+  (which makes a brand-new empty vault, optionally in iCloud) and a
+  list of existing vaults. This had been assumed/guessed wrong this
+  whole session.
+- The user's own Working Copy setup notes (`#### 13. Link Working Copy
+  to Obsidian Vault`) show the real, working direction: create the
+  vault in Obsidian FIRST ("Create a vault -> Continue without sync ->
+  name it -> Create a vault", on-device, not iCloud - this makes
+  `On My iPhone/Obsidian/<name>`), THEN the sync tool (Working Copy)
+  requests access to that already-existing folder via "Link Repository
+  to -> Directory -> navigate to On My iPhone -> Obsidian -> <vault
+  name>". iOS's cross-app folder access for this requires a real
+  security-scoped bookmark (`startAccessingSecurityScopedResource()`/
+  `stopAccessingSecurityScopedResource()`, matched 1:1 around every
+  use) - a plain path string silently loses access, the same general
+  class of problem as the container-path-instability finding above,
+  just for a different underlying reason (permission scope, not
+  container identity).
+
+**What changed** (full detail in the `e83ee9a` commit message):
+- `ios/Runner/AppDelegate.swift` gained `VaultFolderChannel`: a
+  `FlutterMethodChannel` bridging to `UIDocumentPickerViewController`
+  (string-UTI `"public.folder"` form, not the newer `UTType`-based API,
+  specifically to avoid raising this project's iOS 13.0 deployment
+  target) plus security-scoped bookmark create/resolve.
+- New `lib/services/vault_folder_service.dart` wraps the channel from
+  Dart: `pickFolder()`, `startAccessing(bookmark)`,
+  `stopAccessing(bookmark)`.
+- `Repository` gained `vaultBookmark` (base64) - `localPath` alone
+  can't retain cross-app access across launches.
+- `LinkingController` flow reordered: `checkingPairing` ->
+  `awaitingVaultCreation` (user creates the vault in Obsidian, "OPEN
+  OBSIDIAN" button) -> `pickingVaultFolder` (native picker,
+  "SELECT VAULT FOLDER" button) -> `cloning` (into the picked folder)
+  -> `verifySync` -> `complete`. The old `awaitingObsidianVaultOpen`
+  step (clone first, ask Obsidian to open the result second) is gone.
+- `GitServiceImpl.pullFromBareRepo()` and `SyncService`'s clone-
+  recovery path both changed from `Repository.clone()` (requires an
+  empty target directory) to `Repository.init()` + fetch + hard reset
+  - the target folder now always has Obsidian's own `.obsidian/`
+  config dir already in it from vault creation, exactly mirroring what
+  real `git init && git remote add && git fetch && git reset --hard`
+  does on a non-empty fresh directory. Hard reset force-overwrites
+  Obsidian's placeholder content, which is fine since the vault was
+  just created moments ago with nothing real in it yet.
+- `SyncService.fullSync()` now resolves fresh bookmark access at the
+  start of every sync and releases it at the end - never trusts a
+  cached path for the actual git operations.
+- `RepositoryProvider._refreshLocalPaths()` (the fix from the
+  container-path-instability finding above) removed entirely - it
+  existed specifically to work around Synclocal's own container path
+  going stale across reinstalls, which doesn't apply once the vault
+  folder lives in Obsidian's own stable storage instead.
+- `add_repository_screen.dart`'s manual "Add Repository" form now uses
+  the same real folder picker instead of computing
+  `getApplicationDocumentsDirectory()` - the same wrong assumption,
+  would have produced the same class of broken record.
+
+**Verified via `flutter analyze`** before pushing (Flutter SDK is
+installed on this Pi as of 2026-08-08) - caught and fixed two real
+compile errors (a dropped `ChangeNotifier` import, a stale
+`test/widget_test.dart` reference) that would otherwise have only
+surfaced as a failed Codemagic build. Native Swift side and the actual
+document-picker/bookmark flow are **completely untested on a real
+device** - this is the single biggest unverified risk in the codebase
+right now, bigger than anything above. Next session: build, sideload,
+and run the full "Set up a vault" flow for real, checking specifically
+whether `VaultFolderChannel` registers correctly (risk: the implicit-
+engine `FlutterViewController` may not be synchronously available in
+`application(_:didFinishLaunchingWithOptions:)` the way the code
+assumes) and whether the picker/bookmark round-trip actually works.
+
 ### URL schemes used
 - working-copy://x-callback-url/link?repo=NAME&path=VAULT
 - working-copy://x-callback-url/pull?repo=NAME
