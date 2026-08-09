@@ -32,5 +32,14 @@ workflows:
           otool -L "$APP/Runner" 2>&1 | grep -i "git\|ssh2\|crypto" || echo "MISSING: no git/ssh2/crypto linkage found via otool -L"
           echo "=== Is git_libgit2_init present in the Runner binary's own symbol table? ==="
           nm "$APP/Runner" 2>&1 | grep git_libgit2 || echo "MISSING: git_libgit2_init not found via nm on Runner binary"
+          echo "=== Ground truth: Runner target's ACTUALLY RESOLVED OTHER_LDFLAGS ==="
+          echo "(checks whether git2dart_binaries' own -force_load flag ever reached the Runner target itself, not just the pod's own target)"
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -showBuildSettings 2>&1 | grep -i "OTHER_LDFLAGS" || echo "MISSING: xcodebuild showBuildSettings found no OTHER_LDFLAGS for Runner"
+          echo "=== The generated Pods-Runner xcconfig (aggregate of all pods' user_target_xcconfig) ==="
+          find Pods/Target\ Support\ Files/Pods-Runner -iname "*.release.xcconfig" -exec sh -c 'echo "--- {} ---"; grep -i "OTHER_LDFLAGS\|force_load" "{}" || echo "no OTHER_LDFLAGS/force_load line in this file"' \; 2>&1 || echo "MISSING: no Pods-Runner Target Support Files dir"
+          echo "=== git2dart_binaries' own generated xcconfig (should contain the -force_load line per its podspec) ==="
+          find Pods/Target\ Support\ Files/git2dart_binaries -iname "*.xcconfig" -exec sh -c 'echo "--- {} ---"; grep -i "OTHER_LDFLAGS\|force_load" "{}" || echo "no OTHER_LDFLAGS/force_load line in this file"' \; 2>&1 || echo "MISSING: no git2dart_binaries Target Support Files dir"
+          cd ..
     artifacts:
       - build/ios/ipa/*.ipa

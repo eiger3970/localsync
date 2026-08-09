@@ -283,6 +283,47 @@ a dead end, just something to confirm once there's a real build to test.
     but the symbol still isn't reachable at runtime" (a genuinely
     different, deeper problem - possibly a git2dart_binaries packaging
     bug worth an upstream issue).
+  - **Result read 2026-08-09: it's neither of those two theories.**
+    `Podfile.lock` confirms `git2dart_binaries` WAS resolved and built
+    via CocoaPods (ruling out the SPM theory entirely - it was never
+    the real problem). But `Runner.app/Frameworks/` has no framework
+    for it, `otool -L` shows zero git/ssh2/crypto linkage, and `nm`
+    finds no `git_libgit2_init` symbol anywhere in the built binary.
+    The pod is resolved but its compiled code never reaches the final
+    app at all.
+  - **New, better-evidenced theory:** read the actual
+    `git2dart_binaries.podspec` from `.pub-cache` (not guessed) - it
+    already ships its own precise fix for exactly this class of
+    problem: `s.static_framework = true`, vendored `.xcframework`s
+    (prebuilt static `libgit2.a`/`libssh2.a`/`libssl.a`/`libcrypto.a`),
+    and a `pod_target_xcconfig`/`user_target_xcconfig` with an explicit
+    `-force_load "path/to/libgit2.a"` flag - built by the package
+    maintainer specifically to survive Release-mode dead-stripping.
+    `use_frameworks! :linkage => :static` (added in the earlier static-
+    linkage attempt, `6c42abe`) makes CocoaPods build this pod as a
+    static-framework-wrapping-a-static-xcframework. This exact nesting
+    is a known CocoaPods gap: vendored static xcframeworks inside a
+    force-static pod can silently fail to reach the consuming app
+    target's real link line, even though `pod install` succeeds and the
+    `.xcframework` files are physically present in `Pods/`.
+    **Not confirmed - no macOS/Xcode available on this Pi to verify
+    directly.** Rather than mutate the Podfile on a fourth blind guess,
+    `codemagic.yaml`'s verify step was extended (2026-08-09) to dump
+    ground truth instead: `xcodebuild -showBuildSettings` for the
+    Runner target's actually-resolved `OTHER_LDFLAGS`, plus the raw
+    generated `Pods-Runner.release.xcconfig` and `git2dart_binaries`
+    xcconfig contents, to see directly whether the `-force_load` flag
+    ever reaches Runner's own target versus staying stuck on the pod's
+    own target. **Next session: read that output first.** If the flag
+    is present in git2dart_binaries' own xcconfig but absent from
+    Pods-Runner's aggregate/Runner's resolved settings, that confirms
+    the static-in-static nesting theory - the fix would be either
+    dropping `use_frameworks! :linkage => :static` (it may not even be
+    needed now that `-force_load` is understood to be the real
+    mechanism) or explicitly reasserting `-force_load` on
+    `installer.aggregate_targets`' native targets (the actual Runner
+    target) rather than only on `installer.pods_project.targets` (the
+    pods' own targets) in `post_install`.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.
