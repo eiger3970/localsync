@@ -324,6 +324,27 @@ a dead end, just something to confirm once there's a real build to test.
     `installer.aggregate_targets`' native targets (the actual Runner
     target) rather than only on `installer.pods_project.targets` (the
     pods' own targets) in `post_install`.
+  - **Result read 2026-08-09 (second round): static-in-static nesting
+    theory refuted.** `xcodebuild -showBuildSettings` for the Runner
+    target's Release config shows the fully-resolved `OTHER_LDFLAGS`
+    genuinely includes `-force_load` with the correct absolute path to
+    `libgit2.a`, plus `-lgit2 -lcrypto -lssh2 -lssl -liconv -lz` and
+    `-framework "git2dart_binaries"`. The flag reaches Runner's target
+    correctly - `Pods-Runner.release.xcconfig` and
+    `git2dart_binaries.release.xcconfig` both have it too. Yet the
+    actual compiled binary still has zero trace of any of it (no
+    framework, no otool linkage, no symbol). The flag Xcode says it
+    will use isn't producing the effect it should - a genuine
+    contradiction between the settings Xcode reports and the binary it
+    actually produced. Rather than guess why, `codemagic.yaml`'s build
+    step now runs `flutter build ipa --verbose`, tee'd to a log file,
+    and the verify step greps that REAL build's log directly for
+    `force_load` (does it appear in the actual linker invocation, not
+    just a post-hoc settings query?) and for `ld: warning`/`ld: error`/
+    `duplicate symbol` lines that could explain a forced symbol being
+    silently dropped. **Next session: read that output first** - this
+    is the third diagnostic round on this exact error, still no
+    working real-device build.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.

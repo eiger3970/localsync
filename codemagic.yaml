@@ -15,7 +15,7 @@ workflows:
         script: flutter pub get
       - name: Build iOS archive
         script: |
-          flutter build ipa --release --no-codesign
+          flutter build ipa --release --no-codesign --verbose 2>&1 | tee /tmp/build_verbose.log
           mkdir -p build/ios/ipa
           cd build/ios/archive
           mkdir -p Payload
@@ -41,5 +41,10 @@ workflows:
           echo "=== git2dart_binaries' own generated xcconfig (should contain the -force_load line per its podspec) ==="
           find Pods/Target\ Support\ Files/git2dart_binaries -iname "*.xcconfig" -exec sh -c 'echo "--- {} ---"; grep -i "OTHER_LDFLAGS\|force_load" "{}" || echo "no OTHER_LDFLAGS/force_load line in this file"' \; 2>&1 || echo "MISSING: no git2dart_binaries Target Support Files dir"
           cd ..
+          echo "=== The REAL linker invocation from the actual build (not a post-hoc re-query) ==="
+          echo "(does -force_load genuinely appear in the command that really built Runner?)"
+          grep -B2 -A2 "force_load" /tmp/build_verbose.log | head -100 || echo "MISSING: force_load never appeared anywhere in the real build log"
+          echo "=== Any linker warnings/errors that could silently drop the forced symbols ==="
+          grep -i "ld: warning\|ld: error\|duplicate symbol\|git2dart\|libgit2" /tmp/build_verbose.log | head -80 || echo "no matching lines found"
     artifacts:
       - build/ios/ipa/*.ipa
