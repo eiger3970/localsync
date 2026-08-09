@@ -382,13 +382,13 @@ class _MetaText extends StatelessWidget {
           Text(
             'synced ${_timeAgo(repo.lastSync!)}',
             style: const TextStyle(
-                color: kTextDim, fontSize: 12, letterSpacing: 0.5),
+                color: kTextMid, fontSize: 14, letterSpacing: 0.3),
           ),
         if (repo.fileCount > 0)
           Text(
             '${repo.fileCount} files · ${repo.folderCount} folders',
             style: const TextStyle(
-                color: kTextDim, fontSize: 12, letterSpacing: 0.5),
+                color: kTextMid, fontSize: 14, letterSpacing: 0.3),
           ),
       ],
     );
