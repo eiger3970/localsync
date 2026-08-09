@@ -17,11 +17,11 @@ class AddRepositoryScreen extends StatefulWidget {
 class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   final _formKey     = GlobalKey<FormState>();
   final _nameCtrl    = TextEditingController();
-  final _hostCtrl    = TextEditingController(text: '172.20.10.6');
+  final _hostCtrl    = TextEditingController(text: '172.20.10.2');
   final _portCtrl    = TextEditingController(text: '22');
   final _userCtrl    = TextEditingController(text: 'rapi5');
   final _pathCtrl    = TextEditingController(
-    text: '/home/rapi5/Documents/Git_bare_repo/Md_files_bare.git',
+    text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
   );
   final _vaultCtrl   = TextEditingController(
     text: 'On My iPhone/Obsidian/Obsidian_phone_vault',
@@ -51,7 +51,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _field(_nameCtrl, hint: 'Obsidian_vault', validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
-              _field(_hostCtrl, hint: '172.20.10.6', validator: _required),
+              _field(_hostCtrl, hint: '172.20.10.2', validator: _required),
               const SizedBox(height: 20),
               _label('SSH PORT'),
               _field(_portCtrl, hint: '22', keyboardType: TextInputType.number),
@@ -62,7 +62,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _label('GIT BARE REPO PATH ON DESKTOP'),
               _field(
                 _pathCtrl,
-                hint: '/home/rapi5/Documents/Git_bare_repo/Md_files_bare.git',
+                hint: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
                 validator: _required,
               ),
               const SizedBox(height: 20),

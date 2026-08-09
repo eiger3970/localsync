@@ -29,10 +29,10 @@ extension SyncPhaseLabel on SyncPhase {
 class Repository {
   final int?       id;
   final String     name;
-  final String     remoteHost;        // 172.20.10.6
+  final String     remoteHost;        // desktop's current hotspot-subnet IP
   final int        remotePort;        // 22
   final String     remoteUser;        // rapi5
-  final String     remotePath;        // /home/rapi5/Documents/Git_bare_repo/Md_files_bare.git
+  final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
   final String     obsidianVaultPath; // On My iPhone/Obsidian/Obsidian_phone_vault
   final bool       autoSync;
   final SyncStatus status;

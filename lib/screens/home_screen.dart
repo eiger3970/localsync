@@ -97,7 +97,7 @@ class HomeScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => const PairingScreen(
             desktopUser: 'rapi5',
-            desktopIp:   '172.20.10.6',
+            desktopIp:   '172.20.10.2',
           ),
         ),
       );

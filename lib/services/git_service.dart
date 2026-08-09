@@ -6,9 +6,8 @@ import '../features/linking/linking_state.dart';
 /// on iOS via CocoaPods - see lib/STRUCTURE.md for why this replaced the
 /// original Working Copy delegation plan).
 ///
-/// Not yet wired into linking_controller.dart / sync_service.dart - this
-/// file was previously dead code (never instantiated anywhere). That wiring
-/// is separate follow-up work.
+/// Wired into linking_controller.dart's _clone() (pullFromBareRepo) since
+/// the 2026-08-08 rewrite.
 abstract class GitService {
   Future<StepResult> pullFromBareRepo();
   Future<StepResult> pushToBareRepo();
@@ -17,9 +16,9 @@ abstract class GitService {
 }
 
 class GitServiceImpl implements GitService {
-  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git_bare_repo/Md_files_bare.git
+  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
   final String localVaultPath;    // Phone: Synclocal's own Documents dir (see Info.plist notes in STRUCTURE.md)
-  final String sshHost;           // 172.20.10.6
+  final String sshHost;           // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
   final int sshPort;
   final String sshUser;           // rapi5
   final String sshPrivateKeyPath; // On-device path to the phone's own SSH private key

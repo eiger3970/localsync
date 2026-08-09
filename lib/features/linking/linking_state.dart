@@ -191,7 +191,7 @@ extension LinkingErrorDetails on LinkingError {
       'If pairing was already completed, try it again.',
     LinkingError.bareRepoNotFound =>
       'On desktop, verify the bare repo exists:\n'
-      'ls ~/Documents/Git_bare_repo/Md_files_bare.git\n\n'
+      'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git\n\n'
       'If missing, run Fresh Setup steps 1–10 on your desktop first.',
     LinkingError.workingCopyNotInstalled =>
       'Install Working Copy from the App Store.\n'
