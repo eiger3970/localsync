@@ -33,7 +33,14 @@ class SyncConflict extends SyncResult {
 
 class SyncFailed extends SyncResult {
   final LinkingError error;
-  const SyncFailed(this.error);
+  // Same reasoning as StepFailure.debugDetail (2026-08-09): the generic
+  // classified message has repeatedly turned out to be wrong or
+  // misleading elsewhere in this app once the real exception text was
+  // actually looked at. _diagnose()'s fallback case in particular labels
+  // ANY unrecognized exception as mergeConflict - not necessarily a real
+  // one.
+  final String? debugDetail;
+  const SyncFailed(this.error, {this.debugDetail});
   String get diagnosis  => error.diagnosis;
   String get resolution => error.resolution;
 }
@@ -146,7 +153,7 @@ class SyncService {
           callbacks: _callbacks,
         );
       } catch (e) {
-        yield SyncEvent.done(SyncFailed(_diagnose(e)));
+        yield SyncEvent.done(SyncFailed(_diagnose(e), debugDetail: e.toString()));
         return;
       }
       yield SyncEvent.done(const SyncOk('Downloaded your notes'));
@@ -212,7 +219,7 @@ class SyncService {
         yield SyncEvent.phase(SyncPhase.pushing);
         final err = _pushWithRetry(repo, remote);
         if (err != null) {
-          yield SyncEvent.done(SyncFailed(err));
+          yield SyncEvent.done(SyncFailed(err.error, debugDetail: err.detail));
           return;
         }
         yield SyncEvent.done(const SyncOk('Uploaded notes to desktop'));
@@ -234,12 +241,12 @@ class SyncService {
 
       final pushErr = _pushWithRetry(repo, remote);
       if (pushErr != null) {
-        yield SyncEvent.done(SyncFailed(pushErr));
+        yield SyncEvent.done(SyncFailed(pushErr.error, debugDetail: pushErr.detail));
         return;
       }
       yield SyncEvent.done(const SyncOk('Merged and synced'));
     } catch (e) {
-      yield SyncEvent.done(SyncFailed(_diagnose(e)));
+      yield SyncEvent.done(SyncFailed(_diagnose(e), debugDetail: e.toString()));
     } finally {
       repo.free();
     }
@@ -335,7 +342,10 @@ class SyncService {
 
   // ── Push with one retry on non-fast-forward rejection ─────────────────────
 
-  LinkingError? _pushWithRetry(git.Repository repo, git.Remote remote) {
+  ({LinkingError error, String detail})? _pushWithRetry(
+    git.Repository repo,
+    git.Remote remote,
+  ) {
     try {
       remote.push(
         refspecs: ['refs/heads/$branch:refs/heads/$branch'],
@@ -359,7 +369,7 @@ class SyncService {
           theirHead: remoteBranch.target,
         );
         if (!analysis.result.contains(git.GitMergeAnalysis.fastForward)) {
-          return LinkingError.cannotFastForward;
+          return (error: LinkingError.cannotFastForward, detail: e.toString());
         }
         repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
         remote.push(
@@ -368,7 +378,7 @@ class SyncService {
         );
         return null;
       } catch (e2) {
-        return _diagnose(e2);
+        return (error: _diagnose(e2), detail: e2.toString());
       }
     }
   }

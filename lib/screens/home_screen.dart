@@ -351,11 +351,28 @@ class _MetaText extends StatelessWidget {
   Widget build(BuildContext context) {
     if (repo.status == SyncStatus.error && repo.lastError != null) {
       final reason = repo.lastError!.split('\n').first;
-      return Text(
-        reason,
-        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+      // Fixed 2026-08-09: this used to show only the first line,
+      // truncated, with no way to see the rest - real device feedback
+      // was a dead end ("I see no suggestions on next steps"). The full
+      // lastError now carries diagnosis + resolution + (when available)
+      // the raw exception text; tapping reveals all of it instead of
+      // silently discarding everything past the first line.
+      return GestureDetector(
+        onTap: () => _showFullError(context, repo.lastError!),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                reason,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.info_outline, color: Colors.redAccent, size: 14),
+          ],
+        ),
       );
     }
     return Column(
@@ -383,6 +400,29 @@ class _MetaText extends StatelessWidget {
     if (d.inMinutes < 60)  return '${d.inMinutes}m ago';
     if (d.inHours < 24)    return '${d.inHours}h ago';
     return '${d.inDays}d ago';
+  }
+
+  void _showFullError(BuildContext context, String fullError) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Sync error',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: SingleChildScrollView(
+          child: Text(fullError,
+              style: const TextStyle(
+                  color: kTextMid, fontSize: 14, height: 1.6)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close',
+                style: TextStyle(color: kTeal, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

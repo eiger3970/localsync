@@ -98,11 +98,13 @@ class RepositoryProvider extends ChangeNotifier {
                 lastError: 'Conflict in: $conflictingFiles\n'
                            'Edit on desktop, resolve markers, then sync again.',
               );
-            case SyncFailed(:final diagnosis, :final resolution):
+            case SyncFailed(:final diagnosis, :final resolution, :final debugDetail):
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.error,
                 syncPhase: SyncPhase.idle,
-                lastError: '$diagnosis\n$resolution',
+                lastError: debugDetail != null
+                    ? '$diagnosis\n$resolution\n\nRaw error (temporary diagnostic):\n$debugDetail'
+                    : '$diagnosis\n$resolution',
               );
           }
           notifyListeners();
