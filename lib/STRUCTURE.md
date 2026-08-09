@@ -345,6 +345,46 @@ a dead end, just something to confirm once there's a real build to test.
     silently dropped. **Next session: read that output first** - this
     is the third diagnostic round on this exact error, still no
     working real-device build.
+  - **Result read 2026-08-09 (third round): found the real gap, real
+    fix applied.** The actual raw `Ld` command for Runner (not a
+    post-hoc query) confirms `-force_load .../libgit2.xcframework/
+    ios-arm64/libgit2.a` genuinely reaches the real link invocation
+    with a valid, correctly-resolved path. Combined with the
+    `AppDelegate.swift` `@_silgen_name` fix (`4692a56`, confirmed still
+    intact and correctly wired: called unconditionally from
+    `didFinishLaunchingWithOptions`, gated by a real runtime
+    `ProcessInfo` check the compiler can't prove false, so it can't be
+    optimized away), the link step should legitimately produce a binary
+    containing `git_libgit2_init`. So the gap isn't linking - it's
+    afterward. Root cause: `post_install`'s `STRIP_INSTALLED_PRODUCT`/
+    `DEPLOYMENT_POSTPROCESSING` = `NO` settings (added in the very first
+    fix attempt) were only ever applied via
+    `installer.pods_project.targets` - the **Pods project's own
+    targets**. They were never applied to **Runner's own target** in
+    `Runner.xcodeproj`. Xcode's separate post-link "strip symbols from
+    installed product" build phase defaults to on for Release and runs
+    against Runner's own (until now untouched) settings - stripping the
+    symbol back out after a correct link, which is consistent with
+    every piece of evidence gathered (correct resolved flags, correct
+    raw Ld command, yet zero trace in the final packaged binary).
+    **Fix applied 2026-08-09** in `ios/Podfile`'s `post_install`: added
+    a second loop over `installer.aggregate_targets` ->
+    `aggregate_target.user_project.native_targets` (the CocoaPods
+    idiom for reaching the actual consuming app's own project/target,
+    as opposed to `installer.pods_project.targets` which only reaches
+    the Pods' own targets) and set `STRIP_INSTALLED_PRODUCT`/
+    `DEPLOYMENT_POSTPROCESSING` to `NO` there too, saving the user
+    project. **Not yet tested on a real device** - this is the
+    highest-confidence fix yet (backed by reading the actual raw
+    linker command + the actual generated xcconfig files, not
+    Ruby-semantics speculation), but confirm via the existing verify
+    step's `nm` check before sideloading: if `git_libgit2_init` finally
+    shows up there, sideload and test on the phone. If it's still
+    missing, the remaining fallback is checking whether
+    `DEPLOYMENT_POSTPROCESSING`/`STRIP_INSTALLED_PRODUCT` alone are
+    enough or whether `STRIP_STYLE`/`COPY_PHASE_STRIP` also need
+    setting on Runner's target - those are the other Xcode settings
+    that can independently trigger symbol stripping.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.

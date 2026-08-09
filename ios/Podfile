@@ -69,4 +69,28 @@ post_install do |installer|
       config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
     end
   end
+
+  # 2026-08-09: the loop above only ever touched the PODS project's own
+  # targets (installer.pods_project.targets) - never Runner's own target
+  # in Runner.xcodeproj. Confirmed via a real build log that the actual
+  # `Ld` invocation for Runner DOES correctly include `-force_load
+  # .../libgit2.a`, and lib/STRUCTURE.md's Swift `@_silgen_name` fix in
+  # AppDelegate.swift creates a real undefined-symbol reference that
+  # should make git_libgit2_init survive the link-time -dead_strip pass.
+  # But `nm` on the final packaged Runner.app/Runner still found no
+  # trace of it - meaning something strips it AFTER linking. Xcode's
+  # separate "strip symbols from installed product" build phase
+  # defaults to on for Release and was never disabled on Runner's own
+  # target, only on the Pods' targets above. This reaches Runner's
+  # actual project/target via the aggregate target CocoaPods builds for
+  # it, not the Pods project.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_project.native_targets.each do |native_target|
+      native_target.build_configurations.each do |config|
+        config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'NO'
+        config.build_settings['DEPLOYMENT_POSTPROCESSING'] = 'NO'
+      end
+    end
+    aggregate_target.user_project.save
+  end
 end
