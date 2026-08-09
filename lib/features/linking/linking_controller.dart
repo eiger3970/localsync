@@ -155,16 +155,19 @@ class LinkingController extends ChangeNotifier {
   // ── UI strings ─────────────────────────────────────────────────────────────
 
   String? get currentInstruction => switch (_step) {
+    // Cut down from an earlier 6-step version after real device testing
+    // (2026-08-09): the whole instruction card disappears the instant
+    // OPEN OBSIDIAN is tapped (Synclocal gets backgrounded), so a first-
+    // time user has no way to refer back to steps 2-6 while actually
+    // inside Obsidian. Only one fact genuinely needs to be remembered -
+    // which folder to pick. Everything else (tapping the button,
+    // switching back, tapping Continue) is self-evident from the UI
+    // itself when they get there.
     LinkingStep.awaitingObsidianVaultOpen =>
-      'Your notes are ready.\n\n'
-      '1. Tap OPEN OBSIDIAN below\n\n'
-      'In Obsidian:\n\n'
-      '2. Tap Open folder as vault\n'
-      '3. Browse to On My iPhone → Synclocal\n'
-      '4. Select it\n\n'
-      '5. Switch back to Synclocal (app switcher, '
-      'or the Home button/gesture)\n'
-      '6. Tap DONE — CONTINUE below',
+      'Your notes are downloaded and ready to open.\n\n'
+      'Tap OPEN OBSIDIAN, then in Obsidian:\n'
+      'Open folder as vault → On My iPhone → Synclocal\n\n'
+      'Come back here when you\'re done.',
 
     _ => null,
   };
