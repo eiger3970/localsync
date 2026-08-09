@@ -385,6 +385,19 @@ a dead end, just something to confirm once there's a real build to test.
     enough or whether `STRIP_STYLE`/`COPY_PHASE_STRIP` also need
     setting on Runner's target - those are the other Xcode settings
     that can independently trigger symbol stripping.
+  - **Confirmed working 2026-08-09: `nm` on the packaged Runner binary
+    now finds `git_libgit2_init`/`git_libgit2_shutdown` as real, defined,
+    exported symbols** (`T` type, not just an undefined reference).
+    First build where the symbol survives into the actual `.ipa`.
+    `Frameworks/`/`otool -L` still show nothing, which is expected and
+    fine - `-force_load` static-links the code directly into the Runner
+    binary rather than as a separate dynamic dependency, so those two
+    checks were never going to show anything either way; only `nm` was
+    ever the real test here. **Not yet confirmed on a real device** -
+    next step is sideloading this specific build and checking whether
+    the app gets past the white screen. If it does, revert the
+    diagnostic boot screen in `main()` back to the plain version (noted
+    in its own comment) and this multi-day debugging arc is closed.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.
