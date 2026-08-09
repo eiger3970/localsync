@@ -69,6 +69,24 @@ class GitServiceImpl implements GitService {
         certificateCheck: (certificate, host, {required valid}) => true,
       );
 
+  /// Classifies a caught exception into the right LinkingError instead of
+  /// defaulting everything to connectionRefused - a real credentials
+  /// failure ("Incorrect credentials") was showing the wrong diagnosis
+  /// and a dead-end "check your network" resolution with no PAIR NOW
+  /// button, confirmed 2026-08-09 from the debugDetail text on a real
+  /// device. Mirrors pairing_controller.dart's _diagnose().
+  LinkingError _diagnose(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('credential') ||
+        msg.contains('auth') ||
+        msg.contains('permission denied') ||
+        msg.contains('hostkey') ||
+        msg.contains('host key'))          return LinkingError.sshAuthFailed;
+    if (msg.contains('not found') ||
+        msg.contains('no such file'))      return LinkingError.bareRepoNotFound;
+    return LinkingError.connectionRefused;
+  }
+
   bool get _isCloned => Directory('$localVaultPath/.git').existsSync();
 
   @override
@@ -115,7 +133,7 @@ class GitServiceImpl implements GitService {
         repo.free();
       }
     } catch (e) {
-      return StepFailure(LinkingError.connectionRefused, debugDetail: e.toString());
+      return StepFailure(_diagnose(e), debugDetail: e.toString());
     }
   }
 
@@ -138,9 +156,15 @@ class GitServiceImpl implements GitService {
       }
     } catch (e) {
       // libgit2 surfaces a non-fast-forward push as a LibGit2Error, not a
-      // distinct return value - can't currently tell that apart from other
-      // push failures (auth, network) without inspecting the message.
-      return StepFailure(LinkingError.cannotFastForward, debugDetail: e.toString());
+      // distinct return value - _diagnose() catches the auth/credentials
+      // case first now; cannotFastForward remains the fallback for
+      // anything else, which is the actual common case for a push
+      // specifically (rejected because the remote moved ahead).
+      final diagnosed = _diagnose(e);
+      final error = diagnosed == LinkingError.connectionRefused
+          ? LinkingError.cannotFastForward
+          : diagnosed;
+      return StepFailure(error, debugDetail: e.toString());
     }
   }
 
@@ -163,7 +187,7 @@ class GitServiceImpl implements GitService {
         repo.free();
       }
     } catch (e) {
-      return StepFailure(LinkingError.connectionRefused, debugDetail: e.toString());
+      return StepFailure(_diagnose(e), debugDetail: e.toString());
     }
   }
 

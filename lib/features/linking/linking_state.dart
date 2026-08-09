@@ -193,10 +193,10 @@ extension LinkingErrorDetails on LinkingError {
       '4. On desktop: ip addr show\n'
       '   Verify IP matches what is set in this app',
     LinkingError.sshAuthFailed =>
-      'Synclocal\'s own key was not accepted. During pairing this app\n'
-      'shows a QR code containing its public key - scan it on the\n'
-      'desktop to add it to ~/.ssh/authorized_keys automatically.\n'
-      'If pairing was already completed, try it again.',
+      'Tap PAIR NOW below and enter your desktop login password once -\n'
+      'this installs your phone\'s key in ~/.ssh/authorized_keys on the\n'
+      'desktop. If you already paired, the key may not have reached the\n'
+      'desktop (interrupted connection) - pairing again is safe to repeat.',
     LinkingError.bareRepoNotFound =>
       'On desktop, verify the bare repo exists:\n'
       'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git\n\n'

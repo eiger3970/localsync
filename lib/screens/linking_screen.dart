@@ -320,7 +320,8 @@ class _FailedView extends StatelessWidget {
           ],
           const SizedBox(height: 32),
 
-          if (failure.error == LinkingError.pairingNotComplete) ...[
+          if (failure.error == LinkingError.pairingNotComplete ||
+              failure.error == LinkingError.sshAuthFailed) ...[
             _PrimaryButton(
               label: 'PAIR NOW',
               onPressed: () => Navigator.push(
@@ -382,14 +383,14 @@ class _DiagCard extends StatelessWidget {
           Text(label,
               style: TextStyle(
                   color: accent,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5)),
           const SizedBox(height: 8),
           Text(text,
               style: const TextStyle(
                   color: kStar,
-                  fontSize: 12,
+                  fontSize: 15,
                   height: 1.7)),
         ],
       ),
