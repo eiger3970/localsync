@@ -193,7 +193,9 @@ private let vaultFolderChannel = VaultFolderChannel()
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     // Registered here, not in application(_:didFinishLaunchingWithOptions:)
     // - see VaultFolderChannel.register()'s comment for why.
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VaultFolderChannel")
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "VaultFolderChannel") else {
+      return
+    }
     vaultFolderChannel.register(with: registrar.messenger())
   }
 }
