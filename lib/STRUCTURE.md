@@ -434,6 +434,34 @@ a dead end, just something to confirm once there's a real build to test.
     could introduce a new, different failure. Watch for a different
     "Failed to lookup symbol" error naming something other than a
     libgit2 function if this happens.
+  - **CONFIRMED FIXED 2026-08-09.** Real device now boots straight to
+    the actual app UI: "synclocal / No repositories / SET UP VAULT".
+    No crash, no white screen. This closes the entire
+    `git_libgit2_init` debugging arc (four real-device test cycles
+    across 2026-08-08 and 2026-08-09: static framework linkage ->
+    SPM/CocoaPods -> Runner-target strip settings -> export trie
+    visibility - each one a genuinely different bug in a different
+    part of the pipeline, not the same guess repeated). Reverted the
+    diagnostic boot screen in `main()` back to the plain
+    `async main() { ... runApp(SynclocalApp(...)) }` per the plan
+    noted in its own comment - `_BootScreen`/`_BootScreenState` are
+    gone, `PlatformSpecific.initialize()` and
+    `getApplicationDocumentsDirectory()` now just run inline before
+    `runApp`. Left `AppDelegate.swift`'s `@_silgen_name` symbol
+    retention hack in place - not verified redundant now that the
+    export-trie fix works, and it's cheap to keep since it's
+    plausibly still needed for the link-time `-dead_strip` survival
+    concern, which is a different pipeline stage than the export-trie
+    fix addressed.
+  - **Next up:** the app has never actually pushed/pulled against a
+    real bare repo yet (`git_service.dart`'s git2dart implementation
+    was compiled-clean and API-verified but never run against a live
+    SSH remote - the bare repo `Md_files_bare.git` may not even exist
+    on the desktop yet, see earlier status note). Now that the app
+    genuinely boots, that's the next real gap to close before this is
+    close to shippable, along with the still-fully-unbuilt settings
+    feature and the user's list of real Working Copy/sync errors
+    (below) still not handed over.
 - The user has a list of real Working Copy/sync errors from actual
   usage history, still not yet handed over - see the note earlier in
   this doc about slotting those into `LinkingError` when it arrives.
