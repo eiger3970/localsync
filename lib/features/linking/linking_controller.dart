@@ -117,15 +117,31 @@ class LinkingController extends ChangeNotifier {
   }
 
   Future<void> _openObsidianForVaultPick() async {
+    // Fixed 2026-08-09: this used to call _iosApps.openObsidian() (which
+    // launches Obsidian immediately, backgrounding Synclocal) BEFORE
+    // setting the step/calling notifyListeners() - meaning the "here's
+    // what to do in Obsidian" instructions never got a chance to render
+    // before the app switch happened. Confirmed on a real device: user
+    // was dropped straight into Obsidian with no on-screen guidance and
+    // had to guess. Now shows instructions first and waits for a
+    // deliberate tap (openObsidianNow) before actually launching.
     if (!kIsWeb) {
-      final result = await _iosApps.openObsidian();
-      if (result case StepFailure()) {
-        return _fail(result);
+      final installed = await _iosApps.isObsidianInstalled();
+      if (!installed) {
+        return _fail(const StepFailure(LinkingError.obsidianNotInstalled));
       }
     }
 
     _step = LinkingStep.awaitingObsidianVaultOpen;
     notifyListeners();
+  }
+
+  Future<void> openObsidianNow() async {
+    if (kIsWeb) return;
+    final result = await _iosApps.openObsidian();
+    if (result case StepFailure()) {
+      _fail(result);
+    }
   }
 
   Future<void> _verifySync() async {
@@ -141,11 +157,14 @@ class LinkingController extends ChangeNotifier {
   String? get currentInstruction => switch (_step) {
     LinkingStep.awaitingObsidianVaultOpen =>
       'Your notes are ready.\n\n'
+      '1. Tap OPEN OBSIDIAN below\n\n'
       'In Obsidian:\n\n'
-      '→ Tap Open folder as vault\n'
-      '→ Browse to On My iPhone → Synclocal\n'
-      '→ Select it\n\n'
-      'Then tap Continue below',
+      '2. Tap Open folder as vault\n'
+      '3. Browse to On My iPhone → Synclocal\n'
+      '4. Select it\n\n'
+      '5. Switch back to Synclocal (app switcher, '
+      'or the Home button/gesture)\n'
+      '6. Tap DONE — CONTINUE below',
 
     _ => null,
   };

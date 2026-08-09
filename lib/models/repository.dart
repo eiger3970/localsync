@@ -33,7 +33,7 @@ class Repository {
   final int        remotePort;        // 22
   final String     remoteUser;        // rapi5
   final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
-  final String     obsidianVaultPath; // On My iPhone/Obsidian/Obsidian_phone_vault
+  final String     obsidianVaultPath; // On My iPhone/Synclocal
   final bool       autoSync;
   final SyncStatus status;
   final SyncPhase  syncPhase;

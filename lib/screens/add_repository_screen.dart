@@ -24,7 +24,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
     text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
   );
   final _vaultCtrl   = TextEditingController(
-    text: 'On My iPhone/Obsidian/Obsidian_phone_vault',
+    text: 'On My iPhone/Synclocal',
   );
   bool _saving = false;
 
@@ -69,7 +69,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _label('OBSIDIAN VAULT PATH ON PHONE'),
               _field(
                 _vaultCtrl,
-                hint: 'On My iPhone/Obsidian/Obsidian_phone_vault',
+                hint: 'On My iPhone/Synclocal',
                 validator: _required,
               ),
               const SizedBox(height: 32),

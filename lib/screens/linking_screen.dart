@@ -11,6 +11,8 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
+import '../models/repository.dart';
+import '../services/repository_provider.dart';
 import 'pairing_screen.dart';
 
 class LinkingScreen extends StatelessWidget {
@@ -45,7 +47,7 @@ class LinkingScreen extends StatelessWidget {
                   duration: const Duration(milliseconds: 350),
                   child: switch (ctrl.step) {
                     LinkingStep.idle     => _IdleView(ctrl: ctrl),
-                    LinkingStep.complete => const _CompleteView(),
+                    LinkingStep.complete => _CompleteView(ctrl: ctrl),
                     LinkingStep.failed   => _FailedView(ctrl: ctrl),
                     _ when ctrl.currentInstruction != null =>
                       _ParkedView(ctrl: ctrl),
@@ -209,7 +211,7 @@ class _ParkedView extends StatelessWidget {
               ctrl.currentInstruction!,
               style: const TextStyle(
                   color: kStar,
-                  fontSize: 14,
+                  fontSize: 16,
                   height: 2.0),
             ),
           ),
@@ -220,10 +222,18 @@ class _ParkedView extends StatelessWidget {
             'synclocal is waiting — iOS needs a moment between steps.',
             style: TextStyle(
                 color: kTextDim,
-                fontSize: 10,
+                fontSize: 12,
                 letterSpacing: 0.3),
           ),
           const SizedBox(height: 32),
+
+          if (ctrl.step == LinkingStep.awaitingObsidianVaultOpen) ...[
+            _PrimaryButton(
+              label: 'OPEN OBSIDIAN',
+              onPressed: ctrl.openObsidianNow,
+            ),
+            const SizedBox(height: 12),
+          ],
 
           _PrimaryButton(
             label: 'DONE — CONTINUE',
@@ -236,9 +246,49 @@ class _ParkedView extends StatelessWidget {
 }
 
 // ── Complete ───────────────────────────────────────────────────────────────────
+//
+// Fixed 2026-08-09: reaching LinkingStep.complete never actually created a
+// Repository record - RepositoryProvider.addRepository() already existed
+// but nothing called it, so a fully successful link still left the home
+// screen showing "No repositories". Inserted here, on arrival at this
+// screen (not deferred to the DONE tap, so it happens even if the user
+// backgrounds the app before tapping DONE), guarded against duplicates
+// for re-runs of setup against the same desktop repo.
+class _CompleteView extends StatefulWidget {
+  final LinkingController ctrl;
+  const _CompleteView({required this.ctrl});
 
-class _CompleteView extends StatelessWidget {
-  const _CompleteView();
+  @override
+  State<_CompleteView> createState() => _CompleteViewState();
+}
+
+class _CompleteViewState extends State<_CompleteView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _saveRepository());
+  }
+
+  Future<void> _saveRepository() async {
+    final provider = context.read<RepositoryProvider>();
+    final ctrl     = widget.ctrl;
+    final alreadySaved = provider.repos.any(
+      (r) => r.remoteHost == ctrl.desktopIp && r.remotePath == ctrl.bareRepoPath,
+    );
+    if (alreadySaved) return;
+
+    await provider.addRepository(Repository(
+      name:              'Obsidian_vault',
+      remoteHost:        ctrl.desktopIp,
+      remoteUser:        ctrl.desktopUser,
+      remotePath:        ctrl.bareRepoPath,
+      remotePort:        ctrl.sshPort,
+      obsidianVaultPath: 'On My iPhone/Synclocal',
+      autoSync:          true,
+      status:            SyncStatus.ok,
+      lastSync:          DateTime.now(),
+    ));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +308,7 @@ class _CompleteView extends StatelessWidget {
           const Text(
             'Your phone vault is linked to your desktop.\n\n'
             'synclocal will keep them in sync automatically.',
-            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.7),
+            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
