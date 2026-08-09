@@ -101,7 +101,7 @@ class GitServiceImpl implements GitService {
         repo.free();
       }
     } catch (e) {
-      return const StepFailure(LinkingError.connectionRefused);
+      return StepFailure(LinkingError.connectionRefused, debugDetail: e.toString());
     }
   }
 
@@ -126,7 +126,7 @@ class GitServiceImpl implements GitService {
       // libgit2 surfaces a non-fast-forward push as a LibGit2Error, not a
       // distinct return value - can't currently tell that apart from other
       // push failures (auth, network) without inspecting the message.
-      return const StepFailure(LinkingError.cannotFastForward);
+      return StepFailure(LinkingError.cannotFastForward, debugDetail: e.toString());
     }
   }
 
@@ -149,7 +149,7 @@ class GitServiceImpl implements GitService {
         repo.free();
       }
     } catch (e) {
-      return const StepFailure(LinkingError.connectionRefused);
+      return StepFailure(LinkingError.connectionRefused, debugDetail: e.toString());
     }
   }
 

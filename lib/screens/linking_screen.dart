@@ -309,6 +309,15 @@ class _FailedView extends StatelessWidget {
             text: failure.resolution,
             accent: kTeal,
           ),
+
+          if (failure.debugDetail != null) ...[
+            const SizedBox(height: 12),
+            _DiagCard(
+              label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+              text: failure.debugDetail!,
+              accent: Colors.redAccent,
+            ),
+          ],
           const SizedBox(height: 32),
 
           if (failure.error == LinkingError.pairingNotComplete) ...[
