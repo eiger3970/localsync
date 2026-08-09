@@ -530,11 +530,54 @@ discipline as the crash debugging:
   one obvious next action. Several error/instruction text sizes were
   bumped up after being flagged as too small to read comfortably.
 
+### Status as of 2026-08-09 (later same day): sync had never actually worked
+After the end-to-end success above, testing the *ongoing* sync path
+(not just initial setup) surfaced the most serious bug found this
+session: `SyncService.fromRepo()` used `repo.obsidianVaultPath` (a
+cosmetic Files-app display label like `"On My iPhone/Synclocal"`) as
+the real filesystem path for git operations. That string can never
+resolve to a real directory, so `fullSync()`'s very first check
+(`Directory('$vaultPath/.git').exists()`) always failed, immediately
+returning `bareRepoNotFound` - **every sync attempt, ever, regardless
+of network state.** This had nothing to do with the desktop being
+unreachable; it would have failed identically fully wired up on the
+same WiFi network. Root cause: `Repository` never had a field for the
+real on-disk path at all, only remote (desktop) fields and the cosmetic
+display label.
+
+**Fix**: added `Repository.localPath` (same value
+`LinkingController`/`GitServiceImpl` already used correctly for the
+*initial* clone - `getApplicationDocumentsDirectory().path`), wired
+through both the automatic linking flow and the manual Add Repository
+form. `SyncService.fromRepo()` now uses `repo.localPath`. Old
+locally-persisted repo records predate this field and needed
+removing + re-adding via Set up a vault - not a data-loss risk, they
+never actually worked anyway.
+
+**Also fixed same day**: `_verifySync()` was a literal no-op -
+unconditionally reported success regardless of whether the user did
+anything in Obsidian, confirmed on a real device (user backgrounded
+Obsidian without touching it, switched back, got "You're all set!").
+Added the one check Synclocal can genuinely make from its own sandbox
+(did the download actually produce files locally - `.git` dir exists,
+folder non-empty) via a new `LinkingError.cloneVerificationFailed`
+case. **Cannot** verify the Obsidian-side step (folder opened as a
+vault there) - no cross-app introspection on iOS - and the resolution
+text says so honestly rather than pretending otherwise.
+
+**UX, same session**: two unlabeled app-bar icons (key/phone, tooltip-
+only which doesn't show on tap on iOS) consolidated into one menu with
+real text labels. Repo-tile and dialog text sizes bumped again
+(10-14px -> 12-17px) after repeated real-device "too small" feedback -
+this has now happened enough times across enough screens that any
+*new* screen should default to ~14-16px body text from the start
+rather than iterating up from ~10-12px each time.
+
 **Next real gaps**: `pushToBareRepo()` (phone -> desktop direction) is
 still completely untested - only the pull/clone direction has run for
-real. Settings feature (would fix the hardcoded-IP problem) and the
-user's list of real Working Copy/sync errors (below) are both still
-outstanding.
+real, and only just started working at all today. Settings feature
+(would fix the hardcoded-IP problem) and the user's list of real
+Working Copy/sync errors (below) are both still outstanding.
 
 ### URL schemes used
 - working-copy://x-callback-url/link?repo=NAME&path=VAULT
