@@ -475,10 +475,73 @@ a dead end, just something to confirm once there's a real build to test.
   restructure `LinkingStep` unless a case genuinely doesn't fit any
   existing step.
 
+### Status as of 2026-08-09: first full real end-to-end success
+Pairing -> clone -> Obsidian vault open -> complete all worked together
+on a real device for the first time this session, after the
+`git_libgit2_init` crash (above) was resolved. Getting from "app boots"
+to "actually works" took a real chain of distinct bugs, each found by
+reading actual on-device evidence rather than guessing - same
+discipline as the crash debugging:
+- **Config drift, not code bugs**: `bareRepoPath` and `desktopIp` were
+  hardcoded wrong (stale/never-correct) in 8 separate places across the
+  codebase - none shared from one source. Real bare repo path is
+  `Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git` (confirmed via the
+  desktop's actual `Obsidian_vault` git remote). `desktopIp` needs
+  re-checking **every session** - it's the desktop's current
+  hotspot-subnet IP, and there's no settings screen yet to configure it
+  on-device. Also caught: the desktop has two simultaneous interfaces
+  in that same address range (USB tethering via `eth1`/`ipheth`, and an
+  unrelated WiFi network on `wlan0` that coincidentally overlaps Apple's
+  hotspot subnet) - `ip -d link show` + `lsusb` are how to tell them
+  apart, not just `ip addr show`.
+- **libgit2 has no `known_hosts` on iOS**: `git_service.dart`'s
+  `Callbacks` never set `certificateCheck`, so every SSH connection was
+  rejected with `GIT_ERROR_SSH: invalid or unknown remote ssh hostkey`
+  regardless of credentials. Fixed by accepting unconditionally -
+  reasonable given trust is already established via the password-based
+  pairing step, not a general-purpose SSH client reaching arbitrary
+  hosts.
+- **Swallowed exceptions hid all of the above**: both
+  `pairing_controller.dart` and `git_service.dart` had catch blocks
+  that mapped every unrecognized exception to the same generic
+  `connectionRefused`/`refused` message (some via `const StepFailure`,
+  which can't even carry the caught exception). Added an optional
+  `debugDetail` field to `StepFailure`, populated with `e.toString()`
+  and shown on both the pairing and linking failure screens - this is
+  what actually made each subsequent fix possible instead of another
+  round of guessing. Also added real `_diagnose()` classification to
+  `git_service.dart` (mirroring `pairing_controller.dart`'s) so auth
+  failures show the right diagnosis/resolution/PAIR NOW button instead
+  of "check your network" dead ends.
+- **iOS blocks `canLaunchUrl` for unlisted schemes**: `obsidian://`
+  reported "not installed" even when installed, because
+  `LSApplicationQueriesSchemes` was entirely absent from `Info.plist`.
+- **Sequencing bug lost the user mid-flow**: `_openObsidianForVaultPick()`
+  called `launchUrl()` (backgrounding Synclocal) *before* setting the
+  parked step and notifying - the "here's what to do in Obsidian, then
+  come back" instructions never got a chance to render. Now shows
+  instructions first with a deliberate `OPEN OBSIDIAN` button.
+- **Completion didn't persist anything**: reaching `LinkingStep.complete`
+  never called the already-existing `RepositoryProvider.addRepository()`
+  - a fully successful link still left the home screen showing "No
+  repositories". Now inserted on arrival at the complete screen.
+- **UX**: pairing success was a single 14px teal line, easy to miss
+  entirely under stress - replaced with a full-screen success state and
+  one obvious next action. Several error/instruction text sizes were
+  bumped up after being flagged as too small to read comfortably.
+
+**Next real gaps**: `pushToBareRepo()` (phone -> desktop direction) is
+still completely untested - only the pull/clone direction has run for
+real. Settings feature (would fix the hardcoded-IP problem) and the
+user's list of real Working Copy/sync errors (below) are both still
+outstanding.
+
 ### URL schemes used
 - working-copy://x-callback-url/link?repo=NAME&path=VAULT
 - working-copy://x-callback-url/pull?repo=NAME
-- working-copy://                          (open app)
+- working-copy://                          (open app - dead, Working
+  Copy was removed in the git2dart pivot; kept here as a historical
+  note, not a live reference)
 - obsidian://                              (open app)
 - obsidian://new-vault?name=NAME           (Phase 2)
 
