@@ -41,7 +41,7 @@ class _SynclocalAppState extends State<SynclocalApp> {
       // session. bareRepoPath was pointing at a path that never
       // existed; the real bare repo synco.sh and the desktop's actual
       // Obsidian vault use is at Git/pi5-obsidian/Git_bare_repo/.
-      desktopIp:      '172.20.10.2',
+      desktopIp:      '172.20.10.11',
       bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
       localVaultPath: widget.localVaultPath,
       sshPort:        22,

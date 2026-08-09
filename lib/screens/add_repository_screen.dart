@@ -17,7 +17,7 @@ class AddRepositoryScreen extends StatefulWidget {
 class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   final _formKey     = GlobalKey<FormState>();
   final _nameCtrl    = TextEditingController();
-  final _hostCtrl    = TextEditingController(text: '172.20.10.2');
+  final _hostCtrl    = TextEditingController(text: '172.20.10.11');
   final _portCtrl    = TextEditingController(text: '22');
   final _userCtrl    = TextEditingController(text: 'rapi5');
   final _pathCtrl    = TextEditingController(
@@ -51,7 +51,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _field(_nameCtrl, hint: 'Obsidian_vault', validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
-              _field(_hostCtrl, hint: '172.20.10.2', validator: _required),
+              _field(_hostCtrl, hint: '172.20.10.11', validator: _required),
               const SizedBox(height: 20),
               _label('SSH PORT'),
               _field(_portCtrl, hint: '22', keyboardType: TextInputType.number),
