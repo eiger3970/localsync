@@ -55,6 +55,11 @@ class SyncService {
   final String remoteUser;
   final String remoteHost;
   final int    remotePort;
+  // Desktop bare repo path - added 2026-08-09 alongside the clone-if-
+  // missing fix below. Not needed for fetch/push against an already-
+  // cloned repo (git already has the remote URL stored in its own
+  // config once cloned), only for performing that first clone.
+  final String remotePath;
   final String branch;
   final String sshPrivateKeyPath;
   final String sshPublicKeyPath;
@@ -64,6 +69,7 @@ class SyncService {
     required this.vaultPath,
     required this.remoteUser,
     required this.remoteHost,
+    required this.remotePath,
     required this.sshPrivateKeyPath,
     required this.sshPublicKeyPath,
     this.remotePort      = 22,
@@ -84,6 +90,7 @@ class SyncService {
     vaultPath:         repo.localPath,
     remoteUser:        repo.remoteUser,
     remoteHost:        repo.remoteHost,
+    remotePath:        repo.remotePath,
     remotePort:        repo.remotePort,
     branch:            'main',
     sshPrivateKeyPath: sshPrivateKeyPath,
@@ -97,7 +104,17 @@ class SyncService {
         passPhrase: sshPassphrase,
       );
 
-  git.Callbacks get _callbacks => git.Callbacks(credentials: _credentials);
+  // certificateCheck: the same fix git_service.dart needed (2026-08-09) -
+  // libgit2 has no known_hosts on iOS, so without this every fetch/push
+  // here would also fail with "invalid or unknown remote ssh hostkey".
+  // This file never got that fix even though it hits the exact same
+  // SSH transport - only GitServiceImpl (the one-time setup clone) did.
+  git.Callbacks get _callbacks => git.Callbacks(
+        credentials: _credentials,
+        certificateCheck: (certificate, host, {required valid}) => true,
+      );
+
+  String get _remoteUrl => 'ssh://$remoteUser@$remoteHost:$remotePort$remotePath';
 
   // Fixed local identity, same convention the old Working Copy resolution
   // text used to tell users to type in manually ("Git phone obsidian" /
@@ -109,8 +126,30 @@ class SyncService {
   // ── Full sync ──────────────────────────────────────────────────────────────
 
   Stream<SyncEvent> fullSync({String? commitMessage}) async* {
+    // Fixed 2026-08-09: this used to fail immediately with
+    // bareRepoNotFound whenever the local .git folder was missing - a
+    // permanent dead end with no way to recover short of manually
+    // redoing the whole pairing+setup flow again. Real cause found on
+    // a real device: the app's own private storage does not survive
+    // being reinstalled via sideloading (each new build wipes it), so
+    // this was hit every single time after any rebuild, not a rare
+    // edge case. Now re-clones automatically instead of just failing -
+    // the same recovery a fresh "Set up a vault" run would do, but
+    // reachable from the ordinary sync/refresh action, no separate
+    // manual flow required.
     if (!await Directory('$vaultPath/.git').exists()) {
-      yield SyncEvent.done(const SyncFailed(LinkingError.bareRepoNotFound));
+      yield SyncEvent.phase(SyncPhase.pulling);
+      try {
+        git.Repository.clone(
+          url: _remoteUrl,
+          localPath: vaultPath,
+          callbacks: _callbacks,
+        );
+      } catch (e) {
+        yield SyncEvent.done(SyncFailed(_diagnose(e)));
+        return;
+      }
+      yield SyncEvent.done(const SyncOk('Downloaded your notes'));
       return;
     }
 
