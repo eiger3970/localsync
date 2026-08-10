@@ -602,20 +602,27 @@ class _EmptyStateState extends State<_EmptyState>
     // heights regardless of the drop target's hover border - a fixed
     // guess here previously caused a real vertical-alignment mismatch
     // on the vault-setup screen once sizes changed.
-    // 2026-08-11: "images too large, the notebook... past the screen's
-    // edge" - real overflow bug, not just a size preference. The Row
-    // was nested inside this screen's own 32px-per-side Padding *and*
-    // its own separate edgePadding, but iconSize was only computed
-    // against the inner padding - so the real available width was 32px
-    // per side narrower than what the icons were sized for. Fixed by
-    // giving the Row its own (smaller) padding directly, matching the
-    // pattern already used on the vault-setup screen, with the size
-    // formula now matching the padding actually applied.
+    // 2026-08-11: "images too large... past the screen's edge" - that
+    // fix removed the double-padding bug but the formula still
+    // overflowed, just by a smaller, constant 20px: it reserved
+    // arrowSection=70 for the arrow (actual rendered width is only
+    // 12*2 padding + 34 icon = 58px) but never accounted for each
+    // _IconBox's own padding+border overhead (6*2 + 2*2 = 16px, on
+    // top of the icon itself) - real per-icon box width is
+    // iconSize+16, not iconSize. With mainAxisAlignment.center, that
+    // overflow doesn't split evenly - it's why the row read as shifted
+    // right rather than symmetrically clipped. Formula now accounts
+    // for both real overheads.
     final screenWidth = MediaQuery.of(context).size.width;
     const rowPadding = 16.0;
-    const arrowSection = 70.0;
-    final iconSize =
-        ((screenWidth - rowPadding * 2 - arrowSection) / 2).clamp(70.0, 170.0);
+    const arrowWidth = 58.0; // 12*2 padding + 34 icon
+    const iconBoxOverhead = 16.0; // 6*2 padding + 2*2 border, per icon
+    final iconSize = ((screenWidth -
+                rowPadding * 2 -
+                arrowWidth -
+                iconBoxOverhead * 2) /
+            2)
+        .clamp(70.0, 170.0);
 
     return Center(
       child: Column(

@@ -126,13 +126,15 @@ class _IdleViewState extends State<_IdleView>
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    // 2026-08-11: "enlarge to max size per device so there's some
-    // padding space on the left and right edges" - computed from the
-    // real screen width, with the row's own tight 6px padding, rather
-    // than a fixed guess that left it smaller than the screen allows.
+    // 2026-08-11: "images haven't changed, I don't think they're the
+    // maximum size possible" - correct, they weren't: arrowSection
+    // reserved 50px for the arrow, but its real rendered width is just
+    // the icon itself (26px) - its Padding only adds *top* space, no
+    // horizontal padding - so 24px of usable width was being reserved
+    // for nothing on every device. Fixed to the real value.
     final screenWidth = MediaQuery.of(context).size.width;
     const rowPadding = 6.0;
-    const arrowSection = 50.0;
+    const arrowSection = 26.0;
     final glyphWidth =
         ((screenWidth - rowPadding * 2 - arrowSection) / 2).clamp(120.0, 260.0);
     final glyphIcon = (glyphWidth * 0.6).clamp(60.0, 160.0);
