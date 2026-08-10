@@ -162,6 +162,15 @@ class _IdleViewState extends State<_IdleView>
           // lost build time twice to native-dependency issues, not worth
           // repeating for a cosmetic asset. Real branded artwork went to
           // the app icon instead (assets/icon/icon.png), not here.
+          // 2026-08-11: "page 1 desktop is green but page 2 desktop is
+          // grey and vice versa" - this screen had accent backwards
+          // relative to the home screen: home screen colors the
+          // draggable *source* green (desktop) and leaves the drop
+          // *target* (vault) neutral grey until hovered; this screen
+          // had it flipped (vault green, desktop grey). Now matches
+          // home screen's convention - desktop (source) is accent,
+          // vault (target) is neutral grey with a green border only
+          // while something is being dragged over it.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: rowPadding),
             child: Row(
@@ -178,6 +187,7 @@ class _IdleViewState extends State<_IdleView>
                         icon: Icons.computer_rounded,
                         label: 'Your desktop',
                         caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                        accent: true,
                         width: glyphWidth,
                         iconSize: glyphIcon,
                       ),
@@ -189,6 +199,7 @@ class _IdleViewState extends State<_IdleView>
                       icon: Icons.computer_rounded,
                       label: 'Your desktop',
                       caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                      accent: true,
                       width: glyphWidth,
                       iconSize: glyphIcon,
                     ),
@@ -201,6 +212,7 @@ class _IdleViewState extends State<_IdleView>
                     icon: Icons.computer_rounded,
                     label: 'Your desktop',
                     caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                    accent: true,
                     width: glyphWidth,
                     iconSize: glyphIcon,
                     pulse: _pulseCtrl,
@@ -225,7 +237,6 @@ class _IdleViewState extends State<_IdleView>
                     icon: Icons.auto_stories_rounded,
                     label: '$kGenericAppLabel $kContainerName',
                     caption: 'this phone',
-                    accent: true,
                     width: glyphWidth,
                     iconSize: glyphIcon,
                     hovering: _dragHover,
