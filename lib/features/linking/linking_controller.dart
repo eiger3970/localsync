@@ -245,16 +245,21 @@ class LinkingController extends ChangeNotifier {
 
   // ── UI strings ─────────────────────────────────────────────────────────────
 
+  // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit
+  // direction - there are exactly two real user actions in this whole
+  // flow (create the vault, then pick its folder); the other steps
+  // (pairing check, clone, verify) run autonomously with a spinner, not
+  // something the user does, so they're not counted here.
   String? get currentInstruction => switch (_step) {
     LinkingStep.awaitingVaultCreation =>
-      'First, create a new vault in $kNoteAppName:\n\n'
+      'Step 1 of 2: create a new vault in $kNoteAppName:\n\n'
       'Tap OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
       'Create a vault → Continue without sync →\n'
       'name it "Synclocal" → Create a vault\n\n'
       'Come back here when you\'re done.',
 
     LinkingStep.pickingVaultFolder =>
-      'Now select the vault you just created:\n\n'
+      'Step 2 of 2: select the vault you just created:\n\n'
       'Tap SELECT VAULT FOLDER, then browse to\n'
       'On My iPhone → $kNoteAppName → Synclocal',
 
@@ -270,7 +275,7 @@ class LinkingController extends ChangeNotifier {
 
   String get stepSubtitle => switch (_step) {
     LinkingStep.cloning => 'Connecting via SSH and copying your vault',
-    _                   => 'iOS is processing — this is not frozen',
+    _                   => 'iOS is processing - this is not frozen',
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────

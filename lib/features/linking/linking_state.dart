@@ -195,13 +195,13 @@ extension LinkingErrorDetails on LinkingError {
     LinkingError.failedToResolvePath =>
       'Working Copy cannot find the vault path. The old path reference is stale.',
     LinkingError.indexLocked =>
-      'Vault index is locked — a previous process crashed or is still running.',
+      'Vault index is locked - a previous process crashed or is still running.',
     LinkingError.invalidArgumentRepo =>
-      'Working Copy shows "invalid argument repo". This is cosmetic — the link worked.',
+      'Working Copy shows "invalid argument repo". This is cosmetic - the link worked.',
     LinkingError.commitNotShowing =>
       'Phone changes are not appearing in Working Copy. The app needs waking.',
     LinkingError.cannotFastForward =>
-      'Cannot push — the remote has commits your phone does not have yet.',
+      'Cannot push - the remote has commits your phone does not have yet.',
     LinkingError.mergeConflict =>
       'The same line was edited on both devices. Git cannot auto-resolve.',
     LinkingError.rebaseStuck =>
@@ -252,12 +252,12 @@ extension LinkingErrorDetails on LinkingError {
       'Then restart setup.',
     LinkingError.vaultPathConflict =>
       '1. Delete $kNoteAppName app (removes On My iPhone/$kNoteAppName)\n'
-      '2. Reboot phone — required to clear iOS file state\n'
+      '2. Reboot phone - required to clear iOS file state\n'
       '3. Reinstall $kNoteAppName\n'
       '4. Restart setup',
     LinkingError.failedToResolvePath =>
       '1. Force close $kNoteAppName\n'
-      '2. Reopen $kNoteAppName — it will index files\n'
+      '2. Reopen $kNoteAppName - it will index files\n'
       '3. Tap "Trust author and enable plugins"\n'
       '4. Force close $kNoteAppName again\n'
       '5. Return here and tap Continue',
@@ -303,7 +303,7 @@ extension LinkingErrorDetails on LinkingError {
     LinkingError.filesNotDeleting =>
       '1. Delete $kNoteAppName app\n'
       '2. Delete Working Copy app\n'
-      '3. Reboot phone — required\n'
+      '3. Reboot phone - required\n'
       '4. Reinstall both apps\n'
       '5. Restart setup from the beginning',
     LinkingError.vaultNameEmpty =>

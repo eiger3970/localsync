@@ -207,7 +207,7 @@ class _PairedSuccessView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 shape: const RoundedRectangleBorder(),
               ),
-              child: const Text('CONTINUE — SET UP VAULT',
+              child: const Text('CONTINUE - SET UP VAULT',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),

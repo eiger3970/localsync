@@ -340,7 +340,7 @@ class SyncService {
       final theirs = m.group(2)!.trim();
       final callout = theirs.split('\n').map((l) => '> $l').join('\n');
       return '$ours\n\n'
-             '> [!warning]+ SYNC CONFLICT — other device version (review and delete one)\n'
+             '> [!warning]+ SYNC CONFLICT - other device version (review and delete one)\n'
              '$callout\n\n';
     });
   }

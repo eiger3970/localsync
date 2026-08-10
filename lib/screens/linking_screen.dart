@@ -404,8 +404,8 @@ class _ParkedView extends StatelessWidget {
 
           // Reassurance line
           const Text(
-            'synclocal is waiting — iOS needs a moment between steps.',
-            style: TextStyle(color: kTextDim, fontSize: 12, letterSpacing: 0.3),
+            'synclocal is waiting - iOS needs a moment between steps.',
+            style: TextStyle(color: kTextMid, fontSize: 13, letterSpacing: 0.3),
           ),
           const SizedBox(height: 32),
 
@@ -416,7 +416,7 @@ class _ParkedView extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _PrimaryButton(
-              label: 'I\'VE CREATED IT — CONTINUE',
+              label: 'I\'VE CREATED IT - CONTINUE',
               onPressed: ctrl.confirmVaultCreated,
             ),
           ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
