@@ -26,7 +26,7 @@ class LinkingController extends ChangeNotifier {
   final String desktopUser;
   final String desktopIp;
   final String bareRepoPath;
-  final int    sshPort;
+  final int sshPort;
 
   final IosAppService _iosApps;
   final VaultFolderService _vaultFolder;
@@ -38,12 +38,12 @@ class LinkingController extends ChangeNotifier {
     this.sshPort = 22,
     IosAppService? iosApps,
     VaultFolderService? vaultFolder,
-  }) : _iosApps     = iosApps ?? IosAppServiceImpl(),
-       _vaultFolder = vaultFolder ?? VaultFolderService();
+  })  : _iosApps = iosApps ?? IosAppServiceImpl(),
+        _vaultFolder = vaultFolder ?? VaultFolderService();
 
-  LinkingStep  _step        = LinkingStep.idle;
+  LinkingStep _step = LinkingStep.idle;
   StepFailure? _lastFailure;
-  bool         _isRunning   = false;
+  bool _isRunning = false;
 
   // Held between _checkPairing() and _cloneInto() - the flow now pauses
   // for real user interaction (create vault, pick folder) in between,
@@ -57,22 +57,22 @@ class LinkingController extends ChangeNotifier {
   String? _pickedVaultPath;
   String? _pickedVaultBookmark;
 
-  LinkingStep  get step               => _step;
-  StepFailure? get lastFailure        => _lastFailure;
-  bool         get isRunning          => _isRunning;
-  String?      get pickedVaultPath    => _pickedVaultPath;
-  String?      get pickedVaultBookmark => _pickedVaultBookmark;
+  LinkingStep get step => _step;
+  StepFailure? get lastFailure => _lastFailure;
+  bool get isRunning => _isRunning;
+  String? get pickedVaultPath => _pickedVaultPath;
+  String? get pickedVaultBookmark => _pickedVaultBookmark;
 
   double get progress => switch (_step) {
-    LinkingStep.idle                  => 0.0,
-    LinkingStep.checkingPairing       => 0.10,
-    LinkingStep.awaitingVaultCreation => 0.30,
-    LinkingStep.pickingVaultFolder    => 0.55,
-    LinkingStep.cloning               => 0.80,
-    LinkingStep.verifySync            => 0.95,
-    LinkingStep.complete              => 1.0,
-    LinkingStep.failed                => 0.0,
-  };
+        LinkingStep.idle => 0.0,
+        LinkingStep.checkingPairing => 0.10,
+        LinkingStep.awaitingVaultCreation => 0.30,
+        LinkingStep.pickingVaultFolder => 0.55,
+        LinkingStep.cloning => 0.80,
+        LinkingStep.verifySync => 0.95,
+        LinkingStep.complete => 1.0,
+        LinkingStep.failed => 0.0,
+      };
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -141,7 +141,10 @@ class LinkingController extends ChangeNotifier {
     await _cloneInto(result.path, result.bookmark);
   }
 
-  void reset() { _reset(); notifyListeners(); }
+  void reset() {
+    _reset();
+    notifyListeners();
+  }
 
   // ── Steps ──────────────────────────────────────────────────────────────────
 
@@ -150,7 +153,7 @@ class LinkingController extends ChangeNotifier {
     notifyListeners();
 
     final privateKeyPath = await SshKeyPaths.privateKeyPath();
-    final publicKeyPath  = await SshKeyPaths.publicKeyPath();
+    final publicKeyPath = await SshKeyPaths.publicKeyPath();
 
     if (!kIsWeb) {
       final hasKeypair = await _keypairExists(privateKeyPath, publicKeyPath);
@@ -160,7 +163,7 @@ class LinkingController extends ChangeNotifier {
     }
 
     _privateKeyPath = privateKeyPath;
-    _publicKeyPath  = publicKeyPath;
+    _publicKeyPath = publicKeyPath;
     await _awaitVaultCreation();
   }
 
@@ -177,7 +180,7 @@ class LinkingController extends ChangeNotifier {
   }
 
   Future<void> _cloneInto(String path, String bookmark) async {
-    _pickedVaultPath     = path;
+    _pickedVaultPath = path;
     _pickedVaultBookmark = bookmark;
     _step = LinkingStep.cloning;
     notifyListeners();
@@ -223,7 +226,8 @@ class LinkingController extends ChangeNotifier {
     // see into Obsidian to confirm the folder is displayed as a vault
     // there (no cross-app introspection on iOS).
     if (!kIsWeb && _pickedVaultBookmark != null) {
-      final accessPath = await _vaultFolder.startAccessing(_pickedVaultBookmark!);
+      final accessPath =
+          await _vaultFolder.startAccessing(_pickedVaultBookmark!);
       if (accessPath == null) {
         return _fail(const StepFailure(LinkingError.vaultFolderAccessLost));
       }
@@ -251,32 +255,34 @@ class LinkingController extends ChangeNotifier {
   // (pairing check, clone, verify) run autonomously with a spinner, not
   // something the user does, so they're not counted here.
   String? get currentInstruction => switch (_step) {
-    LinkingStep.awaitingVaultCreation =>
-      'Step 1 of 2: create a new vault in $kNoteAppName:\n\n'
-      'Tap OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
-      'Create a vault → Continue without sync →\n'
-      'name it "Synclocal" → Create a vault\n\n'
-      'Come back here when you\'re done.',
+        LinkingStep.awaitingVaultCreation =>
+          '1 of 2: create a new vault in $kNoteAppName:\n\n'
+              'Tap OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
+              'Create a vault → Continue without sync →\n'
+              'name it "Synclocal" → Create a vault\n\n'
+              'Come back here when you\'re done.',
 
-    LinkingStep.pickingVaultFolder =>
-      'Step 2 of 2: select the vault you just created:\n\n'
-      'Tap SELECT VAULT FOLDER, then browse to\n'
-      'On My iPhone → $kNoteAppName → Synclocal',
-
-    _ => null,
-  };
+        // 2026-08-11: "select" -> "tap" throughout, per explicit direction
+        // - dropped the leading "Tap " here since the button itself is now
+        // named TAP VAULT FOLDER (below), avoiding a "Tap TAP..." collision.
+        LinkingStep.pickingVaultFolder =>
+          '2 of 2: tap the vault you just created:\n\n'
+              'TAP VAULT FOLDER, then browse to\n'
+              'On My iPhone → $kNoteAppName → Synclocal',
+        _ => null,
+      };
 
   String get stepLabel => switch (_step) {
-    LinkingStep.checkingPairing => 'Checking setup…',
-    LinkingStep.cloning         => 'Downloading your notes…',
-    LinkingStep.verifySync      => 'Verifying…',
-    _                           => 'Working…',
-  };
+        LinkingStep.checkingPairing => 'Checking setup…',
+        LinkingStep.cloning => 'Downloading your notes…',
+        LinkingStep.verifySync => 'Verifying…',
+        _ => 'Working…',
+      };
 
   String get stepSubtitle => switch (_step) {
-    LinkingStep.cloning => 'Connecting via SSH and copying your vault',
-    _                   => 'iOS is processing - this is not frozen',
-  };
+        LinkingStep.cloning => 'Connecting via SSH and copying your vault',
+        _ => 'iOS is processing - this is not frozen',
+      };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -296,14 +302,14 @@ class LinkingController extends ChangeNotifier {
 
   void _fail(StepFailure failure) {
     _lastFailure = failure;
-    _step        = LinkingStep.failed;
-    _isRunning   = false;
+    _step = LinkingStep.failed;
+    _isRunning = false;
     notifyListeners();
   }
 
   void _reset() {
-    _step        = LinkingStep.idle;
+    _step = LinkingStep.idle;
     _lastFailure = null;
-    _isRunning   = false;
+    _isRunning = false;
   }
 }

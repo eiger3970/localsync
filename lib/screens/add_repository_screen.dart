@@ -17,13 +17,14 @@ class AddRepositoryScreen extends StatefulWidget {
 }
 
 class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
-  final _formKey     = GlobalKey<FormState>();
-  final _nameCtrl    = TextEditingController();
-  final _hostCtrl    = TextEditingController(text: '172.20.10.11');
-  final _portCtrl    = TextEditingController(text: '22');
-  final _userCtrl    = TextEditingController(text: 'rapi5');
-  final _pathCtrl    = TextEditingController(
-    text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _hostCtrl = TextEditingController(text: '172.20.10.11');
+  final _portCtrl = TextEditingController(text: '22');
+  final _userCtrl = TextEditingController(text: 'rapi5');
+  final _pathCtrl = TextEditingController(
+    text:
+        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
   );
   final _vaultFolder = VaultFolderService();
   VaultFolderResult? _pickedVault;
@@ -49,7 +50,9 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _label('REPOSITORY NAME'),
-              _field(_nameCtrl, hint: '${kGenericAppLabel}_$kContainerName', validator: _required),
+              _field(_nameCtrl,
+                  hint: '${kGenericAppLabel}_$kContainerName',
+                  validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
               _field(_hostCtrl, hint: '172.20.10.11', validator: _required),
@@ -63,7 +66,8 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _label('GIT BARE REPO PATH ON DESKTOP'),
               _field(
                 _pathCtrl,
-                hint: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
+                hint:
+                    '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
                 validator: _required,
               ),
               const SizedBox(height: 20),
@@ -99,7 +103,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
                     ),
                     TextButton(
                       onPressed: _pickVault,
-                      child: const Text('SELECT',
+                      child: const Text('TAP',
                           style: TextStyle(color: kGreen, fontSize: 12)),
                     ),
                   ],
@@ -109,7 +113,8 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               Text(
                 'Must already exist as a $kContainerName in $kNoteAppName - create it\n'
                 'there first (Create a vault → Continue without sync).',
-                style: const TextStyle(color: kTextMid, fontSize: 12, height: 1.5),
+                style:
+                    const TextStyle(color: kTextMid, fontSize: 12, height: 1.5),
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -117,17 +122,20 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
                 child: ElevatedButton(
                   onPressed: _saving ? null : _save,
                   child: _saving
-                    ? const SizedBox(
-                        width: 16, height: 16,
-                        child: CircularProgressIndicator(color: kVoid, strokeWidth: 2),
-                      )
-                    : const Text('CONNECT'),
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              color: kVoid, strokeWidth: 2),
+                        )
+                      : const Text('CONNECT'),
                 ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'SSH public key must be in ~/.ssh/authorized_keys on your desktop.',
-                style: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 0.3),
+                style: TextStyle(
+                    color: kTextDim, fontSize: 10, letterSpacing: 0.3),
               ),
             ],
           ),
@@ -137,22 +145,25 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   }
 
   Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(text, style: const TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5)),
-  );
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(text,
+            style: const TextStyle(
+                color: kTextDim, fontSize: 10, letterSpacing: 1.5)),
+      );
 
   Widget _field(
     TextEditingController ctrl, {
     String? hint,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
-  }) => TextFormField(
-    controller: ctrl,
-    validator: validator,
-    keyboardType: keyboardType,
-    style: const TextStyle(color: kStar, fontSize: 12),
-    decoration: InputDecoration(hintText: hint),
-  );
+  }) =>
+      TextFormField(
+        controller: ctrl,
+        validator: validator,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: kStar, fontSize: 12),
+        decoration: InputDecoration(hintText: hint),
+      );
 
   String? _required(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Required' : null;
@@ -168,20 +179,22 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
     final vault = _pickedVault;
     if (vault == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Select the $kNoteAppName $kContainerName folder first')),
+        SnackBar(
+            content:
+                Text('Tap the $kNoteAppName $kContainerName folder first')),
       );
       return;
     }
     setState(() => _saving = true);
 
     final repo = Repository(
-      name:              _nameCtrl.text.trim(),
-      remoteHost:        _hostCtrl.text.trim(),
-      remotePort:        int.tryParse(_portCtrl.text.trim()) ?? 22,
-      remoteUser:        _userCtrl.text.trim(),
-      remotePath:        _pathCtrl.text.trim(),
-      localPath:         vault.path,
-      vaultBookmark:     vault.bookmark,
+      name: _nameCtrl.text.trim(),
+      remoteHost: _hostCtrl.text.trim(),
+      remotePort: int.tryParse(_portCtrl.text.trim()) ?? 22,
+      remoteUser: _userCtrl.text.trim(),
+      remotePath: _pathCtrl.text.trim(),
+      localPath: vault.path,
+      vaultBookmark: vault.bookmark,
       obsidianVaultPath: 'On My iPhone/$kNoteAppName/${_nameCtrl.text.trim()}',
     );
 

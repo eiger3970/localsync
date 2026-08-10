@@ -76,7 +76,7 @@ class StepFailure extends StepResult {
   final String? debugDetail;
   const StepFailure(this.error, {this.debugDetail});
 
-  String get diagnosis  => error.diagnosis;
+  String get diagnosis => error.diagnosis;
   String get resolution => error.resolution;
 }
 
@@ -180,153 +180,141 @@ enum LinkingError {
 
 extension LinkingErrorDetails on LinkingError {
   String get diagnosis => switch (this) {
-    LinkingError.connectionRefused =>
-      'Cannot reach your desktop. SSH connection refused.',
-    LinkingError.sshAuthFailed =>
-      'SSH key rejected. Your phone key is not authorised on the desktop.',
-    LinkingError.bareRepoNotFound =>
-      'Bare repository not found at the configured path on your desktop.',
-    LinkingError.workingCopyNotInstalled =>
-      'Working Copy is not installed on this phone.',
-    LinkingError.obsidianNotInstalled =>
-      '$kNoteAppName is not installed on this phone.',
-    LinkingError.vaultPathConflict =>
-      'A vault already exists at that path with data in it.',
-    LinkingError.failedToResolvePath =>
-      'Working Copy cannot find the vault path. The old path reference is stale.',
-    LinkingError.indexLocked =>
-      'Vault index is locked - a previous process crashed or is still running.',
-    LinkingError.invalidArgumentRepo =>
-      'Working Copy shows "invalid argument repo". This is cosmetic - the link worked.',
-    LinkingError.commitNotShowing =>
-      'Phone changes are not appearing in Working Copy. The app needs waking.',
-    LinkingError.cannotFastForward =>
-      'Cannot push - the remote has commits your phone does not have yet.',
-    LinkingError.mergeConflict =>
-      'The same line was edited on both devices. Git cannot auto-resolve.',
-    LinkingError.rebaseStuck =>
-      'Git is stuck mid-rebase. A lock file is blocking all git commands.',
-    LinkingError.untrackedFilesOverwritten =>
-      'A local file would be overwritten by the incoming pull.',
-    LinkingError.identityNotSet =>
-      'Working Copy has no commit identity. A name and email are required.',
-    LinkingError.filesNotDeleting =>
-      'Old vault files are not fully removed. A phone reboot is needed.',
-    LinkingError.vaultNameEmpty =>
-      'Vault name is empty.',
-    LinkingError.unexpectedLinkError =>
-      'Launching an external app failed unexpectedly.',
-    LinkingError.pairingNotComplete =>
-      'This phone has not been paired with your desktop yet.',
-    LinkingError.pairingPasswordRejected =>
-      'The desktop password entered was not accepted.',
-    LinkingError.cloneVerificationFailed =>
-      'Your notes were not found in the expected folder on this phone.',
-    LinkingError.vaultFolderAccessLost =>
-      'Synclocal lost access to your vault folder.',
-    LinkingError.vaultPickerFailed =>
-      'Could not open the folder picker.',
-  };
+        LinkingError.connectionRefused =>
+          'Cannot reach your desktop. SSH connection refused.',
+        LinkingError.sshAuthFailed =>
+          'SSH key rejected. Your phone key is not authorised on the desktop.',
+        LinkingError.bareRepoNotFound =>
+          'Bare repository not found at the configured path on your desktop.',
+        LinkingError.workingCopyNotInstalled =>
+          'Working Copy is not installed on this phone.',
+        LinkingError.obsidianNotInstalled =>
+          '$kNoteAppName is not installed on this phone.',
+        LinkingError.vaultPathConflict =>
+          'A vault already exists at that path with data in it.',
+        LinkingError.failedToResolvePath =>
+          'Working Copy cannot find the vault path. The old path reference is stale.',
+        LinkingError.indexLocked =>
+          'Vault index is locked - a previous process crashed or is still running.',
+        LinkingError.invalidArgumentRepo =>
+          'Working Copy shows "invalid argument repo". This is cosmetic - the link worked.',
+        LinkingError.commitNotShowing =>
+          'Phone changes are not appearing in Working Copy. The app needs waking.',
+        LinkingError.cannotFastForward =>
+          'Cannot push - the remote has commits your phone does not have yet.',
+        LinkingError.mergeConflict =>
+          'The same line was edited on both devices. Git cannot auto-resolve.',
+        LinkingError.rebaseStuck =>
+          'Git is stuck mid-rebase. A lock file is blocking all git commands.',
+        LinkingError.untrackedFilesOverwritten =>
+          'A local file would be overwritten by the incoming pull.',
+        LinkingError.identityNotSet =>
+          'Working Copy has no commit identity. A name and email are required.',
+        LinkingError.filesNotDeleting =>
+          'Old vault files are not fully removed. A phone reboot is needed.',
+        LinkingError.vaultNameEmpty => 'Vault name is empty.',
+        LinkingError.unexpectedLinkError =>
+          'Launching an external app failed unexpectedly.',
+        LinkingError.pairingNotComplete =>
+          'This phone has not been paired with your desktop yet.',
+        LinkingError.pairingPasswordRejected =>
+          'The desktop password entered was not accepted.',
+        LinkingError.cloneVerificationFailed =>
+          'Your notes were not found in the expected folder on this phone.',
+        LinkingError.vaultFolderAccessLost =>
+          'Synclocal lost access to your vault folder.',
+        LinkingError.vaultPickerFailed => 'Could not open the folder picker.',
+      };
 
   String get resolution => switch (this) {
-    LinkingError.connectionRefused =>
-      '1. Check your desktop is awake\n'
-      '2. Connect phone to hotspot\n'
-      '3. On desktop: sudo systemctl status ssh\n'
-      '4. On desktop: ip addr show\n'
-      '   Verify IP matches what is set in this app',
-    LinkingError.sshAuthFailed =>
-      'Tap PAIR NOW below and enter your desktop login password once -\n'
-      'this installs your phone\'s key in ~/.ssh/authorized_keys on the\n'
-      'desktop. If you already paired, the key may not have reached the\n'
-      'desktop (interrupted connection) - pairing again is safe to repeat.',
-    LinkingError.bareRepoNotFound =>
-      'On desktop, verify the bare repo exists:\n'
-      'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git\n\n'
-      'If missing, run Fresh Setup steps 1–10 on your desktop first.',
-    LinkingError.workingCopyNotInstalled =>
-      'Install Working Copy from the App Store.\n'
-      'Then restart setup.',
-    LinkingError.obsidianNotInstalled =>
-      'Install $kNoteAppName from the App Store.\n'
-      'Then restart setup.',
-    LinkingError.vaultPathConflict =>
-      '1. Delete $kNoteAppName app (removes On My iPhone/$kNoteAppName)\n'
-      '2. Reboot phone - required to clear iOS file state\n'
-      '3. Reinstall $kNoteAppName\n'
-      '4. Restart setup',
-    LinkingError.failedToResolvePath =>
-      '1. Force close $kNoteAppName\n'
-      '2. Reopen $kNoteAppName - it will index files\n'
-      '3. Tap "Trust author and enable plugins"\n'
-      '4. Force close $kNoteAppName again\n'
-      '5. Return here and tap Continue',
-    LinkingError.indexLocked =>
-      '1. Open $kNoteAppName\n'
-      '2. Tap "Trust author and enable plugins"\n'
-      '3. Working Copy and $kNoteAppName will auto-sync',
-    LinkingError.invalidArgumentRepo =>
-      'Force close Working Copy completely, then reopen it.\n'
-      'The banner will be gone. Everything worked correctly.',
-    LinkingError.commitNotShowing =>
-      'In Working Copy:\n'
-      'Long press the repository → tap Pull\n'
-      'This wakes the app and commits will appear.',
-    LinkingError.cannotFastForward =>
-      'In Working Copy:\n'
-      'Tap the error → tap Merge → resolve → Commit → Push',
-    LinkingError.mergeConflict =>
-      'On desktop:\n'
-      '1. git status\n'
-      '2. Open conflicting file, remove <<<< ==== >>>> markers\n'
-      '3. git add .\n'
-      '4. git commit -m "Resolve conflict"\n'
-      '5. git push origin master\n'
-      'Then pull on phone in Working Copy.',
-    LinkingError.rebaseStuck =>
-      'On desktop:\n'
-      'rm -f .git/index.lock\n'
-      'rm -rf .git/rebase-merge\n'
-      'git rebase --abort\n'
-      'git checkout -f main\n'
-      'git reset --hard origin/main',
-    LinkingError.untrackedFilesOverwritten =>
-      'On desktop:\n'
-      'rm "path/to/conflicting/file.md"\n'
-      'Then run synco again.',
-    LinkingError.identityNotSet =>
-      'In Working Copy, when prompted:\n'
-      '1. Name: Git phone obsidian\n'
-      '2. Email: phone@obsidian.local\n'
-      '3. Tap tick\n'
-      '4. Restart the commit',
-    LinkingError.filesNotDeleting =>
-      '1. Delete $kNoteAppName app\n'
-      '2. Delete Working Copy app\n'
-      '3. Reboot phone - required\n'
-      '4. Reinstall both apps\n'
-      '5. Restart setup from the beginning',
-    LinkingError.vaultNameEmpty =>
-      'Set a vault name in Settings before running setup.',
-    LinkingError.unexpectedLinkError =>
-      'Check the target app is installed and try again.',
-    LinkingError.pairingNotComplete =>
-      'Run pairing first from Settings, then try setup again.',
-    LinkingError.pairingPasswordRejected =>
-      'Check the password and try again. This is your desktop login\n'
-      'password, entered once just to install this phone\'s key - it\n'
-      'is never stored.',
-    LinkingError.cloneVerificationFailed =>
-      'The download may not have finished, or the folder was moved or\n'
-      'deleted after setup. Tap TRY AGAIN to re-download your notes.\n'
-      'Nothing on your desktop is affected either way.',
-    LinkingError.vaultFolderAccessLost =>
-      'This can happen if the folder was moved, renamed, or deleted\n'
-      'after you picked it. Tap TRY AGAIN and select the vault folder\n'
-      'again. Nothing on your desktop or in the folder itself is\n'
-      'affected.',
-    LinkingError.vaultPickerFailed =>
-      'Tap TRY AGAIN. If this keeps happening, force-closing and\n'
-      'reopening Synclocal may help.',
-  };
+        LinkingError.connectionRefused => '1. Check your desktop is awake\n'
+            '2. Connect phone to hotspot\n'
+            '3. On desktop: sudo systemctl status ssh\n'
+            '4. On desktop: ip addr show\n'
+            '   Verify IP matches what is set in this app',
+        LinkingError.sshAuthFailed =>
+          'Tap PAIR NOW below and enter your desktop login password once -\n'
+              'this installs your phone\'s key in ~/.ssh/authorized_keys on the\n'
+              'desktop. If you already paired, the key may not have reached the\n'
+              'desktop (interrupted connection) - pairing again is safe to repeat.',
+        LinkingError.bareRepoNotFound =>
+          'On desktop, verify the bare repo exists:\n'
+              'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git\n\n'
+              'If missing, run Fresh Setup steps 1–10 on your desktop first.',
+        LinkingError.workingCopyNotInstalled =>
+          'Install Working Copy from the App Store.\n'
+              'Then restart setup.',
+        LinkingError.obsidianNotInstalled =>
+          'Install $kNoteAppName from the App Store.\n'
+              'Then restart setup.',
+        LinkingError.vaultPathConflict =>
+          '1. Delete $kNoteAppName app (removes On My iPhone/$kNoteAppName)\n'
+              '2. Reboot phone - required to clear iOS file state\n'
+              '3. Reinstall $kNoteAppName\n'
+              '4. Restart setup',
+        LinkingError.failedToResolvePath => '1. Force close $kNoteAppName\n'
+            '2. Reopen $kNoteAppName - it will index files\n'
+            '3. Tap "Trust author and enable plugins"\n'
+            '4. Force close $kNoteAppName again\n'
+            '5. Return here and tap Continue',
+        LinkingError.indexLocked => '1. Open $kNoteAppName\n'
+            '2. Tap "Trust author and enable plugins"\n'
+            '3. Working Copy and $kNoteAppName will auto-sync',
+        LinkingError.invalidArgumentRepo =>
+          'Force close Working Copy completely, then reopen it.\n'
+              'The banner will be gone. Everything worked correctly.',
+        LinkingError.commitNotShowing => 'In Working Copy:\n'
+            'Long press the repository → tap Pull\n'
+            'This wakes the app and commits will appear.',
+        LinkingError.cannotFastForward => 'In Working Copy:\n'
+            'Tap the error → tap Merge → resolve → Commit → Push',
+        LinkingError.mergeConflict => 'On desktop:\n'
+            '1. git status\n'
+            '2. Open conflicting file, remove <<<< ==== >>>> markers\n'
+            '3. git add .\n'
+            '4. git commit -m "Resolve conflict"\n'
+            '5. git push origin master\n'
+            'Then pull on phone in Working Copy.',
+        LinkingError.rebaseStuck => 'On desktop:\n'
+            'rm -f .git/index.lock\n'
+            'rm -rf .git/rebase-merge\n'
+            'git rebase --abort\n'
+            'git checkout -f main\n'
+            'git reset --hard origin/main',
+        LinkingError.untrackedFilesOverwritten => 'On desktop:\n'
+            'rm "path/to/conflicting/file.md"\n'
+            'Then run synco again.',
+        LinkingError.identityNotSet => 'In Working Copy, when prompted:\n'
+            '1. Name: Git phone obsidian\n'
+            '2. Email: phone@obsidian.local\n'
+            '3. Tap tick\n'
+            '4. Restart the commit',
+        LinkingError.filesNotDeleting => '1. Delete $kNoteAppName app\n'
+            '2. Delete Working Copy app\n'
+            '3. Reboot phone - required\n'
+            '4. Reinstall both apps\n'
+            '5. Restart setup from the beginning',
+        LinkingError.vaultNameEmpty =>
+          'Set a vault name in Settings before running setup.',
+        LinkingError.unexpectedLinkError =>
+          'Check the target app is installed and try again.',
+        LinkingError.pairingNotComplete =>
+          'Run pairing first from Settings, then try setup again.',
+        LinkingError.pairingPasswordRejected =>
+          'Check the password and try again. This is your desktop login\n'
+              'password, entered once just to install this phone\'s key - it\n'
+              'is never stored.',
+        LinkingError.cloneVerificationFailed =>
+          'The download may not have finished, or the folder was moved or\n'
+              'deleted after setup. Tap TRY AGAIN to re-download your notes.\n'
+              'Nothing on your desktop is affected either way.',
+        LinkingError.vaultFolderAccessLost =>
+          'This can happen if the folder was moved, renamed, or deleted\n'
+              'after you picked it. Tap TRY AGAIN and tap the vault folder\n'
+              'again. Nothing on your desktop or in the folder itself is\n'
+              'affected.',
+        LinkingError.vaultPickerFailed =>
+          'Tap TRY AGAIN. If this keeps happening, force-closing and\n'
+              'reopening Synclocal may help.',
+      };
 }

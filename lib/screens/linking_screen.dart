@@ -126,18 +126,23 @@ class _IdleViewState extends State<_IdleView>
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    // 2026-08-11: "images haven't changed, I don't think they're the
-    // maximum size possible" - correct, they weren't: arrowSection
-    // reserved 50px for the arrow, but its real rendered width is just
-    // the icon itself (26px) - its Padding only adds *top* space, no
-    // horizontal padding - so 24px of usable width was being reserved
-    // for nothing on every device. Fixed to the real value.
+    // 2026-08-11: "page 2 images are smaller than page 1, why?" - real
+    // gap, not perception: page 1's icon size *is* the real content
+    // width, but this formula computed glyphWidth (the container) and
+    // then took 60% of it for the icon - an arbitrary shrink page 1
+    // never applied. Rewritten to match page 1's approach exactly: size
+    // the icon itself directly from the real screen width, then size
+    // the glyph's box to just fit that icon (icon + its own 16px
+    // padding/border) - label/caption wrap or ellipsis within it rather
+    // than the icon being shrunk to fit a wider box.
     final screenWidth = MediaQuery.of(context).size.width;
     const rowPadding = 6.0;
-    const arrowSection = 26.0;
-    final glyphWidth =
-        ((screenWidth - rowPadding * 2 - arrowSection) / 2).clamp(120.0, 260.0);
-    final glyphIcon = (glyphWidth * 0.6).clamp(60.0, 160.0);
+    const arrowWidth = 26.0; // arrow's own icon, no horizontal padding
+    const iconBoxOverhead = 16.0; // 6*2 padding + 2*2 border, per icon
+    final glyphIcon =
+        ((screenWidth - rowPadding * 2 - arrowWidth - iconBoxOverhead * 2) / 2)
+            .clamp(70.0, 180.0);
+    final glyphWidth = glyphIcon + iconBoxOverhead;
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess
@@ -410,35 +415,34 @@ class _ParkedView extends StatelessWidget {
           const SizedBox(height: 32),
 
           if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
-            // 2026-08-11: converted from buttons to drag-up-to-confirm
-            // per explicit direction, keeping the drag theme from pages
-            // 1-2 - but these are single actions with no natural second
-            // element to drop onto, so the gesture is a threshold drag
-            // (up past the chevron) rather than a drag-onto-target.
-            // Generic launch icon used in place of Obsidian's real
-            // logo - that's a trademarked asset with no licensed source
-            // file available here to bundle safely.
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _DragUpToConfirm(
-                    icon: Icons.launch_rounded,
-                    label: 'OPEN ${kNoteAppName.toUpperCase()}',
-                    onConfirm: ctrl.openObsidianNow,
-                  ),
-                  const SizedBox(width: 40),
-                  _DragUpToConfirm(
-                    icon: Icons.check_circle_outline_rounded,
-                    label: 'I\'VE CREATED IT',
-                    onConfirm: ctrl.confirmVaultCreated,
-                  ),
-                ],
-              ),
+            // 2026-08-11 (second pass): text moved inside the swiped
+            // element itself (a pill button) rather than a separate
+            // caption below an icon box, and each action now swipes in
+            // its own direction - up for OPEN OBSIDIAN, right for I'VE
+            // CREATED IT - rather than both using the same up gesture.
+            // Drag distance is no longer clamped to a small fixed pixel
+            // range either: "can the swipe be as long as the user
+            // swipes rather than cutting off... this is a disconnect
+            // with the user" - it now follows the finger for the real
+            // screen's extent, not an arbitrary short cap.
+            Column(
+              children: [
+                _SwipeToConfirm(
+                  direction: Axis.vertical,
+                  label: 'OPEN ${kNoteAppName.toUpperCase()}',
+                  onConfirm: ctrl.openObsidianNow,
+                ),
+                const SizedBox(height: 24),
+                _SwipeToConfirm(
+                  direction: Axis.horizontal,
+                  label: 'I\'VE CREATED IT',
+                  onConfirm: ctrl.confirmVaultCreated,
+                ),
+              ],
             ),
           ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
             _PrimaryButton(
-              label: 'SELECT VAULT FOLDER',
+              label: 'TAP VAULT FOLDER',
               onPressed: ctrl.pickVaultFolder,
             ),
           ],
@@ -850,32 +854,41 @@ class _ScopeRow extends StatelessWidget {
   }
 }
 
-// ── Drag-up-to-confirm ───────────────────────────────────────────────────────
+// ── Swipe-to-confirm ─────────────────────────────────────────────────────────
 
 // 2026-08-11: single-action equivalent of the desktop->vault drag on
-// pages 1-2, for actions that don't have a natural second element to
-// drag onto (open an app, confirm a manual step) - drag the icon up
-// past the chevron marker to trigger, snaps back if released early.
-class _DragUpToConfirm extends StatefulWidget {
-  final IconData icon;
+// pages 1-2, for actions with no natural second element to drag onto
+// (open an app, confirm a manual step). Text lives inside the swiped
+// pill itself rather than as a separate caption below an icon, each
+// instance swipes in its own real direction (vertical or horizontal),
+// and the drag distance isn't artificially capped - it tracks the
+// finger for the real extent of the gesture, snapping back only on
+// release if it didn't clear the threshold. Per direct feedback: a
+// short hard cutoff read as "the program's limitation" rather than a
+// gesture that responds naturally to the user.
+class _SwipeToConfirm extends StatefulWidget {
+  final Axis direction;
   final String label;
   final VoidCallback onConfirm;
-  const _DragUpToConfirm({
-    required this.icon,
+  const _SwipeToConfirm({
+    required this.direction,
     required this.label,
     required this.onConfirm,
   });
 
   @override
-  State<_DragUpToConfirm> createState() => _DragUpToConfirmState();
+  State<_SwipeToConfirm> createState() => _SwipeToConfirmState();
 }
 
-class _DragUpToConfirmState extends State<_DragUpToConfirm>
+class _SwipeToConfirmState extends State<_SwipeToConfirm>
     with SingleTickerProviderStateMixin {
-  static const double _threshold = 56;
+  static const double _threshold = 64;
+  // Generous, not a tight cutoff - just enough to stop the pill flying
+  // fully off-screen on an aggressive swipe.
+  static const double _maxDrag = 320;
   late final AnimationController _snapCtrl;
   Animation<double>? _snapAnim;
-  double _dragOffset = 0;
+  double _drag = 0; // negative for up, positive for right
   bool _dragging = false;
 
   @override
@@ -893,17 +906,21 @@ class _DragUpToConfirmState extends State<_DragUpToConfirm>
     super.dispose();
   }
 
-  double get _offset => _dragging ? _dragOffset : (_snapAnim?.value ?? 0);
+  bool get _isUp => widget.direction == Axis.vertical;
 
-  void _onDragUpdate(DragUpdateDetails d) {
+  double get _offset => _dragging ? _drag : (_snapAnim?.value ?? 0);
+
+  void _onUpdate(double delta) {
     setState(() {
-      _dragOffset = (_dragOffset + d.delta.dy).clamp(-_threshold - 24, 0.0);
+      _drag = _isUp
+          ? (_drag + delta).clamp(-_maxDrag, 0.0)
+          : (_drag + delta).clamp(0.0, _maxDrag);
     });
   }
 
-  void _onDragEnd(DragEndDetails d) {
-    final reached = -_dragOffset >= _threshold;
-    _snapAnim = Tween<double>(begin: _dragOffset, end: 0)
+  void _onEnd() {
+    final reached = (_isUp ? -_drag : _drag) >= _threshold;
+    _snapAnim = Tween<double>(begin: _drag, end: 0)
         .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
     setState(() => _dragging = false);
     _snapCtrl
@@ -918,45 +935,54 @@ class _DragUpToConfirmState extends State<_DragUpToConfirm>
       animation: _snapCtrl,
       builder: (_, __) {
         final offset = _offset;
-        final progress = (-offset / _threshold).clamp(0.0, 1.0);
+        final progress =
+            ((_isUp ? -offset : offset) / _threshold).clamp(0.0, 1.0);
         final color = Color.lerp(kTextMid, kGreen, progress)!;
-        return SizedBox(
-          width: 130,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.keyboard_double_arrow_up_rounded,
-                  color: Color.lerp(kTextDim, kGreen, progress), size: 22),
-              const SizedBox(height: 2),
-              GestureDetector(
-                onVerticalDragStart: (_) => setState(() => _dragging = true),
-                onVerticalDragUpdate: _onDragUpdate,
-                onVerticalDragEnd: _onDragEnd,
-                child: Transform.translate(
-                  offset: Offset(0, offset),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 100),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: color, width: 2),
-                        ),
-                        child: Icon(widget.icon, size: 40, color: color),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(widget.label,
-                          style: const TextStyle(
-                              color: kTextMid,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center),
-                    ],
-                  ),
+
+        final arrows = Icon(
+          _isUp
+              ? Icons.keyboard_double_arrow_up_rounded
+              : Icons.keyboard_double_arrow_right_rounded,
+          color: color,
+          size: 20,
+        );
+        final text = Text(widget.label,
+            style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1));
+
+        final pill = AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+          decoration: BoxDecoration(
+            border: Border.all(color: color, width: 2),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: _isUp
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [arrows, const SizedBox(height: 6), text],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [text, const SizedBox(width: 8), arrows],
                 ),
-              ),
-            ],
+        );
+
+        return GestureDetector(
+          onVerticalDragStart:
+              _isUp ? (_) => setState(() => _dragging = true) : null,
+          onVerticalDragUpdate: _isUp ? (d) => _onUpdate(d.delta.dy) : null,
+          onVerticalDragEnd: _isUp ? (_) => _onEnd() : null,
+          onHorizontalDragStart:
+              _isUp ? null : (_) => setState(() => _dragging = true),
+          onHorizontalDragUpdate: _isUp ? null : (d) => _onUpdate(d.delta.dx),
+          onHorizontalDragEnd: _isUp ? null : (_) => _onEnd(),
+          child: Transform.translate(
+            offset: _isUp ? Offset(0, offset) : Offset(offset, 0),
+            child: pill,
           ),
         );
       },

@@ -93,8 +93,32 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
     }
   }
 
+  // Fixed 2026-08-11: real device hit "NO_ROOT_VC" - this app's
+  // Info.plist declares UIApplicationSceneManifest, so on iOS 13+ the
+  // real window is owned by a UIWindowScene, not
+  // UIApplicationDelegate.window (that property is only reliably
+  // populated for pre-Scene apps). Looks up the key window via
+  // connectedScenes first - the correct modern path - falling back to
+  // the old .delegate?.window lookup for safety, then walks any
+  // already-presented view controller chain so this doesn't try to
+  // double-present on top of something else already on screen.
+  private func topViewController() -> UIViewController? {
+    let sceneWindow: UIWindow? = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }
+    let fallbackWindow: UIWindow? = UIApplication.shared.delegate?.window ?? nil
+    let keyWindow: UIWindow? = sceneWindow ?? fallbackWindow
+
+    guard var top = keyWindow?.rootViewController else { return nil }
+    while let presented = top.presentedViewController {
+      top = presented
+    }
+    return top
+  }
+
   private func pickFolder(result: @escaping FlutterResult) {
-    guard let rootViewController = UIApplication.shared.delegate?.window??.rootViewController else {
+    guard let rootViewController = topViewController() else {
       result(FlutterError(code: "NO_ROOT_VC", message: "No root view controller available to present the picker", details: nil))
       return
     }
