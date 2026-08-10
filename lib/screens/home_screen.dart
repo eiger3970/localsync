@@ -36,26 +36,56 @@ class HomeScreen extends StatelessWidget {
               if (v == 'pair') _openPairing(context);
               if (v == 'link') _openLinking(context);
             },
+            // 2026-08-11: labels alone still drew "why are these
+            // needed?" on real device review - added a one-line reason
+            // under each so the menu explains itself without relying on
+            // a tooltip (already known not to fire on iOS tap, see the
+            // fix note above) or a chat explanation the user won't have
+            // open next time they wonder.
             itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'pair',
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: const [
                     Icon(Icons.vpn_key_outlined, color: kStar, size: 18),
                     SizedBox(width: 12),
-                    Text('Pair with desktop',
-                        style: TextStyle(color: kStar, fontSize: 14)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Pair with desktop',
+                              style: TextStyle(color: kStar, fontSize: 14)),
+                          Text('New phone, or lost connection',
+                              style:
+                                  TextStyle(color: kTextDim, fontSize: 11)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
               PopupMenuItem(
                 value: 'link',
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: const [
                     Icon(Icons.phone_iphone, color: kStar, size: 18),
                     SizedBox(width: 12),
-                    Text('Set up a vault',
-                        style: TextStyle(color: kStar, fontSize: 14)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Set up a vault',
+                              style: TextStyle(color: kStar, fontSize: 14)),
+                          Text('Link another vault to this phone',
+                              style:
+                                  TextStyle(color: kTextDim, fontSize: 11)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -102,12 +132,17 @@ class HomeScreen extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      // 2026-08-11: a bare "+" still drew "what is this for?" even after
+      // removing its on-screen duplicate - a label fixes that directly,
+      // and doesn't depend on a tooltip (doesn't fire on iOS tap).
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openAddRepo(context),
         backgroundColor: kTeal,
         foregroundColor: kVoid,
         shape: const RoundedRectangleBorder(),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('ADD MANUALLY',
+            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
       ),
     );
   }
@@ -494,9 +529,37 @@ class _StatusIcon extends StatelessWidget {
 
 // ── Empty state ────────────────────────────────────────────────────────────────
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends StatefulWidget {
   final VoidCallback onSetup;
   const _EmptyState({required this.onSetup});
+
+  @override
+  State<_EmptyState> createState() => _EmptyStateState();
+}
+
+class _EmptyStateState extends State<_EmptyState>
+    with SingleTickerProviderStateMixin {
+  bool _dragHover = false;
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2026-08-11: subtle continuous pulse on the draggable icon so the
+    // drag gesture is discoverable at a glance - there's no button left
+    // to fall back on now that SET UP VAULT was removed per explicit
+    // user direction, so the icon itself has to read as interactive.
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -510,41 +573,90 @@ class _EmptyState extends StatelessWidget {
             // than meaningful - swapped for a real sync icon, same
             // _rounded family already used for the device glyphs on the
             // vault-setup screen, and given real room to breathe.
+            // 2026-08-11: real device feedback called this "better,
+            // approved" - kept as-is.
             const Icon(Icons.sync_alt_rounded, size: 72, color: kTextMid),
-            const SizedBox(height: 24),
-            const Text('No repositories',
-                style: TextStyle(
-                    color: kStar, fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            const Text(
-              'Set up your vault to connect this phone\nto your desktop.',
-              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 28),
+            // 2026-08-11: "No repositories" as plain text became a
+            // repo icon with a real count badge, same "less text, more
+            // image" direction as the rest of this screen.
+            Badge(
+              label: const Text('0'),
+              backgroundColor: kTextDim,
+              textColor: kStar,
+              child: const Icon(Icons.source_outlined,
+                  size: 44, color: kTextMid),
             ),
-            const SizedBox(height: 32),
-            // 2026-08-10: dropped the separate "ADD EXISTING REPOSITORY"
-            // button - it was a second, dimmer control doing the exact
-            // same thing as the FAB (+) already visible on this same
-            // screen, and real user feedback was "what is the + for?"
-            // The FAB alone now covers manual/advanced entry; this
-            // button is the one guided path.
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: onSetup,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kTeal,
-                  foregroundColor: kVoid,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: const RoundedRectangleBorder(),
-                  textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2),
+            const SizedBox(height: 36),
+            // 2026-08-11: the instructional paragraph + SET UP VAULT
+            // button removed entirely per explicit user direction -
+            // dragging the desktop icon onto the vault icon is now the
+            // only way to start setup, mirroring the vault-setup
+            // screen's own drag-to-connect. onSetup here just opens
+            // that screen (same navigation the button used to do) -
+            // the real download itself only starts once inside it.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Draggable<bool>(
+                  data: true,
+                  feedback: const Material(
+                    color: Colors.transparent,
+                    child: Opacity(
+                      opacity: 0.85,
+                      child: Icon(Icons.computer_rounded,
+                          size: 40, color: kTeal),
+                    ),
+                  ),
+                  childWhenDragging: const Opacity(
+                    opacity: 0.3,
+                    child: Icon(Icons.computer_rounded,
+                        size: 40, color: kTextMid),
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _pulseCtrl,
+                    builder: (_, child) => Opacity(
+                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
+                      child: child,
+                    ),
+                    child: const Icon(Icons.computer_rounded,
+                        size: 40, color: kTeal),
+                  ),
                 ),
-                child: const Text('SET UP VAULT'),
-              ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Icon(Icons.arrow_forward_rounded,
+                      color: kTextDim, size: 22),
+                ),
+                DragTarget<bool>(
+                  onWillAcceptWithDetails: (_) {
+                    setState(() => _dragHover = true);
+                    return true;
+                  },
+                  onLeave: (_) => setState(() => _dragHover = false),
+                  onAcceptWithDetails: (_) {
+                    setState(() => _dragHover = false);
+                    widget.onSetup();
+                  },
+                  builder: (context, candidate, rejected) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _dragHover ? kTeal : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(Icons.auto_stories_rounded,
+                        size: 40, color: kTextMid),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 14),
+            const Text('Drag to set up your vault',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.5),
+                textAlign: TextAlign.center),
           ],
         ),
       ),

@@ -97,12 +97,30 @@ class _IdleView extends StatefulWidget {
   State<_IdleView> createState() => _IdleViewState();
 }
 
-class _IdleViewState extends State<_IdleView> {
-  // 2026-08-10: drag-to-connect, added alongside (not instead of) the
-  // COPY VAULT TO THIS PHONE button per explicit user direction - the
-  // button stays the reliable, accessible path; this is a second way to
-  // trigger the exact same ctrl.startLinking() call.
+class _IdleViewState extends State<_IdleView>
+    with SingleTickerProviderStateMixin {
+  // 2026-08-10: drag-to-connect, added alongside the COPY VAULT TO THIS
+  // PHONE button. 2026-08-11: button removed per explicit user
+  // direction ("just keep the drag drop theme") - drag is now the only
+  // trigger, so a continuous pulse + hint text were added on the
+  // draggable icon so the gesture is still discoverable without it.
   bool _dragHover = false;
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,11 +130,16 @@ class _IdleViewState extends State<_IdleView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Connect your $kNoteAppName vault',
+          // 2026-08-11: "Connect your Obsidian vault" read as ambiguous
+          // on real device review - which vault, desktop or phone? Now
+          // states the direction explicitly; the row right below still
+          // shows both ends visually.
+          Text('Bring your $kNoteAppName vault to this phone',
               style: const TextStyle(
                   color: kStar,
                   fontSize: 18,
-                  fontWeight: FontWeight.w600)),
+                  fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
           const SizedBox(height: 28),
           // Pictogram replacing the old wall of text (2026-08-09) - user
           // feedback was that a paragraph explaining source -> destination
@@ -150,10 +173,17 @@ class _IdleViewState extends State<_IdleView> {
                     caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
                   ),
                 ),
-                child: _DeviceGlyph(
-                  icon: Icons.computer_rounded,
-                  label: 'Your desktop',
-                  caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                child: AnimatedBuilder(
+                  animation: _pulseCtrl,
+                  builder: (_, child) => Opacity(
+                    opacity: 0.6 + (_pulseCtrl.value * 0.4),
+                    child: child,
+                  ),
+                  child: _DeviceGlyph(
+                    icon: Icons.computer_rounded,
+                    label: 'Your desktop',
+                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                  ),
                 ),
               ),
               const Padding(
@@ -212,11 +242,10 @@ class _IdleViewState extends State<_IdleView> {
             style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 28),
-          _PrimaryButton(
-            label: 'COPY VAULT TO THIS PHONE',
-            onPressed: ctrl.startLinking,
-          ),
+          const SizedBox(height: 20),
+          const Text('Drag your desktop onto the vault to begin',
+              style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
+              textAlign: TextAlign.center),
         ],
       ),
     );
