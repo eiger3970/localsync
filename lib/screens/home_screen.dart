@@ -59,8 +59,7 @@ class HomeScreen extends StatelessWidget {
                           Text('Pair with desktop',
                               style: TextStyle(color: kStar, fontSize: 14)),
                           Text('New phone, or lost connection',
-                              style:
-                                  TextStyle(color: kTextMid, fontSize: 13)),
+                              style: TextStyle(color: kTextMid, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -82,8 +81,7 @@ class HomeScreen extends StatelessWidget {
                           Text('Set up a $kContainerName',
                               style: TextStyle(color: kStar, fontSize: 14)),
                           Text('Link another $kContainerName to this phone',
-                              style:
-                                  TextStyle(color: kTextMid, fontSize: 13)),
+                              style: TextStyle(color: kTextMid, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -116,13 +114,11 @@ class HomeScreen extends StatelessWidget {
                 const Divider(height: 1, color: kBorder),
             itemBuilder: (_, i) => _RepoTile(
               repo: provider.repos[i],
-              onSync: () =>
-                  provider.syncRepository(provider.repos[i].id!),
+              onSync: () => provider.syncRepository(provider.repos[i].id!),
               onCommit: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      CommitScreen(repo: provider.repos[i]),
+                  builder: (_) => CommitScreen(repo: provider.repos[i]),
                 ),
               ),
               onToggleAutoSync: () =>
@@ -158,7 +154,7 @@ class HomeScreen extends StatelessWidget {
         MaterialPageRoute(
           builder: (_) => const PairingScreen(
             desktopUser: 'rapi5',
-            desktopIp:   '172.20.10.11',
+            desktopIp: '172.20.10.11',
           ),
         ),
       );
@@ -206,11 +202,11 @@ class HomeScreen extends StatelessWidget {
 // ── Repo tile ──────────────────────────────────────────────────────────────────
 
 class _RepoTile extends StatelessWidget {
-  final Repository      repo;
-  final VoidCallback    onSync;
-  final VoidCallback    onCommit;
-  final VoidCallback    onToggleAutoSync;
-  final VoidCallback    onDelete;
+  final Repository repo;
+  final VoidCallback onSync;
+  final VoidCallback onCommit;
+  final VoidCallback onToggleAutoSync;
+  final VoidCallback onDelete;
 
   const _RepoTile({
     required this.repo,
@@ -272,14 +268,12 @@ class _RepoTile extends StatelessWidget {
                 ? const _SpinningSync()
                 : GestureDetector(
                     onTap: onSync,
-                    child:
-                        const Icon(Icons.sync, color: kGreen, size: 22),
+                    child: const Icon(Icons.sync, color: kGreen, size: 22),
                   ),
             const SizedBox(width: 4),
             PopupMenuButton<String>(
               color: kSurface,
-              icon: const Icon(Icons.more_vert,
-                  color: kTextDim, size: 18),
+              icon: const Icon(Icons.more_vert, color: kTextDim, size: 18),
               onSelected: (v) {
                 if (v == 'commit') onCommit();
                 if (v == 'toggle_auto') onToggleAutoSync();
@@ -301,8 +295,7 @@ class _RepoTile extends StatelessWidget {
                 const PopupMenuItem(
                   value: 'delete',
                   child: Text('Remove',
-                      style:
-                          TextStyle(color: Colors.redAccent, fontSize: 15)),
+                      style: TextStyle(color: Colors.redAccent, fontSize: 15)),
                 ),
               ],
             ),
@@ -429,9 +422,9 @@ class _MetaText extends StatelessWidget {
 
   String _timeAgo(DateTime t) {
     final d = DateTime.now().difference(t);
-    if (d.inSeconds < 60)  return 'just now';
-    if (d.inMinutes < 60)  return '${d.inMinutes}m ago';
-    if (d.inHours < 24)    return '${d.inHours}h ago';
+    if (d.inSeconds < 60) return 'just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
     return '${d.inDays}d ago';
   }
 
@@ -444,8 +437,8 @@ class _MetaText extends StatelessWidget {
             style: TextStyle(color: kStar, fontSize: 17)),
         content: SingleChildScrollView(
           child: Text(fullError,
-              style: const TextStyle(
-                  color: kTextMid, fontSize: 14, height: 1.6)),
+              style:
+                  const TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
         ),
         actions: [
           TextButton(
@@ -495,10 +488,10 @@ class _StatusDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (status) {
-      SyncStatus.ok      => kGreen,
+      SyncStatus.ok => kGreen,
       SyncStatus.syncing => Colors.amber,
-      SyncStatus.error   => Colors.redAccent,
-      SyncStatus.idle    => kTextDim,
+      SyncStatus.error => Colors.redAccent,
+      SyncStatus.idle => kTextDim,
     };
     return Container(
       width: 7,
@@ -517,14 +510,17 @@ class _StatusIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (repos.isEmpty) return const SizedBox.shrink();
-    final hasError   = repos.any((r) => r.status == SyncStatus.error);
+    final hasError = repos.any((r) => r.status == SyncStatus.error);
     final hasSyncing = repos.any((r) => r.status == SyncStatus.syncing);
-    final allOk      = repos.every((r) => r.status == SyncStatus.ok);
+    final allOk = repos.every((r) => r.status == SyncStatus.ok);
 
-    if (hasSyncing) return const Icon(Icons.sync,                color: Colors.amber,     size: 22);
-    if (hasError)   return const Icon(Icons.error_outline,       color: Colors.redAccent, size: 22);
-    if (allOk)      return const Icon(Icons.check_circle_outline, color: kGreen,           size: 22);
-    return           const Icon(Icons.circle_outlined,           color: kTextDim,         size: 22);
+    if (hasSyncing)
+      return const Icon(Icons.sync, color: Colors.amber, size: 22);
+    if (hasError)
+      return const Icon(Icons.error_outline, color: Colors.redAccent, size: 22);
+    if (allOk)
+      return const Icon(Icons.check_circle_outline, color: kGreen, size: 22);
+    return const Icon(Icons.circle_outlined, color: kTextDim, size: 22);
   }
 }
 
@@ -536,9 +532,9 @@ class _StatusIcon extends StatelessWidget {
 // screen's _DeviceGlyph alignment bug.
 class _IconBox extends StatelessWidget {
   final IconData icon;
-  final double   size;
-  final Color    color;
-  final bool     hovering;
+  final double size;
+  final Color color;
+  final bool hovering;
   const _IconBox({
     required this.icon,
     required this.size,
@@ -606,62 +602,48 @@ class _EmptyStateState extends State<_EmptyState>
     // heights regardless of the drop target's hover border - a fixed
     // guess here previously caused a real vertical-alignment mismatch
     // on the vault-setup screen once sizes changed.
+    // 2026-08-11: "images too large, the notebook... past the screen's
+    // edge" - real overflow bug, not just a size preference. The Row
+    // was nested inside this screen's own 32px-per-side Padding *and*
+    // its own separate edgePadding, but iconSize was only computed
+    // against the inner padding - so the real available width was 32px
+    // per side narrower than what the icons were sized for. Fixed by
+    // giving the Row its own (smaller) padding directly, matching the
+    // pattern already used on the vault-setup screen, with the size
+    // formula now matching the padding actually applied.
     final screenWidth = MediaQuery.of(context).size.width;
-    const edgePadding  = 24.0;
+    const rowPadding = 16.0;
     const arrowSection = 70.0;
-    final iconSize = ((screenWidth - edgePadding * 2 - arrowSection) / 2)
-        .clamp(70.0, 170.0);
+    final iconSize =
+        ((screenWidth - rowPadding * 2 - arrowSection) / 2).clamp(70.0, 170.0);
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 2026-08-11: real device review - "make main image larger,
-            // perhaps at top... this is the top priority for a user, the
-            // rest is sub information." The standalone sync_alt icon
-            // that used to lead this screen was dropped ("why are the
-            // left/right arrows here?" - once the real action moved
-            // in front of it, it read as unexplained decoration rather
-            // than information). The drag pictogram - the actual
-            // action - now leads instead. onSetup here just opens the
-            // vault-setup screen (same navigation the old SET UP VAULT
-            // button did) - the real download only starts once inside
-            // it.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: edgePadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Draggable<bool>(
-                    data: true,
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: Opacity(
-                        opacity: 0.85,
-                        child: _IconBox(
-                          icon: Icons.computer_rounded,
-                          size: iconSize,
-                          color: kGreen,
-                        ),
-                      ),
-                    ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.3,
-                      child: _IconBox(
-                        icon: Icons.computer_rounded,
-                        size: iconSize,
-                        color: kTextMid,
-                      ),
-                    ),
-                    child: AnimatedBuilder(
-                      animation: _pulseCtrl,
-                      builder: (_, child) => Opacity(
-                        opacity: 0.6 + (_pulseCtrl.value * 0.4),
-                        child: child,
-                      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 2026-08-11: real device review - "make main image larger,
+          // perhaps at top... this is the top priority for a user, the
+          // rest is sub information." The standalone sync_alt icon
+          // that used to lead this screen was dropped ("why are the
+          // left/right arrows here?" - once the real action moved
+          // in front of it, it read as unexplained decoration rather
+          // than information). The drag pictogram - the actual
+          // action - now leads instead. onSetup here just opens the
+          // vault-setup screen (same navigation the old SET UP VAULT
+          // button did) - the real download only starts once inside
+          // it.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Draggable<bool>(
+                  data: true,
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: Opacity(
+                      opacity: 0.85,
                       child: _IconBox(
                         icon: Icons.computer_rounded,
                         size: iconSize,
@@ -669,59 +651,96 @@ class _EmptyStateState extends State<_EmptyState>
                       ),
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Icon(Icons.arrow_forward_rounded,
-                        color: kTextDim, size: 34),
-                  ),
-                  DragTarget<bool>(
-                    onWillAcceptWithDetails: (_) {
-                      setState(() => _dragHover = true);
-                      return true;
-                    },
-                    onLeave: (_) => setState(() => _dragHover = false),
-                    onAcceptWithDetails: (_) {
-                      setState(() => _dragHover = false);
-                      widget.onSetup();
-                    },
-                    builder: (context, candidate, rejected) => _IconBox(
-                      icon: Icons.auto_stories_rounded,
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: _IconBox(
+                      icon: Icons.computer_rounded,
                       size: iconSize,
                       color: kTextMid,
-                      hovering: _dragHover,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text('Drag to set up your vault',
-                style: TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 40),
-            // 2026-08-11: "make the 0 clear... unsure what to do with
-            // this image" persisted even after enlarging the badge -
-            // the cramped corner-overlay badge was the real problem, not
-            // its size. Replaced with a plain inline readout instead:
-            // icon, then the count itself at a real readable size, then
-            // the caption - nothing overlapping, nothing to interpret.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.source_outlined, size: 24, color: kTextDim),
-                const SizedBox(width: 10),
-                const Text('0',
-                    style: TextStyle(
-                        color: kTextMid,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700)),
-                const SizedBox(width: 6),
-                Text('${kContainerName}s linked',
-                    style: const TextStyle(color: kTextDim, fontSize: 13)),
+                  child: AnimatedBuilder(
+                    animation: _pulseCtrl,
+                    builder: (_, child) => Opacity(
+                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
+                      child: child,
+                    ),
+                    child: _IconBox(
+                      icon: Icons.computer_rounded,
+                      size: iconSize,
+                      color: kGreen,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Icon(Icons.arrow_forward_rounded,
+                      color: kTextDim, size: 34),
+                ),
+                DragTarget<bool>(
+                  onWillAcceptWithDetails: (_) {
+                    setState(() => _dragHover = true);
+                    return true;
+                  },
+                  onLeave: (_) => setState(() => _dragHover = false),
+                  onAcceptWithDetails: (_) {
+                    setState(() => _dragHover = false);
+                    widget.onSetup();
+                  },
+                  builder: (context, candidate, rejected) => _IconBox(
+                    icon: Icons.auto_stories_rounded,
+                    size: iconSize,
+                    color: kTextMid,
+                    hovering: _dragHover,
+                  ),
+                ),
               ],
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              children: [
+                const SizedBox(height: 18),
+                const Text('Drag to set up your vault',
+                    style:
+                        TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 40),
+                // 2026-08-11: "make the 0 clear... unsure what to do
+                // with this image" persisted even after enlarging the
+                // badge - the cramped corner-overlay badge was the
+                // real problem, not its size. Replaced with a plain
+                // inline readout instead: icon, then the count itself
+                // at a real readable size, then the caption - nothing
+                // overlapping, nothing to interpret. Caption color
+                // fixed from kTextDim to kTextMid ("text colour is
+                // inconsistent") - this page's secondary text
+                // (drag hint, kebab subtitles) is consistently
+                // kTextMid, kTextDim was a stray third shade. Also
+                // now says "PKM vaults" not just "vaults" - "what is
+                // a vault?" plus explicit direction to match page 2's
+                // wording.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.source_outlined,
+                        size: 24, color: kTextMid),
+                    const SizedBox(width: 10),
+                    const Text('0',
+                        style: TextStyle(
+                            color: kTextMid,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 6),
+                    Text('$kGenericAppLabel ${kContainerName}s linked',
+                        style: const TextStyle(color: kTextMid, fontSize: 13)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

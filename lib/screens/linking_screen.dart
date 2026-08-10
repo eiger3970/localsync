@@ -49,9 +49,9 @@ class LinkingScreen extends StatelessWidget {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 350),
                   child: switch (ctrl.step) {
-                    LinkingStep.idle     => _IdleView(ctrl: ctrl),
+                    LinkingStep.idle => _IdleView(ctrl: ctrl),
                     LinkingStep.complete => _CompleteView(ctrl: ctrl),
-                    LinkingStep.failed   => _FailedView(ctrl: ctrl),
+                    LinkingStep.failed => _FailedView(ctrl: ctrl),
                     _ when ctrl.currentInstruction != null =>
                       _ParkedView(ctrl: ctrl),
                     _ => _RunningView(ctrl: ctrl),
@@ -130,12 +130,12 @@ class _IdleViewState extends State<_IdleView>
     // padding space on the left and right edges" - computed from the
     // real screen width, with the row's own tight 6px padding, rather
     // than a fixed guess that left it smaller than the screen allows.
-    final screenWidth   = MediaQuery.of(context).size.width;
-    const rowPadding     = 6.0;
-    const arrowSection    = 50.0;
-    final glyphWidth = ((screenWidth - rowPadding * 2 - arrowSection) / 2)
-        .clamp(120.0, 260.0);
-    final glyphIcon  = (glyphWidth * 0.6).clamp(60.0, 160.0);
+    final screenWidth = MediaQuery.of(context).size.width;
+    const rowPadding = 6.0;
+    const arrowSection = 50.0;
+    final glyphWidth =
+        ((screenWidth - rowPadding * 2 - arrowSection) / 2).clamp(120.0, 260.0);
+    final glyphIcon = (glyphWidth * 0.6).clamp(60.0, 160.0);
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess
@@ -276,13 +276,16 @@ class _IdleViewState extends State<_IdleView>
                 ),
                 const SizedBox(height: 10),
                 // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
-                // per explicit direction.
+                // per explicit direction. Wording also fixed - "nothing
+                // else on this phone is touched" read as if synclocal
+                // might be reading/scanning existing phone data, when
+                // the real direction is desktop -> phone, write-only.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
                     Icon(Icons.shield_outlined, color: kTextDim, size: 21),
                     SizedBox(width: 6),
-                    Text('Nothing else on this phone is touched.',
+                    Text('No other files on this phone are read or changed.',
                         style: TextStyle(color: kTextDim, fontSize: 12)),
                   ],
                 ),
@@ -335,19 +338,14 @@ class _RunningView extends StatelessWidget {
             ctrl.stepLabel,
             key: ValueKey(ctrl.step),
             style: const TextStyle(
-                color: kStar,
-                fontSize: 16,
-                fontWeight: FontWeight.w500),
+                color: kStar, fontSize: 16, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
           Text(
             ctrl.stepSubtitle,
             style: const TextStyle(
-                color: kTextDim,
-                fontSize: 11,
-                letterSpacing: 0.3,
-                height: 1.6),
+                color: kTextDim, fontSize: 11, letterSpacing: 0.3, height: 1.6),
             textAlign: TextAlign.center,
           ),
         ],
@@ -367,7 +365,7 @@ class _ParkedView extends StatelessWidget {
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
       LinkingStep.awaitingVaultCreation => 'Create your $kContainerName',
-      LinkingStep.pickingVaultFolder    => 'Select your $kContainerName',
+      LinkingStep.pickingVaultFolder => 'Select your $kContainerName',
       _ => 'Your turn',
     };
 
@@ -382,9 +380,7 @@ class _ParkedView extends StatelessWidget {
           Text(
             heading,
             style: const TextStyle(
-                color: kStar,
-                fontSize: 20,
-                fontWeight: FontWeight.w600),
+                color: kStar, fontSize: 20, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 20),
 
@@ -399,10 +395,7 @@ class _ParkedView extends StatelessWidget {
             ),
             child: Text(
               ctrl.currentInstruction!,
-              style: const TextStyle(
-                  color: kStar,
-                  fontSize: 16,
-                  height: 2.0),
+              style: const TextStyle(color: kStar, fontSize: 16, height: 2.0),
             ),
           ),
           const SizedBox(height: 14),
@@ -410,10 +403,7 @@ class _ParkedView extends StatelessWidget {
           // Reassurance line
           const Text(
             'synclocal is waiting — iOS needs a moment between steps.',
-            style: TextStyle(
-                color: kTextDim,
-                fontSize: 12,
-                letterSpacing: 0.3),
+            style: TextStyle(color: kTextDim, fontSize: 12, letterSpacing: 0.3),
           ),
           const SizedBox(height: 32),
 
@@ -500,28 +490,29 @@ class _CompleteViewState extends State<_CompleteView>
 
   Future<void> _saveRepository() async {
     final provider = context.read<RepositoryProvider>();
-    final ctrl     = widget.ctrl;
+    final ctrl = widget.ctrl;
     final alreadySaved = provider.repos.any(
-      (r) => r.remoteHost == ctrl.desktopIp && r.remotePath == ctrl.bareRepoPath,
+      (r) =>
+          r.remoteHost == ctrl.desktopIp && r.remotePath == ctrl.bareRepoPath,
     );
     if (alreadySaved) return;
 
-    final vaultPath     = ctrl.pickedVaultPath;
+    final vaultPath = ctrl.pickedVaultPath;
     final vaultBookmark = ctrl.pickedVaultBookmark;
     if (vaultPath == null || vaultBookmark == null) return; // web target
 
     await provider.addRepository(Repository(
-      name:              '${kGenericAppLabel}_$kContainerName',
-      remoteHost:        ctrl.desktopIp,
-      remoteUser:        ctrl.desktopUser,
-      remotePath:        ctrl.bareRepoPath,
-      remotePort:        ctrl.sshPort,
-      localPath:         vaultPath,
-      vaultBookmark:     vaultBookmark,
+      name: '${kGenericAppLabel}_$kContainerName',
+      remoteHost: ctrl.desktopIp,
+      remoteUser: ctrl.desktopUser,
+      remotePath: ctrl.bareRepoPath,
+      remotePort: ctrl.sshPort,
+      localPath: vaultPath,
+      vaultBookmark: vaultBookmark,
       obsidianVaultPath: 'On My iPhone/$kNoteAppName/Synclocal',
-      autoSync:          true,
-      status:            SyncStatus.ok,
-      lastSync:          DateTime.now(),
+      autoSync: true,
+      status: SyncStatus.ok,
+      lastSync: DateTime.now(),
     ));
   }
 
@@ -549,8 +540,8 @@ class _CompleteViewState extends State<_CompleteView>
                     curve: Curves.elasticOut,
                     builder: (_, scale, child) =>
                         Transform.scale(scale: scale, child: child),
-                    child: const Icon(Icons.check_circle,
-                        color: kGreen, size: 88),
+                    child:
+                        const Icon(Icons.check_circle, color: kGreen, size: 88),
                   ),
                 ),
               ),
@@ -559,9 +550,7 @@ class _CompleteViewState extends State<_CompleteView>
           const SizedBox(height: 16),
           const Text('Your notes have arrived! 🎉',
               style: TextStyle(
-                  color: kStar,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800)),
+                  color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
           const SizedBox(height: 14),
           // Fixed 2026-08-09: this used to say "Your phone vault is
           // linked to your desktop" - overclaiming. Synclocal can only
@@ -607,7 +596,7 @@ class _CompleteViewState extends State<_CompleteView>
 class _Particle {
   final double angle;
   final double distance;
-  final Color  color;
+  final Color color;
   final double size;
   const _Particle({
     required this.angle,
@@ -661,9 +650,7 @@ class _FailedView extends StatelessWidget {
           const SizedBox(height: 8),
           const Text('Something stopped',
               style: TextStyle(
-                  color: kStar,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
+                  color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
 
           // What happened
@@ -700,7 +687,7 @@ class _FailedView extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (_) => const PairingScreen(
                     desktopUser: 'rapi5',
-                    desktopIp:   '172.20.10.11',
+                    desktopIp: '172.20.10.11',
                   ),
                 ),
               ),
@@ -718,9 +705,7 @@ class _FailedView extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: const Text('CANCEL',
                   style: TextStyle(
-                      color: kTextDim,
-                      fontSize: 11,
-                      letterSpacing: 1)),
+                      color: kTextDim, fontSize: 11, letterSpacing: 1)),
             ),
           ),
         ],
@@ -732,7 +717,7 @@ class _FailedView extends StatelessWidget {
 class _DiagCard extends StatelessWidget {
   final String label;
   final String text;
-  final Color  accent;
+  final Color accent;
   const _DiagCard({
     required this.label,
     required this.text,
@@ -759,10 +744,7 @@ class _DiagCard extends StatelessWidget {
                   letterSpacing: 1.5)),
           const SizedBox(height: 8),
           Text(text,
-              style: const TextStyle(
-                  color: kStar,
-                  fontSize: 15,
-                  height: 1.7)),
+              style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
         ],
       ),
     );
@@ -841,8 +823,7 @@ class _ScopeRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(color: kTextMid, fontSize: 15)),
+          Text(label, style: const TextStyle(color: kTextMid, fontSize: 15)),
           const Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
         ],
       ),
@@ -852,19 +833,19 @@ class _ScopeRow extends StatelessWidget {
 
 class _DeviceGlyph extends StatelessWidget {
   final IconData icon;
-  final String   label;
-  final String   caption;
-  final bool     accent;
-  final double   width;
-  final double   iconSize;
+  final String label;
+  final String caption;
+  final bool accent;
+  final double width;
+  final double iconSize;
   final Animation<double>? pulse;
-  final bool     hovering;
+  final bool hovering;
   const _DeviceGlyph({
     required this.icon,
     required this.label,
     required this.caption,
-    this.accent   = false,
-    this.width    = 140,
+    this.accent = false,
+    this.width = 140,
     this.iconSize = 56,
     this.pulse,
     this.hovering = false,
@@ -919,9 +900,7 @@ class _DeviceGlyph extends StatelessWidget {
           const SizedBox(height: 12),
           Text(label,
               style: const TextStyle(
-                  color: kTextMid,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600),
+                  color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
           const SizedBox(height: 4),
           Text(caption,
@@ -937,7 +916,7 @@ class _DeviceGlyph extends StatelessWidget {
 // ── Primary button ─────────────────────────────────────────────────────────────
 
 class _PrimaryButton extends StatelessWidget {
-  final String       label;
+  final String label;
   final VoidCallback onPressed;
   const _PrimaryButton({required this.label, required this.onPressed});
 
@@ -953,9 +932,7 @@ class _PrimaryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: const RoundedRectangleBorder(),
           textStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2),
+              fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 2),
         ),
         child: Text(label),
       ),
