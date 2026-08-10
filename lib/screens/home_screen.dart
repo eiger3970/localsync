@@ -580,6 +580,8 @@ class _EmptyStateState extends State<_EmptyState>
             // here just opens the vault-setup screen (same navigation
             // the old SET UP VAULT button did) - the real download only
             // starts once inside it.
+            // 2026-08-11: "images good, but enlarge ~50-100%" - real
+            // device review. Icons 56 -> 96px (~70% larger).
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -590,13 +592,13 @@ class _EmptyStateState extends State<_EmptyState>
                     child: Opacity(
                       opacity: 0.85,
                       child: Icon(Icons.computer_rounded,
-                          size: 56, color: kTeal),
+                          size: 96, color: kTeal),
                     ),
                   ),
                   childWhenDragging: const Opacity(
                     opacity: 0.3,
                     child: Icon(Icons.computer_rounded,
-                        size: 56, color: kTextMid),
+                        size: 96, color: kTextMid),
                   ),
                   child: AnimatedBuilder(
                     animation: _pulseCtrl,
@@ -605,13 +607,13 @@ class _EmptyStateState extends State<_EmptyState>
                       child: child,
                     ),
                     child: const Icon(Icons.computer_rounded,
-                        size: 56, color: kTeal),
+                        size: 96, color: kTeal),
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 18),
+                  padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Icon(Icons.arrow_forward_rounded,
-                      color: kTextDim, size: 28),
+                      color: kTextDim, size: 34),
                 ),
                 DragTarget<bool>(
                   onWillAcceptWithDetails: (_) {
@@ -633,34 +635,37 @@ class _EmptyStateState extends State<_EmptyState>
                       ),
                     ),
                     child: const Icon(Icons.auto_stories_rounded,
-                        size: 56, color: kTextMid),
+                        size: 96, color: kTextMid),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             const Text('Drag to set up your vault',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
                 textAlign: TextAlign.center),
             const SizedBox(height: 40),
-            // 2026-08-11: "unsure what to do with this image as a
-            // user" + "make the 0 clear" - the repo-count readout isn't
-            // an action, just status, so it's now clearly demoted below
-            // the real action (smaller, dimmer, with its own caption
-            // instead of relying on the reader to infer what a bare
-            // icon+badge means).
-            Badge(
-              largeSize: 22,
-              label: const Text('0',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-              backgroundColor: kTextDim,
-              textColor: kStar,
-              child: const Icon(Icons.source_outlined,
-                  size: 32, color: kTextDim),
+            // 2026-08-11: "make the 0 clear... unsure what to do with
+            // this image" persisted even after enlarging the badge -
+            // the cramped corner-overlay badge was the real problem, not
+            // its size. Replaced with a plain inline readout instead:
+            // icon, then the count itself at a real readable size, then
+            // the caption - nothing overlapping, nothing to interpret.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.source_outlined, size: 24, color: kTextDim),
+                const SizedBox(width: 10),
+                const Text('0',
+                    style: TextStyle(
+                        color: kTextMid,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700)),
+                const SizedBox(width: 6),
+                const Text('vaults linked',
+                    style: TextStyle(color: kTextDim, fontSize: 13)),
+              ],
             ),
-            const SizedBox(height: 6),
-            const Text('vaults linked',
-                style: TextStyle(color: kTextDim, fontSize: 11)),
           ],
         ),
       ),

@@ -125,8 +125,22 @@ class _IdleViewState extends State<_IdleView>
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
+    // 2026-08-11: "enlarge images to max size so still fitting in left
+    // right phone edges" - computed from the real screen width instead
+    // of a fixed guess, so it actually maxes out on whatever device
+    // this runs on without risking an overflow on a narrower one. This
+    // row also gets its own tighter horizontal padding (8 vs the
+    // screen's normal 32) since the images, not the padding, are meant
+    // to fill the width.
+    final screenWidth   = MediaQuery.of(context).size.width;
+    const rowPadding     = 8.0;
+    const arrowSection    = 60.0;
+    final glyphWidth = ((screenWidth - rowPadding * 2 - arrowSection) / 2)
+        .clamp(110.0, 200.0);
+    final glyphIcon  = (glyphWidth * 0.55).clamp(56.0, 120.0);
+
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -138,143 +152,170 @@ class _IdleViewState extends State<_IdleView>
           // lost build time twice to native-dependency issues, not worth
           // repeating for a cosmetic asset. Real branded artwork went to
           // the app icon instead (assets/icon/icon.png), not here.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Draggable<bool>(
-                data: true,
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: Opacity(
-                    opacity: 0.85,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Draggable<bool>(
+                  data: true,
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: Opacity(
+                      opacity: 0.85,
+                      child: _DeviceGlyph(
+                        icon: Icons.computer_rounded,
+                        label: 'Your desktop',
+                        caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                        width: glyphWidth,
+                        iconSize: glyphIcon,
+                      ),
+                    ),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
                     child: _DeviceGlyph(
                       icon: Icons.computer_rounded,
                       label: 'Your desktop',
                       caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                      width: glyphWidth,
+                      iconSize: glyphIcon,
+                    ),
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _pulseCtrl,
+                    builder: (_, child) => Opacity(
+                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
+                      child: child,
+                    ),
+                    child: _DeviceGlyph(
+                      icon: Icons.computer_rounded,
+                      label: 'Your desktop',
+                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                      width: glyphWidth,
+                      iconSize: glyphIcon,
                     ),
                   ),
                 ),
-                childWhenDragging: Opacity(
-                  opacity: 0.3,
-                  child: _DeviceGlyph(
-                    icon: Icons.computer_rounded,
-                    label: 'Your desktop',
-                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                  ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 14),
+                  child: Icon(Icons.arrow_forward_rounded,
+                      color: kTeal, size: 26),
                 ),
-                child: AnimatedBuilder(
-                  animation: _pulseCtrl,
-                  builder: (_, child) => Opacity(
-                    opacity: 0.6 + (_pulseCtrl.value * 0.4),
-                    child: child,
-                  ),
-                  child: _DeviceGlyph(
-                    icon: Icons.computer_rounded,
-                    label: 'Your desktop',
-                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                  ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(top: 14),
-                child: Icon(Icons.arrow_forward_rounded,
-                    color: kTeal, size: 26),
-              ),
-              DragTarget<bool>(
-                onWillAcceptWithDetails: (_) {
-                  setState(() => _dragHover = true);
-                  return true;
-                },
-                onLeave: (_) => setState(() => _dragHover = false),
-                onAcceptWithDetails: (_) {
-                  setState(() => _dragHover = false);
-                  ctrl.startLinking();
-                },
-                builder: (context, candidate, rejected) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: _dragHover ? kTeal : Colors.transparent,
-                      width: 2,
+                DragTarget<bool>(
+                  onWillAcceptWithDetails: (_) {
+                    setState(() => _dragHover = true);
+                    return true;
+                  },
+                  onLeave: (_) => setState(() => _dragHover = false),
+                  onAcceptWithDetails: (_) {
+                    setState(() => _dragHover = false);
+                    ctrl.startLinking();
+                  },
+                  builder: (context, candidate, rejected) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _dragHover ? kTeal : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                    child: _DeviceGlyph(
+                      icon: Icons.auto_stories_rounded,
+                      label: '$kNoteAppName vault',
+                      caption: 'this phone',
+                      accent: true,
+                      width: glyphWidth,
+                      iconSize: glyphIcon,
                     ),
                   ),
-                  child: _DeviceGlyph(
-                    icon: Icons.auto_stories_rounded,
-                    label: '$kNoteAppName vault',
-                    caption: 'this phone',
-                    accent: true,
-                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // 2026-08-11: "this text needs to be immediately below the
-          // drag images at the top" - real device review.
-          const Text('Drag your desktop onto the vault to begin',
-              style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 32),
-          // Heading moved below the pictogram+hint (2026-08-11, was the
-          // page's top line before) - reworded to name the source
-          // explicitly ("desktop Obsidian vault") since "Connect your
-          // Obsidian vault" read as ambiguous on real device review -
-          // which vault, desktop or phone?
-          Text('Bring your desktop $kNoteAppName vault to this phone',
-              style: const TextStyle(
-                  color: kStar,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          // Answers "what exactly gets downloaded" directly, in place of
-          // the old vaguer paragraph - fixed 2026-08-09 per real user
-          // feedback that START DOWNLOAD gave no sense of scope before
-          // committing to it. 2026-08-11: user specifically asked for
-          // this as a checklist (item name + green tick) rather than a
-          // paragraph - each item is still named explicitly, so it's
-          // less text without losing the precision a safety/scope
-          // guarantee needs.
-          const SizedBox(
-            width: 220,
-            child: Column(
-              children: [
-                _ScopeRow(label: 'Notes'),
-                _ScopeRow(label: 'Folders'),
-                _ScopeRow(label: 'Attachments'),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.shield_outlined, color: kTextDim, size: 14),
-              SizedBox(width: 6),
-              Text('Nothing else on this phone is touched.',
-                  style: TextStyle(color: kTextDim, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 2026-08-10: "START DOWNLOAD" alone gave no sense this is a
-          // real, one-time data copy - relabelled to name the actual
-          // action (now the drag gesture), plus a duration expectation.
-          // 2026-08-11: added a clock glyph alongside the text as a
-          // lighter-weight visual cue than replacing the sentence
-          // outright - exact wording ("once", "a few minutes") still
-          // needs to be read, not just glanced at.
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-              SizedBox(width: 6),
-              Text(
-                'This runs once. Larger vaults may take a few minutes.',
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                // 2026-08-11: "this text needs to be immediately below
+                // the drag images at the top" - real device review.
+                // Also shortened from "Drag your desktop onto the vault
+                // to begin" to "Drag to begin" per explicit direction.
+                const Text('Drag to begin',
+                    style:
+                        TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 32),
+                // Heading moved below the pictogram+hint (2026-08-11,
+                // was the page's top line before) - reworded to name
+                // the source explicitly ("desktop Obsidian vault")
+                // since "Connect your Obsidian vault" read as ambiguous
+                // on real device review - which vault, desktop or
+                // phone?
+                Text('Bring your desktop $kNoteAppName vault to this phone',
+                    style: const TextStyle(
+                        color: kStar,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                // Answers "what exactly gets downloaded" directly, in
+                // place of the old vaguer paragraph - fixed 2026-08-09
+                // per real user feedback that START DOWNLOAD gave no
+                // sense of scope before committing to it. 2026-08-11:
+                // user specifically asked for this as a checklist (item
+                // name + green tick) rather than a paragraph - each
+                // item is still named explicitly, so it's less text
+                // without losing the precision a safety/scope guarantee
+                // needs.
+                const SizedBox(
+                  width: 220,
+                  child: Column(
+                    children: [
+                      _ScopeRow(label: 'Notes'),
+                      _ScopeRow(label: 'Folders'),
+                      _ScopeRow(label: 'Attachments'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
+                // per explicit direction.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.shield_outlined, color: kTextDim, size: 21),
+                    SizedBox(width: 6),
+                    Text('Nothing else on this phone is touched.',
+                        style: TextStyle(color: kTextDim, fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // 2026-08-10: "START DOWNLOAD" alone gave no sense this
+                // is a real, one-time data copy - relabelled to name
+                // the actual action (now the drag gesture), plus a
+                // duration expectation. 2026-08-11: added a clock glyph
+                // alongside the text as a lighter-weight visual cue
+                // than replacing the sentence outright - exact wording
+                // ("once", "a few minutes") still needs to be read, not
+                // just glanced at.
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+                    SizedBox(width: 6),
+                    Text(
+                      'This runs once. Larger vaults may take a few minutes.',
+                      style:
+                          TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -821,28 +862,39 @@ class _DeviceGlyph extends StatelessWidget {
   final String   label;
   final String   caption;
   final bool     accent;
+  final double   width;
+  final double   iconSize;
   const _DeviceGlyph({
     required this.icon,
     required this.label,
     required this.caption,
-    this.accent = false,
+    this.accent   = false,
+    this.width    = 140,
+    this.iconSize = 56,
   });
 
   @override
   Widget build(BuildContext context) {
     // 2026-08-11: "images and text too small, plenty of space to
-    // enlarge" - real device review. Bumped icon, label, and caption up
-    // a full size step each.
+    // enlarge" - real device review. width/iconSize now computed
+    // responsively by the caller ("enlarge to max size so still fitting
+    // in left right phone edges") instead of a fixed guess.
+    // 2026-08-11 (same day, second pass): label color was inconsistent
+    // - the accent (vault) glyph's label rendered kStar (near-white)
+    // while the desktop glyph's rendered kTextMid (grey), and real
+    // device review called that out directly ("all the text needs to
+    // be the same consistent colour"). Label now always kTextMid;
+    // accent still differentiates the icon color only.
     final color = accent ? kTeal : kTextDim;
     return SizedBox(
-      width: 140,
+      width: width,
       child: Column(
         children: [
-          Icon(icon, size: 56, color: color),
+          Icon(icon, size: iconSize, color: color),
           const SizedBox(height: 12),
           Text(label,
-              style: TextStyle(
-                  color: accent ? kStar : kTextMid,
+              style: const TextStyle(
+                  color: kTextMid,
                   fontSize: 15,
                   fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
