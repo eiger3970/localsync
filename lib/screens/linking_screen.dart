@@ -130,20 +130,10 @@ class _IdleViewState extends State<_IdleView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 2026-08-11: "Connect your Obsidian vault" read as ambiguous
-          // on real device review - which vault, desktop or phone? Now
-          // states the direction explicitly; the row right below still
-          // shows both ends visually.
-          Text('Bring your $kNoteAppName vault to this phone',
-              style: const TextStyle(
-                  color: kStar,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 28),
-          // Pictogram replacing the old wall of text (2026-08-09) - user
-          // feedback was that a paragraph explaining source -> destination
-          // is harder to parse at a glance than seeing it. Built-in
+          // 2026-08-11: real device review - the drag pictogram is "the
+          // top priority for a user, the rest is sub information", so it
+          // now leads the screen instead of the heading. Pictogram
+          // replacing the old wall of text (2026-08-09) - built-in
           // Material icons only, no flutter_svg: this session already
           // lost build time twice to native-dependency issues, not worth
           // repeating for a cosmetic asset. Real branded artwork went to
@@ -220,11 +210,32 @@ class _IdleViewState extends State<_IdleView>
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
+          // 2026-08-11: "this text needs to be immediately below the
+          // drag images at the top" - real device review.
+          const Text('Drag your desktop onto the vault to begin',
+              style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 32),
+          // Heading moved below the pictogram+hint (2026-08-11, was the
+          // page's top line before) - reworded to name the source
+          // explicitly ("desktop Obsidian vault") since "Connect your
+          // Obsidian vault" read as ambiguous on real device review -
+          // which vault, desktop or phone?
+          Text('Bring your desktop $kNoteAppName vault to this phone',
+              style: const TextStyle(
+                  color: kStar,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 20),
           // Answers "what exactly gets downloaded" directly, in place of
           // the old vaguer paragraph - fixed 2026-08-09 per real user
           // feedback that START DOWNLOAD gave no sense of scope before
-          // committing to it.
+          // committing to it. Kept as text on 2026-08-11 review ("can
+          // images simplify this?") - this states a scope/safety
+          // guarantee (what's touched vs. not), which needs to be read
+          // precisely rather than inferred from a pictogram.
           Text(
             'Every note, folder, and attachment in your desktop\n'
             'vault is copied into a new $kNoteAppName vault here.\n'
@@ -234,18 +245,23 @@ class _IdleViewState extends State<_IdleView>
           ),
           const SizedBox(height: 12),
           // 2026-08-10: "START DOWNLOAD" alone gave no sense this is a
-          // real, one-time data copy - button relabelled to name the
-          // actual action, plus a duration expectation so it doesn't
-          // feel like an unbounded black box once tapped.
-          const Text(
-            'This runs once. Larger vaults may take a few minutes.',
-            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-            textAlign: TextAlign.center,
+          // real, one-time data copy - relabelled to name the actual
+          // action (now the drag gesture), plus a duration expectation.
+          // 2026-08-11: added a clock glyph alongside the text as a
+          // lighter-weight visual cue than replacing the sentence
+          // outright - exact wording ("once", "a few minutes") still
+          // needs to be read, not just glanced at.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+              SizedBox(width: 6),
+              Text(
+                'This runs once. Larger vaults may take a few minutes.',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          const Text('Drag your desktop onto the vault to begin',
-              style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
-              textAlign: TextAlign.center),
         ],
       ),
     );
@@ -778,22 +794,25 @@ class _DeviceGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-08-11: "images and text too small, plenty of space to
+    // enlarge" - real device review. Bumped icon, label, and caption up
+    // a full size step each.
     final color = accent ? kTeal : kTextDim;
     return SizedBox(
-      width: 110,
+      width: 140,
       child: Column(
         children: [
-          Icon(icon, size: 40, color: color),
-          const SizedBox(height: 10),
+          Icon(icon, size: 56, color: color),
+          const SizedBox(height: 12),
           Text(label,
               style: TextStyle(
                   color: accent ? kStar : kTextMid,
-                  fontSize: 13,
+                  fontSize: 15,
                   fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(caption,
-              style: const TextStyle(color: kTextMid, fontSize: 12),
+              style: const TextStyle(color: kTextMid, fontSize: 14),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis),
         ],

@@ -59,7 +59,7 @@ class HomeScreen extends StatelessWidget {
                               style: TextStyle(color: kStar, fontSize: 14)),
                           Text('New phone, or lost connection',
                               style:
-                                  TextStyle(color: kTextDim, fontSize: 11)),
+                                  TextStyle(color: kTextMid, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -82,7 +82,7 @@ class HomeScreen extends StatelessWidget {
                               style: TextStyle(color: kStar, fontSize: 14)),
                           Text('Link another vault to this phone',
                               style:
-                                  TextStyle(color: kTextDim, fontSize: 11)),
+                                  TextStyle(color: kTextMid, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -569,32 +569,17 @@ class _EmptyStateState extends State<_EmptyState>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 2026-08-10: the plain "↕" glyph read as decorative rather
-            // than meaningful - swapped for a real sync icon, same
-            // _rounded family already used for the device glyphs on the
-            // vault-setup screen, and given real room to breathe.
-            // 2026-08-11: real device feedback called this "better,
-            // approved" - kept as-is.
-            const Icon(Icons.sync_alt_rounded, size: 72, color: kTextMid),
-            const SizedBox(height: 28),
-            // 2026-08-11: "No repositories" as plain text became a
-            // repo icon with a real count badge, same "less text, more
-            // image" direction as the rest of this screen.
-            Badge(
-              label: const Text('0'),
-              backgroundColor: kTextDim,
-              textColor: kStar,
-              child: const Icon(Icons.source_outlined,
-                  size: 44, color: kTextMid),
-            ),
-            const SizedBox(height: 36),
-            // 2026-08-11: the instructional paragraph + SET UP VAULT
-            // button removed entirely per explicit user direction -
-            // dragging the desktop icon onto the vault icon is now the
-            // only way to start setup, mirroring the vault-setup
-            // screen's own drag-to-connect. onSetup here just opens
-            // that screen (same navigation the button used to do) -
-            // the real download itself only starts once inside it.
+            // 2026-08-11: real device review - "make main image larger,
+            // perhaps at top... this is the top priority for a user, the
+            // rest is sub information." The standalone sync_alt icon
+            // that used to lead this screen was dropped ("why are the
+            // left/right arrows here?" - once the real action moved
+            // in front of it, it read as unexplained decoration rather
+            // than information). The drag pictogram - the actual
+            // action - now leads instead, enlarged to match. onSetup
+            // here just opens the vault-setup screen (same navigation
+            // the old SET UP VAULT button did) - the real download only
+            // starts once inside it.
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -605,13 +590,13 @@ class _EmptyStateState extends State<_EmptyState>
                     child: Opacity(
                       opacity: 0.85,
                       child: Icon(Icons.computer_rounded,
-                          size: 40, color: kTeal),
+                          size: 56, color: kTeal),
                     ),
                   ),
                   childWhenDragging: const Opacity(
                     opacity: 0.3,
                     child: Icon(Icons.computer_rounded,
-                        size: 40, color: kTextMid),
+                        size: 56, color: kTextMid),
                   ),
                   child: AnimatedBuilder(
                     animation: _pulseCtrl,
@@ -620,13 +605,13 @@ class _EmptyStateState extends State<_EmptyState>
                       child: child,
                     ),
                     child: const Icon(Icons.computer_rounded,
-                        size: 40, color: kTeal),
+                        size: 56, color: kTeal),
                   ),
                 ),
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  padding: EdgeInsets.symmetric(horizontal: 18),
                   child: Icon(Icons.arrow_forward_rounded,
-                      color: kTextDim, size: 22),
+                      color: kTextDim, size: 28),
                 ),
                 DragTarget<bool>(
                   onWillAcceptWithDetails: (_) {
@@ -648,15 +633,34 @@ class _EmptyStateState extends State<_EmptyState>
                       ),
                     ),
                     child: const Icon(Icons.auto_stories_rounded,
-                        size: 40, color: kTextMid),
+                        size: 56, color: kTextMid),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             const Text('Drag to set up your vault',
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.5),
+                style: TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
                 textAlign: TextAlign.center),
+            const SizedBox(height: 40),
+            // 2026-08-11: "unsure what to do with this image as a
+            // user" + "make the 0 clear" - the repo-count readout isn't
+            // an action, just status, so it's now clearly demoted below
+            // the real action (smaller, dimmer, with its own caption
+            // instead of relying on the reader to infer what a bare
+            // icon+badge means).
+            Badge(
+              largeSize: 22,
+              label: const Text('0',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              backgroundColor: kTextDim,
+              textColor: kStar,
+              child: const Icon(Icons.source_outlined,
+                  size: 32, color: kTextDim),
+            ),
+            const SizedBox(height: 6),
+            const Text('vaults linked',
+                style: TextStyle(color: kTextDim, fontSize: 11)),
           ],
         ),
       ),
