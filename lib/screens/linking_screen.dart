@@ -24,7 +24,8 @@ class LinkingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${kNoteAppName.toUpperCase()} VAULT SETUP'),
+        title: Text(
+            '${kNoteAppName.toUpperCase()} ${kContainerName.toUpperCase()} SETUP'),
         leading: Consumer<LinkingController>(
           builder: (_, ctrl, __) {
             // Prevent back-nav while machine is running between park points
@@ -125,19 +126,21 @@ class _IdleViewState extends State<_IdleView>
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.ctrl;
-    // 2026-08-11: "enlarge images to max size so still fitting in left
-    // right phone edges" - computed from the real screen width instead
-    // of a fixed guess, so it actually maxes out on whatever device
-    // this runs on without risking an overflow on a narrower one. This
-    // row also gets its own tighter horizontal padding (8 vs the
-    // screen's normal 32) since the images, not the padding, are meant
-    // to fill the width.
+    // 2026-08-11: "enlarge to max size per device so there's some
+    // padding space on the left and right edges" - computed from the
+    // real screen width, with the row's own tight 6px padding, rather
+    // than a fixed guess that left it smaller than the screen allows.
     final screenWidth   = MediaQuery.of(context).size.width;
-    const rowPadding     = 8.0;
-    const arrowSection    = 60.0;
+    const rowPadding     = 6.0;
+    const arrowSection    = 50.0;
     final glyphWidth = ((screenWidth - rowPadding * 2 - arrowSection) / 2)
-        .clamp(110.0, 200.0);
-    final glyphIcon  = (glyphWidth * 0.55).clamp(56.0, 120.0);
+        .clamp(120.0, 260.0);
+    final glyphIcon  = (glyphWidth * 0.6).clamp(60.0, 160.0);
+    // Arrow's own icon (26px) centred against the glyph's icon box
+    // (iconSize + 6px padding + 2px border on each side), not the
+    // glyph's full height (icon+label+caption) - a fixed 14px guess
+    // here previously drifted out of alignment once sizes changed.
+    final arrowTopOffset = ((glyphIcon + 16) - 26) / 2;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -183,24 +186,22 @@ class _IdleViewState extends State<_IdleView>
                       iconSize: glyphIcon,
                     ),
                   ),
-                  child: AnimatedBuilder(
-                    animation: _pulseCtrl,
-                    builder: (_, child) => Opacity(
-                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
-                      child: child,
-                    ),
-                    child: _DeviceGlyph(
-                      icon: Icons.computer_rounded,
-                      label: 'Your desktop',
-                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                      width: glyphWidth,
-                      iconSize: glyphIcon,
-                    ),
+                  // 2026-08-11: pulse now lives inside _DeviceGlyph
+                  // itself (icon only, not the label/caption text) -
+                  // fixes the pulse fading the desktop label's color
+                  // relative to the vault glyph's solid one.
+                  child: _DeviceGlyph(
+                    icon: Icons.computer_rounded,
+                    label: 'Your desktop',
+                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                    width: glyphWidth,
+                    iconSize: glyphIcon,
+                    pulse: _pulseCtrl,
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 14),
-                  child: Icon(Icons.arrow_forward_rounded,
+                Padding(
+                  padding: EdgeInsets.only(top: arrowTopOffset),
+                  child: const Icon(Icons.arrow_forward_rounded,
                       color: kTeal, size: 26),
                 ),
                 DragTarget<bool>(
@@ -213,23 +214,14 @@ class _IdleViewState extends State<_IdleView>
                     setState(() => _dragHover = false);
                     ctrl.startLinking();
                   },
-                  builder: (context, candidate, rejected) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _dragHover ? kTeal : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                    child: _DeviceGlyph(
-                      icon: Icons.auto_stories_rounded,
-                      label: '$kNoteAppName vault',
-                      caption: 'this phone',
-                      accent: true,
-                      width: glyphWidth,
-                      iconSize: glyphIcon,
-                    ),
+                  builder: (context, candidate, rejected) => _DeviceGlyph(
+                    icon: Icons.auto_stories_rounded,
+                    label: '$kNoteAppName $kContainerName',
+                    caption: 'this phone',
+                    accent: true,
+                    width: glyphWidth,
+                    iconSize: glyphIcon,
+                    hovering: _dragHover,
                   ),
                 ),
               ],
@@ -255,7 +247,8 @@ class _IdleViewState extends State<_IdleView>
                 // since "Connect your Obsidian vault" read as ambiguous
                 // on real device review - which vault, desktop or
                 // phone?
-                Text('Bring your desktop $kNoteAppName vault to this phone',
+                Text(
+                    'Bring your desktop $kNoteAppName $kContainerName to this phone',
                     style: const TextStyle(
                         color: kStar,
                         fontSize: 16,
@@ -373,8 +366,8 @@ class _ParkedView extends StatelessWidget {
   Widget build(BuildContext context) {
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
-      LinkingStep.awaitingVaultCreation => 'Create your vault',
-      LinkingStep.pickingVaultFolder    => 'Select your vault',
+      LinkingStep.awaitingVaultCreation => 'Create your $kContainerName',
+      LinkingStep.pickingVaultFolder    => 'Select your $kContainerName',
       _ => 'Your turn',
     };
 
@@ -518,7 +511,7 @@ class _CompleteViewState extends State<_CompleteView>
     if (vaultPath == null || vaultBookmark == null) return; // web target
 
     await provider.addRepository(Repository(
-      name:              '${kNoteAppName}_vault',
+      name:              '${kNoteAppName}_$kContainerName',
       remoteHost:        ctrl.desktopIp,
       remoteUser:        ctrl.desktopUser,
       remotePath:        ctrl.bareRepoPath,
@@ -864,6 +857,8 @@ class _DeviceGlyph extends StatelessWidget {
   final bool     accent;
   final double   width;
   final double   iconSize;
+  final Animation<double>? pulse;
+  final bool     hovering;
   const _DeviceGlyph({
     required this.icon,
     required this.label,
@@ -871,6 +866,8 @@ class _DeviceGlyph extends StatelessWidget {
     this.accent   = false,
     this.width    = 140,
     this.iconSize = 56,
+    this.pulse,
+    this.hovering = false,
   });
 
   @override
@@ -879,18 +876,46 @@ class _DeviceGlyph extends StatelessWidget {
     // enlarge" - real device review. width/iconSize now computed
     // responsively by the caller ("enlarge to max size so still fitting
     // in left right phone edges") instead of a fixed guess.
-    // 2026-08-11 (same day, second pass): label color was inconsistent
-    // - the accent (vault) glyph's label rendered kStar (near-white)
-    // while the desktop glyph's rendered kTextMid (grey), and real
-    // device review called that out directly ("all the text needs to
-    // be the same consistent colour"). Label now always kTextMid;
-    // accent still differentiates the icon color only.
+    // 2026-08-11 (second pass): label color was inconsistent - the
+    // accent (vault) glyph's label rendered kStar (near-white) while
+    // the desktop glyph's rendered kTextMid (grey). Label now always
+    // kTextMid; accent still differentiates the icon color only.
+    // 2026-08-11 (third pass): "text colours aren't the same" persisted
+    // even after that fix - root cause was the pulse animation wrapping
+    // the *whole* glyph (icon+label+caption) in a fading Opacity, so
+    // the desktop side visibly washed out relative to the solid vault
+    // side despite using the identical color value. Pulse now wraps
+    // only the icon. Icon also always sits in a matching padding+border
+    // box (transparent unless hovering) so both glyphs have identical
+    // layout heights regardless of drop-target hover state - fixes the
+    // "notebook image isn't the same height as desktop" report.
     final color = accent ? kTeal : kTextDim;
+    Widget iconWidget = Icon(icon, size: iconSize, color: color);
+    if (pulse != null) {
+      iconWidget = AnimatedBuilder(
+        animation: pulse!,
+        builder: (_, child) => Opacity(
+          opacity: 0.6 + (pulse!.value * 0.4),
+          child: child,
+        ),
+        child: iconWidget,
+      );
+    }
     return SizedBox(
       width: width,
       child: Column(
         children: [
-          Icon(icon, size: iconSize, color: color),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: hovering ? kTeal : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: iconWidget,
+          ),
           const SizedBox(height: 12),
           Text(label,
               style: const TextStyle(

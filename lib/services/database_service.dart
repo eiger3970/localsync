@@ -24,7 +24,7 @@ class DatabaseService {
     // Demo repo so the home screen isn't empty on first web run
     Repository(
       id:                1,
-      name:              '${kNoteAppName}_vault',
+      name:              '${kNoteAppName}_$kContainerName',
       remoteHost:        '172.20.10.11',
       remoteUser:        'rapi5',
       remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',

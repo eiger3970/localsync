@@ -49,7 +49,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _label('REPOSITORY NAME'),
-              _field(_nameCtrl, hint: '${kNoteAppName}_vault', validator: _required),
+              _field(_nameCtrl, hint: '${kNoteAppName}_$kContainerName', validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
               _field(_hostCtrl, hint: '172.20.10.11', validator: _required),
@@ -107,7 +107,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Must already exist as a vault in $kNoteAppName - create it\n'
+                'Must already exist as a $kContainerName in $kNoteAppName - create it\n'
                 'there first (Create a vault → Continue without sync).',
                 style: const TextStyle(color: kTextMid, fontSize: 12, height: 1.5),
               ),
@@ -168,7 +168,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
     final vault = _pickedVault;
     if (vault == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Select the $kNoteAppName vault folder first')),
+        SnackBar(content: Text('Select the $kNoteAppName $kContainerName folder first')),
       );
       return;
     }

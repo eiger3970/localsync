@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../constants.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import 'add_repository_screen.dart';
@@ -70,17 +71,17 @@ class HomeScreen extends StatelessWidget {
                 value: 'link',
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.phone_iphone, color: kStar, size: 18),
-                    SizedBox(width: 12),
+                  children: [
+                    const Icon(Icons.phone_iphone, color: kStar, size: 18),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('Set up a vault',
+                          Text('Set up a $kContainerName',
                               style: TextStyle(color: kStar, fontSize: 14)),
-                          Text('Link another vault to this phone',
+                          Text('Link another $kContainerName to this phone',
                               style:
                                   TextStyle(color: kTextMid, fontSize: 13)),
                         ],
@@ -527,6 +528,40 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
+// ── Icon box (matching padding+border on both drag glyphs) ──────────────────────
+
+// 2026-08-11: gives both drag icons an identical layout box regardless
+// of hover state, so the drop target's border doesn't push it out of
+// vertical alignment with the drag source - same fix as the vault-setup
+// screen's _DeviceGlyph alignment bug.
+class _IconBox extends StatelessWidget {
+  final IconData icon;
+  final double   size;
+  final Color    color;
+  final bool     hovering;
+  const _IconBox({
+    required this.icon,
+    required this.size,
+    required this.color,
+    this.hovering = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: hovering ? kTeal : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Icon(icon, size: size, color: color),
+    );
+  }
+}
+
 // ── Empty state ────────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatefulWidget {
@@ -563,6 +598,20 @@ class _EmptyStateState extends State<_EmptyState>
 
   @override
   Widget build(BuildContext context) {
+    // 2026-08-11: "enlarge to max size per device so there's some
+    // padding space on the left and right edges" - sized from the real
+    // screen width instead of a fixed guess, same approach as the
+    // vault-setup screen. Both icons wrapped in a matching padding+
+    // border box (transparent unless hovered) so they sit at identical
+    // heights regardless of the drop target's hover border - a fixed
+    // guess here previously caused a real vertical-alignment mismatch
+    // on the vault-setup screen once sizes changed.
+    final screenWidth = MediaQuery.of(context).size.width;
+    const edgePadding  = 24.0;
+    const arrowSection = 70.0;
+    final iconSize = ((screenWidth - edgePadding * 2 - arrowSection) / 2)
+        .clamp(70.0, 170.0);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -576,69 +625,74 @@ class _EmptyStateState extends State<_EmptyState>
             // left/right arrows here?" - once the real action moved
             // in front of it, it read as unexplained decoration rather
             // than information). The drag pictogram - the actual
-            // action - now leads instead, enlarged to match. onSetup
-            // here just opens the vault-setup screen (same navigation
-            // the old SET UP VAULT button did) - the real download only
-            // starts once inside it.
-            // 2026-08-11: "images good, but enlarge ~50-100%" - real
-            // device review. Icons 56 -> 96px (~70% larger).
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Draggable<bool>(
-                  data: true,
-                  feedback: const Material(
-                    color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.85,
-                      child: Icon(Icons.computer_rounded,
-                          size: 96, color: kTeal),
-                    ),
-                  ),
-                  childWhenDragging: const Opacity(
-                    opacity: 0.3,
-                    child: Icon(Icons.computer_rounded,
-                        size: 96, color: kTextMid),
-                  ),
-                  child: AnimatedBuilder(
-                    animation: _pulseCtrl,
-                    builder: (_, child) => Opacity(
-                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
-                      child: child,
-                    ),
-                    child: const Icon(Icons.computer_rounded,
-                        size: 96, color: kTeal),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Icon(Icons.arrow_forward_rounded,
-                      color: kTextDim, size: 34),
-                ),
-                DragTarget<bool>(
-                  onWillAcceptWithDetails: (_) {
-                    setState(() => _dragHover = true);
-                    return true;
-                  },
-                  onLeave: (_) => setState(() => _dragHover = false),
-                  onAcceptWithDetails: (_) {
-                    setState(() => _dragHover = false);
-                    widget.onSetup();
-                  },
-                  builder: (context, candidate, rejected) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _dragHover ? kTeal : Colors.transparent,
-                        width: 2,
+            // action - now leads instead. onSetup here just opens the
+            // vault-setup screen (same navigation the old SET UP VAULT
+            // button did) - the real download only starts once inside
+            // it.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: edgePadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Draggable<bool>(
+                    data: true,
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: Opacity(
+                        opacity: 0.85,
+                        child: _IconBox(
+                          icon: Icons.computer_rounded,
+                          size: iconSize,
+                          color: kTeal,
+                        ),
                       ),
                     ),
-                    child: const Icon(Icons.auto_stories_rounded,
-                        size: 96, color: kTextMid),
+                    childWhenDragging: Opacity(
+                      opacity: 0.3,
+                      child: _IconBox(
+                        icon: Icons.computer_rounded,
+                        size: iconSize,
+                        color: kTextMid,
+                      ),
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _pulseCtrl,
+                      builder: (_, child) => Opacity(
+                        opacity: 0.6 + (_pulseCtrl.value * 0.4),
+                        child: child,
+                      ),
+                      child: _IconBox(
+                        icon: Icons.computer_rounded,
+                        size: iconSize,
+                        color: kTeal,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(Icons.arrow_forward_rounded,
+                        color: kTextDim, size: 34),
+                  ),
+                  DragTarget<bool>(
+                    onWillAcceptWithDetails: (_) {
+                      setState(() => _dragHover = true);
+                      return true;
+                    },
+                    onLeave: (_) => setState(() => _dragHover = false),
+                    onAcceptWithDetails: (_) {
+                      setState(() => _dragHover = false);
+                      widget.onSetup();
+                    },
+                    builder: (context, candidate, rejected) => _IconBox(
+                      icon: Icons.auto_stories_rounded,
+                      size: iconSize,
+                      color: kTextMid,
+                      hovering: _dragHover,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             const Text('Drag to set up your vault',
@@ -662,8 +716,8 @@ class _EmptyStateState extends State<_EmptyState>
                         fontSize: 18,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(width: 6),
-                const Text('vaults linked',
-                    style: TextStyle(color: kTextDim, fontSize: 13)),
+                Text('${kContainerName}s linked',
+                    style: const TextStyle(color: kTextDim, fontSize: 13)),
               ],
             ),
           ],
