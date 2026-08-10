@@ -259,11 +259,12 @@ class LinkingController extends ChangeNotifier {
   // change my steps, exactly what I have is the secret recipe" (real
   // Obsidian iOS + Working Copy research, hard-won over real trial and
   // error - see [[project_synclocal_vault_recipe]] memory /
-  // STRUCTURE.md's "Protected IP" section). Final step ("New tab ->
-  // force close app") added from the user's own full pasted research
-  // document (its "11 Create Obsidian Vault on Phone" section) after
-  // the user confirmed they don't memorize granular steps and the
-  // written document is the source of truth, not their recollection.
+  // STRUCTURE.md's "Protected IP" section). Final steps corrected
+  // 2026-08-12: the user's own document has two different candidates
+  // for "the trick that creates a new path on the iPhone" - a single
+  // "New tab -> force close" (section 11) vs. a real close/reopen/
+  // close cycle from the "Failed to resolve path" section. User
+  // confirmed the latter is correct when shown both side by side.
   String? get currentInstruction => switch (_step) {
         LinkingStep.awaitingVaultCreation =>
           '1 of 2: create a new vault in $kNoteAppName:\n\n'
@@ -272,7 +273,8 @@ class LinkingController extends ChangeNotifier {
               'tap Manage vaults... → tap Create new vault →\n'
               'Vault name: enter name → Store in iCloud: off by\n'
               'default → tap Create → new vault opens →\n'
-              'New tab → force close app\n\n'
+              'force close $kNoteAppName → reopen $kNoteAppName →\n'
+              'force close $kNoteAppName again\n\n'
               'Come back here when you\'re done.',
 
         // 2026-08-11: "select" -> "tap" throughout, per explicit direction
