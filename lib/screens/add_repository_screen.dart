@@ -49,7 +49,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _label('REPOSITORY NAME'),
-              _field(_nameCtrl, hint: '${kNoteAppName}_$kContainerName', validator: _required),
+              _field(_nameCtrl, hint: '${kGenericAppLabel}_$kContainerName', validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
               _field(_hostCtrl, hint: '172.20.10.11', validator: _required),
@@ -100,7 +100,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
                     TextButton(
                       onPressed: _pickVault,
                       child: const Text('SELECT',
-                          style: TextStyle(color: kTeal, fontSize: 12)),
+                          style: TextStyle(color: kGreen, fontSize: 12)),
                     ),
                   ],
                 ),

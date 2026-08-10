@@ -17,3 +17,14 @@ const String kNoteAppName = 'Obsidian';
 // really on screen regardless of what synclocal calls the concept, and
 // would need a full rewrite (not a word swap) for any other app anyway.
 const String kContainerName = 'vault';
+
+// 2026-08-11: "I think we can change all instances of Obsidian to PKM
+// or Personal knowledge management" - split from kNoteAppName rather
+// than repurposing it, since some of kNoteAppName's uses are literal
+// instructions to tap a button in the real installed Obsidian app
+// ("OPEN OBSIDIAN", "Install Obsidian from the App Store") - those have
+// to keep saying the real app name or the instruction breaks. This one
+// is for our own purely descriptive copy only (headings, glyph labels,
+// the synclocal-generated repo display name) - decided scope: chose
+// "descriptive text only" over genericizing the action buttons too.
+const String kGenericAppLabel = 'PKM';

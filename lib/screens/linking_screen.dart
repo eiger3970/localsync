@@ -25,7 +25,7 @@ class LinkingScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            '${kNoteAppName.toUpperCase()} ${kContainerName.toUpperCase()} SETUP'),
+            '${kGenericAppLabel.toUpperCase()} ${kContainerName.toUpperCase()} SETUP'),
         leading: Consumer<LinkingController>(
           builder: (_, ctrl, __) {
             // Prevent back-nav while machine is running between park points
@@ -82,7 +82,7 @@ class _ProgressBar extends StatelessWidget {
         value: v,
         minHeight: 2,
         backgroundColor: kBorder,
-        valueColor: const AlwaysStoppedAnimation<Color>(kTeal),
+        valueColor: const AlwaysStoppedAnimation<Color>(kGreen),
       ),
     );
   }
@@ -202,7 +202,7 @@ class _IdleViewState extends State<_IdleView>
                 Padding(
                   padding: EdgeInsets.only(top: arrowTopOffset),
                   child: const Icon(Icons.arrow_forward_rounded,
-                      color: kTeal, size: 26),
+                      color: kGreen, size: 26),
                 ),
                 DragTarget<bool>(
                   onWillAcceptWithDetails: (_) {
@@ -216,7 +216,7 @@ class _IdleViewState extends State<_IdleView>
                   },
                   builder: (context, candidate, rejected) => _DeviceGlyph(
                     icon: Icons.auto_stories_rounded,
-                    label: '$kNoteAppName $kContainerName',
+                    label: '$kGenericAppLabel $kContainerName',
                     caption: 'this phone',
                     accent: true,
                     width: glyphWidth,
@@ -248,7 +248,7 @@ class _IdleViewState extends State<_IdleView>
                 // on real device review - which vault, desktop or
                 // phone?
                 Text(
-                    'Bring your desktop $kNoteAppName $kContainerName to this phone',
+                    'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
                     style: const TextStyle(
                         color: kStar,
                         fontSize: 16,
@@ -482,7 +482,7 @@ class _CompleteViewState extends State<_CompleteView>
       return _Particle(
         angle: angle,
         distance: distance,
-        color: [kTeal, kStar, Colors.amber][rand.nextInt(3)],
+        color: [kGreen, kStar, Colors.amber][rand.nextInt(3)],
         size: 4 + rand.nextDouble() * 5,
       );
     });
@@ -511,7 +511,7 @@ class _CompleteViewState extends State<_CompleteView>
     if (vaultPath == null || vaultBookmark == null) return; // web target
 
     await provider.addRepository(Repository(
-      name:              '${kNoteAppName}_$kContainerName',
+      name:              '${kGenericAppLabel}_$kContainerName',
       remoteHost:        ctrl.desktopIp,
       remoteUser:        ctrl.desktopUser,
       remotePath:        ctrl.bareRepoPath,
@@ -550,7 +550,7 @@ class _CompleteViewState extends State<_CompleteView>
                     builder: (_, scale, child) =>
                         Transform.scale(scale: scale, child: child),
                     child: const Icon(Icons.check_circle,
-                        color: kTeal, size: 88),
+                        color: kGreen, size: 88),
                   ),
                 ),
               ),
@@ -678,7 +678,7 @@ class _FailedView extends StatelessWidget {
           _DiagCard(
             label: 'HOW TO FIX IT',
             text: failure.resolution,
-            accent: kTeal,
+            accent: kGreen,
           ),
 
           if (failure.debugDetail != null) ...[
@@ -814,7 +814,7 @@ class _PulsingDotsState extends State<_PulsingDots>
                 width: 9,
                 height: 9,
                 decoration: const BoxDecoration(
-                  color: kTeal,
+                  color: kGreen,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -889,7 +889,7 @@ class _DeviceGlyph extends StatelessWidget {
     // box (transparent unless hovering) so both glyphs have identical
     // layout heights regardless of drop-target hover state - fixes the
     // "notebook image isn't the same height as desktop" report.
-    final color = accent ? kTeal : kTextDim;
+    final color = accent ? kGreen : kTextDim;
     Widget iconWidget = Icon(icon, size: iconSize, color: color);
     if (pulse != null) {
       iconWidget = AnimatedBuilder(
@@ -910,7 +910,7 @@ class _DeviceGlyph extends StatelessWidget {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               border: Border.all(
-                color: hovering ? kTeal : Colors.transparent,
+                color: hovering ? kGreen : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -948,7 +948,7 @@ class _PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: kTeal,
+          backgroundColor: kGreen,
           foregroundColor: kVoid,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: const RoundedRectangleBorder(),

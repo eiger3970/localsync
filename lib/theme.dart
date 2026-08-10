@@ -4,20 +4,28 @@ import 'package:flutter/material.dart';
 const kVoid        = Color(0xFF03020A);
 const kSurface     = Color(0xFF0D0B1A);
 const kBorder      = Color(0xFF1E1A35);
-const kTeal        = Color(0xFF00D4C8);
 const kPurple      = Color(0xFF6B21D6);
 const kBlue        = Color(0xFF4488FF);
 const kStar        = Color(0xFFF0EEFF);
 const kTextDim     = Color(0xFF5A5175);
 const kTextMid     = Color(0xFF9B90BB);
-const kGreen       = Color(0xFF4CD97B);
+// 2026-08-11: "colour theme, possible like kworld.space with the retro
+// terminal green?" - this is the exact --nebula-teal value from the
+// website's own src/index.css (misnamed there too - it's real terminal
+// green, #00ff41). kVoid/kStar/kPurple/kBlue already matched that
+// palette's --void/--star/--nebula-purple/--nebula-blue; this was the
+// one color that had drifted. Was two separate constants (the old
+// kTeal, #00D4C8, for the primary accent; a separate kGreen, #4CD97B,
+// for checkmarks) - unified into this single kGreen, since a "retro
+// terminal" look means one green, not two competing shades.
+const kGreen       = Color(0xFF00FF41);
 
 // ── App theme ─────────────────────────────────────────────────────────────────
 final appTheme = ThemeData(
   brightness: Brightness.dark,
   scaffoldBackgroundColor: kVoid,
   colorScheme: const ColorScheme.dark(
-    primary:   kTeal,
+    primary:   kGreen,
     secondary: kPurple,
     surface:   kSurface,
     onPrimary: kVoid,
@@ -29,7 +37,7 @@ final appTheme = ThemeData(
     foregroundColor: kStar,
     elevation: 0,
     titleTextStyle: TextStyle(
-      color: kTeal,
+      color: kGreen,
       fontSize: 14,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.5,
@@ -55,14 +63,14 @@ final appTheme = ThemeData(
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.zero,
-      borderSide: const BorderSide(color: kTeal),
+      borderSide: const BorderSide(color: kGreen),
     ),
     hintStyle: const TextStyle(color: kTextDim, fontSize: 12),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: kTeal,
+      backgroundColor: kGreen,
       foregroundColor: kVoid,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),

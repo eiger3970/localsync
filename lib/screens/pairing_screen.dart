@@ -103,7 +103,7 @@ class _PairingScreenState extends State<PairingScreen> {
               child: ElevatedButton(
                 onPressed: _ctrl.isRunning ? null : _pair,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: kTeal,
+                  backgroundColor: kGreen,
                   foregroundColor: kVoid,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: const RoundedRectangleBorder(),
@@ -185,7 +185,7 @@ class _PairedSuccessView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle, color: kTeal, size: 88),
+          const Icon(Icons.check_circle, color: kGreen, size: 88),
           const SizedBox(height: 24),
           const Text('Paired!',
               style: TextStyle(
@@ -202,7 +202,7 @@ class _PairedSuccessView extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onContinue,
               style: ElevatedButton.styleFrom(
-                backgroundColor: kTeal,
+                backgroundColor: kGreen,
                 foregroundColor: kVoid,
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 shape: const RoundedRectangleBorder(),

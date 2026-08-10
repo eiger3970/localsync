@@ -32,7 +32,7 @@ class HomeScreen extends StatelessWidget {
           // icons sitting permanently in the app bar.
           PopupMenuButton<String>(
             color: kSurface,
-            icon: const Icon(Icons.more_vert, color: kTeal, size: 22),
+            icon: const Icon(Icons.more_vert, color: kGreen, size: 22),
             onSelected: (v) {
               if (v == 'pair') _openPairing(context);
               if (v == 'link') _openLinking(context);
@@ -104,7 +104,7 @@ class HomeScreen extends StatelessWidget {
         builder: (_, provider, __) {
           if (provider.loading) {
             return const Center(
-              child: CircularProgressIndicator(color: kTeal, strokeWidth: 1),
+              child: CircularProgressIndicator(color: kGreen, strokeWidth: 1),
             );
           }
           if (provider.repos.isEmpty) {
@@ -138,7 +138,7 @@ class HomeScreen extends StatelessWidget {
       // and doesn't depend on a tooltip (doesn't fire on iOS tap).
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openAddRepo(context),
-        backgroundColor: kTeal,
+        backgroundColor: kGreen,
         foregroundColor: kVoid,
         shape: const RoundedRectangleBorder(),
         icon: const Icon(Icons.add),
@@ -273,7 +273,7 @@ class _RepoTile extends StatelessWidget {
                 : GestureDetector(
                     onTap: onSync,
                     child:
-                        const Icon(Icons.sync, color: kTeal, size: 22),
+                        const Icon(Icons.sync, color: kGreen, size: 22),
                   ),
             const SizedBox(width: 4),
             PopupMenuButton<String>(
@@ -349,7 +349,7 @@ class _SpinningSyncState extends State<_SpinningSync>
         angle: _ctrl.value * 2 * math.pi,
         child: child,
       ),
-      child: const Icon(Icons.sync, color: kTeal, size: 22),
+      child: const Icon(Icons.sync, color: kGreen, size: 22),
     );
   }
 }
@@ -365,7 +365,7 @@ class _PhaseText extends StatelessWidget {
     return Text(
       label,
       style: const TextStyle(
-        color: kTeal,
+        color: kGreen,
         fontSize: 12,
         letterSpacing: 0.5,
         fontStyle: FontStyle.italic,
@@ -451,7 +451,7 @@ class _MetaText extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close',
-                style: TextStyle(color: kTeal, fontSize: 15)),
+                style: TextStyle(color: kGreen, fontSize: 15)),
           ),
         ],
       ),
@@ -470,13 +470,13 @@ class _AutoBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: autoSync ? kTeal.withOpacity(0.15) : kBorder,
+        color: autoSync ? kGreen.withOpacity(0.15) : kBorder,
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         autoSync ? 'AUTO' : 'MANUAL',
         style: TextStyle(
-          color: autoSync ? kTeal : kTextDim,
+          color: autoSync ? kGreen : kTextDim,
           fontSize: 8,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
@@ -495,7 +495,7 @@ class _StatusDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (status) {
-      SyncStatus.ok      => kTeal,
+      SyncStatus.ok      => kGreen,
       SyncStatus.syncing => Colors.amber,
       SyncStatus.error   => Colors.redAccent,
       SyncStatus.idle    => kTextDim,
@@ -523,7 +523,7 @@ class _StatusIcon extends StatelessWidget {
 
     if (hasSyncing) return const Icon(Icons.sync,                color: Colors.amber,     size: 22);
     if (hasError)   return const Icon(Icons.error_outline,       color: Colors.redAccent, size: 22);
-    if (allOk)      return const Icon(Icons.check_circle_outline, color: kTeal,           size: 22);
+    if (allOk)      return const Icon(Icons.check_circle_outline, color: kGreen,           size: 22);
     return           const Icon(Icons.circle_outlined,           color: kTextDim,         size: 22);
   }
 }
@@ -553,7 +553,7 @@ class _IconBox extends StatelessWidget {
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         border: Border.all(
-          color: hovering ? kTeal : Colors.transparent,
+          color: hovering ? kGreen : Colors.transparent,
           width: 2,
         ),
       ),
@@ -644,7 +644,7 @@ class _EmptyStateState extends State<_EmptyState>
                         child: _IconBox(
                           icon: Icons.computer_rounded,
                           size: iconSize,
-                          color: kTeal,
+                          color: kGreen,
                         ),
                       ),
                     ),
@@ -665,7 +665,7 @@ class _EmptyStateState extends State<_EmptyState>
                       child: _IconBox(
                         icon: Icons.computer_rounded,
                         size: iconSize,
-                        color: kTeal,
+                        color: kGreen,
                       ),
                     ),
                   ),
