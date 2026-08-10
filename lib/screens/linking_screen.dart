@@ -410,14 +410,31 @@ class _ParkedView extends StatelessWidget {
           const SizedBox(height: 32),
 
           if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
-            _PrimaryButton(
-              label: 'OPEN ${kNoteAppName.toUpperCase()}',
-              onPressed: ctrl.openObsidianNow,
-            ),
-            const SizedBox(height: 12),
-            _PrimaryButton(
-              label: 'I\'VE CREATED IT - CONTINUE',
-              onPressed: ctrl.confirmVaultCreated,
+            // 2026-08-11: converted from buttons to drag-up-to-confirm
+            // per explicit direction, keeping the drag theme from pages
+            // 1-2 - but these are single actions with no natural second
+            // element to drop onto, so the gesture is a threshold drag
+            // (up past the chevron) rather than a drag-onto-target.
+            // Generic launch icon used in place of Obsidian's real
+            // logo - that's a trademarked asset with no licensed source
+            // file available here to bundle safely.
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DragUpToConfirm(
+                    icon: Icons.launch_rounded,
+                    label: 'OPEN ${kNoteAppName.toUpperCase()}',
+                    onConfirm: ctrl.openObsidianNow,
+                  ),
+                  const SizedBox(width: 40),
+                  _DragUpToConfirm(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: 'I\'VE CREATED IT',
+                    onConfirm: ctrl.confirmVaultCreated,
+                  ),
+                ],
+              ),
             ),
           ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
             _PrimaryButton(
@@ -829,6 +846,120 @@ class _ScopeRow extends StatelessWidget {
           const Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
         ],
       ),
+    );
+  }
+}
+
+// ── Drag-up-to-confirm ───────────────────────────────────────────────────────
+
+// 2026-08-11: single-action equivalent of the desktop->vault drag on
+// pages 1-2, for actions that don't have a natural second element to
+// drag onto (open an app, confirm a manual step) - drag the icon up
+// past the chevron marker to trigger, snaps back if released early.
+class _DragUpToConfirm extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onConfirm;
+  const _DragUpToConfirm({
+    required this.icon,
+    required this.label,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_DragUpToConfirm> createState() => _DragUpToConfirmState();
+}
+
+class _DragUpToConfirmState extends State<_DragUpToConfirm>
+    with SingleTickerProviderStateMixin {
+  static const double _threshold = 56;
+  late final AnimationController _snapCtrl;
+  Animation<double>? _snapAnim;
+  double _dragOffset = 0;
+  bool _dragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+  }
+
+  @override
+  void dispose() {
+    _snapCtrl.dispose();
+    super.dispose();
+  }
+
+  double get _offset => _dragging ? _dragOffset : (_snapAnim?.value ?? 0);
+
+  void _onDragUpdate(DragUpdateDetails d) {
+    setState(() {
+      _dragOffset = (_dragOffset + d.delta.dy).clamp(-_threshold - 24, 0.0);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final reached = -_dragOffset >= _threshold;
+    _snapAnim = Tween<double>(begin: _dragOffset, end: 0)
+        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
+    setState(() => _dragging = false);
+    _snapCtrl
+      ..reset()
+      ..forward();
+    if (reached) widget.onConfirm();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _snapCtrl,
+      builder: (_, __) {
+        final offset = _offset;
+        final progress = (-offset / _threshold).clamp(0.0, 1.0);
+        final color = Color.lerp(kTextMid, kGreen, progress)!;
+        return SizedBox(
+          width: 130,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.keyboard_double_arrow_up_rounded,
+                  color: Color.lerp(kTextDim, kGreen, progress), size: 22),
+              const SizedBox(height: 2),
+              GestureDetector(
+                onVerticalDragStart: (_) => setState(() => _dragging = true),
+                onVerticalDragUpdate: _onDragUpdate,
+                onVerticalDragEnd: _onDragEnd,
+                child: Transform.translate(
+                  offset: Offset(0, offset),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: color, width: 2),
+                        ),
+                        child: Icon(widget.icon, size: 40, color: color),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(widget.label,
+                          style: const TextStyle(
+                              color: kTextMid,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
