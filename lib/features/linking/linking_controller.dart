@@ -257,7 +257,7 @@ class LinkingController extends ChangeNotifier {
   String? get currentInstruction => switch (_step) {
         LinkingStep.awaitingVaultCreation =>
           '1 of 2: create a new vault in $kNoteAppName:\n\n'
-              'Tap OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
+              'OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
               'Create a vault → Continue without sync →\n'
               'name it "Synclocal" → Create a vault\n\n'
               'Come back here when you\'re done.',

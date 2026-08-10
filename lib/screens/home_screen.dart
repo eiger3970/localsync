@@ -602,27 +602,23 @@ class _EmptyStateState extends State<_EmptyState>
     // heights regardless of the drop target's hover border - a fixed
     // guess here previously caused a real vertical-alignment mismatch
     // on the vault-setup screen once sizes changed.
-    // 2026-08-11: "images too large... past the screen's edge" - that
-    // fix removed the double-padding bug but the formula still
-    // overflowed, just by a smaller, constant 20px: it reserved
-    // arrowSection=70 for the arrow (actual rendered width is only
-    // 12*2 padding + 34 icon = 58px) but never accounted for each
-    // _IconBox's own padding+border overhead (6*2 + 2*2 = 16px, on
-    // top of the icon itself) - real per-icon box width is
-    // iconSize+16, not iconSize. With mainAxisAlignment.center, that
-    // overflow doesn't split evenly - it's why the row read as shifted
-    // right rather than symmetrically clipped. Formula now accounts
-    // for both real overheads.
+    // 2026-08-11: "page 1 and 2 desktop/notebook images are different
+    // sizes, why?" - both screens were computing icon size correctly
+    // now, just from different constants (this screen reserved more
+    // padding and a wider arrow than the vault-setup screen did), so
+    // they landed on genuinely different pixel sizes for the same
+    // screen width. Unified to the exact same formula and arrow
+    // treatment as linking_screen.dart's _IdleView - same rowPadding,
+    // same bare 26px arrow with no extra horizontal padding, same
+    // iconBoxOverhead - so the two screens now render identically
+    // sized icons on the same device.
     final screenWidth = MediaQuery.of(context).size.width;
-    const rowPadding = 16.0;
-    const arrowWidth = 58.0; // 12*2 padding + 34 icon
+    const rowPadding = 6.0;
+    const arrowWidth = 26.0; // arrow's own icon, no horizontal padding
     const iconBoxOverhead = 16.0; // 6*2 padding + 2*2 border, per icon
-    final iconSize = ((screenWidth -
-                rowPadding * 2 -
-                arrowWidth -
-                iconBoxOverhead * 2) /
-            2)
-        .clamp(70.0, 170.0);
+    final iconSize =
+        ((screenWidth - rowPadding * 2 - arrowWidth - iconBoxOverhead * 2) / 2)
+            .clamp(70.0, 180.0);
 
     return Center(
       child: Column(
@@ -679,11 +675,8 @@ class _EmptyStateState extends State<_EmptyState>
                     ),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.arrow_forward_rounded,
-                      color: kTextDim, size: 34),
-                ),
+                const Icon(Icons.arrow_forward_rounded,
+                    color: kTextDim, size: 26),
                 DragTarget<bool>(
                   onWillAcceptWithDetails: (_) {
                     setState(() => _dragHover = true);

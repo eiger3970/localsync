@@ -405,13 +405,6 @@ class _ParkedView extends StatelessWidget {
               style: const TextStyle(color: kStar, fontSize: 16, height: 2.0),
             ),
           ),
-          const SizedBox(height: 14),
-
-          // Reassurance line
-          const Text(
-            'synclocal is waiting - iOS needs a moment between steps.',
-            style: TextStyle(color: kTextMid, fontSize: 13, letterSpacing: 0.3),
-          ),
           const SizedBox(height: 32),
 
           if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
@@ -425,14 +418,17 @@ class _ParkedView extends StatelessWidget {
             // swipes rather than cutting off... this is a disconnect
             // with the user" - it now follows the finger for the real
             // screen's extent, not an arbitrary short cap.
-            Column(
+            // 2026-08-11 (third pass): laid out side by side rather
+            // than stacked, per explicit direction.
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _SwipeToConfirm(
                   direction: Axis.vertical,
                   label: 'OPEN ${kNoteAppName.toUpperCase()}',
                   onConfirm: ctrl.openObsidianNow,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(width: 24),
                 _SwipeToConfirm(
                   direction: Axis.horizontal,
                   label: 'I\'VE CREATED IT',
