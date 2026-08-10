@@ -232,16 +232,30 @@ class _IdleViewState extends State<_IdleView>
           // Answers "what exactly gets downloaded" directly, in place of
           // the old vaguer paragraph - fixed 2026-08-09 per real user
           // feedback that START DOWNLOAD gave no sense of scope before
-          // committing to it. Kept as text on 2026-08-11 review ("can
-          // images simplify this?") - this states a scope/safety
-          // guarantee (what's touched vs. not), which needs to be read
-          // precisely rather than inferred from a pictogram.
-          Text(
-            'Every note, folder, and attachment in your desktop\n'
-            'vault is copied into a new $kNoteAppName vault here.\n'
-            'Nothing else on this phone is touched.',
-            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
-            textAlign: TextAlign.center,
+          // committing to it. 2026-08-11: user specifically asked for
+          // this as a checklist (item name + green tick) rather than a
+          // paragraph - each item is still named explicitly, so it's
+          // less text without losing the precision a safety/scope
+          // guarantee needs.
+          const SizedBox(
+            width: 220,
+            child: Column(
+              children: [
+                _ScopeRow(label: 'Notes'),
+                _ScopeRow(label: 'Folders'),
+                _ScopeRow(label: 'Attachments'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.shield_outlined, color: kTextDim, size: 14),
+              SizedBox(width: 6),
+              Text('Nothing else on this phone is touched.',
+                  style: TextStyle(color: kTextDim, fontSize: 12)),
+            ],
           ),
           const SizedBox(height: 12),
           // 2026-08-10: "START DOWNLOAD" alone gave no sense this is a
@@ -779,6 +793,28 @@ class _PulsingDotsState extends State<_PulsingDots>
 }
 
 // ── Device glyph (pictogram for source/destination) ──────────────────────────────
+
+// ── Scope checklist row ──────────────────────────────────────────────────────
+
+class _ScopeRow extends StatelessWidget {
+  final String label;
+  const _ScopeRow({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(color: kTextMid, fontSize: 15)),
+          const Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
+        ],
+      ),
+    );
+  }
+}
 
 class _DeviceGlyph extends StatelessWidget {
   final IconData icon;

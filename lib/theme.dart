@@ -10,6 +10,7 @@ const kBlue        = Color(0xFF4488FF);
 const kStar        = Color(0xFFF0EEFF);
 const kTextDim     = Color(0xFF5A5175);
 const kTextMid     = Color(0xFF9B90BB);
+const kGreen       = Color(0xFF4CD97B);
 
 // ── App theme ─────────────────────────────────────────────────────────────────
 final appTheme = ThemeData(
