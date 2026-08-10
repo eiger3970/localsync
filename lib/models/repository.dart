@@ -32,7 +32,7 @@ class Repository {
   final String     remoteHost;        // desktop's current hotspot-subnet IP
   final int        remotePort;        // 22
   final String     remoteUser;        // rapi5
-  final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
+  final String     remotePath;        // /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git (isolated test repo, see main.dart)
   // Last known resolved on-disk path - informational/display only.
   // Cannot be trusted directly for git operations: this is now the
   // user's OWN Obsidian vault folder (a different app's sandbox),

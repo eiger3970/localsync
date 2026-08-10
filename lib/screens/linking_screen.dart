@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../constants.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
@@ -23,7 +24,7 @@ class LinkingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('OBSIDIAN VAULT SETUP'),
+        title: Text('${kNoteAppName.toUpperCase()} VAULT SETUP'),
         leading: Consumer<LinkingController>(
           builder: (_, ctrl, __) {
             // Prevent back-nav while machine is running between park points
@@ -99,8 +100,8 @@ class _IdleView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Connect your Obsidian vault',
-              style: TextStyle(
+          Text('Connect your $kNoteAppName vault',
+              style: const TextStyle(
                   color: kStar,
                   fontSize: 18,
                   fontWeight: FontWeight.w600)),
@@ -128,7 +129,7 @@ class _IdleView extends StatelessWidget {
               ),
               _DeviceGlyph(
                 icon: Icons.auto_stories_rounded,
-                label: 'Obsidian vault',
+                label: '$kNoteAppName vault',
                 caption: 'this phone',
                 accent: true,
               ),
@@ -139,16 +140,26 @@ class _IdleView extends StatelessWidget {
           // the old vaguer paragraph - fixed 2026-08-09 per real user
           // feedback that START DOWNLOAD gave no sense of scope before
           // committing to it.
-          const Text(
+          Text(
             'Every note, folder, and attachment in your desktop\n'
-            'vault is copied into a new Obsidian vault here.\n'
+            'vault is copied into a new $kNoteAppName vault here.\n'
             'Nothing else on this phone is touched.',
-            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
+            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 12),
+          // 2026-08-10: "START DOWNLOAD" alone gave no sense this is a
+          // real, one-time data copy - button relabelled to name the
+          // actual action, plus a duration expectation so it doesn't
+          // feel like an unbounded black box once tapped.
+          const Text(
+            'This runs once. Larger vaults may take a few minutes.',
+            style: TextStyle(color: kTextDim, fontSize: 12, height: 1.6),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
           _PrimaryButton(
-            label: 'START DOWNLOAD',
+            label: 'COPY VAULT TO THIS PHONE',
             onPressed: ctrl.startLinking,
           ),
         ],
@@ -260,7 +271,7 @@ class _ParkedView extends StatelessWidget {
 
           if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
             _PrimaryButton(
-              label: 'OPEN OBSIDIAN',
+              label: 'OPEN ${kNoteAppName.toUpperCase()}',
               onPressed: ctrl.openObsidianNow,
             ),
             const SizedBox(height: 12),
@@ -352,14 +363,14 @@ class _CompleteViewState extends State<_CompleteView>
     if (vaultPath == null || vaultBookmark == null) return; // web target
 
     await provider.addRepository(Repository(
-      name:              'Obsidian_vault',
+      name:              '${kNoteAppName}_vault',
       remoteHost:        ctrl.desktopIp,
       remoteUser:        ctrl.desktopUser,
       remotePath:        ctrl.bareRepoPath,
       remotePort:        ctrl.sshPort,
       localPath:         vaultPath,
       vaultBookmark:     vaultBookmark,
-      obsidianVaultPath: 'On My iPhone/Obsidian/Synclocal',
+      obsidianVaultPath: 'On My iPhone/$kNoteAppName/Synclocal',
       autoSync:          true,
       status:            SyncStatus.ok,
       lastSync:          DateTime.now(),
@@ -423,15 +434,15 @@ class _CompleteViewState extends State<_CompleteView>
           // before the clone, not after). This screen is reached only
           // once Synclocal already has real access to that same folder
           // Obsidian is showing.
-          const Text(
+          Text(
             'Your notes have been downloaded into your\n'
-            '"Synclocal" vault in Obsidian.',
-            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
+            '"Synclocal" vault in $kNoteAppName.',
+            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
           _PrimaryButton(
-            label: 'OPEN OBSIDIAN',
+            label: 'OPEN ${kNoteAppName.toUpperCase()}',
             onPressed: widget.ctrl.openObsidianNow,
           ),
           const SizedBox(height: 12),
@@ -698,7 +709,7 @@ class _DeviceGlyph extends StatelessWidget {
               textAlign: TextAlign.center),
           const SizedBox(height: 2),
           Text(caption,
-              style: const TextStyle(color: kTextDim, fontSize: 11),
+              style: const TextStyle(color: kTextMid, fontSize: 12),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis),
         ],

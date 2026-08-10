@@ -13,6 +13,8 @@
 // path exists in Obsidian's iOS UI ("Open folder as vault" was never
 // real). See lib/STRUCTURE.md for the full finding.
 
+import '../../constants.dart';
+
 enum LinkingStep {
   idle,
 
@@ -187,7 +189,7 @@ extension LinkingErrorDetails on LinkingError {
     LinkingError.workingCopyNotInstalled =>
       'Working Copy is not installed on this phone.',
     LinkingError.obsidianNotInstalled =>
-      'Obsidian is not installed on this phone.',
+      '$kNoteAppName is not installed on this phone.',
     LinkingError.vaultPathConflict =>
       'A vault already exists at that path with data in it.',
     LinkingError.failedToResolvePath =>
@@ -240,29 +242,29 @@ extension LinkingErrorDetails on LinkingError {
       'desktop (interrupted connection) - pairing again is safe to repeat.',
     LinkingError.bareRepoNotFound =>
       'On desktop, verify the bare repo exists:\n'
-      'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git\n\n'
+      'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git\n\n'
       'If missing, run Fresh Setup steps 1–10 on your desktop first.',
     LinkingError.workingCopyNotInstalled =>
       'Install Working Copy from the App Store.\n'
       'Then restart setup.',
     LinkingError.obsidianNotInstalled =>
-      'Install Obsidian from the App Store.\n'
+      'Install $kNoteAppName from the App Store.\n'
       'Then restart setup.',
     LinkingError.vaultPathConflict =>
-      '1. Delete Obsidian app (removes On My iPhone/Obsidian)\n'
+      '1. Delete $kNoteAppName app (removes On My iPhone/$kNoteAppName)\n'
       '2. Reboot phone — required to clear iOS file state\n'
-      '3. Reinstall Obsidian\n'
+      '3. Reinstall $kNoteAppName\n'
       '4. Restart setup',
     LinkingError.failedToResolvePath =>
-      '1. Force close Obsidian\n'
-      '2. Reopen Obsidian — it will index files\n'
+      '1. Force close $kNoteAppName\n'
+      '2. Reopen $kNoteAppName — it will index files\n'
       '3. Tap "Trust author and enable plugins"\n'
-      '4. Force close Obsidian again\n'
+      '4. Force close $kNoteAppName again\n'
       '5. Return here and tap Continue',
     LinkingError.indexLocked =>
-      '1. Open Obsidian\n'
+      '1. Open $kNoteAppName\n'
       '2. Tap "Trust author and enable plugins"\n'
-      '3. Working Copy and Obsidian will auto-sync',
+      '3. Working Copy and $kNoteAppName will auto-sync',
     LinkingError.invalidArgumentRepo =>
       'Force close Working Copy completely, then reopen it.\n'
       'The banner will be gone. Everything worked correctly.',
@@ -299,7 +301,7 @@ extension LinkingErrorDetails on LinkingError {
       '3. Tap tick\n'
       '4. Restart the commit',
     LinkingError.filesNotDeleting =>
-      '1. Delete Obsidian app\n'
+      '1. Delete $kNoteAppName app\n'
       '2. Delete Working Copy app\n'
       '3. Reboot phone — required\n'
       '4. Reinstall both apps\n'

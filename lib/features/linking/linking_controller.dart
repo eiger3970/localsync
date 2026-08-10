@@ -19,6 +19,7 @@ import '../../services/git_service.dart';
 import '../../services/ios_app_service.dart';
 import '../../services/ssh_key_paths.dart';
 import '../../services/vault_folder_service.dart';
+import '../../constants.dart';
 import 'linking_state.dart';
 
 class LinkingController extends ChangeNotifier {
@@ -246,8 +247,8 @@ class LinkingController extends ChangeNotifier {
 
   String? get currentInstruction => switch (_step) {
     LinkingStep.awaitingVaultCreation =>
-      'First, create a new vault in Obsidian:\n\n'
-      'Tap OPEN OBSIDIAN, then in Obsidian:\n'
+      'First, create a new vault in $kNoteAppName:\n\n'
+      'Tap OPEN ${kNoteAppName.toUpperCase()}, then in $kNoteAppName:\n'
       'Create a vault → Continue without sync →\n'
       'name it "Synclocal" → Create a vault\n\n'
       'Come back here when you\'re done.',
@@ -255,7 +256,7 @@ class LinkingController extends ChangeNotifier {
     LinkingStep.pickingVaultFolder =>
       'Now select the vault you just created:\n\n'
       'Tap SELECT VAULT FOLDER, then browse to\n'
-      'On My iPhone → Obsidian → Synclocal',
+      'On My iPhone → $kNoteAppName → Synclocal',
 
     _ => null,
   };

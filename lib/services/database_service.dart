@@ -8,6 +8,7 @@
 // JSON blob comfortably holds - not expected for "sync a few Obsidian vaults."
 
 import 'dart:convert';
+import '../constants.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/repository.dart';
@@ -23,12 +24,12 @@ class DatabaseService {
     // Demo repo so the home screen isn't empty on first web run
     Repository(
       id:                1,
-      name:              'Obsidian_vault',
+      name:              '${kNoteAppName}_vault',
       remoteHost:        '172.20.10.11',
       remoteUser:        'rapi5',
-      remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+      remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
       localPath:         '/web-demo-not-a-real-path',
-      obsidianVaultPath: 'On My iPhone/Synclocal',
+      obsidianVaultPath: 'On My iPhone/$kNoteAppName/Synclocal',
       autoSync:          true,
       status:            SyncStatus.ok,
       lastSync:          DateTime.now().subtract(const Duration(minutes: 4)),

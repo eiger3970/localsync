@@ -46,7 +46,11 @@ class _SynclocalAppState extends State<SynclocalApp> {
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
       desktopIp:      '172.20.10.11',
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+      // Points at an isolated test bare repo (detached clone of
+      // Md_files_bare.git, no remote back to production) so untested
+      // push/reset logic can't touch the real vault sync. Switch back
+      // to Md_files_bare.git only once push has been verified safe.
+      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
       sshPort:        22,
     );
     _lifecycleObserver = SynclocalLifecycleObserver(

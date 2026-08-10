@@ -16,7 +16,7 @@ abstract class GitService {
 }
 
 class GitServiceImpl implements GitService {
-  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git
+  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git (isolated test repo, see main.dart)
   final String localVaultPath;    // Phone: Synclocal's own Documents dir (see Info.plist notes in STRUCTURE.md)
   final String sshHost;           // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
   final int sshPort;

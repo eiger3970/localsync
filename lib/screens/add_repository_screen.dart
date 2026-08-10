@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
+import '../constants.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../services/vault_folder_service.dart';
@@ -22,7 +23,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
   final _portCtrl    = TextEditingController(text: '22');
   final _userCtrl    = TextEditingController(text: 'rapi5');
   final _pathCtrl    = TextEditingController(
-    text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+    text: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
   );
   final _vaultFolder = VaultFolderService();
   VaultFolderResult? _pickedVault;
@@ -48,7 +49,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _label('REPOSITORY NAME'),
-              _field(_nameCtrl, hint: 'Obsidian_vault', validator: _required),
+              _field(_nameCtrl, hint: '${kNoteAppName}_vault', validator: _required),
               const SizedBox(height: 20),
               _label('DESKTOP HOST (IP ADDRESS)'),
               _field(_hostCtrl, hint: '172.20.10.11', validator: _required),
@@ -62,7 +63,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
               _label('GIT BARE REPO PATH ON DESKTOP'),
               _field(
                 _pathCtrl,
-                hint: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+                hint: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
                 validator: _required,
               ),
               const SizedBox(height: 20),
@@ -105,10 +106,10 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Must already exist as a vault in Obsidian - create it\n'
+              Text(
+                'Must already exist as a vault in $kNoteAppName - create it\n'
                 'there first (Create a vault → Continue without sync).',
-                style: TextStyle(color: kTextDim, fontSize: 11, height: 1.5),
+                style: const TextStyle(color: kTextMid, fontSize: 12, height: 1.5),
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -167,7 +168,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
     final vault = _pickedVault;
     if (vault == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select the Obsidian vault folder first')),
+        SnackBar(content: Text('Select the $kNoteAppName vault folder first')),
       );
       return;
     }
@@ -181,7 +182,7 @@ class _AddRepositoryScreenState extends State<AddRepositoryScreen> {
       remotePath:        _pathCtrl.text.trim(),
       localPath:         vault.path,
       vaultBookmark:     vault.bookmark,
-      obsidianVaultPath: 'On My iPhone/Obsidian/${_nameCtrl.text.trim()}',
+      obsidianVaultPath: 'On My iPhone/$kNoteAppName/${_nameCtrl.text.trim()}',
     );
 
     await context.read<RepositoryProvider>().addRepository(repo);
