@@ -77,10 +77,7 @@ class HomeScreen extends StatelessWidget {
             );
           }
           if (provider.repos.isEmpty) {
-            return _EmptyState(
-              onAdd:     () => _openAddRepo(context),
-              onSetup:   () => _openLinking(context),
-            );
+            return _EmptyState(onSetup: () => _openLinking(context));
           }
           return ListView.separated(
             itemCount: provider.repos.length,
@@ -498,9 +495,8 @@ class _StatusIcon extends StatelessWidget {
 // ── Empty state ────────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  final VoidCallback onAdd;
   final VoidCallback onSetup;
-  const _EmptyState({required this.onAdd, required this.onSetup});
+  const _EmptyState({required this.onSetup});
 
   @override
   Widget build(BuildContext context) {
@@ -510,19 +506,28 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('↕', style: TextStyle(fontSize: 48, color: kTextDim)),
-            const SizedBox(height: 16),
+            // 2026-08-10: the plain "↕" glyph read as decorative rather
+            // than meaningful - swapped for a real sync icon, same
+            // _rounded family already used for the device glyphs on the
+            // vault-setup screen, and given real room to breathe.
+            const Icon(Icons.sync_alt_rounded, size: 72, color: kTextMid),
+            const SizedBox(height: 24),
             const Text('No repositories',
                 style: TextStyle(
-                    color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
+                    color: kStar, fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
             const Text(
-              'First time? Set up your vault to connect your phone to your desktop.',
-              style: TextStyle(color: kTextDim, fontSize: 11, height: 1.6),
+              'Set up your vault to connect this phone\nto your desktop.',
+              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            // Primary: SET UP VAULT
+            const SizedBox(height: 32),
+            // 2026-08-10: dropped the separate "ADD EXISTING REPOSITORY"
+            // button - it was a second, dimmer control doing the exact
+            // same thing as the FAB (+) already visible on this same
+            // screen, and real user feedback was "what is the + for?"
+            // The FAB alone now covers manual/advanced entry; this
+            // button is the one guided path.
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -538,16 +543,6 @@ class _EmptyState extends StatelessWidget {
                       letterSpacing: 2),
                 ),
                 child: const Text('SET UP VAULT'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Secondary: manual add
-            TextButton(
-              onPressed: onAdd,
-              child: const Text(
-                'ADD EXISTING REPOSITORY',
-                style: TextStyle(
-                    color: kTextDim, fontSize: 10, letterSpacing: 1.5),
               ),
             ),
           ],

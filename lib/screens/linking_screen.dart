@@ -89,12 +89,24 @@ class _ProgressBar extends StatelessWidget {
 
 // ── Idle ───────────────────────────────────────────────────────────────────────
 
-class _IdleView extends StatelessWidget {
+class _IdleView extends StatefulWidget {
   final LinkingController ctrl;
   const _IdleView({required this.ctrl});
 
   @override
+  State<_IdleView> createState() => _IdleViewState();
+}
+
+class _IdleViewState extends State<_IdleView> {
+  // 2026-08-10: drag-to-connect, added alongside (not instead of) the
+  // COPY VAULT TO THIS PHONE button per explicit user direction - the
+  // button stays the reliable, accessible path; this is a second way to
+  // trigger the exact same ctrl.startLinking() call.
+  bool _dragHover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -117,21 +129,64 @@ class _IdleView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DeviceGlyph(
-                icon: Icons.computer_rounded,
-                label: 'Your desktop',
-                caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+              Draggable<bool>(
+                data: true,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: Opacity(
+                    opacity: 0.85,
+                    child: _DeviceGlyph(
+                      icon: Icons.computer_rounded,
+                      label: 'Your desktop',
+                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                    ),
+                  ),
+                ),
+                childWhenDragging: Opacity(
+                  opacity: 0.3,
+                  child: _DeviceGlyph(
+                    icon: Icons.computer_rounded,
+                    label: 'Your desktop',
+                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                  ),
+                ),
+                child: _DeviceGlyph(
+                  icon: Icons.computer_rounded,
+                  label: 'Your desktop',
+                  caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.only(top: 14),
                 child: Icon(Icons.arrow_forward_rounded,
                     color: kTeal, size: 26),
               ),
-              _DeviceGlyph(
-                icon: Icons.auto_stories_rounded,
-                label: '$kNoteAppName vault',
-                caption: 'this phone',
-                accent: true,
+              DragTarget<bool>(
+                onWillAcceptWithDetails: (_) {
+                  setState(() => _dragHover = true);
+                  return true;
+                },
+                onLeave: (_) => setState(() => _dragHover = false),
+                onAcceptWithDetails: (_) {
+                  setState(() => _dragHover = false);
+                  ctrl.startLinking();
+                },
+                builder: (context, candidate, rejected) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _dragHover ? kTeal : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: _DeviceGlyph(
+                    icon: Icons.auto_stories_rounded,
+                    label: '$kNoteAppName vault',
+                    caption: 'this phone',
+                    accent: true,
+                  ),
+                ),
               ),
             ],
           ),
@@ -154,7 +209,7 @@ class _IdleView extends StatelessWidget {
           // feel like an unbounded black box once tapped.
           const Text(
             'This runs once. Larger vaults may take a few minutes.',
-            style: TextStyle(color: kTextDim, fontSize: 12, height: 1.6),
+            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),
