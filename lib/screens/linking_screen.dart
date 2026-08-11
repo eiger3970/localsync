@@ -17,6 +17,7 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
 import '../widgets/controllable_gif.dart';
+import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_trigger.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
@@ -201,7 +202,13 @@ class _IdleViewState extends State<_IdleView>
     // here previously drifted out of alignment once sizes changed.
     final arrowTopOffset = ((glyphIcon + 16) - 26) / 2;
 
-    return Padding(
+    // 2026-08-18: "laptop with background star magic?" - sparkles
+    // wrap the whole drag screen now, same treatment as every other
+    // actionable control in the app.
+    return Stack(
+      children: [
+        const Positioned.fill(child: SparkleBackground()),
+        Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -301,16 +308,12 @@ class _IdleViewState extends State<_IdleView>
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
+                // 2026-08-18: "Drag to begin text no longer needed" -
+                // the sparkle background wrapping this whole screen
+                // (added below) now carries that hint visually, same
+                // reasoning as dropping the swipe-confirm captions
+                // elsewhere once their gif art made the gesture clear.
                 const SizedBox(height: 16),
-                // 2026-08-11: "this text needs to be immediately below
-                // the drag images at the top" - real device review.
-                // Also shortened from "Drag your desktop onto the vault
-                // to begin" to "Drag to begin" per explicit direction.
-                const Text('Drag to begin',
-                    style:
-                        TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 32),
                 // Heading moved below the pictogram+hint (2026-08-11,
                 // was the page's top line before) - reworded to name
                 // the source explicitly ("desktop Obsidian vault")
@@ -385,6 +388,8 @@ class _IdleViewState extends State<_IdleView>
           ),
         ],
       ),
+    ),
+      ],
     );
   }
 }
@@ -443,7 +448,11 @@ class _ParkedViewState extends State<_ParkedView> {
   // private state) so the swipe confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
-  static const _criticalIndices = [9, 10, 11]; // 1.10, 1.11, 1.12
+  // 2026-08-18: "Change to: Tick 1.10 and 1.12, this creates a
+  // folder" - 1.11 (reopen Obsidian) dropped from the strict
+  // requirement; it's the thing you do in between the two force
+  // closes, not itself what makes iOS materialize the folder.
+  static const _criticalIndices = [9, 11]; // 1.10, 1.12
 
   String? _validateVaultCreationDone() {
     final checked = _vaultCreationChecked;
@@ -451,7 +460,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final allCriticalDone =
         _criticalIndices.every((i) => i < checked.length && checked[i]);
     if (allCriticalDone) return null;
-    return 'Tick 1.10-1.12 first - the folder isn\'t created without them.';
+    return 'Tick 1.10 and 1.12, this creates a folder.';
   }
 
   @override
@@ -541,7 +550,12 @@ class _ParkedViewState extends State<_ParkedView> {
                     key: const ValueKey(2),
                     groupNumber: 2,
                     steps: ctrl.vaultFolderSteps,
-                    tapActions: {0: ctrl.pickVaultFolder},
+                    // 2026-08-18: "2.1 to be swipe up" - was a tap.
+                    // resilient: the native picker can be cancelled
+                    // silently with no advance, unlike OPEN OBSIDIAN
+                    // above - see _SwipeChecklistRow.resilient.
+                    swipeActions: {0: ctrl.pickVaultFolder},
+                    resilientSwipeIndices: const {0},
                   )
                 else
                   Container(
@@ -642,12 +656,16 @@ class _StepChecklist extends StatefulWidget {
   // OPEN OBSIDIAN genuinely needs to fire twice in this flow (create
   // the vault, then reopen it), and once 1.1's row is done it can't
   // be swiped again to do the second one.
-  final Map<int, VoidCallback> swipeActions;
-  // 2026-08-15: same idea, for actions that are a tap rather than a
-  // swipe (VAULT FOLDER). Future-returning, not VoidCallback - the row
-  // needs to know when the real action finishes to know whether to
-  // re-enable itself (see _TapChecklistRow).
-  final Map<int, Future<void> Function()> tapActions;
+  final Map<int, Future<void> Function()> swipeActions;
+  // 2026-08-18: "2.1 to be swipe up" - VAULT FOLDER moved from a tap
+  // action to a swipe action for consistency ("the current image had
+  // a few magic stars... to show the enduser clearly it's an action
+  // to swipe" - every real action in this app is now a swipe). Which
+  // indices in swipeActions need the resilient (cancel-safe) variant -
+  // see _SwipeChecklistRow's resilient param for why this can't be a
+  // blanket default. _TapChecklistRow removed entirely now that
+  // nothing uses tap actions.
+  final Set<int> resilientSwipeIndices;
   // 2026-08-16: reports the checkbox list back up on every toggle, so
   // a sibling control (I'VE CREATED IT) can validate specific steps
   // were actually ticked before allowing its own confirm to proceed.
@@ -658,7 +676,7 @@ class _StepChecklist extends StatefulWidget {
     required this.steps,
     this.startIndex = 1,
     this.swipeActions = const {},
-    this.tapActions = const {},
+    this.resilientSwipeIndices = const {},
     this.onChanged,
   });
 
@@ -698,16 +716,11 @@ class _StepChecklistState extends State<_StepChecklist> {
                 label:
                     '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
                 onConfirm: widget.swipeActions[i]!,
+                resilient: widget.resilientSwipeIndices.contains(i),
                 onDone: () {
                   setState(() => _checked[i] = true);
                   widget.onChanged?.call(_checked);
                 },
-              )
-            else if (widget.tapActions.containsKey(i))
-              _TapChecklistRow(
-                label:
-                    '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
-                onTap: widget.tapActions[i]!,
               )
             else
               CheckboxListTile(
@@ -746,44 +759,38 @@ class _StepChecklistState extends State<_StepChecklist> {
 // no separate manual checkbox once the row itself performed the action.
 class _SwipeChecklistRow extends StatefulWidget {
   final String label;
-  final VoidCallback onConfirm;
+  final Future<void> Function() onConfirm;
   // 2026-08-17: reports completion back to the parent checklist's
   // _checked list, same as a ticked checkbox - needed now that a
   // swipe row (1.11) can be one of the indices a sibling control
   // validates before letting its own confirm proceed.
   final VoidCallback? onDone;
-  const _SwipeChecklistRow(
-      {required this.label, required this.onConfirm, this.onDone});
+  // 2026-08-18: "2.1 to be swipe up" - VAULT FOLDER's native picker
+  // can be cancelled silently (no exception, ctrl.step doesn't
+  // advance), unlike OPEN OBSIDIAN (1.1/1.11) where success *also*
+  // never advances ctrl.step - so "reset if still mounted after" can't
+  // tell the two apart universally. When true, awaits onConfirm and
+  // re-enables itself if still mounted afterward (meaning nothing tore
+  // this screen down, i.e. it didn't succeed) - same fix
+  // _TapChecklistRow needed for the identical class of bug. When false
+  // (the default, OPEN OBSIDIAN's case), stays permanently marked done
+  // once swiped - there's no cancel-in-place scenario for it.
+  final bool resilient;
+  const _SwipeChecklistRow({
+    required this.label,
+    required this.onConfirm,
+    this.onDone,
+    this.resilient = false,
+  });
 
   @override
   State<_SwipeChecklistRow> createState() => _SwipeChecklistRowState();
 }
 
-class _SwipeChecklistRowState extends State<_SwipeChecklistRow>
-    with SingleTickerProviderStateMixin {
+class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
   static const _threshold = 36.0;
   double _drag = 0;
   bool _done = false;
-  // 2026-08-17: "what about a background of magical stars or
-  // something?" instead of the flat tint - a few twinkling sparkles
-  // scattered across the row, driven by one looping controller (no new
-  // dependency, same CustomPainter approach as the completion screen's
-  // particle burst).
-  late final AnimationController _sparkleCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _sparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(seconds: 3))
-          ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _sparkleCtrl.dispose();
-    super.dispose();
-  }
 
   void _onUpdate(double delta) {
     if (_done) return;
@@ -794,10 +801,23 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow>
     if (_done) return;
     final reached = -_drag >= _threshold;
     setState(() => _drag = 0);
-    if (reached) {
-      setState(() => _done = true);
+    if (!reached) return;
+
+    setState(() => _done = true);
+    if (widget.resilient) {
+      _fireResilient();
+    } else {
       widget.onDone?.call();
       widget.onConfirm();
+    }
+  }
+
+  Future<void> _fireResilient() async {
+    await widget.onConfirm();
+    if (mounted) {
+      setState(() => _done = false);
+    } else {
+      widget.onDone?.call();
     }
   }
 
@@ -810,38 +830,28 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow>
       onVerticalDragEnd: (_) => _onEnd(),
       child: Stack(
         children: [
-          if (!_done)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _sparkleCtrl,
-                builder: (_, __) =>
-                    CustomPaint(painter: _SparklePainter(_sparkleCtrl.value)),
-              ),
-            ),
+          if (!_done) const Positioned.fill(child: SparkleBackground()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Transform.translate(
-              offset: Offset(0, _drag),
-              child: Row(
-                children: [
-                  Icon(Icons.keyboard_double_arrow_up_rounded,
-                      color: color, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 16,
-                        height: 1.6,
-                        fontWeight: FontWeight.w700,
-                        decoration: _done ? TextDecoration.lineThrough : null,
-                        decorationColor: kTextMid,
-                      ),
+            child: Row(
+              children: [
+                Icon(Icons.keyboard_double_arrow_up_rounded,
+                    color: color, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 16,
+                      height: 1.6,
+                      fontWeight: FontWeight.w700,
+                      decoration: _done ? TextDecoration.lineThrough : null,
+                      decorationColor: kTextMid,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -850,103 +860,6 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow>
   }
 }
 
-// Six small sparkles at fixed relative positions, each twinkling on
-// its own phase offset so they don't all pulse in unison.
-class _SparklePainter extends CustomPainter {
-  final double progress; // 0..1, loops
-  _SparklePainter(this.progress);
-
-  static const _positions = [
-    Offset(0.06, 0.25), Offset(0.18, 0.75), Offset(0.34, 0.20),
-    Offset(0.58, 0.70), Offset(0.78, 0.30), Offset(0.93, 0.65),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < _positions.length; i++) {
-      final phase = (progress + i / _positions.length) % 1.0;
-      final opacity = (math.sin(phase * math.pi * 2) * 0.5 + 0.5);
-      final radius = 2.5 + opacity * 2.5;
-      final center = Offset(
-          _positions[i].dx * size.width, _positions[i].dy * size.height);
-      final paint = Paint()
-        ..color = kGreen.withOpacity(opacity * 0.6)
-        ..strokeWidth = 1.4;
-      canvas.drawLine(
-          center.translate(-radius, 0), center.translate(radius, 0), paint);
-      canvas.drawLine(
-          center.translate(0, -radius), center.translate(0, radius), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparklePainter old) =>
-      old.progress != progress;
-}
-
-// 2026-08-15: tap variant of _SwipeChecklistRow, for the one action
-// that's a real tap (VAULT FOLDER opens the native folder browser)
-// rather than a swipe.
-class _TapChecklistRow extends StatefulWidget {
-  final String label;
-  final Future<void> Function() onTap;
-  const _TapChecklistRow({required this.label, required this.onTap});
-
-  @override
-  State<_TapChecklistRow> createState() => _TapChecklistRowState();
-}
-
-class _TapChecklistRowState extends State<_TapChecklistRow> {
-  // 2026-08-17: real device bug - this used to permanently disable
-  // itself (struck through, inert) the instant it was tapped,
-  // regardless of whether the real action actually succeeded.
-  // Cancelling or failing the native folder picker left it stuck with
-  // no way to retry short of leaving and re-entering the whole setup
-  // screen ("X'ing out... returns to 2.1 struck through and
-  // inactive"). Now only disabled while genuinely in flight - if
-  // still mounted once the await returns (meaning the step never
-  // advanced, i.e. it didn't succeed), it re-enables itself.
-  bool _busy = false;
-
-  Future<void> _handleTap() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    await widget.onTap();
-    if (mounted) setState(() => _busy = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _busy ? kTextMid : kGreen;
-    return InkWell(
-      onTap: _busy ? null : _handleTap,
-      child: Container(
-        // Same "this row is an action, not a checkbox" tint as
-        // _SwipeChecklistRow, for consistency between the swipe and
-        // tap variants.
-        color: _busy ? Colors.transparent : kGreen.withOpacity(0.08),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            Icon(Icons.touch_app_outlined, color: color, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 16,
-                  height: 1.6,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // 2026-08-15: swipe-right confirm, gif instead of a plain pill button.
 // 2026-08-17: "action the gif at frame 0 and then run for >=2000ms
@@ -978,40 +891,30 @@ class _GifSwipeConfirm extends StatefulWidget {
   State<_GifSwipeConfirm> createState() => _GifSwipeConfirmState();
 }
 
-class _GifSwipeConfirmState extends State<_GifSwipeConfirm>
-    with SingleTickerProviderStateMixin {
+class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
   static const _threshold = 64.0;
-  static const _maxDrag = 320.0;
   final _gifKey = GlobalKey<ActionGifState>();
-  double _drag = 0;
   String? _error;
-  late final AnimationController _sparkleCtrl;
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
-  @override
-  void initState() {
-    super.initState();
-    _sparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(seconds: 3))
-          ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _sparkleCtrl.dispose();
-    super.dispose();
-  }
+  // 2026-08-18: "the svg just slides right, but frame0.svg stays put,
+  // then the gif takes over" - the whole control used to visually
+  // track the drag (Transform.translate), sliding with the finger.
+  // Now stationary: drag distance is still tracked for the threshold
+  // check, just not rendered - it swaps state (static -> animated)
+  // rather than sliding into place.
+  double _drag = 0;
 
   void _onUpdate(double delta) {
     if (_playing) return;
-    setState(() => _drag = (_drag + delta).clamp(0.0, _maxDrag));
+    _drag = (_drag + delta).clamp(0.0, 400.0);
   }
 
   void _onEnd() {
     if (_playing) return;
     final reached = _drag >= _threshold;
-    setState(() => _drag = 0);
+    _drag = 0;
     if (!reached) return;
 
     final error = widget.validate?.call();
@@ -1026,19 +929,18 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm>
     return GestureDetector(
       onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
       onHorizontalDragEnd: (_) => _onEnd(),
-      child: Stack(
-        children: [
-          if (!_playing)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _sparkleCtrl,
-                builder: (_, __) =>
-                    CustomPaint(painter: _SparklePainter(_sparkleCtrl.value)),
-              ),
-            ),
-          Transform.translate(
-            offset: Offset(_drag, 0),
-            child: Column(
+      child: SizedBox(
+        // 2026-08-18: "too small, needed to be more on the left and
+        // right sides" - the sparkle field now spans the full width
+        // available instead of just the gif's own tight bounds, so
+        // there's a wide star field around the control regardless of
+        // how much the art itself carries.
+        width: double.infinity,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            if (!_playing) const Positioned.fill(child: SparkleBackground()),
+            Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1063,8 +965,8 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm>
                 ],
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1093,40 +995,24 @@ class _SwapGifSwipeConfirm extends StatefulWidget {
   State<_SwapGifSwipeConfirm> createState() => _SwapGifSwipeConfirmState();
 }
 
-class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm>
-    with SingleTickerProviderStateMixin {
+class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
   static const _threshold = 64.0;
-  static const _maxDrag = 320.0;
   final _gifKey = GlobalKey<SwapGifTriggerState>();
-  double _drag = 0;
   String? _error;
-  late final AnimationController _sparkleCtrl;
+  double _drag = 0; // tracked for threshold only, not rendered - see
+  // _GifSwipeConfirmState's comment on the same field for why.
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
-  @override
-  void initState() {
-    super.initState();
-    _sparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(seconds: 3))
-          ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _sparkleCtrl.dispose();
-    super.dispose();
-  }
-
   void _onUpdate(double delta) {
     if (_playing) return;
-    setState(() => _drag = (_drag + delta).clamp(0.0, _maxDrag));
+    _drag = (_drag + delta).clamp(0.0, 400.0);
   }
 
   void _onEnd() {
     if (_playing) return;
     final reached = _drag >= _threshold;
-    setState(() => _drag = 0);
+    _drag = 0;
     if (!reached) return;
 
     final error = widget.validate?.call();
@@ -1141,19 +1027,13 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm>
     return GestureDetector(
       onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
       onHorizontalDragEnd: (_) => _onEnd(),
-      child: Stack(
-        children: [
-          if (!_playing)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _sparkleCtrl,
-                builder: (_, __) =>
-                    CustomPaint(painter: _SparklePainter(_sparkleCtrl.value)),
-              ),
-            ),
-          Transform.translate(
-            offset: Offset(_drag, 0),
-            child: Column(
+      child: SizedBox(
+        width: double.infinity,
+        child: Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            if (!_playing) const Positioned.fill(child: SparkleBackground()),
+            Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1182,8 +1062,8 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm>
                 ],
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1397,11 +1277,12 @@ class _CompleteViewState extends State<_CompleteView>
           // a complete, self-contained record of every physical action
           // in the sequence - not just the three that happen inside
           // Obsidian. 3.0 (OPEN OBSIDIAN) is now embedded directly in
-          // the checklist as a real swipe-up gesture (firstItemSwipeAction,
-          // same as page 3's 1.1) instead of a separate button below -
-          // the standalone OPEN OBSIDIAN button is gone. 3.5 keeps its
-          // own control below (the gif swipe), since only the *first*
-          // action folds into the checklist on this and page 3.
+          // the checklist as a real swipe-up gesture, same as page 3's
+          // 1.1, instead of a separate button below.
+          // 2026-08-18: "3.5 swipe, delete" - dropped the trailing
+          // checklist line entirely, matching page 2's I'VE CREATED IT
+          // (no checklist line at all for the confirm action, just the
+          // standalone gif control below).
           _StepChecklist(
             key: const ValueKey(3),
             groupNumber: 3,
@@ -1413,25 +1294,20 @@ class _CompleteViewState extends State<_CompleteView>
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
               'return to Synclocal app',
-              // 2026-08-16: "arrows are on button, so text description
-              // is verbose" - trimmed further per explicit direction,
-              // the real control below already shows the gesture.
-              'swipe',
             ],
           ),
           const SizedBox(height: 16),
           Center(
-            // 2026-08-16: this is the very last action in the whole
-            // flow - success gif (dog_success_stand.gif) instead of
-            // the mid-flow progress gif page 2's I'VE CREATED IT uses,
-            // since by this point the setup genuinely is done.
-            // 2026-08-17: label dropped for consistency with page 2's
-            // confirm gif (both are "progress" actions, per explicit
-            // direction) - the gif art itself will carry the swipe
-            // hint. _leaveSetup, not a bare pop - see this file's
-            // header comment for the black-screen crash this fixes.
-            child: _GifSwipeConfirm(
-              assetPath: 'assets/gifs/dog_success_stand.gif',
+            // 2026-08-18: "bottom needs the same dog_progress_frame0.svg
+            // and when swiped the dog_progress_off_leash.gif takes
+            // over" - switched from the distinct dog_success_stand.gif
+            // to the same asset pair as page 2's I'VE CREATED IT, for
+            // consistency between the two confirm actions. _leaveSetup,
+            // not a bare pop - see this file's header comment for the
+            // black-screen crash this fixes.
+            child: _SwapGifSwipeConfirm(
+              staticAssetPath: 'assets/gifs/dog_progress_frame0.png',
+              animatedAssetPath: 'assets/gifs/dog_progress_off_leash.gif',
               onConfirm: () => _leaveSetup(context),
             ),
           ),

@@ -320,7 +320,7 @@ class LinkingController extends ChangeNotifier {
   // picker after tapping VAULT FOLDER, which Synclocal has no
   // visibility into once it's open.
   List<String> get vaultFolderSteps => [
-        'tap to open VAULT FOLDER',
+        'swipe up to open VAULT FOLDER',
         'tap Browse',
         'tap On My iPhone (Browse/Locations/On My iPhone)',
         'tap $kNoteAppName folder',

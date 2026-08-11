@@ -10,6 +10,7 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/action_gif.dart';
+import '../widgets/sparkle_background.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
@@ -142,13 +143,32 @@ class HomeScreen extends StatelessWidget {
                     child: Text('Commit with message...',
                         style: TextStyle(color: kStar, fontSize: 14)),
                   ),
+                  // 2026-08-18: "I can't think of a solution to a
+                  // desktop mouseover info feature for the phone
+                  // finger controls" - no hover tooltips on a touch
+                  // screen, so same fix as the Pair/Set-up items above:
+                  // a persistent one-line explainer under the label
+                  // instead of relying on a tooltip that can't fire.
                   PopupMenuItem(
                     value: 'toggle_auto',
-                    child: Text(
-                      provider.repos.first.autoSync
-                          ? 'Switch to manual'
-                          : 'Switch to auto',
-                      style: const TextStyle(color: kStar, fontSize: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          provider.repos.first.autoSync
+                              ? 'Switch to manual'
+                              : 'Switch to auto',
+                          style: const TextStyle(color: kStar, fontSize: 14),
+                        ),
+                        Text(
+                          provider.repos.first.autoSync
+                              ? 'Stop pulling automatically when the app opens'
+                              : 'Pull automatically every time the app opens',
+                          style:
+                              const TextStyle(color: kTextMid, fontSize: 13),
+                        ),
+                      ],
                     ),
                   ),
                   const PopupMenuItem(
@@ -391,32 +411,46 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
       child: Container(
         width: double.infinity,
         color: kVoid,
-        alignment: Alignment.center,
-        // 2026-08-16: "Pull can be higher, seeing it will be pulled
-        // from top to down" - pull sits toward the top of its half
-        // instead of dead center, matching the "content flows down
-        // from above" mental model; push stays centered.
-        child: Column(
-          mainAxisAlignment: widget.alignTop
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.center,
+        // 2026-08-18: "add some magic stars on PULL and PUSH" - same
+        // SparkleBackground every other action in the app uses now.
+        child: Stack(
           children: [
-            if (widget.alignTop) const SizedBox(height: 12),
-            Transform.translate(
-              offset: Offset(0, _drag),
-              child: ActionGif(
-                key: _gifKey,
-                assetPath: widget.assetPath,
-                height: widget.gifHeight,
+            if (!_playing) const Positioned.fill(child: SparkleBackground()),
+            // Positioned.fill (not Align) - the Column needs to be
+            // stretched to the Stack's full height for mainAxisAlignment
+            // to have anything to actually distribute; Align would just
+            // size-wrap it and negate alignTop's effect entirely.
+            Positioned.fill(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: widget.alignTop
+                    // 2026-08-16: "Pull can be higher, seeing it will
+                    // be pulled from top to down" - pull sits toward
+                    // the top of its half instead of dead center,
+                    // matching the "content flows down from above"
+                    // mental model; push stays centered.
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.center,
+                children: [
+                  if (widget.alignTop) const SizedBox(height: 12),
+                  Transform.translate(
+                    offset: Offset(0, _drag),
+                    child: ActionGif(
+                      key: _gifKey,
+                      assetPath: widget.assetPath,
+                      height: widget.gifHeight,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(widget.caption,
+                      style: const TextStyle(
+                          color: kTextMid,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2)),
+                ],
               ),
             ),
-            const SizedBox(height: 14),
-            Text(widget.caption,
-                style: const TextStyle(
-                    color: kTextMid,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2)),
           ],
         ),
       ),
