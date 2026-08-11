@@ -21,7 +21,29 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SYNCLOCAL'),
+        // 2026-08-17: "PKM_vault needs to be centered" - moved from
+        // actions (left-aligned, hugging the title) into the title
+        // itself as a Row with an Expanded+Center around it, so it
+        // sits centered in the space between SYNCLOCAL and the
+        // kebab/tick icons rather than immediately after the title.
+        title: Row(
+          children: [
+            const Text('SYNCLOCAL'),
+            Expanded(
+              child: Center(
+                child: Consumer<RepositoryProvider>(
+                  builder: (_, provider, __) => provider.repos.isEmpty
+                      ? const SizedBox.shrink()
+                      : _AppBarRepoStatus(
+                          repo: provider.repos.first,
+                          onTap: () => _runAndShow(context,
+                              provider.pullRepository(provider.repos.first.id!)),
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           // Fixed 2026-08-09: two bare icon buttons (key, phone) with only
           // a long-press tooltip for explanation - on iOS a tap doesn't
@@ -42,15 +64,6 @@ class HomeScreen extends StatelessWidget {
           // one vault in practice (ADD MANUALLY, the only path that
           // could add a second, was removed 2026-08-15) - revisit if
           // multi-repo ever becomes a real use case.
-          Consumer<RepositoryProvider>(
-            builder: (_, provider, __) => provider.repos.isEmpty
-                ? const SizedBox.shrink()
-                : _AppBarRepoStatus(
-                    repo: provider.repos.first,
-                    onTap: () => _runAndShow(
-                        context, provider.pullRepository(provider.repos.first.id!)),
-                  ),
-          ),
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
@@ -299,10 +312,11 @@ class _SyncGestureZone extends StatelessWidget {
             assetPath: 'assets/gifs/git_pull.gif',
             caption: 'PULL',
             swipeDown: true,
-            // 2026-08-16: "make gifs 30% larger" - both up again from
-            // their already-once-enlarged sizes (90 -> pull 117 last
-            // round -> 152 now; push 90 -> 117 now, catching up).
-            gifHeight: 152,
+            // 2026-08-17: "a lot of black space between PULL and
+            // PUSH, can the gifs be enlarged 30%?" - another 30% up
+            // from last round (90 -> 117 -> 152 -> 198 for pull;
+            // 90 -> 117 -> 152 for push, catching up).
+            gifHeight: 198,
             alignTop: true,
             onConfirm: onPull,
           ),
@@ -312,7 +326,7 @@ class _SyncGestureZone extends StatelessWidget {
             assetPath: 'assets/gifs/git_push.gif',
             caption: 'PUSH',
             swipeDown: false,
-            gifHeight: 117,
+            gifHeight: 152,
             onConfirm: onPush,
           ),
         ),
