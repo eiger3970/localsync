@@ -8,7 +8,6 @@ import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
-import 'add_repository_screen.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
@@ -130,25 +129,8 @@ class HomeScreen extends StatelessWidget {
           );
         },
       ),
-      // 2026-08-11: a bare "+" still drew "what is this for?" even after
-      // removing its on-screen duplicate - a label fixes that directly,
-      // and doesn't depend on a tooltip (doesn't fire on iOS tap).
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openAddRepo(context),
-        backgroundColor: kGreen,
-        foregroundColor: kVoid,
-        shape: const RoundedRectangleBorder(),
-        icon: const Icon(Icons.add),
-        label: const Text('ADD MANUALLY',
-            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 1)),
-      ),
     );
   }
-
-  void _openAddRepo(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const AddRepositoryScreen()),
-      );
 
   void _openPairing(BuildContext context) => Navigator.push(
         context,

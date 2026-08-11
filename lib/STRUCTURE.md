@@ -699,8 +699,30 @@ assumes) and whether the picker/bookmark round-trip actually works.
 - working-copy://                          (open app - dead, Working
   Copy was removed in the git2dart pivot; kept here as a historical
   note, not a live reference)
-- obsidian://                              (open app)
+- obsidian://                              (open app, vault not yet
+  picked - only used from page 3's OPEN OBSIDIAN, before a vault
+  exists to target)
+- obsidian://open?vault=NAME               (added 2026-08-14 -
+  real device confirmed a bare open landed on Obsidian's last-active
+  vault, not the one Synclocal just linked; NAME is the picked
+  folder's own name. Used from the complete screen once a vault has
+  actually been picked - see openObsidianNow() in
+  linking_controller.dart)
 - obsidian://new-vault?name=NAME           (Phase 2)
+
+### Manual "Add Repository" screen removed (2026-08-15)
+`add_repository_screen.dart` and its home-screen FAB ("ADD MANUALLY")
+are gone. It bypassed pairing entirely - raw text fields for host/
+port/user/bare-repo-path, no SSH key exchange - and real device
+testing found it was shipping with the developer's own Pi's real IP/
+username/path pre-filled as default field values, not placeholders.
+The automated pairing + "Set up a vault" flow now covers everything
+this did without the user needing to know any of these values.
+Removing it also removes the only way to add a *second* repository
+once one already exists (the FAB was the sole re-entry point once
+_EmptyState's own setup button is no longer shown) - not a
+regression against any current use case (one phone, one vault), but
+worth knowing if multi-vault support is ever wanted later.
 
 ### Protected IP
 The 8-step sequence and error resolution strings live in:
