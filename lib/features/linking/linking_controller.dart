@@ -268,12 +268,11 @@ class LinkingController extends ChangeNotifier {
   String? get currentInstruction => switch (_step) {
         LinkingStep.awaitingVaultCreation =>
           '1 of 2: create a new vault in $kNoteAppName:\n\n'
-              'OPEN ${kNoteAppName.toUpperCase()} → swipe from left to\n'
-              'right → tap existing vault (bottom left) →\n'
-              'tap Manage vaults... → tap Create new vault →\n'
-              'Vault name: enter name → Store in iCloud: off by\n'
-              'default → tap Create → new vault opens →\n'
-              'force close $kNoteAppName → reopen $kNoteAppName →\n'
+              'OPEN ${kNoteAppName.toUpperCase()} → swipe from left to right → '
+              'tap existing vault (bottom left) → tap Manage vaults... → '
+              'tap Create new vault → Vault name: enter name → '
+              'Store in iCloud: off by default → tap Create → new vault opens → '
+              'force close $kNoteAppName → reopen $kNoteAppName → '
               'force close $kNoteAppName again\n\n'
               'Come back here when you\'re done.',
 
@@ -282,7 +281,7 @@ class LinkingController extends ChangeNotifier {
         // named TAP VAULT FOLDER (below), avoiding a "Tap TAP..." collision.
         LinkingStep.pickingVaultFolder =>
           '2 of 2: tap the vault you just created:\n\n'
-              'TAP VAULT FOLDER, then browse to\n'
+              'TAP VAULT FOLDER, then browse to '
               'On My iPhone → $kNoteAppName → Synclocal',
         _ => null,
       };
