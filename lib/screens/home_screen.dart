@@ -276,6 +276,13 @@ class _RepoTile extends StatelessWidget {
               icon: const Icon(Icons.more_vert, color: kTextDim, size: 18),
               onSelected: (v) {
                 if (v == 'commit') onCommit();
+                // 2026-08-14: "Pull" reuses the same fullSync() the
+                // refresh icon already triggers - it already does a
+                // real fetch+fast-forward when the tree is clean, and
+                // per explicit direction, dirty-tree behavior (auto-
+                // commit first) stays identical to the existing sync
+                // action rather than a stricter "refuse if dirty" pull.
+                if (v == 'pull') onSync();
                 if (v == 'toggle_auto') onToggleAutoSync();
                 if (v == 'delete') onDelete();
               },
@@ -283,6 +290,11 @@ class _RepoTile extends StatelessWidget {
                 PopupMenuItem(
                   value: 'commit',
                   child: Text('Commit & push',
+                      style: TextStyle(color: kStar, fontSize: 15)),
+                ),
+                const PopupMenuItem(
+                  value: 'pull',
+                  child: Text('Pull',
                       style: TextStyle(color: kStar, fontSize: 15)),
                 ),
                 PopupMenuItem(
