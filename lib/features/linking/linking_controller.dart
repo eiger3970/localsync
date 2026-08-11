@@ -280,7 +280,7 @@ class LinkingController extends ChangeNotifier {
   // ── UI strings ─────────────────────────────────────────────────────────────
 
   // 2026-08-14: numbered checklist for the vault-creation screen ("1.1",
-  // "1.2", ... "1.12" in the UI) - same 12 steps as the joined string
+  // "1.2", ... "1.10" in the UI) - same steps as the joined string
   // below, kept as a list so the checklist widget and the fallback
   // instruction string can't drift out of sync with each other.
   //
@@ -290,10 +290,18 @@ class LinkingController extends ChangeNotifier {
   // silently break it. Re-verify against the real device before
   // trusting this list if it's been a while since the versions above.
   //
-  // Steps 10-12 (force close / reopen / force close again) are
-  // load-bearing, not optional cleanup: confirmed by the user's own
-  // research that without this exact sequence, iOS never creates the
-  // folder path the next screen's folder picker depends on.
+  // 2026-08-16: was 12 steps ending in force close / reopen / force
+  // close again - that reopen+close-again pair came from the user's
+  // research notes' "Failed to resolve path" section, a Working Copy-
+  // specific error (stale GitFolders container path) that doesn't
+  // apply anymore - Working Copy was fully removed in the git2dart
+  // pivot. A live test on the real device confirmed a single force
+  // close is sufficient here; the reopen-to-reindex step's actual
+  // purpose in the old notes was letting Obsidian recognize files
+  // already pulled in by Working Copy, which hasn't happened yet at
+  // this point in the flow (the vault is still empty - nothing to
+  // reindex). Cut down accordingly, confirmed by the user against
+  // their own fresh test rather than the older, now-inapplicable notes.
   List<String> get vaultCreationSteps => [
         'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
         'swipe from left to right',
@@ -305,8 +313,6 @@ class LinkingController extends ChangeNotifier {
         'tap Create',
         'new vault opens',
         'force close $kNoteAppName',
-        'reopen $kNoteAppName',
-        'force close $kNoteAppName again',
       ];
 
   // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker
