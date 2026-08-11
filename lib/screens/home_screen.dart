@@ -6,9 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
+import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
-import '../widgets/controllable_gif.dart';
+import '../services/sync_service.dart';
+import '../widgets/action_gif.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
@@ -187,14 +189,36 @@ class HomeScreen extends StatelessWidget {
               ),
               Expanded(
                 child: _SyncGestureZone(
-                  onPull: () => provider.pullRepository(repo.id!),
-                  onPush: () => provider.pushRepository(repo.id!),
+                  onPull: () => _runAndShow(
+                      context, provider.pullRepository(repo.id!)),
+                  onPush: () => _runAndShow(
+                      context, provider.pushRepository(repo.id!)),
                 ),
               ),
             ],
           );
         },
       ),
+    );
+  }
+
+  // 2026-08-16: "Push, is this auto committing an auto timestamp... I
+  // can't see?" - the result (including the actual commit message on
+  // a real push, see sync_service.dart) is otherwise invisible once
+  // the action finishes. A brief SnackBar is enough to confirm it
+  // without adding a permanent status field to Repository for what's
+  // fundamentally a one-off confirmation, not state worth persisting.
+  Future<void> _runAndShow(BuildContext context, Future<SyncResult?> op) async {
+    final result = await op;
+    if (!context.mounted || result == null) return;
+    final text = switch (result) {
+      SyncOk(:final message)  => message,
+      SyncNoChanges()          => 'Nothing to sync',
+      SyncConflict()           => 'Conflict - resolve on desktop then sync again',
+      SyncFailed(:final diagnosis) => diagnosis,
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
     );
   }
 
@@ -341,7 +365,11 @@ class _SyncGestureZone extends StatelessWidget {
             assetPath: 'assets/gifs/git_pull.gif',
             caption: 'PULL',
             swipeDown: true,
-            gifHeight: 117, // pull gif enlarged 30% (90 -> 117) per direction
+            // 2026-08-16: "make gifs 30% larger" - both up again from
+            // their already-once-enlarged sizes (90 -> pull 117 last
+            // round -> 152 now; push 90 -> 117 now, catching up).
+            gifHeight: 152,
+            alignTop: true,
             onConfirm: onPull,
           ),
         ),
@@ -350,7 +378,7 @@ class _SyncGestureZone extends StatelessWidget {
             assetPath: 'assets/gifs/git_push.gif',
             caption: 'PUSH',
             swipeDown: false,
-            gifHeight: 90,
+            gifHeight: 117,
             onConfirm: onPush,
           ),
         ),
@@ -364,12 +392,14 @@ class _GifSwipeTrigger extends StatefulWidget {
   final String caption;
   final bool swipeDown; // true = swipe down triggers, false = swipe up
   final double gifHeight;
+  final bool alignTop;
   final Future<void> Function() onConfirm;
   const _GifSwipeTrigger({
     required this.assetPath,
     required this.caption,
     required this.swipeDown,
     required this.gifHeight,
+    this.alignTop = false,
     required this.onConfirm,
   });
 
@@ -380,14 +410,14 @@ class _GifSwipeTrigger extends StatefulWidget {
 class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
   static const _threshold = 56.0;
   static const _maxDrag = 140.0;
+  // 2026-08-16: the play/idle + minimum-2000ms/no-max/reset-safety
+  // timing logic moved into the shared ActionGif widget (lib/widgets/)
+  // - this class now owns only gesture detection (drag tracking),
+  // calling trigger() on it instead of duplicating that logic here.
+  final _gifKey = GlobalKey<ActionGifState>();
   double _drag = 0;
-  // 2026-08-15: gif is static at rest and only animates once actually
-  // swiped - real input is live immediately (no arm-delay; the earlier
-  // "2000ms before trigger" reading was wrong). Once triggered it
-  // animates for at least 2s (a sync that finishes instantly shouldn't
-  // look like a blink), or longer if the real pull/push is still
-  // running - tied to actual completion, not a fixed guess.
-  bool _playing = false;
+
+  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
   void _onUpdate(double delta) {
     if (_playing) return;
@@ -402,16 +432,7 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
     if (_playing) return;
     final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
     setState(() => _drag = 0);
-    if (reached) _trigger();
-  }
-
-  Future<void> _trigger() async {
-    setState(() => _playing = true);
-    await Future.wait([
-      Future.delayed(const Duration(milliseconds: 2000)),
-      widget.onConfirm(),
-    ]);
-    if (mounted) setState(() => _playing = false);
+    if (reached) _gifKey.currentState?.trigger(widget.onConfirm);
   }
 
   @override
@@ -423,14 +444,21 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
         width: double.infinity,
         color: kVoid,
         alignment: Alignment.center,
+        // 2026-08-16: "Pull can be higher, seeing it will be pulled
+        // from top to down" - pull sits toward the top of its half
+        // instead of dead center, matching the "content flows down
+        // from above" mental model; push stays centered.
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: widget.alignTop
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           children: [
+            if (widget.alignTop) const SizedBox(height: 12),
             Transform.translate(
               offset: Offset(0, _drag),
-              child: ControllableGif(
+              child: ActionGif(
+                key: _gifKey,
                 assetPath: widget.assetPath,
-                playing: _playing,
                 height: widget.gifHeight,
               ),
             ),

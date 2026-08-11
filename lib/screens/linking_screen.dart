@@ -15,6 +15,7 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
+import '../widgets/action_gif.dart';
 import '../widgets/controllable_gif.dart';
 import 'pairing_screen.dart';
 
@@ -402,12 +403,37 @@ class _RunningView extends StatelessWidget {
 
 // ── Parked: user action required ───────────────────────────────────────────────
 
-class _ParkedView extends StatelessWidget {
+class _ParkedView extends StatefulWidget {
   final LinkingController ctrl;
   const _ParkedView({required this.ctrl});
 
   @override
+  State<_ParkedView> createState() => _ParkedViewState();
+}
+
+class _ParkedViewState extends State<_ParkedView> {
+  // 2026-08-16: "important steps that a user might try to skip and
+  // have errors later on" - real device testing confirmed the folder
+  // isn't created until force-close/reopen/force-close (steps 1.10-
+  // 1.12) actually happen, so I'VE CREATED IT is now blocked until
+  // they're ticked. Tracked here (lifted out of _StepChecklist's own
+  // private state) so the swipe confirm below can check it.
+  List<bool>? _vaultCreationChecked;
+
+  static const _criticalIndices = [9, 10, 11]; // 1.10, 1.11, 1.12
+
+  String? _validateVaultCreationDone() {
+    final checked = _vaultCreationChecked;
+    if (checked == null) return null;
+    final allCriticalDone =
+        _criticalIndices.every((i) => i < checked.length && checked[i]);
+    if (allCriticalDone) return null;
+    return 'Tick 1.10-1.12 first - the folder isn\'t created without them.';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
       LinkingStep.awaitingVaultCreation => 'Create your $kContainerName',
@@ -479,6 +505,8 @@ class _ParkedView extends StatelessWidget {
                     groupNumber: 1,
                     steps: ctrl.vaultCreationSteps,
                     firstItemSwipeAction: ctrl.openObsidianNow,
+                    onChanged: (checked) =>
+                        setState(() => _vaultCreationChecked = checked),
                   )
                 else if (ctrl.step == LinkingStep.pickingVaultFolder)
                   _StepChecklist(
@@ -512,12 +540,16 @@ class _ParkedView extends StatelessWidget {
                   // sit here is gone, per explicit direction. Only the
                   // confirm action remains, now a gif (dog_progress_off_
                   // leash.gif) instead of a plain pill.
-                  Center(
-                    child: _GifSwipeConfirm(
-                      assetPath: 'assets/gifs/dog_progress_off_leash.gif',
-                      label: 'I\'VE CREATED IT',
-                      onConfirm: ctrl.confirmVaultCreated,
-                    ),
+                  // 2026-08-16: bottom-left instead of centered (no
+                  // Center wrapper - the Column's own crossAxisAlignment
+                  // is already .start), per explicit direction. Blocked
+                  // by _validateVaultCreationDone() until 1.10-1.12 are
+                  // ticked.
+                  _GifSwipeConfirm(
+                    assetPath: 'assets/gifs/dog_progress_off_leash.gif',
+                    label: 'I\'VE CREATED IT >>',
+                    onConfirm: ctrl.confirmVaultCreated,
+                    validate: _validateVaultCreationDone,
                   ),
                 ] else if (ctrl.step ==
                     LinkingStep.pickingVaultFolder) ...[
@@ -578,6 +610,10 @@ class _StepChecklist extends StatefulWidget {
   // that's a tap rather than a swipe (VAULT FOLDER) - the standalone
   // button below the checklist is gone on the page that uses this too.
   final VoidCallback? firstItemTapAction;
+  // 2026-08-16: reports the checkbox list back up on every toggle, so
+  // a sibling control (I'VE CREATED IT) can validate specific steps
+  // were actually ticked before allowing its own confirm to proceed.
+  final void Function(List<bool>)? onChanged;
   const _StepChecklist({
     super.key,
     required this.groupNumber,
@@ -585,6 +621,7 @@ class _StepChecklist extends StatefulWidget {
     this.startIndex = 1,
     this.firstItemSwipeAction,
     this.firstItemTapAction,
+    this.onChanged,
   });
 
   @override
@@ -593,6 +630,16 @@ class _StepChecklist extends StatefulWidget {
 
 class _StepChecklistState extends State<_StepChecklist> {
   late final List<bool> _checked = List.filled(widget.steps.length, false);
+
+  @override
+  void initState() {
+    super.initState();
+    // Deferred to after this frame - calling widget.onChanged
+    // synchronously here would trigger the parent's setState() while
+    // this widget is still mid-build.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => widget.onChanged?.call(_checked));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -623,8 +670,10 @@ class _StepChecklistState extends State<_StepChecklist> {
             else
               CheckboxListTile(
                 value: _checked[i],
-                onChanged: (checked) =>
-                    setState(() => _checked[i] = checked ?? false),
+                onChanged: (checked) {
+                  setState(() => _checked[i] = checked ?? false);
+                  widget.onChanged?.call(_checked);
+                },
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                 dense: true,
@@ -689,7 +738,12 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
     return GestureDetector(
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
-      child: Padding(
+      child: Container(
+        // 2026-08-16: "make a colour so user knows it's an action
+        // section" - a tinted background sets this row apart from the
+        // plain checkbox rows around it, signaling it's a real gesture
+        // to perform, not just something to tick off.
+        color: _done ? Colors.transparent : kGreen.withOpacity(0.08),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Transform.translate(
           offset: Offset(0, _drag),
@@ -744,7 +798,11 @@ class _TapChecklistRowState extends State<_TapChecklistRow> {
               setState(() => _done = true);
               widget.onTap();
             },
-      child: Padding(
+      child: Container(
+        // Same "this row is an action, not a checkbox" tint as
+        // _SwipeChecklistRow, for consistency between the swipe and
+        // tap variants.
+        color: _done ? Colors.transparent : kGreen.withOpacity(0.08),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
@@ -780,10 +838,16 @@ class _GifSwipeConfirm extends StatefulWidget {
   final String assetPath;
   final String label;
   final VoidCallback onConfirm;
+  // 2026-08-16: "important steps that a user might try to skip and
+  // have errors later on" - checked right when the swipe threshold is
+  // reached, before the real confirm fires. Returns an error string to
+  // block and display, or null to proceed normally.
+  final String? Function()? validate;
   const _GifSwipeConfirm({
     required this.assetPath,
     required this.label,
     required this.onConfirm,
+    this.validate,
   });
 
   @override
@@ -793,8 +857,14 @@ class _GifSwipeConfirm extends StatefulWidget {
 class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
   static const _threshold = 64.0;
   static const _maxDrag = 320.0;
+  // 2026-08-16: play/idle timing now lives in the shared ActionGif
+  // widget (lib/widgets/) - this class owns only gesture detection and
+  // the pre-confirm validation check.
+  final _gifKey = GlobalKey<ActionGifState>();
   double _drag = 0;
-  bool _playing = false;
+  String? _error;
+
+  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
   void _onUpdate(double delta) {
     if (_playing) return;
@@ -805,14 +875,13 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
     if (_playing) return;
     final reached = _drag >= _threshold;
     setState(() => _drag = 0);
-    if (reached) _trigger();
-  }
+    if (!reached) return;
 
-  Future<void> _trigger() async {
-    setState(() => _playing = true);
-    await Future.delayed(const Duration(milliseconds: 2000));
-    widget.onConfirm();
-    if (mounted) setState(() => _playing = false);
+    final error = widget.validate?.call();
+    setState(() => _error = error);
+    if (error != null) return;
+
+    _gifKey.currentState?.trigger(() async => widget.onConfirm());
   }
 
   @override
@@ -824,12 +893,9 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
         offset: Offset(_drag, 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ControllableGif(
-              assetPath: widget.assetPath,
-              playing: _playing,
-              height: 70,
-            ),
+            ActionGif(key: _gifKey, assetPath: widget.assetPath, height: 70),
             const SizedBox(height: 8),
             Text(widget.label,
                 style: const TextStyle(
@@ -837,6 +903,14 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1)),
+            if (_error != null) ...[
+              const SizedBox(height: 6),
+              Text(_error!,
+                  style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+            ],
           ],
         ),
       ),
@@ -972,9 +1046,24 @@ class _CompleteViewState extends State<_CompleteView>
             ),
           ),
           const SizedBox(height: 16),
-          const Text('Your notes have arrived! 🎉',
-              style: TextStyle(
-                  color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
+          // 2026-08-16: emoji replaced with the same success gif used
+          // for the final swipe control below - decorative, always
+          // playing (not gated behind a trigger like the swipe gifs,
+          // there's no gesture here to wait for).
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Your notes have arrived!',
+                  style: TextStyle(
+                      color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 10),
+              const ControllableGif(
+                assetPath: 'assets/gifs/dog_success_stand.gif',
+                playing: true,
+                height: 40,
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           // Fixed 2026-08-09: this used to say "Your phone vault is
           // linked to your desktop" - overclaiming. Synclocal can only
@@ -1041,21 +1130,25 @@ class _CompleteViewState extends State<_CompleteView>
             startIndex: 0,
             firstItemSwipeAction: widget.ctrl.openObsidianNow,
             steps: [
-              'swipe up OPEN ${kNoteAppName.toUpperCase()}',
+              'swipe up to open $kNoteAppName',
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
               'return to Synclocal app',
-              // 2026-08-15: "arrows are on button, so text description
-              // is verbose" - direction-neutral wording since the real
-              // control below is now a gif, not a labeled arrow pill.
-              'swipe right to proceed',
+              // 2026-08-16: "arrows are on button, so text description
+              // is verbose" - trimmed further per explicit direction,
+              // the real control below already shows the gesture.
+              'swipe',
             ],
           ),
           const SizedBox(height: 32),
           Center(
+            // 2026-08-16: this is the very last action in the whole
+            // flow - success gif (dog_success_stand.gif) instead of
+            // the mid-flow progress gif page 3's I'VE CREATED IT still
+            // uses, since by this point the setup genuinely is done.
             child: _GifSwipeConfirm(
-              assetPath: 'assets/gifs/dog_progress_off_leash.gif',
+              assetPath: 'assets/gifs/dog_success_stand.gif',
               label: 'SYNCLOCAL HOME',
               onConfirm: () => Navigator.pop(context),
             ),

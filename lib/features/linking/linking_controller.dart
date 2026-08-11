@@ -301,7 +301,7 @@ class LinkingController extends ChangeNotifier {
   // that's tested properly (repeat runs, fresh vault name and full
   // phone reset each time) rather than decided from a single run.
   List<String> get vaultCreationSteps => [
-        'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
+        'swipe up to open $kNoteAppName',
         'swipe from left to right',
         'tap existing vault (bottom left)',
         'tap Manage vaults...',
@@ -320,7 +320,7 @@ class LinkingController extends ChangeNotifier {
   // picker after tapping VAULT FOLDER, which Synclocal has no
   // visibility into once it's open.
   List<String> get vaultFolderSteps => [
-        'tap VAULT FOLDER',
+        'tap to open VAULT FOLDER',
         'tap Browse',
         'tap On My iPhone (Browse/Locations/On My iPhone)',
         'tap $kNoteAppName folder',

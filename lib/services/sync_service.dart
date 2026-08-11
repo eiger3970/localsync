@@ -258,7 +258,11 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
 
 Future<SyncResult> _pushInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
-    _commitDirtyTree(repo, p.commitMessage);
+    // 2026-08-16: "is this auto committing an auto timestamp... I
+    // can't see?" - yes, and now the result says so explicitly (only
+    // when a commit actually happened - if the tree was already
+    // clean, p.commitMessage was never used, so don't claim it was).
+    final committed = _commitDirtyTree(repo, p.commitMessage);
 
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -283,7 +287,9 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
 
     final err = _pushWithRetry(repo, remote, callbacks, p.branch);
     if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
-    return const SyncOk('Uploaded notes to desktop');
+    return SyncOk(committed
+        ? 'Pushed as "${p.commitMessage}"'
+        : 'Uploaded notes to desktop');
   });
 }
 
@@ -356,8 +362,11 @@ Future<SyncResult> _withRepo(
   }
 }
 
-void _commitDirtyTree(git.Repository repo, String message) {
-  if (repo.status.isEmpty) return;
+/// Returns true if a commit was actually made (tree was dirty), false
+/// if there was nothing to commit - callers use this to know whether
+/// [message] genuinely became the new HEAD or was unused.
+bool _commitDirtyTree(git.Repository repo, String message) {
+  if (repo.status.isEmpty) return false;
   final headOid = repo.head.target;
   final parent  = git.Commit.lookup(repo: repo, oid: headOid);
   final tree    = _stageAndWriteTree(repo);
@@ -370,6 +379,7 @@ void _commitDirtyTree(git.Repository repo, String message) {
     tree: tree,
     parents: [parent],
   );
+  return true;
 }
 
 /// Completes an in-progress merge (from Merge.commit) by staging

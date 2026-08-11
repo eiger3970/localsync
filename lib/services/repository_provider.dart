@@ -1,6 +1,7 @@
 // services/repository_provider.dart
 
 import 'package:flutter/foundation.dart';
+import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'database_service.dart';
@@ -50,18 +51,23 @@ class RepositoryProvider extends ChangeNotifier {
   // given and writes the resulting status/phase/error to the repo -
   // it doesn't know or care whether that stream is a pull or a push.
 
-  Future<void> pullRepository(int id) =>
+  // 2026-08-16: both now return the final SyncResult (was Future<void>)
+  // - "Push, is this auto committing an auto timestamp... I can't see?"
+  // The result carries the actual commit message used, so a caller can
+  // show it (see home_screen.dart's SnackBar) instead of the action
+  // being invisible once it's done.
+  Future<SyncResult?> pullRepository(int id) =>
       _run(id, (service) => service.pull());
 
-  Future<void> pushRepository(int id, {String? commitMessage}) =>
+  Future<SyncResult?> pushRepository(int id, {String? commitMessage}) =>
       _run(id, (service) => service.push(commitMessage: commitMessage));
 
-  Future<void> _run(
+  Future<SyncResult?> _run(
     int id,
     Stream<SyncEvent> Function(SyncService) op,
   ) async {
     final idx = _repos.indexWhere((r) => r.id == id);
-    if (idx == -1) return;
+    if (idx == -1) return null;
 
     final repo    = _repos[idx];
     final service = SyncService.fromRepo(
@@ -75,7 +81,7 @@ class RepositoryProvider extends ChangeNotifier {
     try {
       await for (final event in op(service)) {
         final i = _repos.indexWhere((r) => r.id == id);
-        if (i == -1) return;
+        if (i == -1) return null;
 
         if (event.phase != null) {
           _repos[i] = _repos[i].copyWith(
@@ -111,12 +117,13 @@ class RepositoryProvider extends ChangeNotifier {
           }
           notifyListeners();
           await _db.updateRepository(_repos[i]);
-          return;
+          return result;
         }
       }
+      return null;
     } catch (e) {
       final i = _repos.indexWhere((r) => r.id == id);
-      if (i == -1) return;
+      if (i == -1) return null;
       _repos[i] = _repos[i].copyWith(
         status:    SyncStatus.error,
         syncPhase: SyncPhase.idle,
@@ -124,6 +131,7 @@ class RepositoryProvider extends ChangeNotifier {
       );
       notifyListeners();
       await _db.updateRepository(_repos[i]);
+      return SyncFailed(LinkingError.mergeConflict, debugDetail: e.toString());
     }
   }
 
