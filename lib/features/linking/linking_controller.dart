@@ -320,6 +320,12 @@ class LinkingController extends ChangeNotifier {
         'tap $kNoteAppName folder',
         'tap the vault',
         'tap Open',
+        // 2026-08-15: was a separate warning Text below the checklist -
+        // folded into the checklist itself per explicit direction, even
+        // though it's not an action to perform (it's a heads-up), so
+        // the whole sequence lives in one tickable list rather than
+        // being split across two different UI elements.
+        'phone will pause up to a minute, downloading your notes',
       ];
 
   // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit

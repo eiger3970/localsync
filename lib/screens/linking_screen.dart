@@ -500,23 +500,6 @@ class _ParkedView extends StatelessWidget {
                     ),
                   ),
 
-                // 2026-08-15: heads-up before the wait, not just a
-                // spinner during it - real device feedback was that
-                // even with the busy indicator (see ctrl.pickingFolder
-                // below), a ~30s pause after tapping VAULT FOLDER still
-                // read as "did I break something". Setting the
-                // expectation before it happens is the other half of
-                // that fix.
-                if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
-                  const SizedBox(height: 12),
-                  const Text(
-                    'After this, your phone will pause for up to a '
-                    'minute while your notes download - that\'s normal, '
-                    'not frozen.',
-                    style: TextStyle(
-                        color: kTextMid, fontSize: 13, height: 1.5),
-                  ),
-                ],
                 const SizedBox(height: 32),
 
                 if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
@@ -813,7 +796,7 @@ class _CompleteViewState extends State<_CompleteView>
             // the user to type that specific name (see
             // vaultCreationSteps). Uses the actual picked folder's
             // name, same value OPEN OBSIDIAN below now deep-links to.
-            'Your notes have been downloaded into your\n'
+            'Your notes have been downloaded into\n'
             '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
             'vault in $kNoteAppName.',
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
@@ -848,13 +831,17 @@ class _CompleteViewState extends State<_CompleteView>
             key: const ValueKey(3),
             groupNumber: 3,
             startIndex: 0,
+            // 2026-08-15: dropped "button"/"right" from 3.0/3.5 per
+            // explicit direction - the swipe pills below already show
+            // the direction via their arrow icon, so spelling it out in
+            // text too was redundant.
             steps: [
-              'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
+              'swipe up OPEN ${kNoteAppName.toUpperCase()}',
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
               'return to Synclocal app',
-              'swipe right SYNCLOCAL HOME',
+              'swipe SYNCLOCAL HOME',
             ],
           ),
           const SizedBox(height: 32),
