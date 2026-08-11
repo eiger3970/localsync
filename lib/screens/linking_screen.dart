@@ -387,72 +387,153 @@ class _ParkedView extends StatelessWidget {
       _ => 'Your turn',
     };
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 8),
-
-          // Heading
-          Text(
-            heading,
-            style: const TextStyle(
-                color: kStar, fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 20),
-
-          // Instruction card — plain language, no tech
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: kSurface,
-              border: Border.all(color: kBorder),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              ctrl.currentInstruction!,
-              style: const TextStyle(color: kStar, fontSize: 16, height: 2.0),
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
-            // 2026-08-11 (second pass): text moved inside the swiped
-            // element itself (a pill button) rather than a separate
-            // caption below an icon box, and each action now swipes in
-            // its own direction - up for OPEN OBSIDIAN, right for I'VE
-            // CREATED IT - rather than both using the same up gesture.
-            // Drag distance is no longer clamped to a small fixed pixel
-            // range either: "can the swipe be as long as the user
-            // swipes rather than cutting off... this is a disconnect
-            // with the user" - it now follows the finger for the real
-            // screen's extent, not an arbitrary short cap.
-            // 2026-08-11 (third pass): laid out side by side rather
-            // than stacked, per explicit direction.
-            Row(
-              mainAxisSize: MainAxisSize.min,
+    // 2026-08-14: content used to sit pinned to the top of the
+    // SingleChildScrollView regardless of screen height - fine on the
+    // long vault-creation screen (12 steps usually exceeds the
+    // viewport anyway) but left the shorter folder-picker screen
+    // looking top-heavy with empty space below. ConstrainedBox with a
+    // minHeight matching the viewport lets the Column center when
+    // content is short, while still scrolling normally once content
+    // (like the 12-step checklist) grows past the viewport.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _SwipeToConfirm(
-                  direction: Axis.vertical,
-                  label: 'OPEN ${kNoteAppName.toUpperCase()}',
-                  onConfirm: ctrl.openObsidianNow,
+                const SizedBox(height: 8),
+
+                // Heading
+                Text(
+                  heading,
+                  style: const TextStyle(
+                      color: kStar, fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 24),
-                _SwipeToConfirm(
-                  direction: Axis.horizontal,
-                  label: 'I\'VE CREATED IT',
-                  onConfirm: ctrl.confirmVaultCreated,
-                ),
+                const SizedBox(height: 20),
+
+                // Instruction — numbered checklist on the vault-creation
+                // screen (12 steps, background-switches into Obsidian and
+                // back), plain text elsewhere
+                if (ctrl.step == LinkingStep.awaitingVaultCreation)
+                  _VaultCreationChecklist(steps: ctrl.vaultCreationSteps)
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: kSurface,
+                      border: Border.all(color: kBorder),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      ctrl.currentInstruction!,
+                      style: const TextStyle(
+                          color: kStar, fontSize: 16, height: 2.0),
+                    ),
+                  ),
+                const SizedBox(height: 32),
+
+                if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
+                  // 2026-08-11 (second pass): text moved inside the swiped
+                  // element itself (a pill button) rather than a separate
+                  // caption below an icon box, and each action now swipes
+                  // in its own direction - up for OPEN OBSIDIAN, right for
+                  // I'VE CREATED IT - rather than both using the same up
+                  // gesture. Drag distance is no longer clamped to a small
+                  // fixed pixel range either: "can the swipe be as long as
+                  // the user swipes rather than cutting off... this is a
+                  // disconnect with the user" - it now follows the finger
+                  // for the real screen's extent, not an arbitrary short
+                  // cap.
+                  // 2026-08-11 (third pass): laid out side by side rather
+                  // than stacked, per explicit direction.
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SwipeToConfirm(
+                        direction: Axis.vertical,
+                        label: 'OPEN ${kNoteAppName.toUpperCase()}',
+                        onConfirm: ctrl.openObsidianNow,
+                      ),
+                      const SizedBox(width: 24),
+                      _SwipeToConfirm(
+                        direction: Axis.horizontal,
+                        label: 'I\'VE CREATED IT',
+                        onConfirm: ctrl.confirmVaultCreated,
+                      ),
+                    ],
+                  ),
+                ] else if (ctrl.step ==
+                    LinkingStep.pickingVaultFolder) ...[
+                  _PrimaryButton(
+                    label: 'VAULT FOLDER',
+                    onPressed: ctrl.pickVaultFolder,
+                  ),
+                ],
               ],
             ),
-          ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
-            _PrimaryButton(
-              label: 'TAP VAULT FOLDER',
-              onPressed: ctrl.pickVaultFolder,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// 2026-08-14: numbered, tickable checklist for the vault-creation screen.
+// Checkbox state is local widget state, not controller state - it's just
+// a progress marker for bouncing between Synclocal and Obsidian mid-flow,
+// not something that needs to survive navigating away from this screen.
+class _VaultCreationChecklist extends StatefulWidget {
+  final List<String> steps;
+  const _VaultCreationChecklist({required this.steps});
+
+  @override
+  State<_VaultCreationChecklist> createState() =>
+      _VaultCreationChecklistState();
+}
+
+class _VaultCreationChecklistState extends State<_VaultCreationChecklist> {
+  late final List<bool> _checked = List.filled(widget.steps.length, false);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: kSurface,
+        border: Border.all(color: kBorder),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < widget.steps.length; i++)
+            CheckboxListTile(
+              value: _checked[i],
+              onChanged: (checked) =>
+                  setState(() => _checked[i] = checked ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              dense: true,
+              activeColor: kGreen,
+              checkColor: kVoid,
+              title: Text(
+                '1.${i + 1}  ${widget.steps[i]}',
+                style: TextStyle(
+                  color: _checked[i] ? kTextMid : kStar,
+                  fontSize: 16,
+                  height: 1.6,
+                  decoration:
+                      _checked[i] ? TextDecoration.lineThrough : null,
+                  decorationColor: kTextMid,
+                ),
+              ),
             ),
-          ],
         ],
       ),
     );

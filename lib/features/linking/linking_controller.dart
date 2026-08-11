@@ -249,6 +249,25 @@ class LinkingController extends ChangeNotifier {
 
   // ── UI strings ─────────────────────────────────────────────────────────────
 
+  // 2026-08-14: numbered checklist for the vault-creation screen ("1.1",
+  // "1.2", ... "1.12" in the UI) - same 12 steps as the joined string
+  // below, kept as a list so the checklist widget and the fallback
+  // instruction string can't drift out of sync with each other.
+  List<String> get vaultCreationSteps => [
+        'OPEN ${kNoteAppName.toUpperCase()}',
+        'swipe from left to right',
+        'tap existing vault (bottom left)',
+        'tap Manage vaults...',
+        'tap Create new vault',
+        'Vault name: enter name',
+        'Store in iCloud: off by default',
+        'tap Create',
+        'new vault opens',
+        'force close $kNoteAppName',
+        'reopen $kNoteAppName',
+        'force close $kNoteAppName again',
+      ];
+
   // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit
   // direction - there are exactly two real user actions in this whole
   // flow (create the vault, then pick its folder); the other steps
@@ -268,21 +287,16 @@ class LinkingController extends ChangeNotifier {
   String? get currentInstruction => switch (_step) {
         LinkingStep.awaitingVaultCreation =>
           '1 of 2: create a new vault in $kNoteAppName:\n\n'
-              'OPEN ${kNoteAppName.toUpperCase()} → swipe from left to right → '
-              'tap existing vault (bottom left) → tap Manage vaults... → '
-              'tap Create new vault → Vault name: enter name → '
-              'Store in iCloud: off by default → tap Create → new vault opens → '
-              'force close $kNoteAppName → reopen $kNoteAppName → '
-              'force close $kNoteAppName again\n\n'
+              '${vaultCreationSteps.join(' → ')}\n\n'
               'Come back here when you\'re done.',
 
-        // 2026-08-11: "select" -> "tap" throughout, per explicit direction
-        // - dropped the leading "Tap " here since the button itself is now
-        // named TAP VAULT FOLDER (below), avoiding a "Tap TAP..." collision.
+        // 2026-08-14: button label changed from "TAP VAULT FOLDER" to
+        // "VAULT FOLDER", so the old "Tap TAP..." collision this was
+        // dodging no longer exists - back to plain sentence case.
         LinkingStep.pickingVaultFolder =>
           '2 of 2: tap the vault you just created:\n\n'
-              'TAP VAULT FOLDER, then browse to '
-              'On My iPhone → $kNoteAppName → Synclocal',
+              'Tap VAULT FOLDER, then browse to '
+              'On My iPhone → $kNoteAppName → tap the vault you just created',
         _ => null,
       };
 
