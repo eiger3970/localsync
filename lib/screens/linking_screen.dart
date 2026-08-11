@@ -499,6 +499,24 @@ class _ParkedView extends StatelessWidget {
                           color: kStar, fontSize: 16, height: 2.0),
                     ),
                   ),
+
+                // 2026-08-15: heads-up before the wait, not just a
+                // spinner during it - real device feedback was that
+                // even with the busy indicator (see ctrl.pickingFolder
+                // below), a ~30s pause after tapping VAULT FOLDER still
+                // read as "did I break something". Setting the
+                // expectation before it happens is the other half of
+                // that fix.
+                if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'After this, your phone will pause for up to a '
+                    'minute while your notes download - that\'s normal, '
+                    'not frozen.',
+                    style: TextStyle(
+                        color: kTextMid, fontSize: 13, height: 1.5),
+                  ),
+                ],
                 const SizedBox(height: 32),
 
                 if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
@@ -579,8 +597,16 @@ class _ParkedView extends StatelessWidget {
 class _StepChecklist extends StatefulWidget {
   final int groupNumber;
   final List<String> steps;
-  const _StepChecklist(
-      {super.key, required this.groupNumber, required this.steps});
+  // 2026-08-15: page 3/4 both start numbering at .1 (default); page 5's
+  // checklist explicitly starts at .0, since its first item is the
+  // swipe that opens Obsidian rather than the first action inside it.
+  final int startIndex;
+  const _StepChecklist({
+    super.key,
+    required this.groupNumber,
+    required this.steps,
+    this.startIndex = 1,
+  });
 
   @override
   State<_StepChecklist> createState() => _StepChecklistState();
@@ -613,7 +639,7 @@ class _StepChecklistState extends State<_StepChecklist> {
               activeColor: kGreen,
               checkColor: kVoid,
               title: Text(
-                '${widget.groupNumber}.${i + 1}  ${widget.steps[i]}',
+                '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
                 style: TextStyle(
                   color: _checked[i] ? kTextMid : kStar,
                   fontSize: 16,
@@ -810,13 +836,25 @@ class _CompleteViewState extends State<_CompleteView>
               style: TextStyle(
                   color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
+          // 2026-08-15: expanded to include the two swipe actions
+          // themselves (3.0, 3.5) and the background-switch back to
+          // Synclocal (3.4) per explicit direction, so the checklist is
+          // a complete, self-contained record of every physical action
+          // in the sequence - not just the three that happen inside
+          // Obsidian. The swipe row below stays the real trigger for
+          // 3.0/3.5, same relationship page 3's checklist has with its
+          // own swipe row.
           _StepChecklist(
             key: const ValueKey(3),
             groupNumber: 3,
-            steps: const [
+            startIndex: 0,
+            steps: [
+              'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
+              'return to Synclocal app',
+              'swipe right SYNCLOCAL HOME',
             ],
           ),
           const SizedBox(height: 32),

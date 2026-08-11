@@ -2,6 +2,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
@@ -266,9 +267,26 @@ class _RepoTile extends StatelessWidget {
           children: [
             isSyncing
                 ? const _SpinningSync()
-                : GestureDetector(
-                    onTap: onSync,
-                    child: const Icon(Icons.sync, color: kGreen, size: 22),
+                // 2026-08-15: real device feedback - "I tap it and
+                // nothing happens". Two real causes fixed here: a bare
+                // 22px icon in a GestureDetector is well under Apple's
+                // 44pt minimum tap target, real taps can miss it
+                // entirely; and even a successful tap gave zero
+                // feedback when the sync itself resolved fast (e.g. a
+                // clean "no changes" fetch) - nothing to see if you
+                // blink. IconButton gives a real 48x48 tap target for
+                // free, and the haptic fires the instant the tap
+                // registers, independent of how long the sync itself
+                // takes.
+                : IconButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      onSync();
+                    },
+                    icon: const Icon(Icons.sync, color: kGreen, size: 22),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                        minWidth: 44, minHeight: 44),
                   ),
             const SizedBox(width: 4),
             PopupMenuButton<String>(
