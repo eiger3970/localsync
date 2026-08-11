@@ -46,8 +46,15 @@ class LinkingScreen extends StatelessWidget {
             children: [
               _ProgressBar(
                 progress: ctrl.progress,
+                // 2026-08-14: real device confirmed the freeze wasn't
+                // in cloning at all - it was the ~30s between tapping
+                // Open in the native picker and pickVaultFolder()'s
+                // await actually returning, still on pickingVaultFolder
+                // (fixed 55%) the whole time. ctrl.pickingFolder covers
+                // exactly that gap.
                 indeterminate: ctrl.step == LinkingStep.cloning ||
-                    ctrl.step == LinkingStep.verifySync,
+                    ctrl.step == LinkingStep.verifySync ||
+                    ctrl.pickingFolder,
               ),
               Expanded(
                 child: AnimatedSwitcher(
@@ -453,11 +460,30 @@ class _ParkedView extends StatelessWidget {
                 // Instruction — numbered checklist on both user-action
                 // screens (each background-switches into Obsidian or
                 // iOS's native folder picker and back), plain text
-                // fallback for anything else
+                // fallback for anything else.
+                //
+                // 2026-08-14: real device confirmed page 4's checklist
+                // opened with all 6 boxes already ticked. Both
+                // checklists sit at the same position in this Column
+                // and share the same widget type with no Key, so
+                // Flutter's element diffing treated page 4's as an
+                // update to page 3's existing State rather than a new
+                // one - _checked (sized for 12 steps) carried over
+                // positionally into the 6-step list instead of
+                // resetting. A groupNumber-keyed instance per step
+                // forces a fresh State (and fresh _checked) each time.
                 if (ctrl.step == LinkingStep.awaitingVaultCreation)
-                  _StepChecklist(groupNumber: 1, steps: ctrl.vaultCreationSteps)
+                  _StepChecklist(
+                    key: const ValueKey(1),
+                    groupNumber: 1,
+                    steps: ctrl.vaultCreationSteps,
+                  )
                 else if (ctrl.step == LinkingStep.pickingVaultFolder)
-                  _StepChecklist(groupNumber: 2, steps: ctrl.vaultFolderSteps)
+                  _StepChecklist(
+                    key: const ValueKey(2),
+                    groupNumber: 2,
+                    steps: ctrl.vaultFolderSteps,
+                  )
                 else
                   Container(
                     width: double.infinity,
@@ -507,10 +533,27 @@ class _ParkedView extends StatelessWidget {
                   ),
                 ] else if (ctrl.step ==
                     LinkingStep.pickingVaultFolder) ...[
-                  _PrimaryButton(
-                    label: 'VAULT FOLDER',
-                    onPressed: ctrl.pickVaultFolder,
-                  ),
+                  // 2026-08-14: was just a static button for the whole
+                  // ~30s the native picker + bookmark resolution took -
+                  // nothing on screen changed between tapping it and
+                  // _step eventually moving to cloning, reading as
+                  // frozen. Swaps to the same pulsing-dots pattern
+                  // _RunningView uses the instant the tap registers.
+                  if (ctrl.pickingFolder)
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _PulsingDots(),
+                        SizedBox(width: 16),
+                        Text('Opening picker…',
+                            style: TextStyle(color: kTextMid, fontSize: 14)),
+                      ],
+                    )
+                  else
+                    _PrimaryButton(
+                      label: 'VAULT FOLDER',
+                      onPressed: ctrl.pickVaultFolder,
+                    ),
                 ],
 
                 SizedBox(height: headerHeight),
@@ -532,7 +575,8 @@ class _ParkedView extends StatelessWidget {
 class _StepChecklist extends StatefulWidget {
   final int groupNumber;
   final List<String> steps;
-  const _StepChecklist({required this.groupNumber, required this.steps});
+  const _StepChecklist(
+      {super.key, required this.groupNumber, required this.steps});
 
   @override
   State<_StepChecklist> createState() => _StepChecklistState();

@@ -57,9 +57,19 @@ class LinkingController extends ChangeNotifier {
   String? _pickedVaultPath;
   String? _pickedVaultBookmark;
 
+  // 2026-08-14: real device feedback - after tapping Open in the native
+  // folder picker (step 2.6), the screen stayed on the static
+  // pickingVaultFolder view (fixed 55% progress bar, no spinner) for
+  // ~30s while pickFolder() awaited the native side resolving the
+  // security-scoped bookmark, reading as frozen. _step doesn't change
+  // to cloning until that await returns, so this needs its own busy
+  // flag rather than piggybacking on _step.
+  bool _pickingFolder = false;
+
   LinkingStep get step => _step;
   StepFailure? get lastFailure => _lastFailure;
   bool get isRunning => _isRunning;
+  bool get pickingFolder => _pickingFolder;
   String? get pickedVaultPath => _pickedVaultPath;
   String? get pickedVaultBookmark => _pickedVaultBookmark;
 
@@ -131,6 +141,12 @@ class LinkingController extends ChangeNotifier {
       return;
     }
 
+    // Set and notified before the await below, so the UI reacts the
+    // instant the button is tapped - not just once _step eventually
+    // changes to cloning.
+    _pickingFolder = true;
+    notifyListeners();
+
     VaultFolderResult? result;
     try {
       result = await _vaultFolder.pickFolder();
@@ -144,6 +160,8 @@ class LinkingController extends ChangeNotifier {
         LinkingError.vaultPickerFailed,
         debugDetail: '${e.code}: ${e.message}',
       ));
+    } finally {
+      _pickingFolder = false;
     }
     if (result == null) {
       // User cancelled the picker - stay on this step, let them retry.
@@ -265,13 +283,24 @@ class LinkingController extends ChangeNotifier {
   // "1.2", ... "1.12" in the UI) - same 12 steps as the joined string
   // below, kept as a list so the checklist widget and the fallback
   // instruction string can't drift out of sync with each other.
+  //
+  // Verified against iOS 26.1 / Obsidian 1.12.4 (2026-08-14). This
+  // recipe is version-specific - Obsidian's own vault-management UI is
+  // what dictates these exact steps, so a future Obsidian update could
+  // silently break it. Re-verify against the real device before
+  // trusting this list if it's been a while since the versions above.
+  //
+  // Steps 10-12 (force close / reopen / force close again) are
+  // load-bearing, not optional cleanup: confirmed by the user's own
+  // research that without this exact sequence, iOS never creates the
+  // folder path the next screen's folder picker depends on.
   List<String> get vaultCreationSteps => [
         'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
         'swipe from left to right',
         'tap existing vault (bottom left)',
         'tap Manage vaults...',
         'tap Create new vault',
-        'Vault name: enter name',
+        'Vault name: <Enter name...>',
         'Store in iCloud: off by default',
         'tap Create',
         'new vault opens',
