@@ -223,7 +223,7 @@ extension LinkingErrorDetails on LinkingError {
           'Your notes were not found in the expected folder on this phone.',
         LinkingError.vaultFolderAccessLost =>
           'Synclocal lost access to your vault folder.',
-        LinkingError.vaultPickerFailed => 'Could not open the folder picker.',
+        LinkingError.vaultPickerFailed => 'Could not open Files.',
       };
 
   String get resolution => switch (this) {

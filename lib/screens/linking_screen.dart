@@ -545,7 +545,11 @@ class _ParkedView extends StatelessWidget {
                       children: [
                         _PulsingDots(),
                         SizedBox(width: 16),
-                        Text('Opening picker…',
+                        // 2026-08-15: "picker" is developer jargon - the
+                        // thing that opens is iOS's Files browser (the
+                        // exact screens 2.2/2.3 already call "Browse"
+                        // and "On My iPhone"), so name it that way.
+                        Text('Opening Files…',
                             style: TextStyle(color: kTextMid, fontSize: 14)),
                       ],
                     )
@@ -706,7 +710,12 @@ class _CompleteViewState extends State<_CompleteView>
       remotePort: ctrl.sshPort,
       localPath: vaultPath,
       vaultBookmark: vaultBookmark,
-      obsidianVaultPath: 'On My iPhone/$kNoteAppName/Synclocal',
+      // 2026-08-15: was hardcoded to literal "Synclocal" - same stale
+      // assumption fixed in the display text and deep link earlier,
+      // just missed here. Display-only field (see repository.dart),
+      // but still wrong for anyone who typed a different vault name.
+      obsidianVaultPath: 'On My iPhone/$kNoteAppName/'
+          '${vaultPath.split('/').last}',
       autoSync: true,
       status: SyncStatus.ok,
       lastSync: DateTime.now(),
@@ -715,10 +724,14 @@ class _CompleteViewState extends State<_CompleteView>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    // 2026-08-15: this screen just grew a real checklist + swipe row on
+    // top of the burst animation and text that were already here -
+    // wrapped in scroll now (matches _ParkedView's pattern) so shorter
+    // phones don't hit a layout overflow instead of just scrolling.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
             width: 180,
@@ -780,15 +793,48 @@ class _CompleteViewState extends State<_CompleteView>
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
-          _PrimaryButton(
-            label: 'OPEN ${kNoteAppName.toUpperCase()}',
-            onPressed: widget.ctrl.openObsidianNow,
-          ),
+          const SizedBox(height: 28),
+          // 2026-08-15: real device feedback - reaching this screen and
+          // tapping OPEN OBSIDIAN used to hand the user off with zero
+          // guidance for what happens next inside Obsidian. Confirmed
+          // live: because the clone just brought in the desktop vault's
+          // real .obsidian/plugins/ folder, Obsidian shows a one-time
+          // "trust this vault's plugins" prompt before it'll index -
+          // this never appeared on page 3's empty, plugin-free vault,
+          // only here, after real content exists. Wording below is the
+          // exact on-screen text from the live run (also matches the
+          // user's own older sync research - "Trust author and enable
+          // plugins" - which flagged this same step in other contexts,
+          // just never mapped onto this specific screen before now).
+          const Text('Finish up in Obsidian:',
+              style: TextStyle(
+                  color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          _PrimaryButton(
-            label: 'SYNCLOCAL HOME',
-            onPressed: () => Navigator.pop(context),
+          _StepChecklist(
+            key: const ValueKey(3),
+            groupNumber: 3,
+            steps: const [
+              'tap Trust author and enable plugins',
+              'wait for Indexing vault... to finish',
+              'tap X to skip Community plugins (set up later)',
+            ],
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SwipeToConfirm(
+                direction: Axis.vertical,
+                label: 'OPEN ${kNoteAppName.toUpperCase()}',
+                onConfirm: widget.ctrl.openObsidianNow,
+              ),
+              const SizedBox(width: 24),
+              _SwipeToConfirm(
+                direction: Axis.horizontal,
+                label: 'SYNCLOCAL HOME',
+                onConfirm: () => Navigator.pop(context),
+              ),
+            ],
           ),
         ],
       ),
