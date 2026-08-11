@@ -711,10 +711,31 @@ class _SwipeChecklistRow extends StatefulWidget {
   State<_SwipeChecklistRow> createState() => _SwipeChecklistRowState();
 }
 
-class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
+class _SwipeChecklistRowState extends State<_SwipeChecklistRow>
+    with SingleTickerProviderStateMixin {
   static const _threshold = 36.0;
   double _drag = 0;
   bool _done = false;
+  // 2026-08-17: "what about a background of magical stars or
+  // something?" instead of the flat tint - a few twinkling sparkles
+  // scattered across the row, driven by one looping controller (no new
+  // dependency, same CustomPainter approach as the completion screen's
+  // particle burst).
+  late final AnimationController _sparkleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _sparkleCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _sparkleCtrl.dispose();
+    super.dispose();
+  }
 
   void _onUpdate(double delta) {
     if (_done) return;
@@ -738,39 +759,80 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
     return GestureDetector(
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
-      child: Container(
-        // 2026-08-16: "make a colour so user knows it's an action
-        // section" - a tinted background sets this row apart from the
-        // plain checkbox rows around it, signaling it's a real gesture
-        // to perform, not just something to tick off.
-        color: _done ? Colors.transparent : kGreen.withOpacity(0.08),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Transform.translate(
-          offset: Offset(0, _drag),
-          child: Row(
-            children: [
-              Icon(Icons.keyboard_double_arrow_up_rounded,
-                  color: color, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 16,
-                    height: 1.6,
-                    fontWeight: FontWeight.w700,
-                    decoration: _done ? TextDecoration.lineThrough : null,
-                    decorationColor: kTextMid,
-                  ),
-                ),
+      child: Stack(
+        children: [
+          if (!_done)
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _sparkleCtrl,
+                builder: (_, __) =>
+                    CustomPaint(painter: _SparklePainter(_sparkleCtrl.value)),
               ),
-            ],
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Transform.translate(
+              offset: Offset(0, _drag),
+              child: Row(
+                children: [
+                  Icon(Icons.keyboard_double_arrow_up_rounded,
+                      color: color, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 16,
+                        height: 1.6,
+                        fontWeight: FontWeight.w700,
+                        decoration: _done ? TextDecoration.lineThrough : null,
+                        decorationColor: kTextMid,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
+}
+
+// Six small sparkles at fixed relative positions, each twinkling on
+// its own phase offset so they don't all pulse in unison.
+class _SparklePainter extends CustomPainter {
+  final double progress; // 0..1, loops
+  _SparklePainter(this.progress);
+
+  static const _positions = [
+    Offset(0.06, 0.25), Offset(0.18, 0.75), Offset(0.34, 0.20),
+    Offset(0.58, 0.70), Offset(0.78, 0.30), Offset(0.93, 0.65),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < _positions.length; i++) {
+      final phase = (progress + i / _positions.length) % 1.0;
+      final opacity = (math.sin(phase * math.pi * 2) * 0.5 + 0.5);
+      final radius = 2.5 + opacity * 2.5;
+      final center = Offset(
+          _positions[i].dx * size.width, _positions[i].dy * size.height);
+      final paint = Paint()
+        ..color = kGreen.withOpacity(opacity * 0.6)
+        ..strokeWidth = 1.4;
+      canvas.drawLine(
+          center.translate(-radius, 0), center.translate(radius, 0), paint);
+      canvas.drawLine(
+          center.translate(0, -radius), center.translate(0, radius), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklePainter old) =>
+      old.progress != progress;
 }
 
 // 2026-08-15: tap variant of _SwipeChecklistRow, for the one action
@@ -1016,14 +1078,21 @@ class _CompleteViewState extends State<_CompleteView>
     // top of the burst animation and text that were already here -
     // wrapped in scroll now (matches _ParkedView's pattern) so shorter
     // phones don't hit a layout overflow instead of just scrolling.
+    // 2026-08-17: real device feedback - the final swipe control was
+    // sitting below the fold, and the swipe gesture didn't register
+    // until scrolled into view (a real usability bug, not just
+    // cosmetic - the primary action was effectively unreachable at a
+    // glance). Shrunk the checkmark/burst area and outer vertical
+    // padding so the whole screen fits without scrolling on a normal
+    // phone - this was the one area with real slack to give back.
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 180,
-            height: 180,
+            width: 100,
+            height: 100,
             child: AnimatedBuilder(
               animation: _burstCtrl,
               builder: (_, __) => CustomPaint(
@@ -1039,13 +1108,13 @@ class _CompleteViewState extends State<_CompleteView>
                     builder: (_, scale, child) =>
                         Transform.scale(scale: scale, child: child),
                     child:
-                        const Icon(Icons.check_circle, color: kGreen, size: 88),
+                        const Icon(Icons.check_circle, color: kGreen, size: 50),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           // 2026-08-16: emoji replaced with the same success gif used
           // for the final swipe control below - decorative, always
           // playing (not gated behind a trigger like the swipe gifs,
@@ -1096,7 +1165,7 @@ class _CompleteViewState extends State<_CompleteView>
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
           // 2026-08-15: real device feedback - reaching this screen and
           // tapping OPEN OBSIDIAN used to hand the user off with zero
           // guidance for what happens next inside Obsidian. Confirmed
@@ -1141,7 +1210,7 @@ class _CompleteViewState extends State<_CompleteView>
               'swipe',
             ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           Center(
             // 2026-08-16: this is the very last action in the whole
             // flow - success gif (dog_success_stand.gif) instead of

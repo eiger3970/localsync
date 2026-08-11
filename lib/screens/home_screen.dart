@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
-import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
@@ -43,6 +42,15 @@ class HomeScreen extends StatelessWidget {
           // one vault in practice (ADD MANUALLY, the only path that
           // could add a second, was removed 2026-08-15) - revisit if
           // multi-repo ever becomes a real use case.
+          Consumer<RepositoryProvider>(
+            builder: (_, provider, __) => provider.repos.isEmpty
+                ? const SizedBox.shrink()
+                : _AppBarRepoStatus(
+                    repo: provider.repos.first,
+                    onTap: () => _runAndShow(
+                        context, provider.pullRepository(provider.repos.first.id!)),
+                  ),
+          ),
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
@@ -165,37 +173,36 @@ class HomeScreen extends StatelessWidget {
               child: CircularProgressIndicator(color: kGreen, strokeWidth: 1),
             );
           }
+          // 2026-08-17: "why is page 1 necessary, can't page 2 do all
+          // that?" - it couldn't, because page 1 (this empty state)
+          // and page 2 (LinkingScreen's own _IdleView) were both a
+          // drag-to-connect gesture, back to back - page 1's drag did
+          // nothing except open page 2, which then made the user drag
+          // again before anything real happened. Removed entirely:
+          // straight to LinkingScreen (still titled PKM VAULT SETUP,
+          // still requires its own real drag to actually start
+          // pairing - that gesture is genuine, page 1's was not).
+          // pushReplacement, not push - backing out of setup with zero
+          // repos configured should land on an actual empty state, not
+          // instantly redirect right back into setup again.
           if (provider.repos.isEmpty) {
-            return _EmptyState(onSetup: () => _openLinking(context));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) {
+                Navigator.pushReplacement(context,
+                    MaterialPageRoute(builder: (_) => const LinkingScreen()));
+              }
+            });
+            return const SizedBox.shrink();
           }
           final repo = provider.repos.first;
-          return Column(
-            children: [
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: provider.repos.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: kBorder),
-                itemBuilder: (_, i) => _RepoTile(
-                  repo: provider.repos[i],
-                  // 2026-08-15: "is this a refresh?" - yes, and refresh
-                  // means bringing in what's new, never pushing local
-                  // changes up without the user having chosen to. Real
-                  // pull now (see sync_service.dart), not the old
-                  // do-everything sync.
-                  onSync: () => provider.pullRepository(provider.repos[i].id!),
-                ),
-              ),
-              Expanded(
-                child: _SyncGestureZone(
-                  onPull: () => _runAndShow(
-                      context, provider.pullRepository(repo.id!)),
-                  onPush: () => _runAndShow(
-                      context, provider.pushRepository(repo.id!)),
-                ),
-              ),
-            ],
+          // 2026-08-17: the repo tile's summary row moved into the app
+          // bar (_AppBarRepoStatus above) - nothing left to show here
+          // except the gesture zone, which now gets the full body.
+          return _SyncGestureZone(
+            onPull: () =>
+                _runAndShow(context, provider.pullRepository(repo.id!)),
+            onPush: () =>
+                _runAndShow(context, provider.pushRepository(repo.id!)),
           );
         },
       ),
@@ -269,79 +276,6 @@ class HomeScreen extends StatelessWidget {
     if (confirmed == true && repo.id != null) {
       await provider.removeRepository(repo.id!);
     }
-  }
-}
-
-// ── Repo tile ──────────────────────────────────────────────────────────────────
-
-class _RepoTile extends StatelessWidget {
-  final Repository repo;
-  final VoidCallback onSync;
-
-  const _RepoTile({
-    required this.repo,
-    required this.onSync,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSyncing = repo.status == SyncStatus.syncing;
-
-    // 2026-08-15: per explicit direction, the trailing refresh icon +
-    // kebab are gone - the tap-target-size fix from earlier this
-    // session is moot now that the whole row is the tap target ("I
-    // think tapping the 2nd row... refreshes"). Commit-with-message,
-    // the auto/manual toggle, and Remove moved to the top-bar kebab;
-    // Pull/Push moved to the gif gesture zone below the list. The
-    // spinning icon still appears, but only as a status readout during
-    // an active sync, not a persistent tappable control beforehand.
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onSync();
-      },
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        title: Row(
-          children: [
-            _StatusDot(status: repo.status),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        repo.name,
-                        style: const TextStyle(
-                            color: kStar,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(width: 8),
-                      _AutoBadge(autoSync: repo.autoSync),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: isSyncing
-                        ? _PhaseText(
-                            key: ValueKey(repo.syncPhase),
-                            label: repo.syncPhase.label,
-                          )
-                        : _MetaText(repo: repo),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        trailing: isSyncing ? const _SpinningSync() : null,
-      ),
-    );
   }
 }
 
@@ -475,7 +409,6 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
     );
   }
 }
-
 // ── Spinning sync icon ─────────────────────────────────────────────────────────
 
 class _SpinningSync extends StatefulWidget {
@@ -517,109 +450,31 @@ class _SpinningSyncState extends State<_SpinningSync>
   }
 }
 
-// ── Phase text ─────────────────────────────────────────────────────────────────
-
-class _PhaseText extends StatelessWidget {
-  final String label;
-  const _PhaseText({super.key, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        color: kGreen,
-        fontSize: 12,
-        letterSpacing: 0.5,
-        fontStyle: FontStyle.italic,
+// 2026-08-17: relocated from the removed _MetaText - the persistent,
+// tappable full-error view is real functionality, not just tile
+// decoration, so it moved into _AppBarRepoStatus rather than being
+// discarded along with the tile row it used to live in.
+void _showFullError(BuildContext context, String fullError) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: kSurface,
+      title: const Text('Sync error',
+          style: TextStyle(color: kStar, fontSize: 17)),
+      content: SingleChildScrollView(
+        child: Text(fullError,
+            style:
+                const TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
       ),
-    );
-  }
-}
-
-// ── Static meta text ───────────────────────────────────────────────────────────
-
-class _MetaText extends StatelessWidget {
-  final Repository repo;
-  const _MetaText({required this.repo});
-
-  @override
-  Widget build(BuildContext context) {
-    if (repo.status == SyncStatus.error && repo.lastError != null) {
-      final reason = repo.lastError!.split('\n').first;
-      // Fixed 2026-08-09: this used to show only the first line,
-      // truncated, with no way to see the rest - real device feedback
-      // was a dead end ("I see no suggestions on next steps"). The full
-      // lastError now carries diagnosis + resolution + (when available)
-      // the raw exception text; tapping reveals all of it instead of
-      // silently discarding everything past the first line.
-      return GestureDetector(
-        onTap: () => _showFullError(context, repo.lastError!),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                reason,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.info_outline, color: Colors.redAccent, size: 14),
-          ],
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close',
+              style: TextStyle(color: kGreen, fontSize: 15)),
         ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (repo.lastSync != null)
-          Text(
-            'synced ${_timeAgo(repo.lastSync!)}',
-            style: const TextStyle(
-                color: kTextMid, fontSize: 14, letterSpacing: 0.3),
-          ),
-        if (repo.fileCount > 0)
-          Text(
-            '${repo.fileCount} files · ${repo.folderCount} folders',
-            style: const TextStyle(
-                color: kTextMid, fontSize: 14, letterSpacing: 0.3),
-          ),
       ],
-    );
-  }
-
-  String _timeAgo(DateTime t) {
-    final d = DateTime.now().difference(t);
-    if (d.inSeconds < 60) return 'just now';
-    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-    if (d.inHours < 24) return '${d.inHours}h ago';
-    return '${d.inDays}d ago';
-  }
-
-  void _showFullError(BuildContext context, String fullError) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: kSurface,
-        title: const Text('Sync error',
-            style: TextStyle(color: kStar, fontSize: 17)),
-        content: SingleChildScrollView(
-          child: Text(fullError,
-              style:
-                  const TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close',
-                style: TextStyle(color: kGreen, fontSize: 15)),
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
 
 // ── Auto/manual badge ──────────────────────────────────────────────────────────
@@ -694,224 +549,89 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
-// ── Icon box (matching padding+border on both drag glyphs) ──────────────────────
+// 2026-08-17: was a _MetaText instance method - extracted to top-level
+// so _AppBarRepoStatus can share it instead of duplicating.
+String _timeAgo(DateTime t) {
+  final d = DateTime.now().difference(t);
+  if (d.inSeconds < 60) return 'just now';
+  if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+  if (d.inHours < 24) return '${d.inHours}h ago';
+  return '${d.inDays}d ago';
+}
 
-// 2026-08-11: gives both drag icons an identical layout box regardless
-// of hover state, so the drop target's border doesn't push it out of
-// vertical alignment with the drag source - same fix as the vault-setup
-// screen's _DeviceGlyph alignment bug.
-class _IconBox extends StatelessWidget {
-  final IconData icon;
-  final double size;
-  final Color color;
-  final bool hovering;
-  const _IconBox({
-    required this.icon,
-    required this.size,
-    required this.color,
-    this.hovering = false,
-  });
+// ── App-bar repo status ───────────────────────────────────────────────────────
+//
+// 2026-08-17: "can row 2 PKM_vault AUTO synced just now be moved to
+// row 1, right of SYNCLOCAL and left of the kebab icon and green
+// tick?" - the repo tile's summary moved into the app bar itself, and
+// the separate ListView row it used to live in is gone (see the body
+// builder below). Tap still triggers a pull, same as the row did.
+class _AppBarRepoStatus extends StatelessWidget {
+  final Repository repo;
+  final VoidCallback onTap;
+  const _AppBarRepoStatus({required this.repo, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: hovering ? kGreen : Colors.transparent,
-          width: 2,
+    final isSyncing = repo.status == SyncStatus.syncing;
+    // Fixed 2026-08-09, relocated here 2026-08-17: full error text
+    // (diagnosis + resolution + raw exception) was getting truncated
+    // to one line with no way to see the rest - tapping while an
+    // error is active shows the full dialog instead of triggering
+    // another pull, which would just fail again the same way.
+    final hasError = repo.status == SyncStatus.error && repo.lastError != null;
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        if (hasError) {
+          _showFullError(context, repo.lastError!);
+        } else {
+          onTap();
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                isSyncing
+                    ? const _SpinningSync()
+                    : _StatusDot(status: repo.status),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    repo.name,
+                    style: const TextStyle(
+                        color: kStar, fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _AutoBadge(autoSync: repo.autoSync),
+              ],
+            ),
+            if (hasError)
+              Text(
+                repo.lastError!.split('\n').first,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 10),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
+            else if (isSyncing)
+              Text(repo.syncPhase.label,
+                  style: const TextStyle(color: kTextMid, fontSize: 10))
+            else if (repo.lastSync != null)
+              Text('synced ${_timeAgo(repo.lastSync!)}',
+                  style: const TextStyle(color: kTextMid, fontSize: 10)),
+          ],
         ),
       ),
-      child: Icon(icon, size: size, color: color),
     );
   }
 }
 
-// ── Empty state ────────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatefulWidget {
-  final VoidCallback onSetup;
-  const _EmptyState({required this.onSetup});
-
-  @override
-  State<_EmptyState> createState() => _EmptyStateState();
-}
-
-class _EmptyStateState extends State<_EmptyState>
-    with SingleTickerProviderStateMixin {
-  bool _dragHover = false;
-  late final AnimationController _pulseCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    // 2026-08-11: subtle continuous pulse on the draggable icon so the
-    // drag gesture is discoverable at a glance - there's no button left
-    // to fall back on now that SET UP VAULT was removed per explicit
-    // user direction, so the icon itself has to read as interactive.
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 2026-08-11: "enlarge to max size per device so there's some
-    // padding space on the left and right edges" - sized from the real
-    // screen width instead of a fixed guess, same approach as the
-    // vault-setup screen. Both icons wrapped in a matching padding+
-    // border box (transparent unless hovered) so they sit at identical
-    // heights regardless of the drop target's hover border - a fixed
-    // guess here previously caused a real vertical-alignment mismatch
-    // on the vault-setup screen once sizes changed.
-    // 2026-08-11: "page 1 and 2 desktop/notebook images are different
-    // sizes, why?" - both screens were computing icon size correctly
-    // now, just from different constants (this screen reserved more
-    // padding and a wider arrow than the vault-setup screen did), so
-    // they landed on genuinely different pixel sizes for the same
-    // screen width. Unified to the exact same formula and arrow
-    // treatment as linking_screen.dart's _IdleView - same rowPadding,
-    // same bare 26px arrow with no extra horizontal padding, same
-    // iconBoxOverhead - so the two screens now render identically
-    // sized icons on the same device.
-    final screenWidth = MediaQuery.of(context).size.width;
-    const rowPadding = 6.0;
-    const arrowWidth = 26.0; // arrow's own icon, no horizontal padding
-    const iconBoxOverhead = 16.0; // 6*2 padding + 2*2 border, per icon
-    final iconSize =
-        ((screenWidth - rowPadding * 2 - arrowWidth - iconBoxOverhead * 2) / 2)
-            .clamp(70.0, 180.0);
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 2026-08-11: real device review - "make main image larger,
-          // perhaps at top... this is the top priority for a user, the
-          // rest is sub information." The standalone sync_alt icon
-          // that used to lead this screen was dropped ("why are the
-          // left/right arrows here?" - once the real action moved
-          // in front of it, it read as unexplained decoration rather
-          // than information). The drag pictogram - the actual
-          // action - now leads instead. onSetup here just opens the
-          // vault-setup screen (same navigation the old SET UP VAULT
-          // button did) - the real download only starts once inside
-          // it.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Draggable<bool>(
-                  data: true,
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.85,
-                      child: _IconBox(
-                        icon: Icons.computer_rounded,
-                        size: iconSize,
-                        color: kGreen,
-                      ),
-                    ),
-                  ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _IconBox(
-                      icon: Icons.computer_rounded,
-                      size: iconSize,
-                      color: kTextMid,
-                    ),
-                  ),
-                  child: AnimatedBuilder(
-                    animation: _pulseCtrl,
-                    builder: (_, child) => Opacity(
-                      opacity: 0.6 + (_pulseCtrl.value * 0.4),
-                      child: child,
-                    ),
-                    child: _IconBox(
-                      icon: Icons.computer_rounded,
-                      size: iconSize,
-                      color: kGreen,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_rounded,
-                    color: kTextDim, size: 26),
-                DragTarget<bool>(
-                  onWillAcceptWithDetails: (_) {
-                    setState(() => _dragHover = true);
-                    return true;
-                  },
-                  onLeave: (_) => setState(() => _dragHover = false),
-                  onAcceptWithDetails: (_) {
-                    setState(() => _dragHover = false);
-                    widget.onSetup();
-                  },
-                  builder: (context, candidate, rejected) => _IconBox(
-                    icon: Icons.auto_stories_rounded,
-                    size: iconSize,
-                    color: kTextMid,
-                    hovering: _dragHover,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              children: [
-                const SizedBox(height: 18),
-                const Text('Drag to set up your vault',
-                    style:
-                        TextStyle(color: kTextMid, fontSize: 14, height: 1.5),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 40),
-                // 2026-08-11: "make the 0 clear... unsure what to do
-                // with this image" persisted even after enlarging the
-                // badge - the cramped corner-overlay badge was the
-                // real problem, not its size. Replaced with a plain
-                // inline readout instead: icon, then the count itself
-                // at a real readable size, then the caption - nothing
-                // overlapping, nothing to interpret. Caption color
-                // fixed from kTextDim to kTextMid ("text colour is
-                // inconsistent") - this page's secondary text
-                // (drag hint, kebab subtitles) is consistently
-                // kTextMid, kTextDim was a stray third shade. Also
-                // now says "PKM vaults" not just "vaults" - "what is
-                // a vault?" plus explicit direction to match page 2's
-                // wording.
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.source_outlined,
-                        size: 24, color: kTextMid),
-                    const SizedBox(width: 10),
-                    const Text('0',
-                        style: TextStyle(
-                            color: kTextMid,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 6),
-                    Text('$kGenericAppLabel ${kContainerName}s linked',
-                        style: const TextStyle(color: kTextMid, fontSize: 13)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
