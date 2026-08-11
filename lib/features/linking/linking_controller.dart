@@ -95,7 +95,19 @@ class LinkingController extends ChangeNotifier {
 
   Future<void> openObsidianNow() async {
     if (kIsWeb) return;
-    final result = await _iosApps.openObsidian();
+    // 2026-08-14: real device feedback - tapping OPEN OBSIDIAN from the
+    // complete screen opened Obsidian's last-active vault, not the one
+    // Synclocal just linked, since a bare "obsidian://" open can't
+    // target a specific vault. Once a vault folder has actually been
+    // picked (_pickedVaultPath set), pass its folder name - which is
+    // the vault's display name, since that's exactly the folder the
+    // user just selected inside On My iPhone/Obsidian/<vault name> -
+    // so Obsidian switches straight to it. Before a vault is picked
+    // (the page 3 "OPEN OBSIDIAN" swipe, used to create the vault in
+    // the first place) there's nothing to target yet, so this still
+    // falls back to a bare open.
+    final vaultName = _pickedVaultPath?.split('/').last;
+    final result = await _iosApps.openObsidian(vaultName: vaultName);
     if (result case StepFailure()) {
       _fail(result);
     }
@@ -254,7 +266,7 @@ class LinkingController extends ChangeNotifier {
   // below, kept as a list so the checklist widget and the fallback
   // instruction string can't drift out of sync with each other.
   List<String> get vaultCreationSteps => [
-        'OPEN ${kNoteAppName.toUpperCase()}',
+        'swipe up OPEN ${kNoteAppName.toUpperCase()} button',
         'swipe from left to right',
         'tap existing vault (bottom left)',
         'tap Manage vaults...',
@@ -266,6 +278,19 @@ class LinkingController extends ChangeNotifier {
         'force close $kNoteAppName',
         'reopen $kNoteAppName',
         'force close $kNoteAppName again',
+      ];
+
+  // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker
+  // screen (2.1-2.6) - what the user does inside iOS's native document
+  // picker after tapping VAULT FOLDER, which Synclocal has no
+  // visibility into once it's open.
+  List<String> get vaultFolderSteps => [
+        'tap VAULT FOLDER',
+        'tap Browse',
+        'tap On My iPhone (Browse/Locations/On My iPhone)',
+        'tap $kNoteAppName folder',
+        'tap the vault',
+        'tap Open',
       ];
 
   // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit
@@ -290,13 +315,9 @@ class LinkingController extends ChangeNotifier {
               '${vaultCreationSteps.join(' → ')}\n\n'
               'Come back here when you\'re done.',
 
-        // 2026-08-14: button label changed from "TAP VAULT FOLDER" to
-        // "VAULT FOLDER", so the old "Tap TAP..." collision this was
-        // dodging no longer exists - back to plain sentence case.
         LinkingStep.pickingVaultFolder =>
           '2 of 2: tap the vault you just created:\n\n'
-              'Tap VAULT FOLDER, then browse to '
-              'On My iPhone → $kNoteAppName → tap the vault you just created',
+              '${vaultFolderSteps.join(' → ')}',
         _ => null,
       };
 

@@ -44,7 +44,11 @@ class LinkingScreen extends StatelessWidget {
         builder: (_, ctrl, __) {
           return Column(
             children: [
-              _ProgressBar(progress: ctrl.progress),
+              _ProgressBar(
+                progress: ctrl.progress,
+                indeterminate: ctrl.step == LinkingStep.cloning ||
+                    ctrl.step == LinkingStep.verifySync,
+              ),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 350),
@@ -70,10 +74,26 @@ class LinkingScreen extends StatelessWidget {
 
 class _ProgressBar extends StatelessWidget {
   final double progress;
-  const _ProgressBar({required this.progress});
+  // 2026-08-14: real device feedback - the bar jumps to a fixed value
+  // the instant cloning starts, then sits dead still for the ~30s a
+  // real git pull takes (no incremental progress data from git2dart
+  // wired up), reading as "the app is frozen" rather than "working".
+  // An indeterminate (continuously animated) bar during the two
+  // unbounded-duration steps is the standard, honest signal for
+  // "actively working, duration unknown" instead of faking a fixed
+  // percentage the app can't actually measure.
+  final bool indeterminate;
+  const _ProgressBar({required this.progress, this.indeterminate = false});
 
   @override
   Widget build(BuildContext context) {
+    if (indeterminate) {
+      return const LinearProgressIndicator(
+        minHeight: 2,
+        backgroundColor: kBorder,
+        valueColor: AlwaysStoppedAnimation<Color>(kGreen),
+      );
+    }
     return TweenAnimationBuilder<double>(
       tween: Tween(end: progress),
       duration: const Duration(milliseconds: 600),
@@ -395,6 +415,21 @@ class _ParkedView extends StatelessWidget {
     // minHeight matching the viewport lets the Column center when
     // content is short, while still scrolling normally once content
     // (like the 12-step checklist) grows past the viewport.
+    //
+    // Real device feedback: centering within just the Expanded body
+    // (below the AppBar + progress bar) still reads as "pushed down"
+    // relative to the whole phone screen, since the header eats real
+    // space at the top that this calculation never accounted for.
+    // Appending an invisible trailing spacer equal to the header's own
+    // height, rather than trying to precompute an offset, shifts the
+    // *visible* content up by exactly half the header height - matches
+    // where it would sit if centered against the full screen - without
+    // any risk of clipping content on the long vault-creation screen
+    // (there, content already exceeds the viewport, so the spacer just
+    // adds harmless extra scroll space at the bottom).
+    final headerHeight =
+        (Scaffold.of(context).appBarMaxHeight ?? kToolbarHeight) + 2;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -415,11 +450,14 @@ class _ParkedView extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Instruction — numbered checklist on the vault-creation
-                // screen (12 steps, background-switches into Obsidian and
-                // back), plain text elsewhere
+                // Instruction — numbered checklist on both user-action
+                // screens (each background-switches into Obsidian or
+                // iOS's native folder picker and back), plain text
+                // fallback for anything else
                 if (ctrl.step == LinkingStep.awaitingVaultCreation)
-                  _VaultCreationChecklist(steps: ctrl.vaultCreationSteps)
+                  _StepChecklist(groupNumber: 1, steps: ctrl.vaultCreationSteps)
+                else if (ctrl.step == LinkingStep.pickingVaultFolder)
+                  _StepChecklist(groupNumber: 2, steps: ctrl.vaultFolderSteps)
                 else
                   Container(
                     width: double.infinity,
@@ -474,6 +512,8 @@ class _ParkedView extends StatelessWidget {
                     onPressed: ctrl.pickVaultFolder,
                   ),
                 ],
+
+                SizedBox(height: headerHeight),
               ],
             ),
           ),
@@ -483,20 +523,22 @@ class _ParkedView extends StatelessWidget {
   }
 }
 
-// 2026-08-14: numbered, tickable checklist for the vault-creation screen.
-// Checkbox state is local widget state, not controller state - it's just
-// a progress marker for bouncing between Synclocal and Obsidian mid-flow,
-// not something that needs to survive navigating away from this screen.
-class _VaultCreationChecklist extends StatefulWidget {
+// 2026-08-14: numbered, tickable checklist shared by both user-action
+// screens (vault creation: group 1, folder picking: group 2). Checkbox
+// state is local widget state, not controller state - it's just a
+// progress marker for bouncing out to Obsidian or the native picker and
+// back, not something that needs to survive navigating away from this
+// screen.
+class _StepChecklist extends StatefulWidget {
+  final int groupNumber;
   final List<String> steps;
-  const _VaultCreationChecklist({required this.steps});
+  const _StepChecklist({required this.groupNumber, required this.steps});
 
   @override
-  State<_VaultCreationChecklist> createState() =>
-      _VaultCreationChecklistState();
+  State<_StepChecklist> createState() => _StepChecklistState();
 }
 
-class _VaultCreationChecklistState extends State<_VaultCreationChecklist> {
+class _StepChecklistState extends State<_StepChecklist> {
   late final List<bool> _checked = List.filled(widget.steps.length, false);
 
   @override
@@ -523,7 +565,7 @@ class _VaultCreationChecklistState extends State<_VaultCreationChecklist> {
               activeColor: kGreen,
               checkColor: kVoid,
               title: Text(
-                '1.${i + 1}  ${widget.steps[i]}',
+                '${widget.groupNumber}.${i + 1}  ${widget.steps[i]}',
                 style: TextStyle(
                   color: _checked[i] ? kTextMid : kStar,
                   fontSize: 16,
@@ -683,8 +725,14 @@ class _CompleteViewState extends State<_CompleteView>
           // once Synclocal already has real access to that same folder
           // Obsidian is showing.
           Text(
+            // 2026-08-14: was hardcoded to a literal "Synclocal" vault
+            // name - stale now that step 1's instructions never tell
+            // the user to type that specific name (see
+            // vaultCreationSteps). Uses the actual picked folder's
+            // name, same value OPEN OBSIDIAN below now deep-links to.
             'Your notes have been downloaded into your\n'
-            '"Synclocal" vault in $kNoteAppName.',
+            '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
+            'vault in $kNoteAppName.',
             style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
@@ -695,7 +743,7 @@ class _CompleteViewState extends State<_CompleteView>
           ),
           const SizedBox(height: 12),
           _PrimaryButton(
-            label: 'CONTINUE TO SYNCLOCAL',
+            label: 'SYNCLOCAL HOME',
             onPressed: () => Navigator.pop(context),
           ),
         ],

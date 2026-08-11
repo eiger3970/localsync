@@ -5,21 +5,27 @@ import '../features/linking/linking_state.dart';
 /// Only Obsidian, now that git operations happen in-process via git2dart
 /// instead of delegating to Working Copy - see lib/STRUCTURE.md.
 abstract class IosAppService {
-  Future<StepResult> openObsidian();
+  /// Opens Obsidian. When [vaultName] is given, deep-links straight to
+  /// that vault (obsidian://open?vault=NAME) instead of whatever vault
+  /// Obsidian last had active.
+  Future<StepResult> openObsidian({String? vaultName});
   Future<bool> isObsidianInstalled();
 }
 
 class IosAppServiceImpl implements IosAppService {
-  Uri get _obsidianUri => Uri.parse('obsidian://');
+  Uri _obsidianUri({String? vaultName}) => (vaultName == null || vaultName.isEmpty)
+      ? Uri.parse('obsidian://')
+      : Uri(scheme: 'obsidian', host: 'open', queryParameters: {'vault': vaultName});
 
   @override
-  Future<StepResult> openObsidian() async {
+  Future<StepResult> openObsidian({String? vaultName}) async {
     if (!await isObsidianInstalled()) {
       return const StepFailure(LinkingError.obsidianNotInstalled);
     }
 
     try {
-      await launchUrl(_obsidianUri, mode: LaunchMode.externalApplication);
+      await launchUrl(_obsidianUri(vaultName: vaultName),
+          mode: LaunchMode.externalApplication);
       return const StepSuccess(message: 'Obsidian opened');
     } catch (e) {
       return const StepFailure(LinkingError.obsidianNotInstalled);
