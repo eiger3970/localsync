@@ -724,6 +724,93 @@ _EmptyState's own setup button is no longer shown) - not a
 regression against any current use case (one phone, one vault), but
 worth knowing if multi-vault support is ever wanted later.
 
+### Sync split into real pull()/push(), moved off the UI isolate (2026-08-15)
+Two real bugs, found together from the same round of feedback:
+
+- **fullSync() conflated pull and push.** User's own words: "I know
+  command gitpull and gitpush are separate commands and don't do the
+  same thing." True, and the code didn't reflect it - one function
+  auto-detected direction and ran identically no matter which UI
+  gesture triggered it. Replaced with `SyncService.pull()`/`.push()`
+  in sync_service.dart. pull() only ever fetches+merges from remote,
+  never pushes. push() only ever pushes local commits, and fails
+  cleanly (`LinkingError.cannotFastForward`, asking for a pull first)
+  on real divergence instead of silently merging - that rejection is
+  the actual behavioral difference between `git pull` and `git push`,
+  now real in this codebase instead of papered over.
+- **The repo-row tap "froze the phone for 30 seconds."** Not a
+  missing spinner - confirmed against git2dart's own source
+  (git2dart-0.5.4/lib/src/remote.dart: `TransferProgress fetch(...)`,
+  not `Future<...>`) that `Remote.fetch()`/`.push()` are synchronous
+  FFI calls. Calling them directly from Flutter's UI isolate (as
+  every sync path in this app did) blocks all rendering and gesture
+  handling for the network round-trip's entire duration - a real
+  freeze, not a perception problem. Every one of this session's
+  earlier "make the spinner more obvious" fixes for the setup flow's
+  clone step were treating a symptom of this same class of bug.
+
+Fix: the actual git work (open repo, commit dirty tree, fetch,
+compare, merge/push, free) now runs inside `compute()`, off the UI
+isolate. git2dart's Repository/Remote/etc. wrap native pointers and
+can't cross an isolate boundary, so the whole open-to-close sequence
+for one sync runs self-contained inside a top-level isolate function
+(`_pullInIsolate`/`_pushInIsolate` in sync_service.dart) - only plain
+data (paths, keys, a commit message, via `_SyncParams`) goes in, and
+the existing `SyncResult` types (already plain data) come back out.
+Real tradeoff, not a bug: no more live "fetching.../committing.../
+pushing..." phase text mid-call, since `compute()` returns one final
+result, not a stream of updates - callers show a single phase for the
+operation's whole duration instead. Same "don't fake progress you
+can't measure" reasoning as making the setup flow's progress bar
+indeterminate instead of a fabricated percentage.
+
+Also found and fixed while touching this: `CommitScreen._commit()`
+(the typed-commit-message path, `commit_screen.dart`) was a complete
+stub - `// TODO: implement git add / commit / push via SSH` followed
+by a fake 2-second delay and a `Navigator.pop()`, doing zero real
+work. Now calls `RepositoryProvider.pushRepository(id, commitMessage:
+msg)` for real.
+
+`RepositoryProvider` gained `pullRepository()`/`pushRepository()`,
+replacing the old single `syncRepository()`. Auto-sync-on-launch and
+the repo tile's tap-to-sync both call pull (a "refresh" should never
+push local changes up without the user choosing to); the two gif
+swipe gestures on the home screen (see below) call pull/push
+respectively; CommitScreen's typed message calls push.
+
+### Home screen: gif-driven pull/push gesture zone (2026-08-15)
+The empty space below the repo list ("huge black space" - real
+device feedback) is now `_SyncGestureZone` in home_screen.dart: upper
+half swipe-down over `assets/gifs/git_pull.gif` triggers a real pull,
+lower half swipe-up over `git_push.gif` triggers a real push. Gifs
+are static at rest and only animate once actually triggered, for at
+least 2s or until the real operation finishes (whichever is longer) -
+`ControllableGif` in `lib/widgets/controllable_gif.dart` is a small,
+dependency-free manual-playback GIF widget built for this (decodes
+frames once via `dart:ui`'s codec API, steps them on a `Timer` only
+while `playing`), since Flutter's plain `Image` widget auto-plays a
+GIF's own loop with no pause control. The repo tile itself lost its
+trailing refresh icon + kebab entirely - the whole row is now the tap
+target for a pull (fixes "I tap it and nothing happens" at the root:
+a whole ListTile is a much bigger, more discoverable target than a
+44px icon). Commit-with-message, the auto/manual toggle, and Remove
+moved to the existing top app-bar kebab, operating on
+`provider.repos.first` (single-repo assumption throughout - see the
+"Manual Add Repository screen removed" note above for why that's
+fine for now).
+
+Pages 3 and 5 of the linking flow got the same "fold the real control
+into the checklist" treatment: `_StepChecklist` gained
+`firstItemSwipeAction`/`firstItemTapAction` params so the checklist's
+first row (1.1 on page 3, 3.0 on page 5) *is* the real swipe/tap
+gesture (`_SwipeChecklistRow`/`_TapChecklistRow`) instead of a
+checkbox describing a separate button elsewhere. The confirm gesture
+on both pages (I'VE CREATED IT / SYNCLOCAL HOME) is now
+`_GifSwipeConfirm`, using `dog_progress_off_leash.gif` instead of a
+plain pill button. The old `_SwipeToConfirm` widget (pages 3/5's
+original swipe pills) was fully removed once both call sites moved
+off it - no dead code left behind.
+
 ### Protected IP
 The 8-step sequence and error resolution strings live in:
 - linking_state.dart (LinkingError.resolution)

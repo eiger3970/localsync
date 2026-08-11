@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
+import '../widgets/controllable_gif.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
@@ -176,14 +177,18 @@ class HomeScreen extends StatelessWidget {
                     const Divider(height: 1, color: kBorder),
                 itemBuilder: (_, i) => _RepoTile(
                   repo: provider.repos[i],
-                  onSync: () => provider.syncRepository(provider.repos[i].id!),
+                  // 2026-08-15: "is this a refresh?" - yes, and refresh
+                  // means bringing in what's new, never pushing local
+                  // changes up without the user having chosen to. Real
+                  // pull now (see sync_service.dart), not the old
+                  // do-everything sync.
+                  onSync: () => provider.pullRepository(provider.repos[i].id!),
                 ),
               ),
-              const Divider(height: 1, color: kBorder),
               Expanded(
                 child: _SyncGestureZone(
-                  onPull: () => provider.syncRepository(repo.id!),
-                  onPush: () => provider.syncRepository(repo.id!),
+                  onPull: () => provider.pullRepository(repo.id!),
+                  onPush: () => provider.pushRepository(repo.id!),
                 ),
               ),
             ],
@@ -319,18 +324,12 @@ class _RepoTile extends StatelessWidget {
 // ── Pull/push gesture zone ────────────────────────────────────────────────────
 //
 // 2026-08-15: fills the "huge black space" that used to sit empty below
-// the repo list. Both halves ultimately call the same syncRepository()/
-// fullSync() - there is no separate pull-only or push-only git
-// operation in this codebase (matches the "Pull" kebab item decision
-// earlier this session: fullSync() already auto-commits any dirty
-// local changes, fetches, and resolves whichever direction is needed,
-// or merges if both sides changed). The two gifs and opposite swipe
-// directions are a real, deliberate difference in how the *user*
-// thinks about the action (get vs. send), not a difference in what the
-// app actually does under the hood.
+// the repo list. Pull and push are real, separate operations now (see
+// sync_service.dart's header comment) - the gifs and opposite swipe
+// directions aren't just decoration over one shared function anymore.
 class _SyncGestureZone extends StatelessWidget {
-  final VoidCallback onPull;
-  final VoidCallback onPush;
+  final Future<void> Function() onPull;
+  final Future<void> Function() onPush;
   const _SyncGestureZone({required this.onPull, required this.onPush});
 
   @override
@@ -340,17 +339,18 @@ class _SyncGestureZone extends StatelessWidget {
         Expanded(
           child: _GifSwipeTrigger(
             assetPath: 'assets/gifs/git_pull.gif',
-            caption: 'swipe down to PULL',
+            caption: 'PULL',
             swipeDown: true,
+            gifHeight: 117, // pull gif enlarged 30% (90 -> 117) per direction
             onConfirm: onPull,
           ),
         ),
-        const Divider(height: 1, color: kBorder),
         Expanded(
           child: _GifSwipeTrigger(
             assetPath: 'assets/gifs/git_push.gif',
-            caption: 'swipe up to PUSH',
+            caption: 'PUSH',
             swipeDown: false,
+            gifHeight: 90,
             onConfirm: onPush,
           ),
         ),
@@ -363,11 +363,13 @@ class _GifSwipeTrigger extends StatefulWidget {
   final String assetPath;
   final String caption;
   final bool swipeDown; // true = swipe down triggers, false = swipe up
-  final VoidCallback onConfirm;
+  final double gifHeight;
+  final Future<void> Function() onConfirm;
   const _GifSwipeTrigger({
     required this.assetPath,
     required this.caption,
     required this.swipeDown,
+    required this.gifHeight,
     required this.onConfirm,
   });
 
@@ -378,26 +380,17 @@ class _GifSwipeTrigger extends StatefulWidget {
 class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
   static const _threshold = 56.0;
   static const _maxDrag = 140.0;
-  // 2026-08-15: "gifs run for 2000ms before trigger for action" -
-  // ignores real swipes for the first 2s after this zone appears, so
-  // the gesture can't fire mid-animation before the user has actually
-  // seen what it demonstrates. The gif itself already loops forever
-  // (loop=0 in the source file) with no extra code needed for that
-  // part - Flutter's Image widget respects a GIF's own loop count
-  // natively.
-  bool _armed = false;
   double _drag = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      if (mounted) setState(() => _armed = true);
-    });
-  }
+  // 2026-08-15: gif is static at rest and only animates once actually
+  // swiped - real input is live immediately (no arm-delay; the earlier
+  // "2000ms before trigger" reading was wrong). Once triggered it
+  // animates for at least 2s (a sync that finishes instantly shouldn't
+  // look like a blink), or longer if the real pull/push is still
+  // running - tied to actual completion, not a fixed guess.
+  bool _playing = false;
 
   void _onUpdate(double delta) {
-    if (!_armed) return;
+    if (_playing) return;
     setState(() {
       _drag = widget.swipeDown
           ? (_drag + delta).clamp(0.0, _maxDrag)
@@ -406,10 +399,19 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
   }
 
   void _onEnd() {
-    if (!_armed) return;
+    if (_playing) return;
     final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
     setState(() => _drag = 0);
-    if (reached) widget.onConfirm();
+    if (reached) _trigger();
+  }
+
+  Future<void> _trigger() async {
+    setState(() => _playing = true);
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2000)),
+      widget.onConfirm(),
+    ]);
+    if (mounted) setState(() => _playing = false);
   }
 
   @override
@@ -424,22 +426,21 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _armed ? 1.0 : 0.4,
-              child: Transform.translate(
-                offset: Offset(0, _drag),
-                child: Image.asset(
-                  widget.assetPath,
-                  height: 90,
-                  filterQuality: FilterQuality.none,
-                ),
+            Transform.translate(
+              offset: Offset(0, _drag),
+              child: ControllableGif(
+                assetPath: widget.assetPath,
+                playing: _playing,
+                height: widget.gifHeight,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(widget.caption,
                 style: const TextStyle(
-                    color: kTextDim, fontSize: 11, letterSpacing: 1)),
+                    color: kTextMid,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2)),
           ],
         ),
       ),

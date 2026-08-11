@@ -32,8 +32,11 @@ class RepositoryProvider extends ChangeNotifier {
     await Future.wait([_loadRepos(), _loadTemplates()]);
     _loading = false;
     notifyListeners();
+    // 2026-08-15: was syncRepository() (the old do-everything sync) -
+    // launch behavior is "bring in whatever's new", i.e. a pull, never
+    // a push of local changes the user hasn't reviewed yet.
     for (final repo in _repos.where((r) => r.autoSync)) {
-      syncRepository(repo.id!);
+      pullRepository(repo.id!);
     }
   }
 
@@ -41,8 +44,22 @@ class RepositoryProvider extends ChangeNotifier {
   Future<void> _loadTemplates()  async { _templates = await _db.getTemplates(); }
 
   // ── Sync ────────────────────────────────────────────────────────────────────
+  // 2026-08-15: split from a single syncRepository() into real pull()/
+  // push() - see sync_service.dart's header comment for why. Both route
+  // through _run(), which just watches whichever SyncService stream it's
+  // given and writes the resulting status/phase/error to the repo -
+  // it doesn't know or care whether that stream is a pull or a push.
 
-  Future<void> syncRepository(int id, {String? commitMessage}) async {
+  Future<void> pullRepository(int id) =>
+      _run(id, (service) => service.pull());
+
+  Future<void> pushRepository(int id, {String? commitMessage}) =>
+      _run(id, (service) => service.push(commitMessage: commitMessage));
+
+  Future<void> _run(
+    int id,
+    Stream<SyncEvent> Function(SyncService) op,
+  ) async {
     final idx = _repos.indexWhere((r) => r.id == id);
     if (idx == -1) return;
 
@@ -56,7 +73,7 @@ class RepositoryProvider extends ChangeNotifier {
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
 
     try {
-      await for (final event in service.fullSync(commitMessage: commitMessage)) {
+      await for (final event in op(service)) {
         final i = _repos.indexWhere((r) => r.id == id);
         if (i == -1) return;
 
@@ -108,10 +125,6 @@ class RepositoryProvider extends ChangeNotifier {
       notifyListeners();
       await _db.updateRepository(_repos[i]);
     }
-  }
-
-  Future<void> commitAndPush(int id, String message) async {
-    await syncRepository(id, commitMessage: message);
   }
 
   Future<void> toggleAutoSync(int id) async {

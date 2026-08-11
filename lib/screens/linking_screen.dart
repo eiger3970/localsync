@@ -15,6 +15,7 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
+import '../widgets/controllable_gif.dart';
 import 'pairing_screen.dart';
 
 class LinkingScreen extends StatelessWidget {
@@ -477,12 +478,14 @@ class _ParkedView extends StatelessWidget {
                     key: const ValueKey(1),
                     groupNumber: 1,
                     steps: ctrl.vaultCreationSteps,
+                    firstItemSwipeAction: ctrl.openObsidianNow,
                   )
                 else if (ctrl.step == LinkingStep.pickingVaultFolder)
                   _StepChecklist(
                     key: const ValueKey(2),
                     groupNumber: 2,
                     steps: ctrl.vaultFolderSteps,
+                    firstItemTapAction: ctrl.pickVaultFolder,
                   )
                 else
                   Container(
@@ -503,43 +506,26 @@ class _ParkedView extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
-                  // 2026-08-11 (second pass): text moved inside the swiped
-                  // element itself (a pill button) rather than a separate
-                  // caption below an icon box, and each action now swipes
-                  // in its own direction - up for OPEN OBSIDIAN, right for
-                  // I'VE CREATED IT - rather than both using the same up
-                  // gesture. Drag distance is no longer clamped to a small
-                  // fixed pixel range either: "can the swipe be as long as
-                  // the user swipes rather than cutting off... this is a
-                  // disconnect with the user" - it now follows the finger
-                  // for the real screen's extent, not an arbitrary short
-                  // cap.
-                  // 2026-08-11 (third pass): laid out side by side rather
-                  // than stacked, per explicit direction.
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _SwipeToConfirm(
-                        direction: Axis.vertical,
-                        label: 'OPEN ${kNoteAppName.toUpperCase()}',
-                        onConfirm: ctrl.openObsidianNow,
-                      ),
-                      const SizedBox(width: 24),
-                      _SwipeToConfirm(
-                        direction: Axis.horizontal,
-                        label: 'I\'VE CREATED IT',
-                        onConfirm: ctrl.confirmVaultCreated,
-                      ),
-                    ],
+                  // 2026-08-15: OPEN OBSIDIAN moved into checklist item
+                  // 1.1 itself (see _StepChecklist's firstItemSwipeAction
+                  // above) - the standalone swipe-up button that used to
+                  // sit here is gone, per explicit direction. Only the
+                  // confirm action remains, now a gif (dog_progress_off_
+                  // leash.gif) instead of a plain pill.
+                  Center(
+                    child: _GifSwipeConfirm(
+                      assetPath: 'assets/gifs/dog_progress_off_leash.gif',
+                      label: 'I\'VE CREATED IT',
+                      onConfirm: ctrl.confirmVaultCreated,
+                    ),
                   ),
                 ] else if (ctrl.step ==
                     LinkingStep.pickingVaultFolder) ...[
-                  // 2026-08-14: was just a static button for the whole
-                  // ~30s the native picker + bookmark resolution took -
-                  // nothing on screen changed between tapping it and
-                  // _step eventually moving to cloning, reading as
-                  // frozen. Swaps to the same pulsing-dots pattern
-                  // _RunningView uses the instant the tap registers.
+                  // 2026-08-15: VAULT FOLDER moved into checklist item
+                  // 2.1 itself (firstItemTapAction above) - the standalone
+                  // button that used to sit here is gone. Only the busy
+                  // indicator remains, shown once the tap in the
+                  // checklist has fired.
                   if (ctrl.pickingFolder)
                     const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -548,16 +534,12 @@ class _ParkedView extends StatelessWidget {
                         SizedBox(width: 16),
                         // 2026-08-15: "picker" is developer jargon - the
                         // thing that opens is iOS's Files browser (the
-                        // exact screens 2.2/2.3 already call "Browse"
-                        // and "On My iPhone"), so name it that way.
-                        Text('Opening Files…',
-                            style: TextStyle(color: kTextMid, fontSize: 14)),
+                        // exact steps 2.2/2.3 already call "Browse" and
+                        // "On My iPhone"), so name it that way. Lower-
+                        // case + larger per explicit direction.
+                        Text('Opening files…',
+                            style: TextStyle(color: kTextMid, fontSize: 18)),
                       ],
-                    )
-                  else
-                    _PrimaryButton(
-                      label: 'VAULT FOLDER',
-                      onPressed: ctrl.pickVaultFolder,
                     ),
                 ],
 
@@ -584,11 +566,25 @@ class _StepChecklist extends StatefulWidget {
   // checklist explicitly starts at .0, since its first item is the
   // swipe that opens Obsidian rather than the first action inside it.
   final int startIndex;
+  // 2026-08-15: when set, the first row becomes a real swipe-up
+  // gesture that fires this instead of a plain checkbox - folds the
+  // actual action into its own checklist line instead of a separate
+  // control elsewhere on screen, per explicit direction ("have the
+  // swipe up button here"). The standalone OPEN OBSIDIAN button that
+  // used to sit below the checklist is gone on both pages that use
+  // this.
+  final VoidCallback? firstItemSwipeAction;
+  // 2026-08-15: same idea as firstItemSwipeAction, for the one action
+  // that's a tap rather than a swipe (VAULT FOLDER) - the standalone
+  // button below the checklist is gone on the page that uses this too.
+  final VoidCallback? firstItemTapAction;
   const _StepChecklist({
     super.key,
     required this.groupNumber,
     required this.steps,
     this.startIndex = 1,
+    this.firstItemSwipeAction,
+    this.firstItemTapAction,
   });
 
   @override
@@ -612,28 +608,237 @@ class _StepChecklistState extends State<_StepChecklist> {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < widget.steps.length; i++)
-            CheckboxListTile(
-              value: _checked[i],
-              onChanged: (checked) =>
-                  setState(() => _checked[i] = checked ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-              dense: true,
-              activeColor: kGreen,
-              checkColor: kVoid,
-              title: Text(
-                '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+            if (i == 0 && widget.firstItemSwipeAction != null)
+              _SwipeChecklistRow(
+                label:
+                    '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+                onConfirm: widget.firstItemSwipeAction!,
+              )
+            else if (i == 0 && widget.firstItemTapAction != null)
+              _TapChecklistRow(
+                label:
+                    '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+                onTap: widget.firstItemTapAction!,
+              )
+            else
+              CheckboxListTile(
+                value: _checked[i],
+                onChanged: (checked) =>
+                    setState(() => _checked[i] = checked ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                dense: true,
+                activeColor: kGreen,
+                checkColor: kVoid,
+                title: Text(
+                  '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+                  style: TextStyle(
+                    color: _checked[i] ? kTextMid : kStar,
+                    fontSize: 16,
+                    height: 1.6,
+                    decoration:
+                        _checked[i] ? TextDecoration.lineThrough : null,
+                    decorationColor: kTextMid,
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+// 2026-08-15: a checklist row that IS the swipe-up gesture, instead of
+// a checkbox describing a separate button elsewhere. Same drag-
+// threshold shape as _SwipeToConfirm, just row-height instead of a big
+// pill, and self-ticks (strikethrough, dimmed) once actually swiped -
+// no separate manual checkbox once the row itself performed the action.
+class _SwipeChecklistRow extends StatefulWidget {
+  final String label;
+  final VoidCallback onConfirm;
+  const _SwipeChecklistRow({required this.label, required this.onConfirm});
+
+  @override
+  State<_SwipeChecklistRow> createState() => _SwipeChecklistRowState();
+}
+
+class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
+  static const _threshold = 36.0;
+  double _drag = 0;
+  bool _done = false;
+
+  void _onUpdate(double delta) {
+    if (_done) return;
+    setState(() => _drag = (_drag + delta).clamp(-_threshold * 2, 0.0));
+  }
+
+  void _onEnd() {
+    if (_done) return;
+    final reached = -_drag >= _threshold;
+    setState(() => _drag = 0);
+    if (reached) {
+      setState(() => _done = true);
+      widget.onConfirm();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (-_drag / _threshold).clamp(0.0, 1.0);
+    final color = _done ? kTextMid : Color.lerp(kStar, kGreen, progress)!;
+    return GestureDetector(
+      onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
+      onVerticalDragEnd: (_) => _onEnd(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Transform.translate(
+          offset: Offset(0, _drag),
+          child: Row(
+            children: [
+              Icon(Icons.keyboard_double_arrow_up_rounded,
+                  color: color, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 16,
+                    height: 1.6,
+                    fontWeight: FontWeight.w700,
+                    decoration: _done ? TextDecoration.lineThrough : null,
+                    decorationColor: kTextMid,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// 2026-08-15: tap variant of _SwipeChecklistRow, for the one action
+// that's a real tap (VAULT FOLDER opens the native folder browser)
+// rather than a swipe.
+class _TapChecklistRow extends StatefulWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _TapChecklistRow({required this.label, required this.onTap});
+
+  @override
+  State<_TapChecklistRow> createState() => _TapChecklistRowState();
+}
+
+class _TapChecklistRowState extends State<_TapChecklistRow> {
+  bool _done = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _done ? kTextMid : kGreen;
+    return InkWell(
+      onTap: _done
+          ? null
+          : () {
+              setState(() => _done = true);
+              widget.onTap();
+            },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.touch_app_outlined, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.label,
                 style: TextStyle(
-                  color: _checked[i] ? kTextMid : kStar,
+                  color: color,
                   fontSize: 16,
                   height: 1.6,
-                  decoration:
-                      _checked[i] ? TextDecoration.lineThrough : null,
+                  fontWeight: FontWeight.w700,
+                  decoration: _done ? TextDecoration.lineThrough : null,
                   decorationColor: kTextMid,
                 ),
               ),
             ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 2026-08-15: swipe-right confirm, gif instead of a plain pill button
+// (git_pull.gif/git_push.gif's sibling assets - dog_progress_off_leash.gif).
+// Same "animate for at least 2s" idea as home_screen.dart's gif
+// triggers, but onConfirm here is a plain VoidCallback (navigation/app
+// calls, not an awaitable sync operation), so it just fires after the
+// fixed delay rather than racing against a real operation's completion.
+class _GifSwipeConfirm extends StatefulWidget {
+  final String assetPath;
+  final String label;
+  final VoidCallback onConfirm;
+  const _GifSwipeConfirm({
+    required this.assetPath,
+    required this.label,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_GifSwipeConfirm> createState() => _GifSwipeConfirmState();
+}
+
+class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
+  static const _threshold = 64.0;
+  static const _maxDrag = 320.0;
+  double _drag = 0;
+  bool _playing = false;
+
+  void _onUpdate(double delta) {
+    if (_playing) return;
+    setState(() => _drag = (_drag + delta).clamp(0.0, _maxDrag));
+  }
+
+  void _onEnd() {
+    if (_playing) return;
+    final reached = _drag >= _threshold;
+    setState(() => _drag = 0);
+    if (reached) _trigger();
+  }
+
+  Future<void> _trigger() async {
+    setState(() => _playing = true);
+    await Future.delayed(const Duration(milliseconds: 2000));
+    widget.onConfirm();
+    if (mounted) setState(() => _playing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
+      onHorizontalDragEnd: (_) => _onEnd(),
+      child: Transform.translate(
+        offset: Offset(_drag, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ControllableGif(
+              assetPath: widget.assetPath,
+              playing: _playing,
+              height: 70,
+            ),
+            const SizedBox(height: 8),
+            Text(widget.label,
+                style: const TextStyle(
+                    color: kTextMid,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1)),
+          ],
+        ),
       ),
     );
   }
@@ -824,42 +1029,36 @@ class _CompleteViewState extends State<_CompleteView>
           // Synclocal (3.4) per explicit direction, so the checklist is
           // a complete, self-contained record of every physical action
           // in the sequence - not just the three that happen inside
-          // Obsidian. The swipe row below stays the real trigger for
-          // 3.0/3.5, same relationship page 3's checklist has with its
-          // own swipe row.
+          // Obsidian. 3.0 (OPEN OBSIDIAN) is now embedded directly in
+          // the checklist as a real swipe-up gesture (firstItemSwipeAction,
+          // same as page 3's 1.1) instead of a separate button below -
+          // the standalone OPEN OBSIDIAN button is gone. 3.5 keeps its
+          // own control below (the gif swipe), since only the *first*
+          // action folds into the checklist on this and page 3.
           _StepChecklist(
             key: const ValueKey(3),
             groupNumber: 3,
             startIndex: 0,
-            // 2026-08-15: dropped "button"/"right" from 3.0/3.5 per
-            // explicit direction - the swipe pills below already show
-            // the direction via their arrow icon, so spelling it out in
-            // text too was redundant.
+            firstItemSwipeAction: widget.ctrl.openObsidianNow,
             steps: [
               'swipe up OPEN ${kNoteAppName.toUpperCase()}',
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
               'return to Synclocal app',
-              'swipe SYNCLOCAL HOME',
+              // 2026-08-15: "arrows are on button, so text description
+              // is verbose" - direction-neutral wording since the real
+              // control below is now a gif, not a labeled arrow pill.
+              'swipe right to proceed',
             ],
           ),
           const SizedBox(height: 32),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _SwipeToConfirm(
-                direction: Axis.vertical,
-                label: 'OPEN ${kNoteAppName.toUpperCase()}',
-                onConfirm: widget.ctrl.openObsidianNow,
-              ),
-              const SizedBox(width: 24),
-              _SwipeToConfirm(
-                direction: Axis.horizontal,
-                label: 'SYNCLOCAL HOME',
-                onConfirm: () => Navigator.pop(context),
-              ),
-            ],
+          Center(
+            child: _GifSwipeConfirm(
+              assetPath: 'assets/gifs/dog_progress_off_leash.gif',
+              label: 'SYNCLOCAL HOME',
+              onConfirm: () => Navigator.pop(context),
+            ),
           ),
         ],
       ),
@@ -1105,141 +1304,11 @@ class _ScopeRow extends StatelessWidget {
   }
 }
 
-// ── Swipe-to-confirm ─────────────────────────────────────────────────────────
-
-// 2026-08-11: single-action equivalent of the desktop->vault drag on
-// pages 1-2, for actions with no natural second element to drag onto
-// (open an app, confirm a manual step). Text lives inside the swiped
-// pill itself rather than as a separate caption below an icon, each
-// instance swipes in its own real direction (vertical or horizontal),
-// and the drag distance isn't artificially capped - it tracks the
-// finger for the real extent of the gesture, snapping back only on
-// release if it didn't clear the threshold. Per direct feedback: a
-// short hard cutoff read as "the program's limitation" rather than a
-// gesture that responds naturally to the user.
-class _SwipeToConfirm extends StatefulWidget {
-  final Axis direction;
-  final String label;
-  final VoidCallback onConfirm;
-  const _SwipeToConfirm({
-    required this.direction,
-    required this.label,
-    required this.onConfirm,
-  });
-
-  @override
-  State<_SwipeToConfirm> createState() => _SwipeToConfirmState();
-}
-
-class _SwipeToConfirmState extends State<_SwipeToConfirm>
-    with SingleTickerProviderStateMixin {
-  static const double _threshold = 64;
-  // Generous, not a tight cutoff - just enough to stop the pill flying
-  // fully off-screen on an aggressive swipe.
-  static const double _maxDrag = 320;
-  late final AnimationController _snapCtrl;
-  Animation<double>? _snapAnim;
-  double _drag = 0; // negative for up, positive for right
-  bool _dragging = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _snapCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
-  }
-
-  @override
-  void dispose() {
-    _snapCtrl.dispose();
-    super.dispose();
-  }
-
-  bool get _isUp => widget.direction == Axis.vertical;
-
-  double get _offset => _dragging ? _drag : (_snapAnim?.value ?? 0);
-
-  void _onUpdate(double delta) {
-    setState(() {
-      _drag = _isUp
-          ? (_drag + delta).clamp(-_maxDrag, 0.0)
-          : (_drag + delta).clamp(0.0, _maxDrag);
-    });
-  }
-
-  void _onEnd() {
-    final reached = (_isUp ? -_drag : _drag) >= _threshold;
-    _snapAnim = Tween<double>(begin: _drag, end: 0)
-        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
-    setState(() => _dragging = false);
-    _snapCtrl
-      ..reset()
-      ..forward();
-    if (reached) widget.onConfirm();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _snapCtrl,
-      builder: (_, __) {
-        final offset = _offset;
-        final progress =
-            ((_isUp ? -offset : offset) / _threshold).clamp(0.0, 1.0);
-        final color = Color.lerp(kTextMid, kGreen, progress)!;
-
-        final arrows = Icon(
-          _isUp
-              ? Icons.keyboard_double_arrow_up_rounded
-              : Icons.keyboard_double_arrow_right_rounded,
-          color: color,
-          size: 20,
-        );
-        final text = Text(widget.label,
-            style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1));
-
-        final pill = AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          decoration: BoxDecoration(
-            border: Border.all(color: color, width: 2),
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: _isUp
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [arrows, const SizedBox(height: 6), text],
-                )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [text, const SizedBox(width: 8), arrows],
-                ),
-        );
-
-        return GestureDetector(
-          onVerticalDragStart:
-              _isUp ? (_) => setState(() => _dragging = true) : null,
-          onVerticalDragUpdate: _isUp ? (d) => _onUpdate(d.delta.dy) : null,
-          onVerticalDragEnd: _isUp ? (_) => _onEnd() : null,
-          onHorizontalDragStart:
-              _isUp ? null : (_) => setState(() => _dragging = true),
-          onHorizontalDragUpdate: _isUp ? null : (d) => _onUpdate(d.delta.dx),
-          onHorizontalDragEnd: _isUp ? null : (_) => _onEnd(),
-          child: Transform.translate(
-            offset: _isUp ? Offset(0, offset) : Offset(offset, 0),
-            child: pill,
-          ),
-        );
-      },
-    );
-  }
-}
+// 2026-08-15: _SwipeToConfirm removed - dead code. Its last two call
+// sites (OPEN OBSIDIAN, I'VE CREATED IT/SYNCLOCAL HOME) were replaced
+// this round by _SwipeChecklistRow (embedded in the checklist) and
+// _GifSwipeConfirm respectively. Per explicit direction against
+// leftover bloat: don't keep an unused widget around "in case".
 
 class _DeviceGlyph extends StatelessWidget {
   final IconData icon;

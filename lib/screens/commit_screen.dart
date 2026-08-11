@@ -130,10 +130,18 @@ class _CommitScreenState extends State<CommitScreen> {
   Future<void> _commit() async {
     final msg = _msgCtrl.text.trim();
     if (msg.isEmpty) return;
+    if (widget.repo.id == null) return;
 
     setState(() => _pushing = true);
-    // TODO: implement git add / commit / push via SSH
-    await Future.delayed(const Duration(seconds: 2)); // placeholder
+    // 2026-08-15: this was a complete stub - a 2s fake delay with a
+    // "TODO: implement git add / commit / push via SSH" comment, doing
+    // no real work at all. Now calls the real push() (see
+    // sync_service.dart), same as every other sync action in the app,
+    // just with the typed message instead of an auto-generated one.
+    await context
+        .read<RepositoryProvider>()
+        .pushRepository(widget.repo.id!, commitMessage: msg);
+    if (!mounted) return;
     setState(() => _pushing = false);
 
     if (mounted) Navigator.pop(context);
