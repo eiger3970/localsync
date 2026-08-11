@@ -30,65 +30,112 @@ class HomeScreen extends StatelessWidget {
           // new phone, or linking an additional vault, are both genuine
           // ongoing needs, not first-run-only), just not two unexplained
           // icons sitting permanently in the app bar.
-          PopupMenuButton<String>(
-            color: kSurface,
-            icon: const Icon(Icons.more_vert, color: kGreen, size: 22),
-            onSelected: (v) {
-              if (v == 'pair') _openPairing(context);
-              if (v == 'link') _openLinking(context);
-            },
-            // 2026-08-11: labels alone still drew "why are these
-            // needed?" on real device review - added a one-line reason
-            // under each so the menu explains itself without relying on
-            // a tooltip (already known not to fire on iOS tap, see the
-            // fix note above) or a chat explanation the user won't have
-            // open next time they wonder.
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'pair',
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.vpn_key_outlined, color: kStar, size: 18),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Pair with desktop',
-                              style: TextStyle(color: kStar, fontSize: 14)),
-                          Text('New phone, or lost connection',
-                              style: TextStyle(color: kTextMid, fontSize: 13)),
-                        ],
+          // 2026-08-15: gained the repo-scoped actions (commit with a
+          // typed message, auto/manual toggle, remove) that used to
+          // live in each tile's own trailing kebab - per explicit
+          // direction, that kebab is gone entirely now that the whole
+          // tile is tappable-to-sync and the gif gesture zone below the
+          // list handles pull/push. Single-repo assumption throughout
+          // (operates on provider.repos.first): this app is one phone,
+          // one vault in practice (ADD MANUALLY, the only path that
+          // could add a second, was removed 2026-08-15) - revisit if
+          // multi-repo ever becomes a real use case.
+          Consumer<RepositoryProvider>(
+            builder: (_, provider, __) => PopupMenuButton<String>(
+              color: kSurface,
+              icon: const Icon(Icons.more_vert, color: kGreen, size: 22),
+              onSelected: (v) {
+                if (v == 'pair') _openPairing(context);
+                if (v == 'link') _openLinking(context);
+                final repo = provider.repos.isEmpty ? null : provider.repos.first;
+                if (repo == null) return;
+                if (v == 'commit') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CommitScreen(repo: repo)),
+                  );
+                }
+                if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
+                if (v == 'delete') _confirmDelete(context, provider, repo);
+              },
+              // 2026-08-11: labels alone still drew "why are these
+              // needed?" on real device review - added a one-line reason
+              // under each so the menu explains itself without relying on
+              // a tooltip (already known not to fire on iOS tap, see the
+              // fix note above) or a chat explanation the user won't have
+              // open next time they wonder.
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'pair',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.vpn_key_outlined, color: kStar, size: 18),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Pair with desktop',
+                                style: TextStyle(color: kStar, fontSize: 14)),
+                            Text('New phone, or lost connection',
+                                style:
+                                    TextStyle(color: kTextMid, fontSize: 13)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem(
-                value: 'link',
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.phone_iphone, color: kStar, size: 18),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Set up a $kContainerName',
-                              style: TextStyle(color: kStar, fontSize: 14)),
-                          Text('Link another $kContainerName to this phone',
-                              style: TextStyle(color: kTextMid, fontSize: 13)),
-                        ],
+                PopupMenuItem(
+                  value: 'link',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.phone_iphone, color: kStar, size: 18),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Set up a $kContainerName',
+                                style: TextStyle(color: kStar, fontSize: 14)),
+                            Text('Link another $kContainerName to this phone',
+                                style:
+                                    TextStyle(color: kTextMid, fontSize: 13)),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                if (provider.repos.isNotEmpty) ...[
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'commit',
+                    child: Text('Commit with message...',
+                        style: TextStyle(color: kStar, fontSize: 14)),
+                  ),
+                  PopupMenuItem(
+                    value: 'toggle_auto',
+                    child: Text(
+                      provider.repos.first.autoSync
+                          ? 'Switch to manual'
+                          : 'Switch to auto',
+                      style: const TextStyle(color: kStar, fontSize: 14),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('Remove',
+                        style:
+                            TextStyle(color: Colors.redAccent, fontSize: 14)),
+                  ),
+                ],
+              ],
+            ),
           ),
           Consumer<RepositoryProvider>(
             builder: (_, p, __) => Padding(
@@ -98,6 +145,16 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
+      // 2026-08-15: real device feedback - "huge black space for
+      // numerous repositories" below the list, doing nothing. Tile
+      // stopped being a scrolling list that fills the whole body
+      // (shrink-wrapped instead, matches the one-repo-in-practice
+      // reality) and the freed space below it became the pull/push
+      // gesture zone. Per explicit direction: tile's own trailing
+      // refresh icon + kebab are gone (the tap-target-size fix from
+      // earlier this session is moot now - the whole row is the tap
+      // target), those actions moved to the top-bar kebab above or the
+      // gif swipes below.
       body: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
           if (provider.loading) {
@@ -108,24 +165,28 @@ class HomeScreen extends StatelessWidget {
           if (provider.repos.isEmpty) {
             return _EmptyState(onSetup: () => _openLinking(context));
           }
-          return ListView.separated(
-            itemCount: provider.repos.length,
-            separatorBuilder: (_, __) =>
-                const Divider(height: 1, color: kBorder),
-            itemBuilder: (_, i) => _RepoTile(
-              repo: provider.repos[i],
-              onSync: () => provider.syncRepository(provider.repos[i].id!),
-              onCommit: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => CommitScreen(repo: provider.repos[i]),
+          final repo = provider.repos.first;
+          return Column(
+            children: [
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: provider.repos.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: kBorder),
+                itemBuilder: (_, i) => _RepoTile(
+                  repo: provider.repos[i],
+                  onSync: () => provider.syncRepository(provider.repos[i].id!),
                 ),
               ),
-              onToggleAutoSync: () =>
-                  provider.toggleAutoSync(provider.repos[i].id!),
-              onDelete: () =>
-                  _confirmDelete(context, provider, provider.repos[i]),
-            ),
+              const Divider(height: 1, color: kBorder),
+              Expanded(
+                child: _SyncGestureZone(
+                  onPull: () => provider.syncRepository(repo.id!),
+                  onPush: () => provider.syncRepository(repo.id!),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -187,24 +248,29 @@ class HomeScreen extends StatelessWidget {
 class _RepoTile extends StatelessWidget {
   final Repository repo;
   final VoidCallback onSync;
-  final VoidCallback onCommit;
-  final VoidCallback onToggleAutoSync;
-  final VoidCallback onDelete;
 
   const _RepoTile({
     required this.repo,
     required this.onSync,
-    required this.onCommit,
-    required this.onToggleAutoSync,
-    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     final isSyncing = repo.status == SyncStatus.syncing;
 
+    // 2026-08-15: per explicit direction, the trailing refresh icon +
+    // kebab are gone - the tap-target-size fix from earlier this
+    // session is moot now that the whole row is the tap target ("I
+    // think tapping the 2nd row... refreshes"). Commit-with-message,
+    // the auto/manual toggle, and Remove moved to the top-bar kebab;
+    // Pull/Push moved to the gif gesture zone below the list. The
+    // spinning icon still appears, but only as a status readout during
+    // an active sync, not a persistent tappable control beforehand.
     return GestureDetector(
-      onLongPress: onCommit,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onSync();
+      },
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -244,73 +310,136 @@ class _RepoTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+        trailing: isSyncing ? const _SpinningSync() : null,
+      ),
+    );
+  }
+}
+
+// ── Pull/push gesture zone ────────────────────────────────────────────────────
+//
+// 2026-08-15: fills the "huge black space" that used to sit empty below
+// the repo list. Both halves ultimately call the same syncRepository()/
+// fullSync() - there is no separate pull-only or push-only git
+// operation in this codebase (matches the "Pull" kebab item decision
+// earlier this session: fullSync() already auto-commits any dirty
+// local changes, fetches, and resolves whichever direction is needed,
+// or merges if both sides changed). The two gifs and opposite swipe
+// directions are a real, deliberate difference in how the *user*
+// thinks about the action (get vs. send), not a difference in what the
+// app actually does under the hood.
+class _SyncGestureZone extends StatelessWidget {
+  final VoidCallback onPull;
+  final VoidCallback onPush;
+  const _SyncGestureZone({required this.onPull, required this.onPush});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: _GifSwipeTrigger(
+            assetPath: 'assets/gifs/git_pull.gif',
+            caption: 'swipe down to PULL',
+            swipeDown: true,
+            onConfirm: onPull,
+          ),
+        ),
+        const Divider(height: 1, color: kBorder),
+        Expanded(
+          child: _GifSwipeTrigger(
+            assetPath: 'assets/gifs/git_push.gif',
+            caption: 'swipe up to PUSH',
+            swipeDown: false,
+            onConfirm: onPush,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GifSwipeTrigger extends StatefulWidget {
+  final String assetPath;
+  final String caption;
+  final bool swipeDown; // true = swipe down triggers, false = swipe up
+  final VoidCallback onConfirm;
+  const _GifSwipeTrigger({
+    required this.assetPath,
+    required this.caption,
+    required this.swipeDown,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_GifSwipeTrigger> createState() => _GifSwipeTriggerState();
+}
+
+class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
+  static const _threshold = 56.0;
+  static const _maxDrag = 140.0;
+  // 2026-08-15: "gifs run for 2000ms before trigger for action" -
+  // ignores real swipes for the first 2s after this zone appears, so
+  // the gesture can't fire mid-animation before the user has actually
+  // seen what it demonstrates. The gif itself already loops forever
+  // (loop=0 in the source file) with no extra code needed for that
+  // part - Flutter's Image widget respects a GIF's own loop count
+  // natively.
+  bool _armed = false;
+  double _drag = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _armed = true);
+    });
+  }
+
+  void _onUpdate(double delta) {
+    if (!_armed) return;
+    setState(() {
+      _drag = widget.swipeDown
+          ? (_drag + delta).clamp(0.0, _maxDrag)
+          : (_drag + delta).clamp(-_maxDrag, 0.0);
+    });
+  }
+
+  void _onEnd() {
+    if (!_armed) return;
+    final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
+    setState(() => _drag = 0);
+    if (reached) widget.onConfirm();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
+      onVerticalDragEnd: (_) => _onEnd(),
+      child: Container(
+        width: double.infinity,
+        color: kVoid,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            isSyncing
-                ? const _SpinningSync()
-                // 2026-08-15: real device feedback - "I tap it and
-                // nothing happens". Two real causes fixed here: a bare
-                // 22px icon in a GestureDetector is well under Apple's
-                // 44pt minimum tap target, real taps can miss it
-                // entirely; and even a successful tap gave zero
-                // feedback when the sync itself resolved fast (e.g. a
-                // clean "no changes" fetch) - nothing to see if you
-                // blink. IconButton gives a real 48x48 tap target for
-                // free, and the haptic fires the instant the tap
-                // registers, independent of how long the sync itself
-                // takes.
-                : IconButton(
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      onSync();
-                    },
-                    icon: const Icon(Icons.sync, color: kGreen, size: 22),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                        minWidth: 44, minHeight: 44),
-                  ),
-            const SizedBox(width: 4),
-            PopupMenuButton<String>(
-              color: kSurface,
-              icon: const Icon(Icons.more_vert, color: kTextDim, size: 18),
-              onSelected: (v) {
-                if (v == 'commit') onCommit();
-                // 2026-08-14: "Pull" reuses the same fullSync() the
-                // refresh icon already triggers - it already does a
-                // real fetch+fast-forward when the tree is clean, and
-                // per explicit direction, dirty-tree behavior (auto-
-                // commit first) stays identical to the existing sync
-                // action rather than a stricter "refuse if dirty" pull.
-                if (v == 'pull') onSync();
-                if (v == 'toggle_auto') onToggleAutoSync();
-                if (v == 'delete') onDelete();
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(
-                  value: 'commit',
-                  child: Text('Commit & push',
-                      style: TextStyle(color: kStar, fontSize: 15)),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: _armed ? 1.0 : 0.4,
+              child: Transform.translate(
+                offset: Offset(0, _drag),
+                child: Image.asset(
+                  widget.assetPath,
+                  height: 90,
+                  filterQuality: FilterQuality.none,
                 ),
-                const PopupMenuItem(
-                  value: 'pull',
-                  child: Text('Pull',
-                      style: TextStyle(color: kStar, fontSize: 15)),
-                ),
-                PopupMenuItem(
-                  value: 'toggle_auto',
-                  child: Text(
-                    repo.autoSync ? 'Switch to manual' : 'Switch to auto',
-                    style: const TextStyle(color: kStar, fontSize: 15),
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Remove',
-                      style: TextStyle(color: Colors.redAccent, fontSize: 15)),
-                ),
-              ],
+              ),
             ),
+            const SizedBox(height: 12),
+            Text(widget.caption,
+                style: const TextStyle(
+                    color: kTextDim, fontSize: 11, letterSpacing: 1)),
           ],
         ),
       ),

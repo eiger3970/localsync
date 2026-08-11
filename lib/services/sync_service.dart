@@ -242,7 +242,10 @@ class SyncService {
       yield SyncEvent.phase(SyncPhase.detecting);
       if (repo.status.isNotEmpty) {
         yield SyncEvent.phase(SyncPhase.committing);
-        _commitAll(repo, commitMessage ?? 'synclocal ${_timestamp()}');
+        // 2026-08-15: dropped the "synclocal " prefix on the bare
+        // auto-commit case - matches the user's own example format
+        // exactly (a plain timestamp, no app-name prefix).
+        _commitAll(repo, commitMessage ?? _timestamp());
       }
 
       // 3. Fetch
@@ -442,10 +445,13 @@ class SyncService {
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
+  // 2026-08-15: reformatted to YYYYMMDDhhmm (no separators) per
+  // explicit direction - matches the user's own established naming
+  // convention elsewhere (CommitScreen's own hint text, actual vault
+  // names like "202608111158").
   String _timestamp() {
     final n = DateTime.now();
-    return '${n.year}-${_p(n.month)}-${_p(n.day)} '
-           '${_p(n.hour)}:${_p(n.minute)}:${_p(n.second)}';
+    return '${n.year}${_p(n.month)}${_p(n.day)}${_p(n.hour)}${_p(n.minute)}';
   }
 
   String _p(int n) => n.toString().padLeft(2, '0');
