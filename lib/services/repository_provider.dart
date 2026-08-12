@@ -14,10 +14,30 @@ class RepositoryProvider extends ChangeNotifier {
   List<Repository>     _repos     = [];
   List<CommitTemplate> _templates = [];
   bool                 _loading   = true;
+  int?                 _selectedRepoId;
 
   List<Repository>     get repos     => _repos;
   List<CommitTemplate> get templates => _templates;
   bool                 get loading   => _loading;
+
+  // 2026-08-20: "Multi repo needed on app" - every screen action used
+  // to silently assume repos.first, so a second linked vault was real
+  // in the database but completely unreachable in the UI. This is now
+  // the one thing pull/push/commit/toggle-auto/remove all target -
+  // falls back to the first repo if nothing's been explicitly picked
+  // yet, or if the previously-selected one was just removed (no repo
+  // in _repos still has _selectedRepoId, so the fallback kicks in on
+  // its own - no explicit reset needed in removeRepository below).
+  Repository? get selectedRepo {
+    if (_repos.isEmpty) return null;
+    return _repos.firstWhere((r) => r.id == _selectedRepoId,
+        orElse: () => _repos.first);
+  }
+
+  void selectRepo(int id) {
+    _selectedRepoId = id;
+    notifyListeners();
+  }
 
   RepositoryProvider() { _init(); }
 
@@ -148,6 +168,11 @@ class RepositoryProvider extends ChangeNotifier {
   Future<void> addRepository(Repository repo) async {
     final id = await _db.insertRepository(repo);
     _repos.add(repo.copyWith(id: id));
+    // Whatever you just linked becomes the active one - otherwise
+    // finishing setup on a second vault would silently land back on
+    // whichever was already selected, with the new one only reachable
+    // via the app-bar switcher.
+    _selectedRepoId = id;
     notifyListeners();
   }
 

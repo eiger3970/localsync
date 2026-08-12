@@ -36,9 +36,11 @@ class HomeScreen extends StatelessWidget {
                   builder: (_, provider, __) => provider.repos.isEmpty
                       ? const SizedBox.shrink()
                       : _AppBarRepoStatus(
-                          repo: provider.repos.first,
+                          repo: provider.selectedRepo!,
+                          allRepos: provider.repos,
                           onTap: () => _runAndShow(context,
-                              provider.pullRepository(provider.repos.first.id!)),
+                              provider.pullRepository(provider.selectedRepo!.id!)),
+                          onSelect: provider.selectRepo,
                         ),
                 ),
               ),
@@ -60,11 +62,12 @@ class HomeScreen extends StatelessWidget {
           // live in each tile's own trailing kebab - per explicit
           // direction, that kebab is gone entirely now that the whole
           // tile is tappable-to-sync and the gif gesture zone below the
-          // list handles pull/push. Single-repo assumption throughout
-          // (operates on provider.repos.first): this app is one phone,
-          // one vault in practice (ADD MANUALLY, the only path that
-          // could add a second, was removed 2026-08-15) - revisit if
-          // multi-repo ever becomes a real use case.
+          // list handles pull/push.
+          // 2026-08-20: "Multi repo needed on app" - these actions now
+          // target provider.selectedRepo (switchable via the app-bar
+          // dropdown, see _AppBarRepoStatus) instead of always
+          // repos.first - real multi-vault support, not just the data
+          // model tolerating it.
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
@@ -72,7 +75,7 @@ class HomeScreen extends StatelessWidget {
               onSelected: (v) {
                 if (v == 'pair') _openPairing(context);
                 if (v == 'link') _openLinking(context);
-                final repo = provider.repos.isEmpty ? null : provider.repos.first;
+                final repo = provider.selectedRepo;
                 if (repo == null) return;
                 if (v == 'commit') {
                   Navigator.push(
@@ -117,13 +120,13 @@ class HomeScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          provider.repos.first.autoSync
+                          provider.selectedRepo!.autoSync
                               ? 'Switch to manual'
                               : 'Switch to auto',
                           style: const TextStyle(color: kStar, fontSize: 14),
                         ),
                         Text(
-                          provider.repos.first.autoSync
+                          provider.selectedRepo!.autoSync
                               ? 'Stop pulling automatically when the app opens'
                               : 'Pull automatically every time the app opens',
                           style:
@@ -243,10 +246,13 @@ class HomeScreen extends StatelessWidget {
             });
             return const SizedBox.shrink();
           }
-          final repo = provider.repos.first;
+          final repo = provider.selectedRepo!;
           // 2026-08-17: the repo tile's summary row moved into the app
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.
+          // 2026-08-20: acts on the selected repo (see app-bar
+          // dropdown), not always the first one, now that multiple can
+          // genuinely exist.
           return _SyncGestureZone(
             onPull: () =>
                 _runAndShow(context, provider.pullRepository(repo.id!)),
@@ -407,34 +413,86 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
   // - this class now owns only gesture detection (drag tracking),
   // calling trigger() on it instead of duplicating that logic here.
   final _gifKey = GlobalKey<ActionGifState>();
+  // 2026-08-20: identifies the inline slot's own on-screen box so a
+  // drag-start can read its real position/size (see _onStart below).
+  final _slotKey = GlobalKey();
   double _drag = 0;
+  OverlayEntry? _overlayEntry;
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
-  // 2026-08-19: "can the swipe be unlimited or as far as the user
-  // swipes" - _maxDrag used to cap the gif's visible travel at 140px
-  // independent of how far the finger kept moving. Removed - _drag now
-  // tracks the finger with no ceiling (_threshold above still gates
-  // how far it needs to travel to register as a completed swipe).
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
+
+  // 2026-08-20: "PULL swipe down disappears at a black space below the
+  // PULL text, doesn't swipe all the way down the screen" - PULL's own
+  // half is barely taller than its own resting content (worse after
+  // last round's 30% gif enlargement), so the unlimited drag added
+  // 2026-08-19 quickly ran the icon into PUSH's half below, whose own
+  // opaque Container then painted over it - looked like the icon
+  // vanishing partway rather than a clean, full-length swipe.
+  //
+  // Fix: while a drag is active, the gif is rendered through a real
+  // OverlayEntry instead of inline - the same mechanism Flutter's own
+  // Draggable uses internally for its feedback widget, and which this
+  // app already relies on elsewhere (linking_screen.dart's desktop ->
+  // vault drag). An Overlay paints above the entire Scaffold, so the
+  // icon is no longer constrained by - or paintable-over by - either
+  // half's own box, and can genuinely travel the full screen.
+  void _onStart(DragStartDetails _) {
+    if (_playing || _overlayEntry != null) return;
+    final box = _slotKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: topLeft.dx,
+        top: topLeft.dy,
+        width: size.width,
+        height: size.height,
+        child: IgnorePointer(
+          child: Transform.translate(
+            offset: Offset(0, _drag),
+            child: ActionGif(
+              key: _gifKey,
+              assetPath: widget.assetPath,
+              height: widget.gifHeight,
+            ),
+          ),
+        ),
+      ),
+    );
+    setState(() => _overlayEntry = entry);
+    Overlay.of(context).insert(entry);
+  }
+
   void _onUpdate(double delta) {
-    if (_playing) return;
-    setState(() {
-      _drag = widget.swipeDown
-          ? (_drag + delta).clamp(0.0, double.infinity)
-          : (_drag + delta).clamp(double.negativeInfinity, 0.0);
-    });
+    if (_playing || _overlayEntry == null) return;
+    _drag = widget.swipeDown
+        ? (_drag + delta).clamp(0.0, double.infinity)
+        : (_drag + delta).clamp(double.negativeInfinity, 0.0);
+    _overlayEntry?.markNeedsBuild();
   }
 
   void _onEnd() {
-    if (_playing) return;
+    if (_overlayEntry == null) return;
     final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
-    setState(() => _drag = 0);
+    _overlayEntry?.remove();
+    setState(() {
+      _overlayEntry = null;
+      _drag = 0;
+    });
     if (reached) _gifKey.currentState?.trigger(widget.onConfirm);
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onVerticalDragStart: _onStart,
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
       child: Container(
@@ -458,13 +516,19 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
-            Transform.translate(
-              offset: Offset(0, _drag),
-              child: ActionGif(
-                key: _gifKey,
-                assetPath: widget.assetPath,
-                height: widget.gifHeight,
-              ),
+            // Reserves the same footprint as the real gif so nothing
+            // else in this Column reflows while it's living in the
+            // overlay during an active drag.
+            SizedBox(
+              key: _slotKey,
+              height: widget.gifHeight,
+              child: _overlayEntry == null
+                  ? ActionGif(
+                      key: _gifKey,
+                      assetPath: widget.assetPath,
+                      height: widget.gifHeight,
+                    )
+                  : null,
             ),
             const SizedBox(height: 14),
             Stack(
@@ -646,10 +710,23 @@ String _timeAgo(DateTime t) {
 // tick?" - the repo tile's summary moved into the app bar itself, and
 // the separate ListView row it used to live in is gone (see the body
 // builder below). Tap still triggers a pull, same as the row did.
+//
+// 2026-08-20: "Multi repo needed on app... row 1 with a drop down for
+// repository 1 or 2 or more switcher" - gained a small dropdown next
+// to the status, but only once a second sync connection actually
+// exists (allRepos.length > 1) - single-vault use, the common case,
+// looks exactly as it did before this.
 class _AppBarRepoStatus extends StatelessWidget {
   final Repository repo;
+  final List<Repository> allRepos;
   final VoidCallback onTap;
-  const _AppBarRepoStatus({required this.repo, required this.onTap});
+  final ValueChanged<int> onSelect;
+  const _AppBarRepoStatus({
+    required this.repo,
+    required this.allRepos,
+    required this.onTap,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -661,56 +738,93 @@ class _AppBarRepoStatus extends StatelessWidget {
     // another pull, which would just fail again the same way.
     final hasError = repo.status == SyncStatus.error && repo.lastError != null;
 
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        if (hasError) {
-          _showFullError(context, repo.lastError!);
-        } else {
-          onTap();
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            if (hasError) {
+              _showFullError(context, repo.lastError!);
+            } else {
+              onTap();
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                isSyncing
-                    ? const _SpinningSync()
-                    : _StatusDot(status: repo.status),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    repo.name,
-                    style: const TextStyle(
-                        color: kStar, fontSize: 13, fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    isSyncing
+                        ? const _SpinningSync()
+                        : _StatusDot(status: repo.status),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        repo.name,
+                        style: const TextStyle(
+                            color: kStar,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    _AutoBadge(autoSync: repo.autoSync),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                _AutoBadge(autoSync: repo.autoSync),
+                if (hasError)
+                  Text(
+                    repo.lastError!.split('\n').first,
+                    style:
+                        const TextStyle(color: Colors.redAccent, fontSize: 10),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else if (isSyncing)
+                  Text(repo.syncPhase.label,
+                      style: const TextStyle(color: kTextMid, fontSize: 10))
+                else if (repo.lastSync != null)
+                  Text('synced ${_timeAgo(repo.lastSync!)}',
+                      style: const TextStyle(color: kTextMid, fontSize: 10)),
               ],
             ),
-            if (hasError)
-              Text(
-                repo.lastError!.split('\n').first,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 10),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              )
-            else if (isSyncing)
-              Text(repo.syncPhase.label,
-                  style: const TextStyle(color: kTextMid, fontSize: 10))
-            else if (repo.lastSync != null)
-              Text('synced ${_timeAgo(repo.lastSync!)}',
-                  style: const TextStyle(color: kTextMid, fontSize: 10)),
-          ],
+          ),
         ),
-      ),
+        if (allRepos.length > 1)
+          PopupMenuButton<int>(
+            color: kSurface,
+            padding: EdgeInsets.zero,
+            tooltip: 'Switch $kContainerName',
+            icon: const Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
+            onSelected: onSelect,
+            itemBuilder: (_) => [
+              for (final r in allRepos)
+                PopupMenuItem(
+                  value: r.id,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        r.id == repo.id ? Icons.check : null,
+                        color: kGreen,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusDot(status: r.status),
+                      const SizedBox(width: 8),
+                      Text(r.name,
+                          style: const TextStyle(color: kStar, fontSize: 14)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
