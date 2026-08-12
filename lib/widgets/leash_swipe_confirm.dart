@@ -31,9 +31,9 @@ import 'progress_person.dart';
 import 'progress_dog.dart';
 import 'controllable_gif.dart';
 
-// Shared between this widget and its caller (linking_screen.dart's
-// gesture detector needs the same ceiling so the two don't drift).
-const kLeashMaxDrag = 120.0;
+// Gap between the person's right edge and the dog's resting position -
+// shared with resolveMaxDrag below so both agree on the same geometry.
+const kLeashRestGap = 20.0;
 
 const _leashGrey = Color(0xFFcfd6de);
 const _leashRed = Color(0xFFef4444);
@@ -42,10 +42,16 @@ const _leashWarningRatio = 0.78;
 class LeashSwipeConfirm extends StatefulWidget {
   final String animatedAssetPath;
   final double height;
-  // Live drag distance (0..kLeashMaxDrag) - the caller owns the
+  // Live drag distance (0..maxDrag) - the caller owns the
   // GestureDetector and threshold decision; this widget only renders
   // whatever it's told and exposes the gif trigger.
   final double dragAmount;
+  // Farthest the dog can be dragged, in pixels - the caller resolves
+  // this via resolveMaxDrag() below (against its own actual available
+  // width) and uses the same value for its drag clamp, so the two
+  // don't drift and the dog can genuinely reach the right edge instead
+  // of stopping at an arbitrary fixed distance.
+  final double maxDrag;
   // The caller's own snap threshold - used only to compute the leash's
   // grey/red warning color (dragAmount as a fraction of this), not for
   // any trigger decision of this widget's own.
@@ -59,10 +65,28 @@ class LeashSwipeConfirm extends StatefulWidget {
     super.key,
     required this.animatedAssetPath,
     required this.dragAmount,
+    required this.maxDrag,
     required this.threshold,
     this.snappingBack = false,
     this.height = 70,
   });
+
+  // 2026-08-19: "gif is not reaching right edge of screen" - the drag
+  // ceiling used to be a fixed 120px regardless of the phone's actual
+  // width. Callers should measure their own real available width
+  // (e.g. via LayoutBuilder) and pass it here so the dog can actually
+  // travel to that edge, not an arbitrary constant. marginPx leaves a
+  // small safety gap so the dog's own art never touches the true edge.
+  static double resolveMaxDrag(double availableWidth,
+      {double height = 70, double marginPx = 4}) {
+    final personWidth =
+        height * PersonFigure.sourceWidth / PersonFigure.sourceHeight;
+    final dogWidth =
+        height * DogFigure.sourceWidth / DogFigure.contentHeight;
+    final maxDrag =
+        availableWidth - personWidth - kLeashRestGap - dogWidth - marginPx;
+    return maxDrag < 60 ? 60 : maxDrag; // sane floor on very narrow screens
+  }
 
   @override
   State<LeashSwipeConfirm> createState() => LeashSwipeConfirmState();
@@ -72,7 +96,6 @@ class LeashSwipeConfirmState extends State<LeashSwipeConfirm> {
   static const _minRun = Duration(milliseconds: 2000);
   static const _snapDuration = Duration(milliseconds: 150);
   static const _springDuration = Duration(milliseconds: 220);
-  static const _restGap = 20.0;
 
   bool _playing = false;
   bool _snappingLeash = false; // brief pre-gif leash-break fade
@@ -110,8 +133,8 @@ class LeashSwipeConfirmState extends State<LeashSwipeConfirm> {
         rowHeight * PersonFigure.sourceWidth / PersonFigure.sourceHeight;
     final dogWidth =
         rowHeight * DogFigure.sourceWidth / DogFigure.contentHeight;
-    final dogLeft = personWidth + _restGap + widget.dragAmount;
-    final leashWidth = _restGap + widget.dragAmount;
+    final dogLeft = personWidth + kLeashRestGap + widget.dragAmount;
+    final leashWidth = kLeashRestGap + widget.dragAmount;
     final tweenDuration =
         widget.snappingBack ? _springDuration : Duration.zero;
     final warningRatio =
@@ -123,7 +146,7 @@ class LeashSwipeConfirmState extends State<LeashSwipeConfirm> {
       height: rowHeight,
       // Reserve width for the farthest possible drag so the control's
       // footprint never reflows mid-drag.
-      width: personWidth + _restGap + kLeashMaxDrag + dogWidth,
+      width: personWidth + kLeashRestGap + widget.maxDrag + dogWidth,
       child: Stack(
         clipBehavior: Clip.none,
         children: [

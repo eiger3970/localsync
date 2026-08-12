@@ -186,13 +186,19 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Text('Remove',
+                      children: [
+                        const Text('Remove',
                             style: TextStyle(
                                 color: Colors.redAccent, fontSize: 14)),
-                        Text('Files are not deleted',
+                        // 2026-08-19: "what does Remove remove, a
+                        // vault, a repository, what?" - "Files are not
+                        // deleted" said what DOESN'T happen without
+                        // saying what does. Named directly: this
+                        // removes the sync connection (the Repository
+                        // record), not the vault folder or its files.
+                        Text('Removes the sync connection - your $kContainerName stays on this phone',
                             style:
-                                TextStyle(color: kTextMid, fontSize: 13)),
+                                const TextStyle(color: kTextMid, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -305,10 +311,19 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
-        title: const Text('Remove repository',
+        // 2026-08-19: "what does Remove remove, a vault, a repository,
+        // what?" - "repository" is developer jargon (same class of fix
+        // as "picker" -> "Files" elsewhere in this app), and the old
+        // body ("Files are not deleted") said what doesn't happen
+        // without naming what does. Now explicit: this removes the
+        // sync connection only, names the actual vault folder by its
+        // real name, and says directly that it stays untouched.
+        title: const Text('Remove sync connection',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: Text(
-          'Remove "${repo.name}"? Files are not deleted.',
+          'This unlinks "${repo.localPath.split('/').last}" from your desktop '
+          '$kGenericAppLabel $kContainerName. The $kContainerName and its '
+          'files stay on this phone.',
           style: const TextStyle(color: kTextMid, fontSize: 15),
         ),
         actions: [

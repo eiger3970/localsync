@@ -280,9 +280,9 @@ class LinkingController extends ChangeNotifier {
   // ── UI strings ─────────────────────────────────────────────────────────────
 
   // 2026-08-14: numbered checklist for the vault-creation screen ("1.1",
-  // "1.2", ... "1.12" in the UI) - same 12 steps as the joined string
-  // below, kept as a list so the checklist widget and the fallback
-  // instruction string can't drift out of sync with each other.
+  // "1.2", ... in the UI) - same steps as the joined string below, kept
+  // as a list so the checklist widget and the fallback instruction
+  // string can't drift out of sync with each other.
   //
   // Verified against iOS 26.1 / Obsidian 1.12.4 (2026-08-14). This
   // recipe is version-specific - Obsidian's own vault-management UI is
@@ -290,16 +290,13 @@ class LinkingController extends ChangeNotifier {
   // silently break it. Re-verify against the real device before
   // trusting this list if it's been a while since the versions above.
   //
-  // 2026-08-16: briefly cut to 10 steps (single force close) after one
-  // live test succeeded, then reverted here - that test used a
-  // previously-untested bare-single-close variant, not either of the
-  // two candidates the user had actually compared side-by-side on
-  // 2026-08-12 (force-close-only with a preceding "New tab" step, vs.
-  // this force-close/reopen/force-close-again sequence) - one success
-  // on an unvalidated variant isn't equivalent to the deliberate
-  // comparison that confirmed this one. Steps 10-12 are back until
-  // that's tested properly (repeat runs, fresh vault name and full
-  // phone reset each time) rather than decided from a single run.
+  // 2026-08-19: "keep the step to force close, but remove the open and
+  // force close again, that's not needed" - dropped the trailing
+  // reopen/force-close-again pair. The earlier force-close/reopen/
+  // force-close sequence (2026-08-16 note, now stale) was carried
+  // forward out of caution after a single-close test succeeded on an
+  // unvalidated variant; explicit direction now settles it the other
+  // way - one force close, ending the list there.
   List<String> get vaultCreationSteps => [
         'swipe up to open $kNoteAppName',
         'swipe from left to right',
@@ -311,8 +308,6 @@ class LinkingController extends ChangeNotifier {
         'tap Create',
         'new vault opens',
         'force close $kNoteAppName',
-        'reopen $kNoteAppName',
-        'force close $kNoteAppName again',
       ];
 
   // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker

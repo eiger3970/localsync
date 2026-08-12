@@ -453,17 +453,17 @@ class _ParkedView extends StatefulWidget {
 class _ParkedViewState extends State<_ParkedView> {
   // 2026-08-16: "important steps that a user might try to skip and
   // have errors later on" - real device testing confirmed the folder
-  // isn't created until force-close/reopen/force-close (steps 1.10-
-  // 1.12) actually happen, so I'VE CREATED IT is now blocked until
-  // they're ticked. Tracked here (lifted out of _StepChecklist's own
-  // private state) so the swipe confirm below can check it.
+  // isn't created until force-close (step 1.10) actually happens, so
+  // I'VE CREATED IT is now blocked until it's ticked. Tracked here
+  // (lifted out of _StepChecklist's own private state) so the swipe
+  // confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
-  // 2026-08-18: "Change to: Tick 1.10 and 1.12, this creates a
-  // folder" - 1.11 (reopen Obsidian) dropped from the strict
-  // requirement; it's the thing you do in between the two force
-  // closes, not itself what makes iOS materialize the folder.
-  static const _criticalIndices = [9, 11]; // 1.10, 1.12
+  // 2026-08-19: "keep the step to force close, but remove the open and
+  // force close again" - 1.11/1.12 (reopen, force-close-again) are
+  // gone from vaultCreationSteps entirely now, so 1.10 (force close)
+  // is both the sole critical step and the last one in the list.
+  static const _criticalIndices = [9]; // 1.10
 
   String? _validateVaultCreationDone() {
     final checked = _vaultCreationChecked;
@@ -471,7 +471,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final allCriticalDone =
         _criticalIndices.every((i) => i < checked.length && checked[i]);
     if (allCriticalDone) return null;
-    return 'Tick 1.10 and 1.12, this creates a folder.';
+    return 'Tick 1.10, this creates a folder.';
   }
 
   @override
@@ -547,12 +547,11 @@ class _ParkedViewState extends State<_ParkedView> {
                     key: const ValueKey(1),
                     groupNumber: 1,
                     steps: ctrl.vaultCreationSteps,
-                    // 2026-08-17: OPEN OBSIDIAN needs to fire twice in
-                    // this flow (1.1 creates the vault, 1.11 reopens
-                    // it) - both indices get the real swipe action so
-                    // 1.11 isn't stuck as an inert checkbox once 1.1
-                    // is already struck through.
-                    swipeActions: {0: ctrl.openObsidianNow, 10: ctrl.openObsidianNow},
+                    // 2026-08-19: was also wired to fire on 1.11
+                    // (reopen Obsidian) - that step is gone now, only
+                    // 1.1 (create the vault) still needs the real
+                    // swipe-to-open action.
+                    swipeActions: {0: ctrl.openObsidianNow},
                     onChanged: (checked) =>
                         setState(() => _vaultCreationChecked = checked),
                   )
@@ -594,7 +593,7 @@ class _ParkedViewState extends State<_ParkedView> {
                   // 2026-08-16: bottom-left instead of centered (no
                   // Center wrapper - the Column's own crossAxisAlignment
                   // is already .start), per explicit direction. Blocked
-                  // by _validateVaultCreationDone() until 1.10-1.12 are
+                  // by _validateVaultCreationDone() until 1.10 is
                   // ticked.
                   // 2026-08-19: final asset split - fixed person, a
                   // real draggable dog, a code-drawn leash that
@@ -805,7 +804,14 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
 
   void _onUpdate(double delta) {
     if (_done) return;
-    setState(() => _drag = (_drag + delta).clamp(-_threshold * 2, 0.0));
+    // 2026-08-19: "swipe up text only physically moves up about 2
+    // lines, make the text swipe up as far as the user swipes" - the
+    // visible travel was capped at -_threshold*2 (72px) regardless of
+    // how far the finger kept moving past that point. _threshold below
+    // still gates how far it needs to travel to register as a
+    // completed swipe (in _onEnd) - only the render-time cap is gone,
+    // so the row now tracks the finger 1:1 with no ceiling.
+    setState(() => _drag = (_drag + delta).clamp(double.negativeInfinity, 0.0));
   }
 
   void _onEnd() {
@@ -1021,12 +1027,18 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
   String? _error;
   double _drag = 0;
   bool _springingBack = false;
+  // 2026-08-19: "gif is not reaching right edge of screen" - resolved
+  // from this control's own actual available width (via LayoutBuilder
+  // below) instead of a fixed constant, so the drag clamp and the
+  // widget's own reserved width always agree with the real screen.
+  // Placeholder until the first LayoutBuilder pass runs.
+  double _maxDrag = 200;
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
   void _onUpdate(double delta) {
     if (_playing || _springingBack) return;
-    setState(() => _drag = (_drag + delta).clamp(0.0, kLeashMaxDrag));
+    setState(() => _drag = (_drag + delta).clamp(0.0, _maxDrag));
   }
 
   Future<void> _onEnd() async {
@@ -1051,49 +1063,55 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
-      onHorizontalDragEnd: (_) => _onEnd(),
-      child: SizedBox(
-        width: double.infinity,
-        child: Stack(
-          alignment: Alignment.centerLeft,
-          children: [
-            if (!_playing) const Positioned.fill(child: SparkleBackground()),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _maxDrag = LeashSwipeConfirm.resolveMaxDrag(constraints.maxWidth);
+        return GestureDetector(
+          onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
+          onHorizontalDragEnd: (_) => _onEnd(),
+          child: SizedBox(
+            width: double.infinity,
+            child: Stack(
+              alignment: Alignment.centerLeft,
               children: [
-                LeashSwipeConfirm(
-                  key: _gifKey,
-                  animatedAssetPath: widget.animatedAssetPath,
-                  dragAmount: _drag,
-                  threshold: _threshold,
-                  snappingBack: _springingBack,
-                  height: 70,
+                if (!_playing) const Positioned.fill(child: SparkleBackground()),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LeashSwipeConfirm(
+                      key: _gifKey,
+                      animatedAssetPath: widget.animatedAssetPath,
+                      dragAmount: _drag,
+                      maxDrag: _maxDrag,
+                      threshold: _threshold,
+                      snappingBack: _springingBack,
+                      height: 70,
+                    ),
+                    if (widget.label != null) ...[
+                      const SizedBox(height: 8),
+                      Text(widget.label!,
+                          style: const TextStyle(
+                              color: kTextMid,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1)),
+                    ],
+                    if (_error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(_error!,
+                          style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ],
                 ),
-                if (widget.label != null) ...[
-                  const SizedBox(height: 8),
-                  Text(widget.label!,
-                      style: const TextStyle(
-                          color: kTextMid,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1)),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_error!,
-                      style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700)),
-                ],
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
