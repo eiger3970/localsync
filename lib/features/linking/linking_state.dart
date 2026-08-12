@@ -233,10 +233,10 @@ extension LinkingErrorDetails on LinkingError {
             '4. On desktop: ip addr show\n'
             '   Verify IP matches what is set in this app',
         LinkingError.sshAuthFailed =>
-          'Tap PAIR NOW below and enter your desktop login password once -\n'
-              'this installs your phone\'s key in ~/.ssh/authorized_keys on the\n'
-              'desktop. If you already paired, the key may not have reached the\n'
-              'desktop (interrupted connection) - pairing again is safe to repeat.',
+          'Tap PAIR NOW below and enter your desktop login password once - '
+              'this installs your phone\'s key in ~/.ssh/authorized_keys on the desktop.\n'
+              'If you already paired, the key may not have reached the desktop '
+              '(interrupted connection) - pairing again is safe to repeat.',
         LinkingError.bareRepoNotFound =>
           'On desktop, verify the bare repo exists:\n'
               'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git\n\n'
@@ -301,20 +301,30 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.pairingNotComplete =>
           'Run pairing first from Settings, then try setup again.',
         LinkingError.pairingPasswordRejected =>
-          'Check the password and try again. This is your desktop login\n'
-              'password, entered once just to install this phone\'s key - it\n'
-              'is never stored.',
+          'Check the password and try again.\n'
+              'This is your desktop login password, entered once just to '
+              'install this phone\'s key - it is never stored.',
         LinkingError.cloneVerificationFailed =>
-          'The download may not have finished, or the folder was moved or\n'
-              'deleted after setup. Tap TRY AGAIN to re-download your notes.\n'
+          'The download may not have finished, or the folder was moved or deleted after setup.\n'
+              'Tap TRY AGAIN to re-download your notes.\n'
               'Nothing on your desktop is affected either way.',
+        // 2026-08-19: "This should read as text that wraps with only
+        // new lines for new sentences" - the manual \n breaks below
+        // used to land at a fixed column width (formatted for a code
+        // editor, not this app's actual proportional-font, variable-
+        // width Text widget), so real device rendering split mid-
+        // sentence instead of wrapping naturally. One \n per sentence
+        // now; word-wrap within each sentence is left to the widget.
+        // Same fix applied to every other prose (non-numbered-list)
+        // resolution string in this switch, once this one exposed the
+        // pattern - the numbered-step entries above are genuine lists
+        // (each \n is a real distinct step) and are unaffected.
         LinkingError.vaultFolderAccessLost =>
-          'This can happen if the folder was moved, renamed, or deleted\n'
-              'after you picked it. Tap TRY AGAIN and tap the vault folder\n'
-              'again. Nothing on your desktop or in the folder itself is\n'
-              'affected.',
+          'This can happen if the folder was moved, renamed, or deleted after you picked it.\n'
+              'Tap TRY AGAIN and tap the vault folder again.\n'
+              'Nothing on your desktop or in the folder itself is affected.',
         LinkingError.vaultPickerFailed =>
-          'Tap TRY AGAIN. If this keeps happening, force-closing and\n'
-              'reopening Synclocal may help.',
+          'Tap TRY AGAIN.\n'
+              'If this keeps happening, force-closing and reopening Synclocal may help.',
       };
 }

@@ -181,26 +181,17 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 if (provider.repos.isNotEmpty) ...[
-                  PopupMenuItem(
+                  // 2026-08-19: "Change Remove to Remove sync
+                  // connection. Remove the explanation text" - the
+                  // label now says directly what it removes, so the
+                  // one-line explainer other items still carry (no
+                  // tooltip fires on iOS tap, see the 2026-08-11 fix
+                  // note above) isn't needed here anymore.
+                  const PopupMenuItem(
                     value: 'delete',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Remove',
-                            style: TextStyle(
-                                color: Colors.redAccent, fontSize: 14)),
-                        // 2026-08-19: "what does Remove remove, a
-                        // vault, a repository, what?" - "Files are not
-                        // deleted" said what DOESN'T happen without
-                        // saying what does. Named directly: this
-                        // removes the sync connection (the Repository
-                        // record), not the vault folder or its files.
-                        Text('Removes the sync connection - your $kContainerName stays on this phone',
-                            style:
-                                const TextStyle(color: kTextMid, fontSize: 13)),
-                      ],
-                    ),
+                    child: Text('Remove sync connection',
+                        style:
+                            TextStyle(color: Colors.redAccent, fontSize: 14)),
                   ),
                 ],
               ],
@@ -368,9 +359,9 @@ class _SyncGestureZone extends StatelessWidget {
             swipeDown: true,
             // 2026-08-17: "a lot of black space between PULL and
             // PUSH, can the gifs be enlarged 30%?" - another 30% up
-            // from last round (90 -> 117 -> 152 -> 198 for pull;
-            // 90 -> 117 -> 152 for push, catching up).
-            gifHeight: 198,
+            // from last round (90 -> 117 -> 152 -> 198 -> 257 for pull;
+            // 90 -> 117 -> 152 -> 198 for push, catching up).
+            gifHeight: 257,
             alignTop: true,
             onConfirm: onPull,
           ),
@@ -380,7 +371,7 @@ class _SyncGestureZone extends StatelessWidget {
             assetPath: 'assets/gifs/git_push.gif',
             caption: 'PUSH',
             swipeDown: false,
-            gifHeight: 152,
+            gifHeight: 198,
             onConfirm: onPush,
           ),
         ),
@@ -411,7 +402,6 @@ class _GifSwipeTrigger extends StatefulWidget {
 
 class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
   static const _threshold = 56.0;
-  static const _maxDrag = 140.0;
   // 2026-08-16: the play/idle + minimum-2000ms/no-max/reset-safety
   // timing logic moved into the shared ActionGif widget (lib/widgets/)
   // - this class now owns only gesture detection (drag tracking),
@@ -421,12 +411,17 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
+  // 2026-08-19: "can the swipe be unlimited or as far as the user
+  // swipes" - _maxDrag used to cap the gif's visible travel at 140px
+  // independent of how far the finger kept moving. Removed - _drag now
+  // tracks the finger with no ceiling (_threshold above still gates
+  // how far it needs to travel to register as a completed swipe).
   void _onUpdate(double delta) {
     if (_playing) return;
     setState(() {
       _drag = widget.swipeDown
-          ? (_drag + delta).clamp(0.0, _maxDrag)
-          : (_drag + delta).clamp(-_maxDrag, 0.0);
+          ? (_drag + delta).clamp(0.0, double.infinity)
+          : (_drag + delta).clamp(double.negativeInfinity, 0.0);
     });
   }
 

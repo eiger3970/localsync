@@ -471,7 +471,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final allCriticalDone =
         _criticalIndices.every((i) => i < checked.length && checked[i]);
     if (allCriticalDone) return null;
-    return 'Tick 1.10, this creates a folder.';
+    return 'Complete and tick 1.10';
   }
 
   @override
