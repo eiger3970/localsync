@@ -249,7 +249,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     // versions kept), never aborted or silently dropped.
     final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
     git.Merge.commit(repo: repo, commit: annotated);
-    if (repo.index.hasConflicts) _repairAllConflictsOnDisk(p.vaultPath);
+    if (repo.index.hasConflicts) {
+      final other = _labelForCommit(repo, remoteOid);
+      _repairAllConflictsOnDisk(p.vaultPath,
+          otherLabel: other.label,
+          otherTime: other.time.isEmpty ? null : other.time);
+    }
     _finishMergeCommit(repo, message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     return const SyncOk('Merged in changes from desktop');
@@ -366,7 +371,20 @@ Future<SyncResult> _withRepo(
     // Recover from any stuck merge from a previous crashed run before
     // doing anything else.
     if (repo.state == git.GitRepositoryState.merge) {
-      if (repo.index.hasConflicts) _repairAllConflictsOnDisk(p.vaultPath);
+      if (repo.index.hasConflicts) {
+        String? otherLabel, otherTime;
+        try {
+          final mergeHeadOid = git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
+          final other = _labelForCommit(repo, mergeHeadOid);
+          otherLabel = other.label;
+          otherTime = other.time.isEmpty ? null : other.time;
+        } catch (_) {
+          // No MERGE_HEAD to read a label from - repair still runs, just
+          // falls back to a generic label.
+        }
+        _repairAllConflictsOnDisk(p.vaultPath,
+            otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
+      }
       _finishMergeCommit(repo);
       repo.stateCleanup();
     }
@@ -517,12 +535,75 @@ git.Signature get _fixedSignature =>
   }
 }
 
-// ── Conflict repair — ports repair_conflicts.py's text strategy verbatim,
+// ── Conflict repair — ports /home/rapi5/Documents/Scripts/repair_conflicts.py's
+//    real strategy (not the earlier trimmed-down version this file had),
 //    just triggered after git2dart's Merge.commit instead of `git merge`.
 //    Operates on working-directory files as plain text, not git's index/
-//    tree objects, so nothing here needed the low-level conflict API. ────
+//    tree objects, so nothing here needed the low-level conflict API.
+//
+//    2026-08-21: "no need to reinvent the wheel, I have the desktop git
+//    bare sync script synco, use that if you need to" - the previous
+//    port here always created a conflict callout for every marker, with
+//    no deduping and no Kanban handling. The real script is smarter:
+//    identical (whitespace-normalized) sides collapse to just `ours`,
+//    non-overlapping additive changes from both sides are auto-appended
+//    with no callout at all (two devices adding different new lines
+//    isn't a real conflict), Kanban board files (kanban-plugin:
+//    frontmatter) get inline %% CONFLICT-OTHER %% comments instead of a
+//    blockquote callout (which doesn't render inside Kanban cards), and
+//    the callout names which device/when the other version came from
+//    instead of a generic label. Ported line-for-line, not reinvented. ──
 
-void _repairAllConflictsOnDisk(String path) {
+final _fullConflictPattern = RegExp(
+  r'^<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n?',
+  multiLine: true,
+  dotAll: true,
+);
+final _partialConflictPattern = RegExp(r'^<<<<<<< [^\n]*\n', multiLine: true);
+final _kanbanFrontmatterPattern = RegExp(r'^kanban-plugin:', multiLine: true);
+
+String _normalizeWhitespace(String text) =>
+    text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+/// Mirrors repair_conflicts.py's dedupe_and_check_append(): if theirs'
+/// lines, once the overlap with the end of ours is removed, don't
+/// duplicate anything already in ours, they're a clean additive change
+/// (both devices appended different new lines) - append with no
+/// conflict callout. Returns null if this auto-merge doesn't apply and
+/// the real conflict-callout fallback is needed.
+String? _dedupeAndCheckAppend(String ours, String theirs) {
+  final oursLines = ours.split('\n');
+  final theirsLines = theirs.split('\n');
+  var overlap = 0;
+  final maxCheck = oursLines.length < theirsLines.length
+      ? oursLines.length
+      : theirsLines.length;
+  for (var i = 1; i <= maxCheck; i++) {
+    final oursTail = oursLines.sublist(oursLines.length - i);
+    final theirsHead = theirsLines.sublist(0, i);
+    var equal = true;
+    for (var j = 0; j < i; j++) {
+      if (oursTail[j] != theirsHead[j]) {
+        equal = false;
+        break;
+      }
+    }
+    if (equal) overlap = i;
+  }
+  final remaining = theirsLines.sublist(overlap);
+  if (remaining.every((l) => l.trim().isEmpty)) return ours;
+
+  final oursSet = oursLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
+  final remainingNonBlank = remaining.where((l) => l.trim().isNotEmpty).toList();
+  if (remainingNonBlank.isNotEmpty &&
+      remainingNonBlank.every((l) => !oursSet.contains(l.trim()))) {
+    return '$ours\n\n${remaining.join('\n').trim()}';
+  }
+  return null;
+}
+
+void _repairAllConflictsOnDisk(String path,
+    {String otherLabel = 'other device', String? otherTime}) {
   final dir = Directory(path);
   for (final entity in dir.listSync(recursive: true, followLinks: false)) {
     if (entity is! File) continue;
@@ -530,27 +611,63 @@ void _repairAllConflictsOnDisk(String path) {
     try {
       final content = entity.readAsStringSync();
       if (!content.contains('<<<<<<< ')) continue;
-      entity.writeAsStringSync(_repairConflictMarkers(content));
+      entity.writeAsStringSync(_repairConflictMarkers(content,
+          otherLabel: otherLabel, otherTime: otherTime));
     } catch (_) {
       // Skip unreadable files
     }
   }
 }
 
-String _repairConflictMarkers(String content) {
-  final pattern = RegExp(
-    r'^<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n?',
-    multiLine: true,
-    dotAll: true,
-  );
-  return content.replaceAllMapped(pattern, (m) {
-    final ours   = m.group(1)!.trim();
+String _repairConflictMarkers(String content,
+    {required String otherLabel, String? otherTime}) {
+  final isKanban = _kanbanFrontmatterPattern.hasMatch(content);
+
+  String mergeBoth(Match m) {
+    final ours = m.group(1)!.trim();
     final theirs = m.group(2)!.trim();
-    final callout = theirs.split('\n').map((l) => '> $l').join('\n');
+
+    if (_normalizeWhitespace(ours) == _normalizeWhitespace(theirs)) {
+      return '$ours\n';
+    }
+
+    final appended = _dedupeAndCheckAppend(ours, theirs);
+    if (appended != null) return '$appended\n';
+
+    if (isKanban) {
+      final otherLines = theirs
+          .split('\n')
+          .map((l) => '%% CONFLICT-OTHER ($otherLabel): $l %%')
+          .join('\n');
+      return '$ours\n$otherLines\n';
+    }
+    final label = otherTime != null ? '$otherLabel — $otherTime' : otherLabel;
+    final callout = theirs.split('\n').map((l) => '> $l\n').join('');
     return '$ours\n\n'
-           '> [!warning]+ SYNC CONFLICT - other device version (review and delete one)\n'
-           '$callout\n\n';
-  });
+        '> [!warning]+ SYNC CONFLICT — $label (review and delete one)\n'
+        '$callout\n';
+  }
+
+  var fixed = content.replaceAllMapped(_fullConflictPattern, mergeBoth);
+  // Stray/incomplete markers left over from a previous failed repair.
+  fixed = fixed.replaceAll(_partialConflictPattern, '');
+  return fixed;
+}
+
+/// Mirrors synco.sh's SYNCO_OTHER_LABEL/SYNCO_OTHER_TIME - the other
+/// side's commit summary and formatted date, used to name which
+/// device/when a conflicting version came from instead of a generic
+/// label.
+({String label, String time}) _labelForCommit(git.Repository repo, git.Oid oid) {
+  try {
+    final commit = git.Commit.lookup(repo: repo, oid: oid);
+    final t = DateTime.fromMillisecondsSinceEpoch(commit.time * 1000);
+    String p2(int v) => v.toString().padLeft(2, '0');
+    final time = '${t.year}-${p2(t.month)}-${p2(t.day)} ${p2(t.hour)}:${p2(t.minute)}';
+    return (label: commit.summary, time: time);
+  } catch (_) {
+    return (label: 'other device', time: '');
+  }
 }
 
 LinkingError _diagnose(Object e) {
