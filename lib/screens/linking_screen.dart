@@ -18,7 +18,7 @@ import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/sparkle_background.dart';
-import '../widgets/swap_gif_trigger.dart';
+import '../widgets/leash_swipe_confirm.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
 
@@ -596,15 +596,17 @@ class _ParkedViewState extends State<_ParkedView> {
                   // is already .start), per explicit direction. Blocked
                   // by _validateVaultCreationDone() until 1.10-1.12 are
                   // ticked.
-                  // 2026-08-17: real asset pair, not a single gif - at
-                  // rest shows the dog art (DogFrame0, see
-                  // widgets/dog_frame0.dart), swaps to
-                  // dog_progress_off_leash.gif on swipe. Label dropped
-                  // ("saves vertical space... user should be able to
-                  // figure out to slide... once the gif is correctly
-                  // showing the person holding the dog on the leash").
+                  // 2026-08-19: final asset split - fixed person, a
+                  // real draggable dog, a code-drawn leash that
+                  // stretches with the drag, snapping to
+                  // progress_running.gif once dragged past threshold
+                  // (see widgets/leash_swipe_confirm.dart). Label
+                  // dropped ("saves vertical space... user should be
+                  // able to figure out to slide... once the gif is
+                  // correctly showing the person holding the dog on
+                  // the leash").
                   _SwapGifSwipeConfirm(
-                    animatedAssetPath: 'assets/gifs/dog_progress_off_leash.gif',
+                    animatedAssetPath: 'assets/gifs/progress_running.gif',
                     onConfirm: ctrl.confirmVaultCreated,
                     validate: _validateVaultCreationDone,
                   ),
@@ -991,11 +993,12 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
   }
 }
 
-// 2026-08-17: sibling to _GifSwipeConfirm, for the static-image + gif
-// asset pairs (SwapGifTrigger) instead of a single gif with no
-// separate resting frame. Same gesture/sparkle/error chrome,
-// duplicated rather than shared through an abstraction - two concrete
-// cases doesn't earn a generic base class yet.
+// 2026-08-19: rebuilt around LeashSwipeConfirm (widgets/
+// leash_swipe_confirm.dart) - this class still owns the outer gesture
+// detection, the drag/threshold decision, and the sparkle/label/error
+// chrome; the inner widget just renders whatever drag state it's told
+// and exposes the gif trigger, same GlobalKey pattern as the previous
+// SwapGifTrigger-based version.
 class _SwapGifSwipeConfirm extends StatefulWidget {
   final String animatedAssetPath;
   final String? label;
@@ -1014,28 +1017,35 @@ class _SwapGifSwipeConfirm extends StatefulWidget {
 
 class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
   static const _threshold = 64.0;
-  final _gifKey = GlobalKey<SwapGifTriggerState>();
+  final _gifKey = GlobalKey<LeashSwipeConfirmState>();
   String? _error;
-  double _drag = 0; // tracked for threshold only, not rendered - see
-  // _GifSwipeConfirmState's comment on the same field for why.
+  double _drag = 0;
+  bool _springingBack = false;
 
   bool get _playing => _gifKey.currentState?.isPlaying ?? false;
 
   void _onUpdate(double delta) {
-    if (_playing) return;
-    _drag = (_drag + delta).clamp(0.0, 400.0);
+    if (_playing || _springingBack) return;
+    setState(() => _drag = (_drag + delta).clamp(0.0, kLeashMaxDrag));
   }
 
-  void _onEnd() {
-    if (_playing) return;
+  Future<void> _onEnd() async {
+    if (_playing || _springingBack) return;
     final reached = _drag >= _threshold;
-    _drag = 0;
-    if (!reached) return;
+    final error = reached ? widget.validate?.call() : null;
 
-    final error = widget.validate?.call();
-    setState(() => _error = error);
-    if (error != null) return;
+    if (!reached || error != null) {
+      setState(() {
+        _error = error ?? _error;
+        _drag = 0;
+        _springingBack = true;
+      });
+      await Future.delayed(const Duration(milliseconds: 220));
+      if (mounted) setState(() => _springingBack = false);
+      return;
+    }
 
+    setState(() => _error = null);
     _gifKey.currentState?.playThenRun(widget.onConfirm);
   }
 
@@ -1054,9 +1064,12 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SwapGifTrigger(
+                LeashSwipeConfirm(
                   key: _gifKey,
                   animatedAssetPath: widget.animatedAssetPath,
+                  dragAmount: _drag,
+                  threshold: _threshold,
+                  snappingBack: _springingBack,
                   height: 70,
                 ),
                 if (widget.label != null) ...[
@@ -1314,15 +1327,14 @@ class _CompleteViewState extends State<_CompleteView>
           ),
           const SizedBox(height: 16),
           Center(
-            // 2026-08-18: "bottom needs the same dog_progress_frame0.svg
-            // and when swiped the dog_progress_off_leash.gif takes
-            // over" - switched from the distinct dog_success_stand.gif
-            // to the same asset pair as page 2's I'VE CREATED IT, for
+            // 2026-08-18: "bottom needs the same progress_person/dog
+            // and when swiped the progress_running.gif takes over" -
+            // same asset pair as page 2's I'VE CREATED IT, for
             // consistency between the two confirm actions. _leaveSetup,
             // not a bare pop - see this file's header comment for the
             // black-screen crash this fixes.
             child: _SwapGifSwipeConfirm(
-              animatedAssetPath: 'assets/gifs/dog_progress_off_leash.gif',
+              animatedAssetPath: 'assets/gifs/progress_running.gif',
               onConfirm: () => _leaveSetup(context),
             ),
           ),

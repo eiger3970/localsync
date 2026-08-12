@@ -89,7 +89,51 @@ class HomeScreen extends StatelessWidget {
               // a tooltip (already known not to fire on iOS tap, see the
               // fix note above) or a chat explanation the user won't have
               // open next time they wonder.
+              //
+              // 2026-08-19: reordered - the two everyday, repo-scoped
+              // actions (commit, auto/manual toggle) now lead, since
+              // they're what gets tapped most once set up is done;
+              // Pair/Set up (one-time/rare) moved below a divider;
+              // Remove stays last, now with the same "files are not
+              // deleted" explainer as its own confirm dialog below, so
+              // "Remove" doesn't read as ambiguous about what it removes.
               itemBuilder: (_) => [
+                if (provider.repos.isNotEmpty) ...[
+                  PopupMenuItem(
+                    value: 'commit',
+                    child: Text('Commit with message...',
+                        style: TextStyle(color: kStar, fontSize: 14)),
+                  ),
+                  // 2026-08-18: "I can't think of a solution to a
+                  // desktop mouseover info feature for the phone
+                  // finger controls" - no hover tooltips on a touch
+                  // screen, so same fix as the Pair/Set-up items below:
+                  // a persistent one-line explainer under the label
+                  // instead of relying on a tooltip that can't fire.
+                  PopupMenuItem(
+                    value: 'toggle_auto',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          provider.repos.first.autoSync
+                              ? 'Switch to manual'
+                              : 'Switch to auto',
+                          style: const TextStyle(color: kStar, fontSize: 14),
+                        ),
+                        Text(
+                          provider.repos.first.autoSync
+                              ? 'Stop pulling automatically when the app opens'
+                              : 'Pull automatically every time the app opens',
+                          style:
+                              const TextStyle(color: kTextMid, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                ],
                 PopupMenuItem(
                   value: 'pair',
                   child: Row(
@@ -137,45 +181,20 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 if (provider.repos.isNotEmpty) ...[
-                  const PopupMenuDivider(),
                   PopupMenuItem(
-                    value: 'commit',
-                    child: Text('Commit with message...',
-                        style: TextStyle(color: kStar, fontSize: 14)),
-                  ),
-                  // 2026-08-18: "I can't think of a solution to a
-                  // desktop mouseover info feature for the phone
-                  // finger controls" - no hover tooltips on a touch
-                  // screen, so same fix as the Pair/Set-up items above:
-                  // a persistent one-line explainer under the label
-                  // instead of relying on a tooltip that can't fire.
-                  PopupMenuItem(
-                    value: 'toggle_auto',
+                    value: 'delete',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          provider.repos.first.autoSync
-                              ? 'Switch to manual'
-                              : 'Switch to auto',
-                          style: const TextStyle(color: kStar, fontSize: 14),
-                        ),
-                        Text(
-                          provider.repos.first.autoSync
-                              ? 'Stop pulling automatically when the app opens'
-                              : 'Pull automatically every time the app opens',
-                          style:
-                              const TextStyle(color: kTextMid, fontSize: 13),
-                        ),
+                      children: const [
+                        Text('Remove',
+                            style: TextStyle(
+                                color: Colors.redAccent, fontSize: 14)),
+                        Text('Files are not deleted',
+                            style:
+                                TextStyle(color: kTextMid, fontSize: 13)),
                       ],
                     ),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Remove',
-                        style:
-                            TextStyle(color: Colors.redAccent, fontSize: 14)),
                   ),
                 ],
               ],
