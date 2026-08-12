@@ -1,5 +1,5 @@
 // Single source for the target note-taking app's name, shown throughout
-// the vault-setup UI. Obsidian is the only app synclocal actually talks to
+// the vault-setup UI. Obsidian is the only app localsync actually talks to
 // right now (via its obsidian:// URL scheme and On My iPhone/Obsidian
 // folder) - this constant only swaps display text, not the real
 // integration. Swapping to Joplin/Logseq/etc later still needs new
@@ -14,7 +14,7 @@ const String kNoteAppName = 'Obsidian';
 // descriptive copy only. Does NOT cover instructional text that quotes
 // Obsidian's actual on-screen button labels ("Create a vault" inside the
 // real Obsidian app) - that has to stay literally accurate to what's
-// really on screen regardless of what synclocal calls the concept, and
+// really on screen regardless of what localsync calls the concept, and
 // would need a full rewrite (not a word swap) for any other app anyway.
 const String kContainerName = 'vault';
 
@@ -25,6 +25,6 @@ const String kContainerName = 'vault';
 // ("OPEN OBSIDIAN", "Install Obsidian from the App Store") - those have
 // to keep saying the real app name or the instruction breaks. This one
 // is for our own purely descriptive copy only (headings, glyph labels,
-// the synclocal-generated repo display name) - decided scope: chose
+// the localsync-generated repo display name) - decided scope: chose
 // "descriptive text only" over genericizing the action buttons too.
 const String kGenericAppLabel = 'PKM';

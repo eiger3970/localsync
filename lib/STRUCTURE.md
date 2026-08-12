@@ -1,4 +1,4 @@
-# synclocal — lib/ structure
+# localsync — lib/ structure
 
 Feature-first layout. Each feature owns its state, controller, and screen.
 Services are shared infrastructure injected via Provider.
@@ -44,7 +44,7 @@ A state machine parks explicitly and resumes on AppLifecycleState.resumed.
 ### Git library: git2dart (decided 2026-08-08, supersedes Working Copy plan)
 - dart-git: push/pull unimplemented, abandoned 2022 - ruled out
 - Working Copy URL-scheme delegation: this was the original MVP plan, but
-  it means Synclocal doesn't actually sync anything itself - it's fully
+  it means Localsync doesn't actually sync anything itself - it's fully
   dependent on a separate paid third-party iOS app doing the real work.
   Rejected 2026-08-08: the whole point of the product is to do this
   natively, not depend on Working Copy.
@@ -70,27 +70,27 @@ A state machine parks explicitly and resumes on AppLifecycleState.resumed.
   desktop bare repo regardless of which git library does the push/pull.
   Pairing is still unbuilt (see features/pairing/ below, still TODO).
 
-### Vault folder: Synclocal's own, not Working Copy's link trick (corrected 2026-08-08)
+### Vault folder: Localsync's own, not Working Copy's link trick (corrected 2026-08-08)
 Working Copy's role wasn't just git - `openWorkingCopyLinkURL()` in
 `ios_app_service.dart` uses Working Copy's own proprietary
 `working-copy://x-callback-url/link?repo=X&path=Y` feature, which makes
 Working Copy's cloned repo folder *become* the exact folder Obsidian
 treats as its vault. That's a Working Copy-only trick, not a generic
 iOS capability - initial confusion here led to wrongly assuming
-Synclocal would need to reach into an *existing* separate Obsidian
+Localsync would need to reach into an *existing* separate Obsidian
 vault folder (via UIDocumentPickerViewController + a security-scoped
 bookmark) once Working Copy was removed.
 
-**Corrected direction (user caught this 2026-08-08): Synclocal is a
+**Corrected direction (user caught this 2026-08-08): Localsync is a
 fully independent app.** It doesn't reach into anything Working Copy
 or Obsidian owns. Instead: enable `UIFileSharingEnabled` and
 `LSSupportsOpeningDocumentsInPlace` (both `true`) in `ios/Runner/Info.plist`
 - standard, documented Apple mechanism since iOS 11, not proprietary to
-any third-party app. This exposes Synclocal's own Documents directory
-under Files > On My iPhone > Synclocal. `git2dart` clones/pulls straight
+any third-party app. This exposes Localsync's own Documents directory
+under Files > On My iPhone > Localsync. `git2dart` clones/pulls straight
 into that directory. The user then points Obsidian at *that* folder as
 their vault (same "open folder as vault" flow Obsidian already
-supports for any folder) - Obsidian adapts to Synclocal's folder, not
+supports for any folder) - Obsidian adapts to Localsync's folder, not
 the other way around.
 
 **Known caveat to verify on a real device later:** some iOS 18 reports
@@ -133,7 +133,7 @@ a dead end, just something to confirm once there's a real build to test.
   retry (expected to fail once) -> relaunch Working Copy to clear its
   error banner -> pull. Most of that existed to work around Working
   Copy's own "link" feature quirks. New flow: git2dart clones straight
-  into Synclocal's own exposed Documents folder (in-process, no
+  into Localsync's own exposed Documents folder (in-process, no
   external app) -> user opens Obsidian's standard "Open folder as
   vault" pointing at the already-populated folder. Nothing to link -
   the vault folder simply *is* the git-managed folder from the start.
@@ -435,7 +435,7 @@ a dead end, just something to confirm once there's a real build to test.
     "Failed to lookup symbol" error naming something other than a
     libgit2 function if this happens.
   - **CONFIRMED FIXED 2026-08-09.** Real device now boots straight to
-    the actual app UI: "synclocal / No repositories / SET UP VAULT".
+    the actual app UI: "localsync / No repositories / SET UP VAULT".
     No crash, no white screen. This closes the entire
     `git_libgit2_init` debugging arc (four real-device test cycles
     across 2026-08-08 and 2026-08-09: static framework linkage ->
@@ -443,7 +443,7 @@ a dead end, just something to confirm once there's a real build to test.
     visibility - each one a genuinely different bug in a different
     part of the pipeline, not the same guess repeated). Reverted the
     diagnostic boot screen in `main()` back to the plain
-    `async main() { ... runApp(SynclocalApp(...)) }` per the plan
+    `async main() { ... runApp(LocalSyncApp(...)) }` per the plan
     noted in its own comment - `_BootScreen`/`_BootScreenState` are
     gone, `PlatformSpecific.initialize()` and
     `getApplicationDocumentsDirectory()` now just run inline before
@@ -517,7 +517,7 @@ discipline as the crash debugging:
   reported "not installed" even when installed, because
   `LSApplicationQueriesSchemes` was entirely absent from `Info.plist`.
 - **Sequencing bug lost the user mid-flow**: `_openObsidianForVaultPick()`
-  called `launchUrl()` (backgrounding Synclocal) *before* setting the
+  called `launchUrl()` (backgrounding Localsync) *before* setting the
   parked step and notifying - the "here's what to do in Obsidian, then
   come back" instructions never got a chance to render. Now shows
   instructions first with a deliberate `OPEN OBSIDIAN` button.
@@ -534,7 +534,7 @@ discipline as the crash debugging:
 After the end-to-end success above, testing the *ongoing* sync path
 (not just initial setup) surfaced the most serious bug found this
 session: `SyncService.fromRepo()` used `repo.obsidianVaultPath` (a
-cosmetic Files-app display label like `"On My iPhone/Synclocal"`) as
+cosmetic Files-app display label like `"On My iPhone/Localsync"`) as
 the real filesystem path for git operations. That string can never
 resolve to a real directory, so `fullSync()`'s very first check
 (`Directory('$vaultPath/.git').exists()`) always failed, immediately
@@ -558,7 +558,7 @@ never actually worked anyway.
 unconditionally reported success regardless of whether the user did
 anything in Obsidian, confirmed on a real device (user backgrounded
 Obsidian without touching it, switched back, got "You're all set!").
-Added the one check Synclocal can genuinely make from its own sandbox
+Added the one check Localsync can genuinely make from its own sandbox
 (did the download actually produce files locally - `.git` dir exists,
 folder non-empty) via a new `LinkingError.cloneVerificationFailed`
 case. **Cannot** verify the Obsidian-side step (folder opened as a
@@ -606,9 +606,9 @@ real, and only just started working at all today. Settings feature
 (would fix the hardcoded-IP problem) and the user's list of real
 Working Copy/sync errors (below) are both still outstanding.
 
-### Major architecture correction: Obsidian owns the vault folder, not Synclocal (2026-08-09)
+### Major architecture correction: Obsidian owns the vault folder, not Localsync (2026-08-09)
 Everything above this point in the doc describes the *previous*
-architecture: Synclocal clones into its own private Documents folder,
+architecture: Localsync clones into its own private Documents folder,
 then the user is told to "open folder as vault" in Obsidian to point
 at it. **That direction was wrong**, and it's why full end-to-end
 completion kept reporting success without the user ever actually
@@ -671,7 +671,7 @@ iOS UI from training-data memory. Two concrete confirmations:
   cached path for the actual git operations.
 - `RepositoryProvider._refreshLocalPaths()` (the fix from the
   container-path-instability finding above) removed entirely - it
-  existed specifically to work around Synclocal's own container path
+  existed specifically to work around Localsync's own container path
   going stale across reinstalls, which doesn't apply once the vault
   folder lives in Obsidian's own stable storage instead.
 - `add_repository_screen.dart`'s manual "Add Repository" form now uses
@@ -704,7 +704,7 @@ assumes) and whether the picker/bookmark round-trip actually works.
   exists to target)
 - obsidian://open?vault=NAME               (added 2026-08-14 -
   real device confirmed a bare open landed on Obsidian's last-active
-  vault, not the one Synclocal just linked; NAME is the picked
+  vault, not the one Localsync just linked; NAME is the picked
   folder's own name. Used from the complete screen once a vault has
   actually been picked - see openObsidianNow() in
   linking_controller.dart)
@@ -805,7 +805,7 @@ into the checklist" treatment: `_StepChecklist` gained
 first row (1.1 on page 3, 3.0 on page 5) *is* the real swipe/tap
 gesture (`_SwipeChecklistRow`/`_TapChecklistRow`) instead of a
 checkbox describing a separate button elsewhere. The confirm gesture
-on both pages (I'VE CREATED IT / SYNCLOCAL HOME) is now
+on both pages (I'VE CREATED IT / LOCALSYNC HOME) is now
 `_GifSwipeConfirm`, using `dog_progress_off_leash.gif` instead of a
 plain pill button. The old `_SwipeToConfirm` widget (pages 3/5's
 original swipe pills) was fully removed once both call sites moved
@@ -816,6 +816,6 @@ The 8-step sequence and error resolution strings live in:
 - linking_state.dart (LinkingError.resolution)
 - linking_controller.dart (step logic)
 
-These are the core value of synclocal. Keep them out of any
+These are the core value of localsync. Keep them out of any
 open-source release.
 ```

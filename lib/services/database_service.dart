@@ -29,7 +29,7 @@ class DatabaseService {
       remoteUser:        'rapi5',
       remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
       localPath:         '/web-demo-not-a-real-path',
-      obsidianVaultPath: 'On My iPhone/$kNoteAppName/Synclocal',
+      obsidianVaultPath: 'On My iPhone/$kNoteAppName/Localsync',
       autoSync:          true,
       status:            SyncStatus.ok,
       lastSync:          DateTime.now().subtract(const Duration(minutes: 4)),

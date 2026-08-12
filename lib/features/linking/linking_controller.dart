@@ -4,10 +4,10 @@
 //
 // Rewritten 2026-08-09 with the flow direction corrected - see
 // linking_state.dart's header comment and lib/STRUCTURE.md for the full
-// finding. Obsidian creates and owns its vault folder first; Synclocal
+// finding. Obsidian creates and owns its vault folder first; Localsync
 // requests access to it afterward via iOS's real folder picker
 // (VaultFolderService), obtaining a security-scoped bookmark. The
-// clone happens into that externally-owned folder, not Synclocal's own
+// clone happens into that externally-owned folder, not Localsync's own
 // private Documents directory.
 //
 // Resumes on AppLifecycleState.resumed via lifecycle_observer.dart.
@@ -107,7 +107,7 @@ class LinkingController extends ChangeNotifier {
     if (kIsWeb) return;
     // 2026-08-14: real device feedback - tapping OPEN OBSIDIAN from the
     // complete screen opened Obsidian's last-active vault, not the one
-    // Synclocal just linked, since a bare "obsidian://" open can't
+    // Localsync just linked, since a bare "obsidian://" open can't
     // target a specific vault. Once a vault folder has actually been
     // picked (_pickedVaultPath set), pass its folder name - which is
     // the vault's display name, since that's exactly the folder the
@@ -251,7 +251,7 @@ class LinkingController extends ChangeNotifier {
     _step = LinkingStep.verifySync;
     notifyListeners();
 
-    // The one thing Synclocal can genuinely check from its own sandbox
+    // The one thing Localsync can genuinely check from its own sandbox
     // is whether the download actually produced real files - it cannot
     // see into Obsidian to confirm the folder is displayed as a vault
     // there (no cross-app introspection on iOS).
@@ -312,7 +312,7 @@ class LinkingController extends ChangeNotifier {
 
   // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker
   // screen (2.1-2.6) - what the user does inside iOS's native document
-  // picker after tapping VAULT FOLDER, which Synclocal has no
+  // picker after tapping VAULT FOLDER, which Localsync has no
   // visibility into once it's open.
   List<String> get vaultFolderSteps => [
         'swipe up to open VAULT FOLDER',
@@ -335,10 +335,10 @@ class LinkingController extends ChangeNotifier {
   // (pairing check, clone, verify) run autonomously with a spinner, not
   // something the user does, so they're not counted here.
   // 2026-08-11: steps below are the user's own dictated sequence,
-  // transcribed exactly, not synclocal's previous guess - "do not
+  // transcribed exactly, not localsync's previous guess - "do not
   // change my steps, exactly what I have is the secret recipe" (real
   // Obsidian iOS + Working Copy research, hard-won over real trial and
-  // error - see [[project_synclocal_vault_recipe]] memory /
+  // error - see [[project_localsync_vault_recipe]] memory /
   // STRUCTURE.md's "Protected IP" section). Final steps corrected
   // 2026-08-12: the user's own document has two different candidates
   // for "the trick that creates a new path on the iPhone" - a single

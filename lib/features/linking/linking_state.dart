@@ -8,7 +8,7 @@
 // tool requests access to it afterward via iOS's real cross-app folder
 // picker (a security-scoped bookmark - see VaultFolderService and
 // AppDelegate.swift's VaultFolderChannel). The previous 2026-08-08
-// version had this backwards: cloning into Synclocal's own private
+// version had this backwards: cloning into Localsync's own private
 // folder and expecting Obsidian to later "open" it - no such import
 // path exists in Obsidian's iOS UI ("Open folder as vault" was never
 // real). See lib/STRUCTURE.md for the full finding.
@@ -31,7 +31,7 @@ enum LinkingStep {
   awaitingVaultCreation,
 
   /// User taps "Select vault folder" - presents iOS's native folder
-  /// picker so Synclocal can request access to the vault folder just
+  /// picker so Localsync can request access to the vault folder just
   /// created, obtaining a security-scoped bookmark.
   pickingVaultFolder,
 
@@ -153,7 +153,7 @@ enum LinkingError {
 
   /// The cloned folder is missing or empty when reaching verifySync -
   /// added 2026-08-09 after _verifySync() was found to be a no-op that
-  /// unconditionally reported success. This is the one thing Synclocal
+  /// unconditionally reported success. This is the one thing Localsync
   /// can actually check from its own sandbox (whether the download
   /// produced real files) - it genuinely cannot see into Obsidian to
   /// confirm the folder was opened as a vault there, iOS doesn't allow
@@ -222,7 +222,7 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.cloneVerificationFailed =>
           'Your notes were not found in the expected folder on this phone.',
         LinkingError.vaultFolderAccessLost =>
-          'Synclocal lost access to your vault folder.',
+          'Localsync lost access to your vault folder.',
         LinkingError.vaultPickerFailed => 'Could not open Files.',
       };
 
@@ -325,6 +325,6 @@ extension LinkingErrorDetails on LinkingError {
               'Nothing on your desktop or in the folder itself is affected.',
         LinkingError.vaultPickerFailed =>
           'Tap TRY AGAIN.\n'
-              'If this keeps happening, force-closing and reopening Synclocal may help.',
+              'If this keeps happening, force-closing and reopening Localsync may help.',
       };
 }

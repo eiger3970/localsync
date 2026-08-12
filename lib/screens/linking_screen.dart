@@ -17,17 +17,18 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
 import '../widgets/controllable_gif.dart';
+import '../widgets/diag_card.dart';
 import '../widgets/sparkle_background.dart';
 import '../widgets/leash_swipe_confirm.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
-// black screen" / "I swiped right [SYNCLOCAL HOME] and blackscreen".
+// black screen" / "I swiped right [LOCALSYNC HOME] and blackscreen".
 // Root cause: home_screen.dart's empty-repos auto-redirect uses
 // pushReplacement, so when LinkingScreen is reached that way it has
 // nothing beneath it in the navigation stack. A bare Navigator.pop()
-// (the X button, SYNCLOCAL HOME's confirm, and the failed screen's
+// (the X button, LOCALSYNC HOME's confirm, and the failed screen's
 // CANCEL all did this) then pops into a void - a real dead end, not a
 // recoverable state (matches "force closed the app, reopened" being
 // the only way out). canPop() first, falling back to a fresh
@@ -363,7 +364,7 @@ class _IdleViewState extends State<_IdleView>
                 const SizedBox(height: 10),
                 // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
                 // per explicit direction. Wording also fixed - "nothing
-                // else on this phone is touched" read as if synclocal
+                // else on this phone is touched" read as if localsync
                 // might be reading/scanning existing phone data, when
                 // the real direction is desktop -> phone, write-only.
                 Row(
@@ -1196,7 +1197,7 @@ class _CompleteViewState extends State<_CompleteView>
       remotePort: ctrl.sshPort,
       localPath: vaultPath,
       vaultBookmark: vaultBookmark,
-      // 2026-08-15: was hardcoded to literal "Synclocal" - same stale
+      // 2026-08-15: was hardcoded to literal "Localsync" - same stale
       // assumption fixed in the display text and deep link earlier,
       // just missed here. Display-only field (see repository.dart),
       // but still wrong for anyone who typed a different vault name.
@@ -1286,13 +1287,13 @@ class _CompleteViewState extends State<_CompleteView>
           ),
           const SizedBox(height: 14),
           // Fixed 2026-08-09: this used to say "Your phone vault is
-          // linked to your desktop" - overclaiming. Synclocal can only
+          // linked to your desktop" - overclaiming. Localsync can only
           // verify that files were downloaded onto the phone (checked
           // in _verifySync()); it has no way to confirm Obsidian was
           // ever actually pointed at that folder - no cross-app
           // introspection on iOS. Real device feedback: a user reached
           // this screen without ever having opened the folder as a
-          // vault in Obsidian ("Synclocal" never appeared in Obsidian's
+          // vault in Obsidian ("Localsync" never appeared in Obsidian's
           // own vault list), and the old wording had already told them
           // they were fully linked. Now honest about what's actually
           // still required, with a direct way to do it from here.
@@ -1302,10 +1303,10 @@ class _CompleteViewState extends State<_CompleteView>
           // rewrite, since selecting the vault folder is now a
           // precondition of reaching this screen at all (it happens
           // before the clone, not after). This screen is reached only
-          // once Synclocal already has real access to that same folder
+          // once Localsync already has real access to that same folder
           // Obsidian is showing.
           Text(
-            // 2026-08-14: was hardcoded to a literal "Synclocal" vault
+            // 2026-08-14: was hardcoded to a literal "Localsync" vault
             // name - stale now that step 1's instructions never tell
             // the user to type that specific name (see
             // vaultCreationSteps). Uses the actual picked folder's
@@ -1335,7 +1336,7 @@ class _CompleteViewState extends State<_CompleteView>
           const SizedBox(height: 12),
           // 2026-08-15: expanded to include the two swipe actions
           // themselves (3.0, 3.5) and the background-switch back to
-          // Synclocal (3.4) per explicit direction, so the checklist is
+          // Localsync (3.4) per explicit direction, so the checklist is
           // a complete, self-contained record of every physical action
           // in the sequence - not just the three that happen inside
           // Obsidian. 3.0 (OPEN OBSIDIAN) is now embedded directly in
@@ -1355,7 +1356,7 @@ class _CompleteViewState extends State<_CompleteView>
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
               'tap X to skip Community plugins (set up later)',
-              'return to Synclocal app',
+              'return to Localsync app',
             ],
           ),
           const SizedBox(height: 16),
@@ -1438,7 +1439,7 @@ class _FailedView extends StatelessWidget {
           const SizedBox(height: 20),
 
           // What happened
-          _DiagCard(
+          DiagCard(
             label: 'WHAT HAPPENED',
             text: failure.diagnosis,
             accent: Colors.redAccent,
@@ -1446,7 +1447,7 @@ class _FailedView extends StatelessWidget {
           const SizedBox(height: 12),
 
           // How to fix it
-          _DiagCard(
+          DiagCard(
             label: 'HOW TO FIX IT',
             text: failure.resolution,
             accent: kGreen,
@@ -1454,7 +1455,7 @@ class _FailedView extends StatelessWidget {
 
           if (failure.debugDetail != null) ...[
             const SizedBox(height: 12),
-            _DiagCard(
+            DiagCard(
               label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
               text: failure.debugDetail!,
               accent: Colors.redAccent,
@@ -1498,42 +1499,10 @@ class _FailedView extends StatelessWidget {
   }
 }
 
-class _DiagCard extends StatelessWidget {
-  final String label;
-  final String text;
-  final Color accent;
-  const _DiagCard({
-    required this.label,
-    required this.text,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kSurface,
-        border: Border(left: BorderSide(color: accent, width: 2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: accent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5)),
-          const SizedBox(height: 8),
-          Text(text,
-              style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
-        ],
-      ),
-    );
-  }
-}
+// 2026-08-20: _DiagCard moved to widgets/diag_card.dart (as DiagCard, no
+// underscore) so home_screen.dart's sync-error dialog can share the
+// exact same labeled-card layout instead of dumping one undifferentiated
+// block of text.
 
 // ── Pulsing dots ───────────────────────────────────────────────────────────────
 
@@ -1616,7 +1585,7 @@ class _ScopeRow extends StatelessWidget {
 }
 
 // 2026-08-15: _SwipeToConfirm removed - dead code. Its last two call
-// sites (OPEN OBSIDIAN, I'VE CREATED IT/SYNCLOCAL HOME) were replaced
+// sites (OPEN OBSIDIAN, I'VE CREATED IT/LOCALSYNC HOME) were replaced
 // this round by _SwipeChecklistRow (embedded in the checklist) and
 // _GifSwipeConfirm respectively. Per explicit direction against
 // leftover bloat: don't keep an unused widget around "in case".

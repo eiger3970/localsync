@@ -1,4 +1,4 @@
-# synclocal
+# localsync
 
 A new Flutter project.
 

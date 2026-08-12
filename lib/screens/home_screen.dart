@@ -10,6 +10,7 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/action_gif.dart';
+import '../widgets/diag_card.dart';
 import '../widgets/sparkle_background.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
@@ -25,11 +26,11 @@ class HomeScreen extends StatelessWidget {
         // 2026-08-17: "PKM_vault needs to be centered" - moved from
         // actions (left-aligned, hugging the title) into the title
         // itself as a Row with an Expanded+Center around it, so it
-        // sits centered in the space between SYNCLOCAL and the
+        // sits centered in the space between LOCALSYNC and the
         // kebab/tick icons rather than immediately after the title.
         title: Row(
           children: [
-            const Text('SYNCLOCAL'),
+            const Text('LOCALSYNC'),
             Expanded(
               child: Center(
                 child: Consumer<RepositoryProvider>(
@@ -598,7 +599,16 @@ class _SpinningSyncState extends State<_SpinningSync>
 // tappable full-error view is real functionality, not just tile
 // decoration, so it moved into _AppBarRepoStatus rather than being
 // discarded along with the tile row it used to live in.
-void _showFullError(BuildContext context, String fullError) {
+//
+// 2026-08-20: "show error in human language, how to fix it, then the
+// error code verbose details - you've done this format with some
+// errors but not others" - used to dump repo.lastError as one
+// undifferentiated block of text (it was a pre-joined string at the
+// time). Now takes the Repository directly and renders its three error
+// fields through the same labeled DiagCard layout the setup flow's
+// _FailedView already used (linking_screen.dart) - both places now
+// look identical or a real inconsistency, not just this bug.
+void _showFullError(BuildContext context, Repository repo) {
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -606,9 +616,33 @@ void _showFullError(BuildContext context, String fullError) {
       title: const Text('Sync error',
           style: TextStyle(color: kStar, fontSize: 17)),
       content: SingleChildScrollView(
-        child: Text(fullError,
-            style:
-                const TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DiagCard(
+              label: 'WHAT HAPPENED',
+              text: repo.lastError ?? 'Unknown error.',
+              accent: Colors.redAccent,
+            ),
+            if (repo.lastErrorResolution != null) ...[
+              const SizedBox(height: 12),
+              DiagCard(
+                label: 'HOW TO FIX IT',
+                text: repo.lastErrorResolution!,
+                accent: kGreen,
+              ),
+            ],
+            if (repo.lastErrorDebug != null) ...[
+              const SizedBox(height: 12),
+              DiagCard(
+                label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                text: repo.lastErrorDebug!,
+                accent: Colors.redAccent,
+              ),
+            ],
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -706,7 +740,7 @@ String _timeAgo(DateTime t) {
 // ── App-bar repo status ───────────────────────────────────────────────────────
 //
 // 2026-08-17: "can row 2 PKM_vault AUTO synced just now be moved to
-// row 1, right of SYNCLOCAL and left of the kebab icon and green
+// row 1, right of LOCALSYNC and left of the kebab icon and green
 // tick?" - the repo tile's summary moved into the app bar itself, and
 // the separate ListView row it used to live in is gone (see the body
 // builder below). Tap still triggers a pull, same as the row did.
@@ -745,7 +779,7 @@ class _AppBarRepoStatus extends StatelessWidget {
           onTap: () {
             HapticFeedback.lightImpact();
             if (hasError) {
-              _showFullError(context, repo.lastError!);
+              _showFullError(context, repo);
             } else {
               onTap();
             }
@@ -779,7 +813,11 @@ class _AppBarRepoStatus extends StatelessWidget {
                 ),
                 if (hasError)
                   Text(
-                    repo.lastError!.split('\n').first,
+                    // lastError is just the diagnosis now (see the
+                    // 2026-08-20 note on this field in models/
+                    // repository.dart) - no longer a joined multi-line
+                    // blob needing a manual split to get one line.
+                    repo.lastError!,
                     style:
                         const TextStyle(color: Colors.redAccent, fontSize: 10),
                     maxLines: 1,

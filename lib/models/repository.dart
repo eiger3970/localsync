@@ -43,7 +43,7 @@ class Repository {
   // vault folder the user picked via the native folder picker. Added
   // 2026-08-09 - real user documentation of years of working Working
   // Copy usage revealed the correct architecture: Obsidian creates and
-  // owns its vault folder itself; Synclocal requests access to it
+  // owns its vault folder itself; Localsync requests access to it
   // afterward, the same way Working Copy's "Link Repository to" does.
   // localPath alone was never going to work for this - iOS requires a
   // bookmark to retain cross-app folder access across launches, a
@@ -56,7 +56,20 @@ class Repository {
   final SyncStatus status;
   final SyncPhase  syncPhase;
   final DateTime?  lastSync;
+  // 2026-08-20: "show error in human language, how to fix it, then the
+  // error code verbose details - you've done this format with some
+  // errors but not others" - lastError used to be the diagnosis,
+  // resolution, and raw exception text all pre-joined into one string
+  // (with '\n\nRaw error...\n' as a literal separator), which is why
+  // home_screen.dart's sync-error dialog could only ever show one
+  // undifferentiated block instead of the labeled WHAT
+  // HAPPENED/HOW TO FIX IT/RAW ERROR cards the setup flow already used
+  // (linking_state.dart's LinkingError, shown via widgets/diag_card.dart).
+  // Split into three fields so both places can render the same way.
+  // lastError itself keeps its name but is now just the diagnosis.
   final String?    lastError;
+  final String?    lastErrorResolution;
+  final String?    lastErrorDebug;
   final int        fileCount;
   final int        folderCount;
 
@@ -75,6 +88,8 @@ class Repository {
     this.syncPhase    = SyncPhase.idle,
     this.lastSync,
     this.lastError,
+    this.lastErrorResolution,
+    this.lastErrorDebug,
     this.fileCount    = 0,
     this.folderCount  = 0,
   });
@@ -94,6 +109,8 @@ class Repository {
     SyncPhase?   syncPhase,
     DateTime?    lastSync,
     String?      lastError,
+    String?      lastErrorResolution,
+    String?      lastErrorDebug,
     int?         fileCount,
     int?         folderCount,
   }) => Repository(
@@ -111,6 +128,8 @@ class Repository {
     syncPhase:         syncPhase        ?? this.syncPhase,
     lastSync:          lastSync         ?? this.lastSync,
     lastError:         lastError        ?? this.lastError,
+    lastErrorResolution: lastErrorResolution ?? this.lastErrorResolution,
+    lastErrorDebug:    lastErrorDebug   ?? this.lastErrorDebug,
     fileCount:         fileCount        ?? this.fileCount,
     folderCount:       folderCount      ?? this.folderCount,
   );
@@ -128,6 +147,8 @@ class Repository {
     'auto_sync':      autoSync ? 1 : 0,
     'last_sync':      lastSync?.toIso8601String(),
     'last_error':     lastError,
+    'last_error_resolution': lastErrorResolution,
+    'last_error_debug': lastErrorDebug,
     'file_count':     fileCount,
     'folder_count':   folderCount,
   };
@@ -152,6 +173,8 @@ class Repository {
                          ? DateTime.tryParse(m['last_sync'] as String)
                          : null,
     lastError:         m['last_error'] as String?,
+    lastErrorResolution: m['last_error_resolution'] as String?,
+    lastErrorDebug:    m['last_error_debug'] as String?,
     fileCount:         (m['file_count'] as int?) ?? 0,
     folderCount:       (m['folder_count'] as int?) ?? 0,
   );

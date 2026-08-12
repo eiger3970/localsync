@@ -2,13 +2,13 @@ import 'package:flutter/widgets.dart';
 import 'features/linking/linking_controller.dart';
 
 /// Watches iOS app lifecycle transitions and resumes the [LinkingController]
-/// when synclocal returns to foreground from a parked state.
+/// when localsync returns to foreground from a parked state.
 ///
 /// Register this in main.dart via WidgetsBinding.instance.addObserver().
-class SynclocalLifecycleObserver extends WidgetsBindingObserver {
+class LocalSyncLifecycleObserver extends WidgetsBindingObserver {
   final LinkingController linkingController;
 
-  SynclocalLifecycleObserver({required this.linkingController});
+  LocalSyncLifecycleObserver({required this.linkingController});
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

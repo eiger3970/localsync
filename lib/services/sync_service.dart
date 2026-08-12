@@ -206,7 +206,7 @@ class SyncService {
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
-  // dropped the "synclocal " prefix, matching the user's own
+  // dropped the "localsync " prefix, matching the user's own
   // established convention elsewhere (CommitScreen's own hint text,
   // real vault names like "202608111158").
   String _timestamp() {
@@ -431,7 +431,7 @@ git.Tree _stageAndWriteTree(git.Repository repo) {
 // text used to tell users to type in manually - the app sets this
 // itself now, nothing to ask the user for.
 git.Signature get _fixedSignature =>
-    git.Signature.create(name: 'Synclocal', email: 'synclocal@device.local');
+    git.Signature.create(name: 'Localsync', email: 'localsync@device.local');
 
 /// Push with one retry on non-fast-forward rejection (remote moved
 /// between our fetch and this push - re-fetch and fast-forward if

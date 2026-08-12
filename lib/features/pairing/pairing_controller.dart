@@ -49,7 +49,7 @@ class PairingController extends ChangeNotifier {
 
       // Single-quoted, with any embedded single-quote escaped - the value
       // is our own generated public key line (fixed charset: base64 +
-      // "ssh-ed25519 " prefix + " synclocal" suffix), not attacker input,
+      // "ssh-ed25519 " prefix + " localsync" suffix), not attacker input,
       // but escaping costs nothing and avoids relying on that assumption.
       final escaped = publicKeyLine.replaceAll("'", r"'\''");
       final command =

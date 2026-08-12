@@ -47,7 +47,7 @@ class RepositoryProvider extends ChangeNotifier {
     // from its security-scoped bookmark inside SyncService.fullSync()
     // itself at the start of every sync - not something this provider
     // needs to precompute or cache. The old _refreshLocalPaths() existed
-    // because Synclocal used to own its own container path, which was
+    // because Localsync used to own its own container path, which was
     // NOT stable across reinstalls; that whole class of problem doesn't
     // apply to a bookmark into a different app's stable storage.
     await Future.wait([_loadRepos(), _loadTemplates()]);
@@ -117,22 +117,32 @@ class RepositoryProvider extends ChangeNotifier {
                 status:    SyncStatus.ok,
                 syncPhase: SyncPhase.done,
                 lastSync:  DateTime.now(),
-                lastError: null,
               );
+            // 2026-08-20: "show error in human language, how to fix it,
+            // then the error code verbose details - some errors do
+            // this, others don't" - these two cases used to join
+            // diagnosis+resolution+debug into one pre-formatted string,
+            // which is exactly why the sync-error dialog could only
+            // ever show one undifferentiated block. Split into
+            // Repository's three separate error fields instead, same
+            // shape LinkingError already used - home_screen.dart's
+            // dialog now renders all three through the same DiagCard
+            // layout the setup flow uses.
             case SyncConflict(:final conflictingFiles):
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.error,
                 syncPhase: SyncPhase.idle,
-                lastError: 'Conflict in: $conflictingFiles\n'
-                           'Edit on desktop, resolve markers, then sync again.',
+                lastError: 'Conflict in: $conflictingFiles',
+                lastErrorResolution:
+                    'Edit on desktop, resolve markers, then sync again.',
               );
             case SyncFailed(:final diagnosis, :final resolution, :final debugDetail):
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.error,
                 syncPhase: SyncPhase.idle,
-                lastError: debugDetail != null
-                    ? '$diagnosis\n$resolution\n\nRaw error (temporary diagnostic):\n$debugDetail'
-                    : '$diagnosis\n$resolution',
+                lastError:           diagnosis,
+                lastErrorResolution: resolution,
+                lastErrorDebug:      debugDetail,
               );
           }
           notifyListeners();
@@ -144,10 +154,18 @@ class RepositoryProvider extends ChangeNotifier {
     } catch (e) {
       final i = _repos.indexWhere((r) => r.id == id);
       if (i == -1) return null;
+      // 2026-08-20: was a single 'Sync error: $e' string with no
+      // resolution step and no way to see the raw exception separately
+      // - an unexpected exception here got a worse error format than a
+      // classified LinkingError did. Now the same 3-part shape as the
+      // SyncFailed case above.
       _repos[i] = _repos[i].copyWith(
         status:    SyncStatus.error,
         syncPhase: SyncPhase.idle,
-        lastError: 'Sync error: $e',
+        lastError: 'Something went wrong during sync.',
+        lastErrorResolution:
+            'Try again. If this keeps happening, check your connection to your desktop.',
+        lastErrorDebug: e.toString(),
       );
       notifyListeners();
       await _db.updateRepository(_repos[i]);

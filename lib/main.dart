@@ -15,19 +15,19 @@ void main() {
   // blocking even the first Flutter frame. Now deferred and memoized
   // inside GitServiceImpl (services/git_service.dart), lazily run right
   // before the first real git operation instead of up front.
-  runApp(const SynclocalApp());
+  runApp(const LocalSyncApp());
 }
 
-class SynclocalApp extends StatefulWidget {
-  const SynclocalApp({super.key});
+class LocalSyncApp extends StatefulWidget {
+  const LocalSyncApp({super.key});
 
   @override
-  State<SynclocalApp> createState() => _SynclocalAppState();
+  State<LocalSyncApp> createState() => _LocalSyncAppState();
 }
 
-class _SynclocalAppState extends State<SynclocalApp> {
+class _LocalSyncAppState extends State<LocalSyncApp> {
   late final LinkingController      _linkingController;
-  late final SynclocalLifecycleObserver _lifecycleObserver;
+  late final LocalSyncLifecycleObserver _lifecycleObserver;
 
   @override
   void initState() {
@@ -56,7 +56,7 @@ class _SynclocalAppState extends State<SynclocalApp> {
       bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
       sshPort:        22,
     );
-    _lifecycleObserver = SynclocalLifecycleObserver(
+    _lifecycleObserver = LocalSyncLifecycleObserver(
       linkingController: _linkingController,
     );
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
@@ -77,7 +77,7 @@ class _SynclocalAppState extends State<SynclocalApp> {
         ChangeNotifierProvider.value(value: _linkingController),
       ],
       child: MaterialApp(
-        title: 'synclocal',
+        title: 'localsync',
         theme: appTheme,
         debugShowCheckedModeBanner: false,
         home: const HomeScreen(),

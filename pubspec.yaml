@@ -1,4 +1,4 @@
-name: synclocal
+name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
 version: 0.1.0+1
 

@@ -2,7 +2,7 @@
 //
 // Bridges to AppDelegate.swift's VaultFolderChannel (2026-08-09). See
 // that file's comment for the full architecture reasoning: Obsidian
-// creates and owns its vault folder itself; Synclocal has to request
+// creates and owns its vault folder itself; Localsync has to request
 // access to it afterward via iOS's real cross-app folder picker, the
 // same mechanism Working Copy's "Link Repository to" uses under the
 // hood - proven by the user's own years of real Working Copy usage
@@ -20,7 +20,7 @@ class VaultFolderResult {
 }
 
 class VaultFolderService {
-  static const _channel = MethodChannel('synclocal/vault_folder');
+  static const _channel = MethodChannel('localsync/vault_folder');
 
   /// Presents the native folder picker so the user can select the
   /// Obsidian vault folder they already created (On My iPhone ->

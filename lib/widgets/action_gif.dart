@@ -1,7 +1,7 @@
 // widgets/action_gif.dart
 //
 // 2026-08-16: the reusable component this app's various gif triggers
-// (pull, push, SYNCLOCAL HOME) all needed - built to match a specific
+// (pull, push, LOCALSYNC HOME) all needed - built to match a specific
 // timing contract:
 //
 //  1. Idle: shows only the static first frame, not animating.

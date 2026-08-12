@@ -75,7 +75,7 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
   // through several screens and the view controller is definitely live.
   func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
-      name: "synclocal/vault_folder",
+      name: "localsync/vault_folder",
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in

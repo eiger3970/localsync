@@ -11,7 +11,7 @@ import 'ssh_key_paths.dart';
 
 class KeypairService {
   /// Generates and writes the keypair if it doesn't already exist.
-  /// Returns the public key line (e.g. "ssh-ed25519 AAAA... synclocal").
+  /// Returns the public key line (e.g. "ssh-ed25519 AAAA... localsync").
   /// Idempotent - safe to call every time pairing starts.
   Future<String> ensureKeypair() async {
     final privatePath = await SshKeyPaths.privateKeyPath();
@@ -29,7 +29,7 @@ class KeypairService {
     final publicKey    = await keyPair.extractPublicKey();
     final publicBytes  = publicKey.bytes;
 
-    final publicLine = '${encodeEd25519Public(publicBytes)} synclocal';
+    final publicLine = '${encodeEd25519Public(publicBytes)} localsync';
     final privateText = encodeEd25519Private(
       privateBytes: privateBytes,
       publicBytes: publicBytes,
