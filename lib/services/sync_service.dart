@@ -317,8 +317,23 @@ Future<SyncResult> _withRepo(
   // missing .git here is routine after any rebuild, not a rare edge
   // case - recover the same way the initial setup clone does rather
   // than failing outright.
+  //
+  // 2026-08-20: "make sure I don't lose data" - this recovery path used
+  // to go straight to a hard reset onto the remote, unconditionally
+  // overwriting anything already sitting in the vault folder. A missing
+  // .git happens both on a genuinely fresh vault (nothing to lose) AND
+  // after a fresh app reinstall (the routine case above), where the
+  // folder can already hold real phone-side edits that were never
+  // synced before the reinstall - those would be silently clobbered by
+  // the hard reset below with no commit ever made for them. Not fixed
+  // by merging instead of resetting: the freshly-initted local repo and
+  // the remote share no common commit ancestor (git2dart's merge
+  // machinery expects one), so that path isn't safe to rely on either.
+  // Backing up first means the worst case is an extra folder to review,
+  // never a silent loss.
   if (!await Directory('${p.vaultPath}/.git').exists()) {
     try {
+      final backedUp = await _backupVaultIfNotEmpty(p.vaultPath);
       final repo = git.Repository.init(
         path: p.vaultPath, initialHead: p.branch, originUrl: p.remoteUrl,
       );
@@ -332,7 +347,9 @@ Future<SyncResult> _withRepo(
       } finally {
         repo.free();
       }
-      return const SyncOk('Downloaded your notes');
+      return SyncOk(backedUp
+          ? 'Downloaded your notes (existing phone content backed up next to the vault first)'
+          : 'Downloaded your notes');
     } catch (e) {
       return SyncFailed(_diagnose(e), debugDetail: e.toString());
     }
@@ -417,6 +434,35 @@ String _isolateTimestamp() {
   final n = DateTime.now();
   String p2(int v) => v.toString().padLeft(2, '0');
   return '${n.year}${p2(n.month)}${p2(n.day)}${p2(n.hour)}${p2(n.minute)}';
+}
+
+// ── Vault backup — safety net for the missing-.git recovery path above ──────
+
+/// If [vaultPath] already has any content, copies the whole thing to a
+/// timestamped sibling folder before the caller does anything
+/// destructive to it. Returns true if a backup was actually made.
+Future<bool> _backupVaultIfNotEmpty(String vaultPath) async {
+  final dir = Directory(vaultPath);
+  if (!await dir.exists()) return false;
+  final entries = await dir.list().toList();
+  if (entries.isEmpty) return false;
+
+  final backupPath = '${vaultPath}_localsync_backup_${_isolateTimestamp()}';
+  await _copyDirectoryContents(dir, Directory(backupPath));
+  return true;
+}
+
+Future<void> _copyDirectoryContents(Directory source, Directory dest) async {
+  await dest.create(recursive: true);
+  await for (final entity in source.list(followLinks: false)) {
+    final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+    final destPath = '${dest.path}/$name';
+    if (entity is Directory) {
+      await _copyDirectoryContents(entity, Directory(destPath));
+    } else if (entity is File) {
+      await entity.copy(destPath);
+    }
+  }
 }
 
 git.Tree _stageAndWriteTree(git.Repository repo) {

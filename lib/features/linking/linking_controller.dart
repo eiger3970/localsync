@@ -300,7 +300,7 @@ class LinkingController extends ChangeNotifier {
   List<String> get vaultCreationSteps => [
         'swipe up to open $kNoteAppName',
         'swipe from left to right',
-        'tap existing vault (bottom left)',
+        'tap vault (bottom left)',
         'tap Manage vaults...',
         'tap Create new vault',
         'Vault name: <Enter name...>',

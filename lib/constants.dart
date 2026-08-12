@@ -28,3 +28,10 @@ const String kContainerName = 'vault';
 // the localsync-generated repo display name) - decided scope: chose
 // "descriptive text only" over genericizing the action buttons too.
 const String kGenericAppLabel = 'PKM';
+
+// 2026-08-20: shown on the About screen (kebab menu). Manually kept in
+// sync with pubspec.yaml's version: line - no package_info_plus
+// dependency added just to read this at runtime (same reasoning this
+// app has used before against adding native packages for something
+// this small).
+const String kAppVersion = '0.1.0';

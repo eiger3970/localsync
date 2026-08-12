@@ -76,6 +76,7 @@ class HomeScreen extends StatelessWidget {
               onSelected: (v) {
                 if (v == 'pair') _openPairing(context);
                 if (v == 'link') _openLinking(context);
+                if (v == 'about') _showAbout(context);
                 final repo = provider.selectedRepo;
                 if (repo == null) return;
                 if (v == 'commit') {
@@ -198,6 +199,16 @@ class HomeScreen extends StatelessWidget {
                             TextStyle(color: Colors.redAccent, fontSize: 14)),
                   ),
                 ],
+                const PopupMenuDivider(),
+                // 2026-08-20: "credits at the bottom for: misc info,
+                // credits, version, disclaimer, contact" - a real About
+                // screen was missing entirely. Last item, own divider,
+                // matches where this sits in most apps.
+                const PopupMenuItem(
+                  value: 'about',
+                  child: Text('About',
+                      style: TextStyle(color: kStar, fontSize: 14)),
+                ),
               ],
             ),
           ),
@@ -641,6 +652,104 @@ void _showFullError(BuildContext context, Repository repo) {
                 accent: Colors.redAccent,
               ),
             ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close',
+              style: TextStyle(color: kGreen, fontSize: 15)),
+        ),
+      ],
+    ),
+  );
+}
+
+// ── About ──────────────────────────────────────────────────────────────────────
+//
+// 2026-08-20: "Kebab icon to have a credits at the bottom for: misc
+// info, credits, version, other stuff apps need, disclaimer, promos,
+// contact" - real content is user-owned (credits/contact/promo copy
+// isn't something to invent), so those sections are left as clearly
+// marked placeholders rather than guessed text. The one part that's
+// fully real: "Open-source licenses" opens Flutter's own built-in
+// license page, which auto-collects every dependency's license text
+// (git2dart, provider, shared_preferences, etc.) - genuinely "stuff
+// apps need" that a store listing/legal review expects, and needed
+// zero new code to get right.
+void _showAbout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: kSurface,
+      title: const Text('About',
+          style: TextStyle(color: kStar, fontSize: 17)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('LocalSync',
+                style: TextStyle(
+                    color: kStar, fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            const Text('v$kAppVersion',
+                style: TextStyle(color: kTextMid, fontSize: 13)),
+            const SizedBox(height: 12),
+            const Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
+                style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
+            const SizedBox(height: 20),
+            const Text('DISCLAIMER',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            const Text(
+              'LocalSync syncs your $kContainerName over your own network - '
+              'nothing is stored on any server this app controls. Keep your '
+              'own backups regardless; this app is provided as-is, with no '
+              'guarantee against data loss.',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            const Text('CONTACT',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            const Text(
+              'Logseq support and FOSS collaboration welcome - '
+              '<YOUR_CONTACT_EMAIL_OR_HANDLE>',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            const Text('CREDITS',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            const Text('<YOUR_CREDITS_TEXT>',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            const SizedBox(height: 12),
+            TextButton(
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft),
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'LocalSync',
+                applicationVersion: kAppVersion,
+              ),
+              child: const Text('Open-source licenses',
+                  style: TextStyle(color: kGreen, fontSize: 13)),
+            ),
           ],
         ),
       ),
