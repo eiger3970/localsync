@@ -8,6 +8,14 @@
 // dart:ui's own codec API and steps through them on a plain Timer
 // while playing, resting on frame 0 otherwise. No new package for
 // something this small.
+//
+// 2026-08-20: optional frameDurationOverrides added for
+// dog_success_stand.gif - "the timing leaves the standing dog jumping
+// in the air" - the file's own baked-in timing gives its longest hold
+// to a jump/lean pose right before the loop wraps, not a standing one.
+// This overrides specific decoded frames' display duration without
+// touching the source gif at all - null (every other call site) uses
+// the file's own per-frame durations unchanged.
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -18,11 +26,13 @@ class ControllableGif extends StatefulWidget {
   final String assetPath;
   final bool playing;
   final double height;
+  final Map<int, Duration>? frameDurationOverrides;
   const ControllableGif({
     super.key,
     required this.assetPath,
     required this.playing,
     required this.height,
+    this.frameDurationOverrides,
   });
 
   @override
@@ -69,7 +79,8 @@ class _ControllableGifState extends State<ControllableGif> {
     // immediately" - none of this app's own gifs do that, but clamp
     // defensively rather than risk a zero-delay Timer loop if one ever
     // does.
-    final duration = _frames[_index].duration;
+    final duration =
+        widget.frameDurationOverrides?[_index] ?? _frames[_index].duration;
     _timer = Timer(
       duration > Duration.zero ? duration : const Duration(milliseconds: 100),
       () {

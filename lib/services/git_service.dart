@@ -16,6 +16,20 @@ abstract class GitService {
 }
 
 class GitServiceImpl implements GitService {
+  // 2026-08-20: "opening app and a white screen took about 5 seconds,
+  // can this be optimised" - PlatformSpecific.initialize() (git2dart's
+  // own native libgit2 load, eager on iOS) used to run in main()
+  // before runApp(), blocking even the very first Flutter frame -
+  // nothing, not even the loading spinner, could render until it
+  // finished. Moved here instead, lazily and memoized so it only ever
+  // actually runs once, right before the first real git operation - by
+  // which point the home screen (with its own "syncing..." status UI)
+  // is already visible, so the latency is absorbed by UI the user
+  // already sees as working instead of a blank white screen.
+  static Future<void>? _platformInit;
+  static Future<void> _ensurePlatformInitialized() =>
+      _platformInit ??= PlatformSpecific.initialize();
+
   final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git (isolated test repo, see main.dart)
   final String localVaultPath;    // Phone: Synclocal's own Documents dir (see Info.plist notes in STRUCTURE.md)
   final String sshHost;           // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
@@ -91,6 +105,7 @@ class GitServiceImpl implements GitService {
 
   @override
   Future<StepResult> pullFromBareRepo() async {
+    await _ensurePlatformInitialized();
     try {
       if (!_isCloned) {
         // Was Repository.clone() until 2026-08-09 - required an empty
@@ -167,6 +182,7 @@ class GitServiceImpl implements GitService {
 
   @override
   Future<StepResult> pushToBareRepo() async {
+    await _ensurePlatformInitialized();
     if (!_isCloned) {
       return const StepFailure(LinkingError.bareRepoNotFound);
     }
@@ -198,6 +214,7 @@ class GitServiceImpl implements GitService {
 
   @override
   Future<StepResult> getStatus() async {
+    await _ensurePlatformInitialized();
     if (!_isCloned) {
       return const StepFailure(LinkingError.bareRepoNotFound);
     }
@@ -221,6 +238,7 @@ class GitServiceImpl implements GitService {
 
   @override
   Future<bool> hasUncommittedChanges() async {
+    await _ensurePlatformInitialized();
     if (!_isCloned) return false;
     try {
       final repo = Repository.open(localVaultPath);

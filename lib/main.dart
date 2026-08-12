@@ -2,16 +2,19 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:git2dart/git2dart.dart';
 import 'theme.dart';
 import 'services/repository_provider.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await PlatformSpecific.initialize();
+  // 2026-08-20: "white screen took about 5 seconds" - git2dart's own
+  // native libgit2 load used to be awaited here, before runApp() -
+  // blocking even the first Flutter frame. Now deferred and memoized
+  // inside GitServiceImpl (services/git_service.dart), lazily run right
+  // before the first real git operation instead of up front.
   runApp(const SynclocalApp());
 }
 

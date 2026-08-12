@@ -1262,10 +1262,25 @@ class _CompleteViewState extends State<_CompleteView>
                   style: TextStyle(
                       color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
               const SizedBox(width: 10),
+              // 2026-08-20: "the timing leaves the standing dog jumping
+              // in the air, the loop would be better if the standing
+              // dog was pausing on the ground" - the file's own baked
+              // timing (110ms per frame, except a 450ms hold on frame
+              // 5) gives its longest pause to frame 5, a jump/lean pose
+              // right before the loop wraps back to frame 0's stand.
+              // Frames alternate stand (0,2,4) / jump (1,3,5) - moving
+              // the long hold onto frame 4 (the last stand pose) and
+              // shrinking frame 5 to a brief flash makes the loop read
+              // as resting on the ground, not airborne, without
+              // touching the actual artwork.
               const ControllableGif(
                 assetPath: 'assets/gifs/dog_success_stand.gif',
                 playing: true,
                 height: 40,
+                frameDurationOverrides: {
+                  4: Duration(milliseconds: 700),
+                  5: Duration(milliseconds: 50),
+                },
               ),
             ],
           ),
