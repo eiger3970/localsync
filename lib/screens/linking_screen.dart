@@ -202,13 +202,15 @@ class _IdleViewState extends State<_IdleView>
     // here previously drifted out of alignment once sizes changed.
     final arrowTopOffset = ((glyphIcon + 16) - 26) / 2;
 
-    // 2026-08-18: "laptop with background star magic?" - sparkles
-    // wrap the whole drag screen now, same treatment as every other
-    // actionable control in the app.
-    return Stack(
-      children: [
-        const Positioned.fill(child: SparkleBackground()),
-        Padding(
+    // 2026-08-19: "magic stars only need to hint where a user is able
+    // to action something... the user must action the desktop to swipe
+    // right, therefore only have magic stars near the desktop" - the
+    // 2026-08-18 whole-screen sparkle wrap hinted at the vault glyph,
+    // arrow, and every line of body text too, none of which are
+    // themselves draggable. Sparkles now scope to just the desktop
+    // glyph (see the Draggable below), the one thing on this screen a
+    // user actually acts on.
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -236,45 +238,56 @@ class _IdleViewState extends State<_IdleView>
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Draggable<bool>(
-                  data: true,
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: Opacity(
-                      opacity: 0.85,
-                      child: _DeviceGlyph(
-                        icon: Icons.computer_rounded,
-                        label: 'Your desktop',
-                        caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                        accent: true,
-                        width: glyphWidth,
-                        iconSize: glyphIcon,
+                // 2026-08-19: sparkle hint scoped to just this glyph -
+                // see the build()-level comment above for why the
+                // whole-screen wrap was removed.
+                SizedBox(
+                  width: glyphWidth,
+                  child: Stack(
+                    children: [
+                      const Positioned.fill(child: SparkleBackground()),
+                      Draggable<bool>(
+                        data: true,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Opacity(
+                            opacity: 0.85,
+                            child: _DeviceGlyph(
+                              icon: Icons.computer_rounded,
+                              label: 'Your desktop',
+                              caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                              accent: true,
+                              width: glyphWidth,
+                              iconSize: glyphIcon,
+                            ),
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.3,
+                          child: _DeviceGlyph(
+                            icon: Icons.computer_rounded,
+                            label: 'Your desktop',
+                            caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                            accent: true,
+                            width: glyphWidth,
+                            iconSize: glyphIcon,
+                          ),
+                        ),
+                        // 2026-08-11: pulse now lives inside _DeviceGlyph
+                        // itself (icon only, not the label/caption text) -
+                        // fixes the pulse fading the desktop label's color
+                        // relative to the vault glyph's solid one.
+                        child: _DeviceGlyph(
+                          icon: Icons.computer_rounded,
+                          label: 'Your desktop',
+                          caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                          accent: true,
+                          width: glyphWidth,
+                          iconSize: glyphIcon,
+                          pulse: _pulseCtrl,
+                        ),
                       ),
-                    ),
-                  ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _DeviceGlyph(
-                      icon: Icons.computer_rounded,
-                      label: 'Your desktop',
-                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                      accent: true,
-                      width: glyphWidth,
-                      iconSize: glyphIcon,
-                    ),
-                  ),
-                  // 2026-08-11: pulse now lives inside _DeviceGlyph
-                  // itself (icon only, not the label/caption text) -
-                  // fixes the pulse fading the desktop label's color
-                  // relative to the vault glyph's solid one.
-                  child: _DeviceGlyph(
-                    icon: Icons.computer_rounded,
-                    label: 'Your desktop',
-                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                    accent: true,
-                    width: glyphWidth,
-                    iconSize: glyphIcon,
-                    pulse: _pulseCtrl,
+                    ],
                   ),
                 ),
                 Padding(
@@ -309,10 +322,10 @@ class _IdleViewState extends State<_IdleView>
             child: Column(
               children: [
                 // 2026-08-18: "Drag to begin text no longer needed" -
-                // the sparkle background wrapping this whole screen
-                // (added below) now carries that hint visually, same
-                // reasoning as dropping the swipe-confirm captions
-                // elsewhere once their gif art made the gesture clear.
+                // the sparkle background on the desktop glyph itself
+                // (above) carries that hint visually, same reasoning as
+                // dropping the swipe-confirm captions elsewhere once
+                // their gif art made the gesture clear.
                 const SizedBox(height: 16),
                 // Heading moved below the pictogram+hint (2026-08-11,
                 // was the page's top line before) - reworded to name
@@ -388,8 +401,6 @@ class _IdleViewState extends State<_IdleView>
           ),
         ],
       ),
-    ),
-      ],
     );
   }
 }
@@ -586,15 +597,13 @@ class _ParkedViewState extends State<_ParkedView> {
                   // by _validateVaultCreationDone() until 1.10-1.12 are
                   // ticked.
                   // 2026-08-17: real asset pair, not a single gif - at
-                  // rest shows dog_progress_frame0.png (rasterized once
-                  // from the user's own SVG, no flutter_svg dependency
-                  // added), swaps to dog_progress_off_leash.gif on
-                  // swipe. Label dropped ("saves vertical space... user
-                  // should be able to figure out to slide... once the
-                  // gif is correctly showing the person holding the dog
-                  // on the leash").
+                  // rest shows the dog art (DogFrame0, see
+                  // widgets/dog_frame0.dart), swaps to
+                  // dog_progress_off_leash.gif on swipe. Label dropped
+                  // ("saves vertical space... user should be able to
+                  // figure out to slide... once the gif is correctly
+                  // showing the person holding the dog on the leash").
                   _SwapGifSwipeConfirm(
-                    staticAssetPath: 'assets/gifs/dog_progress_frame0.png',
                     animatedAssetPath: 'assets/gifs/dog_progress_off_leash.gif',
                     onConfirm: ctrl.confirmVaultCreated,
                     validate: _validateVaultCreationDone,
@@ -831,27 +840,37 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
       child: Stack(
         children: [
           if (!_done) const Positioned.fill(child: SparkleBackground()),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Icon(Icons.keyboard_double_arrow_up_rounded,
-                    color: color, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 16,
-                      height: 1.6,
-                      fontWeight: FontWeight.w700,
-                      decoration: _done ? TextDecoration.lineThrough : null,
-                      decorationColor: kTextMid,
+          // 2026-08-19: "swipe up and Obsidian does open, but the line
+          // of text doesn't move up, but the line of text must move up
+          // as per normal swipe up actions" - _drag was already tracked
+          // for the threshold/color logic above but never rendered, so
+          // the row sat visually still through the whole drag. Now
+          // follows the finger the same way _GifSwipeTrigger's pull/push
+          // rows already do (home_screen.dart).
+          Transform.translate(
+            offset: Offset(0, _drag),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(Icons.keyboard_double_arrow_up_rounded,
+                      color: color, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 16,
+                        height: 1.6,
+                        fontWeight: FontWeight.w700,
+                        decoration: _done ? TextDecoration.lineThrough : null,
+                        decorationColor: kTextMid,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -978,13 +997,11 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
 // duplicated rather than shared through an abstraction - two concrete
 // cases doesn't earn a generic base class yet.
 class _SwapGifSwipeConfirm extends StatefulWidget {
-  final String staticAssetPath;
   final String animatedAssetPath;
   final String? label;
   final VoidCallback onConfirm;
   final String? Function()? validate;
   const _SwapGifSwipeConfirm({
-    required this.staticAssetPath,
     required this.animatedAssetPath,
     this.label,
     required this.onConfirm,
@@ -1039,7 +1056,6 @@ class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
               children: [
                 SwapGifTrigger(
                   key: _gifKey,
-                  staticAssetPath: widget.staticAssetPath,
                   animatedAssetPath: widget.animatedAssetPath,
                   height: 70,
                 ),
@@ -1306,7 +1322,6 @@ class _CompleteViewState extends State<_CompleteView>
             // not a bare pop - see this file's header comment for the
             // black-screen crash this fixes.
             child: _SwapGifSwipeConfirm(
-              staticAssetPath: 'assets/gifs/dog_progress_frame0.png',
               animatedAssetPath: 'assets/gifs/dog_progress_off_leash.gif',
               onConfirm: () => _leaveSetup(context),
             ),

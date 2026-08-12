@@ -1,33 +1,33 @@
 // widgets/swap_gif_trigger.dart
 //
 // 2026-08-17: sibling to ActionGif, for the case where the "at rest"
-// state is a genuine separate static asset (an SVG rasterized to PNG
-// at prep time - no flutter_svg dependency added, same reasoning as
-// this app's earlier decision against it for cosmetic assets: pure
-// vector art rasterizes once, no runtime SVG parsing needed) rather
-// than a GIF's own first frame. Simpler than ControllableGif's manual
-// frame-by-frame decoding: swapping between two different
-// Image.asset providers is enough - Flutter starts a fresh
-// ImageStream (and so the gif's own animation from its first frame)
-// whenever the displayed asset changes, so no custom playback control
-// is needed for the "restart from frame 0 every run" behavior. The
-// _playCount-based key forces this even on a second trigger of the
-// exact same gif path.
+// state is a genuine separate static asset rather than a GIF's own
+// first frame. Same timing contract as ActionGif (trigger() races a
+// real action against the 2000ms floor; playThenRun() plays exactly
+// 2000ms then calls an instant/sync action) - see that file's header
+// comment for the full reasoning, identical here.
 //
-// Same timing contract as ActionGif (trigger() races a real action
-// against the 2000ms floor; playThenRun() plays exactly 2000ms then
-// calls an instant/sync action) - see that file's header comment for
-// the full reasoning, identical here.
+// 2026-08-19: "AT REST: display dog_frame0.svg... not a rasterized
+// stand-in" - the at-rest frame used to be a PNG rasterized from the
+// SVG at prep time (avoiding flutter_svg for a cosmetic asset, per
+// this app's earlier build-cost decision). Real device feedback: that
+// 396x156 raster, nearest-neighbor scaled down ~5.6x for display,
+// looked wrong compared to the source art. Swapped for DogFrame0
+// (widgets/dog_frame0.dart) - a hand-rolled CustomPaint transcription
+// of the SVG's own <rect>/<polyline> calls, still no flutter_svg
+// dependency, but pixel-crisp at any size since nothing is resampled.
+// staticAssetPath is gone - this widget is only ever used for the dog
+// art pair (2 call sites, both linking_screen.dart), so there's no
+// second static asset to be generic for.
 
 import 'package:flutter/material.dart';
+import 'dog_frame0.dart';
 
 class SwapGifTrigger extends StatefulWidget {
-  final String staticAssetPath;
   final String animatedAssetPath;
   final double height;
   const SwapGifTrigger({
     super.key,
-    required this.staticAssetPath,
     required this.animatedAssetPath,
     required this.height,
   });
@@ -78,10 +78,6 @@ class SwapGifTriggerState extends State<SwapGifTrigger> {
             height: widget.height,
             filterQuality: FilterQuality.none,
           )
-        : Image.asset(
-            widget.staticAssetPath,
-            height: widget.height,
-            filterQuality: FilterQuality.none,
-          );
+        : DogFrame0(height: widget.height);
   }
 }

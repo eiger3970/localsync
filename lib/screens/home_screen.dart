@@ -411,45 +411,48 @@ class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
       child: Container(
         width: double.infinity,
         color: kVoid,
-        // 2026-08-18: "add some magic stars on PULL and PUSH" - same
-        // SparkleBackground every other action in the app uses now.
-        child: Stack(
+        // 2026-08-19: "rather than the whole page, indicate the user is
+        // to PULL or PUSH, so just have magic stars around the words
+        // PULL and PUSH" - the full-zone SparkleBackground (2026-08-18)
+        // hinted at the gif art too, which isn't itself the actionable
+        // hint (the caption is what tells you which gesture this half
+        // is). Sparkles now scope to just the caption below.
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: widget.alignTop
+              // 2026-08-16: "Pull can be higher, seeing it will
+              // be pulled from top to down" - pull sits toward
+              // the top of its half instead of dead center,
+              // matching the "content flows down from above"
+              // mental model; push stays centered.
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           children: [
-            if (!_playing) const Positioned.fill(child: SparkleBackground()),
-            // Positioned.fill (not Align) - the Column needs to be
-            // stretched to the Stack's full height for mainAxisAlignment
-            // to have anything to actually distribute; Align would just
-            // size-wrap it and negate alignTop's effect entirely.
-            Positioned.fill(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: widget.alignTop
-                    // 2026-08-16: "Pull can be higher, seeing it will
-                    // be pulled from top to down" - pull sits toward
-                    // the top of its half instead of dead center,
-                    // matching the "content flows down from above"
-                    // mental model; push stays centered.
-                    ? MainAxisAlignment.start
-                    : MainAxisAlignment.center,
-                children: [
-                  if (widget.alignTop) const SizedBox(height: 12),
-                  Transform.translate(
-                    offset: Offset(0, _drag),
-                    child: ActionGif(
-                      key: _gifKey,
-                      assetPath: widget.assetPath,
-                      height: widget.gifHeight,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(widget.caption,
+            if (widget.alignTop) const SizedBox(height: 12),
+            Transform.translate(
+              offset: Offset(0, _drag),
+              child: ActionGif(
+                key: _gifKey,
+                assetPath: widget.assetPath,
+                height: widget.gifHeight,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (!_playing) const Positioned.fill(child: SparkleBackground()),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(widget.caption,
                       style: const TextStyle(
                           color: kTextMid,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 2)),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
