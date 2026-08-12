@@ -30,6 +30,15 @@ class HomeScreen extends StatelessWidget {
         // kebab/tick icons rather than immediately after the title.
         title: Row(
           children: [
+            // 2026-08-21: "Logo placement can go in top left of
+            // running/opened app" - the icon artwork only ever showed
+            // as the home-screen icon before; a small copy of it now
+            // sits in-app too, top-left of the bar.
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset('assets/icon/icon.png', width: 26, height: 26),
+            ),
+            const SizedBox(width: 8),
             const Text('LOCALSYNC'),
             Expanded(
               child: Center(
