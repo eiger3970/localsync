@@ -27,7 +27,7 @@ class DatabaseService {
       name:              '${kGenericAppLabel}_$kContainerName',
       remoteHost:        '172.20.10.11',
       remoteUser:        'rapi5',
-      remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
+      remotePath:        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/localsync.git',
       localPath:         '/web-demo-not-a-real-path',
       obsidianVaultPath: 'On My iPhone/$kNoteAppName/Localsync',
       autoSync:          true,

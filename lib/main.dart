@@ -53,7 +53,7 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // Md_files_bare.git, no remote back to production) so untested
       // push/reset logic can't touch the real vault sync. Switch back
       // to Md_files_bare.git only once push has been verified safe.
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/synclocal_test.git',
+      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/localsync.git',
       sshPort:        22,
     );
     _lifecycleObserver = LocalSyncLifecycleObserver(
