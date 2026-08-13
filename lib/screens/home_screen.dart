@@ -34,12 +34,10 @@ class HomeScreen extends StatelessWidget {
             // running/opened app" - the icon artwork only ever showed
             // as the home-screen icon before; a small copy of it now
             // sits in-app too, top-left of the bar.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Image.asset('assets/icon/logo_circle.png', width: 26, height: 26),
-            ),
-            const SizedBox(width: 8),
-            const Text('LOCALSYNC'),
+            // 2026-08-14: replaced the separate icon+"LOCALSYNC" text
+            // pair with a single combined wordmark graphic (the circle
+            // logo sits inside the "O" of LOCALSYNC in the source art).
+            Image.asset('assets/icon/logo_word_with_circle.png', height: 16),
             Expanded(
               child: Center(
                 child: Consumer<RepositoryProvider>(
