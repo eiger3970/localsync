@@ -425,11 +425,22 @@ Future<SyncResult> _withRepo(
 /// Returns true if a commit was actually made (tree was dirty), false
 /// if there was nothing to commit - callers use this to know whether
 /// [message] genuinely became the new HEAD or was unused.
+///
+/// 2026-08-14: was gated on `repo.status.isEmpty` first, skipping
+/// staging entirely when status reported clean. Real-device testing
+/// found status reporting empty (statusEntries=0) even with a brand
+/// new untracked file confirmed present on disk via a raw filesystem
+/// listing - a real gap somewhere in git2dart 0.5.4's status binding
+/// on iOS, not a wrong-path issue (confirmed same result against the
+/// verified-correct vault folder). Always stages now and compares the
+/// resulting tree's oid against HEAD's tree oid instead - a tree-hash
+/// comparison is unambiguous and doesn't depend on the status API at
+/// all, so it can't be wrong the same way.
 bool _commitDirtyTree(git.Repository repo, String message) {
-  if (repo.status.isEmpty) return false;
   final headOid = repo.head.target;
   final parent  = git.Commit.lookup(repo: repo, oid: headOid);
   final tree    = _stageAndWriteTree(repo);
+  if (tree.oid == parent.tree.oid) return false;
   git.Commit.create(
     repo: repo,
     updateRef: 'HEAD',
