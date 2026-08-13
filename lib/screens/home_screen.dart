@@ -36,7 +36,7 @@ class HomeScreen extends StatelessWidget {
             // sits in-app too, top-left of the bar.
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: Image.asset('assets/icon/icon.png', width: 26, height: 26),
+              child: Image.asset('assets/icon/logo_circle.png', width: 26, height: 26),
             ),
             const SizedBox(width: 8),
             const Text('LOCALSYNC'),

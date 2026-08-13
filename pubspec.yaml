@@ -35,6 +35,7 @@ flutter:
   assets:
     - assets/gifs/
     - assets/icon/icon.png
+    - assets/icon/logo_circle.png
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
