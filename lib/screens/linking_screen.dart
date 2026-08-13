@@ -1190,7 +1190,14 @@ class _CompleteViewState extends State<_CompleteView>
     if (vaultPath == null || vaultBookmark == null) return; // web target
 
     await provider.addRepository(Repository(
-      name: '${kGenericAppLabel}_$kContainerName',
+      // 2026-08-14: was hardcoded to the literal generic string
+      // "PKM_vault" regardless of which vault was linked - the
+      // app-bar status widget (_AppBarRepoStatus) displays this as
+      // the vault's name, so every repo looked identical and there
+      // was no way to tell which vault was actually connected. Now
+      // uses the real vault folder name, same pattern already used
+      // correctly for obsidianVaultPath below.
+      name: vaultPath.split('/').last,
       remoteHost: ctrl.desktopIp,
       remoteUser: ctrl.desktopUser,
       remotePath: ctrl.bareRepoPath,
