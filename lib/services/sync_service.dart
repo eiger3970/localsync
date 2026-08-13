@@ -61,7 +61,14 @@ class SyncOk extends SyncResult {
 }
 
 class SyncNoChanges extends SyncResult {
-  const SyncNoChanges();
+  // 2026-08-14: temporary diagnostic field - "nothing to sync" was
+  // reported after adding a genuinely new note, which shouldn't
+  // happen (index.addAll(['*']) stages untracked files too). Carries
+  // what git2dart's repo.status actually saw at push time, so the
+  // next real-device test surfaces the true cause instead of another
+  // guess. Remove once the root cause is found and fixed.
+  final String? debug;
+  const SyncNoChanges({this.debug});
 }
 
 class SyncConflict extends SyncResult {
@@ -263,6 +270,9 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
 
 Future<SyncResult> _pushInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
+    // 2026-08-14 diagnostic: what git2dart sees in the working tree
+    // before staging - see SyncNoChanges.debug's comment.
+    final statusBefore = repo.status;
     // 2026-08-16: "is this auto committing an auto timestamp... I
     // can't see?" - yes, and now the result says so explicitly (only
     // when a commit actually happened - if the tree was already
@@ -275,7 +285,12 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
-    if (localOid == remoteOid) return const SyncNoChanges();
+    if (localOid == remoteOid) {
+      return SyncNoChanges(
+        debug: 'path=${p.vaultPath} statusEntries=${statusBefore.length} '
+            'files=${statusBefore.keys.join(",")} committed=$committed',
+      );
+    }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
     if (localOid == baseOid) {
