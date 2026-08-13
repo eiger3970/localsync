@@ -286,9 +286,19 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
     if (localOid == remoteOid) {
+      // 2026-08-14 diagnostic: raw filesystem listing, bypassing git
+      // entirely - statusEntries=0 alone doesn't say whether the note
+      // is genuinely missing from this exact folder or whether git2dart
+      // just isn't seeing it despite it being there.
+      final rawEntries = Directory(p.vaultPath)
+          .listSync(recursive: true)
+          .map((e) => e.path.replaceFirst('${p.vaultPath}/', ''))
+          .where((name) => !name.startsWith('.git'))
+          .toList();
       return SyncNoChanges(
         debug: 'path=${p.vaultPath} statusEntries=${statusBefore.length} '
-            'files=${statusBefore.keys.join(",")} committed=$committed',
+            'statusFiles=${statusBefore.keys.join(",")} committed=$committed '
+            'rawCount=${rawEntries.length} rawFiles=${rawEntries.join(",")}',
       );
     }
 
