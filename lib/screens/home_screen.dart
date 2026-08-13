@@ -181,9 +181,15 @@ class HomeScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Set up a $kContainerName',
+                            Text(
+                                provider.repos.isEmpty
+                                    ? 'Set up a $kContainerName'
+                                    : 'Add another $kContainerName',
                                 style: TextStyle(color: kStar, fontSize: 14)),
-                            Text('Link another $kContainerName to this phone',
+                            Text(
+                                provider.repos.isEmpty
+                                    ? 'Link a $kContainerName to this phone'
+                                    : 'Link another $kContainerName to this phone',
                                 style:
                                     TextStyle(color: kTextMid, fontSize: 13)),
                           ],
