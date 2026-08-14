@@ -194,7 +194,7 @@ class GitServiceImpl implements GitService {
           refspecs: ['refs/heads/$defaultBranch:refs/heads/$defaultBranch'],
           callbacks: _callbacks,
         );
-        return const StepSuccess(message: 'Pushed to bare repo');
+        return const StepSuccess(message: 'Pushed to bare repo.');
       } finally {
         repo.free();
       }

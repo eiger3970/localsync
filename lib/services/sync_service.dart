@@ -245,7 +245,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     if (localOid == baseOid) {
       // Clean fast-forward - nothing local to preserve.
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
-      return const SyncOk('Downloaded latest notes');
+      return const SyncOk('Downloaded latest notes.');
     }
     if (remoteOid == baseOid) {
       // Remote has nothing new - local being ahead is push's job.
@@ -264,7 +264,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     }
     _finishMergeCommit(repo, message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
-    return const SyncOk('Merged in changes from desktop');
+    return const SyncOk('Merged in changes from desktop.');
   });
 }
 
@@ -318,8 +318,8 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final err = _pushWithRetry(repo, remote, callbacks, p.branch);
     if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
     return SyncOk(committed
-        ? 'Pushed as "${p.commitMessage}"'
-        : 'Uploaded notes to desktop');
+        ? 'Pushed as "${p.commitMessage}".'
+        : 'Uploaded notes to desktop.');
   });
 }
 
@@ -378,8 +378,8 @@ Future<SyncResult> _withRepo(
         repo.free();
       }
       return SyncOk(backedUp
-          ? 'Downloaded your notes (existing phone content backed up next to the vault first)'
-          : 'Downloaded your notes');
+          ? 'Downloaded your notes (existing phone content backed up next to the vault first).'
+          : 'Downloaded your notes.');
     } catch (e) {
       return SyncFailed(_diagnose(e), debugDetail: e.toString());
     }
