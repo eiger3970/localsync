@@ -9,9 +9,8 @@ import '../constants.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
-import '../widgets/action_gif.dart';
 import '../widgets/diag_card.dart';
-import '../widgets/sparkle_background.dart';
+import '../widgets/gif_swipe_trigger.dart';
 import 'commit_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
@@ -381,7 +380,7 @@ class _SyncGestureZone extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: _GifSwipeTrigger(
+          child: GifSwipeTrigger(
             assetPath: 'assets/gifs/git_pull.gif',
             caption: 'PULL',
             swipeDown: true,
@@ -395,7 +394,7 @@ class _SyncGestureZone extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: _GifSwipeTrigger(
+          child: GifSwipeTrigger(
             assetPath: 'assets/gifs/git_push.gif',
             caption: 'PUSH',
             swipeDown: false,
@@ -408,173 +407,6 @@ class _SyncGestureZone extends StatelessWidget {
   }
 }
 
-class _GifSwipeTrigger extends StatefulWidget {
-  final String assetPath;
-  final String caption;
-  final bool swipeDown; // true = swipe down triggers, false = swipe up
-  final double gifHeight;
-  final bool alignTop;
-  final Future<void> Function() onConfirm;
-  const _GifSwipeTrigger({
-    required this.assetPath,
-    required this.caption,
-    required this.swipeDown,
-    required this.gifHeight,
-    this.alignTop = false,
-    required this.onConfirm,
-  });
-
-  @override
-  State<_GifSwipeTrigger> createState() => _GifSwipeTriggerState();
-}
-
-class _GifSwipeTriggerState extends State<_GifSwipeTrigger> {
-  static const _threshold = 56.0;
-  // 2026-08-16: the play/idle + minimum-2000ms/no-max/reset-safety
-  // timing logic moved into the shared ActionGif widget (lib/widgets/)
-  // - this class now owns only gesture detection (drag tracking),
-  // calling trigger() on it instead of duplicating that logic here.
-  final _gifKey = GlobalKey<ActionGifState>();
-  // 2026-08-20: identifies the inline slot's own on-screen box so a
-  // drag-start can read its real position/size (see _onStart below).
-  final _slotKey = GlobalKey();
-  double _drag = 0;
-  OverlayEntry? _overlayEntry;
-
-  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
-
-  @override
-  void dispose() {
-    _overlayEntry?.remove();
-    super.dispose();
-  }
-
-  // 2026-08-20: "PULL swipe down disappears at a black space below the
-  // PULL text, doesn't swipe all the way down the screen" - PULL's own
-  // half is barely taller than its own resting content (worse after
-  // last round's 30% gif enlargement), so the unlimited drag added
-  // 2026-08-19 quickly ran the icon into PUSH's half below, whose own
-  // opaque Container then painted over it - looked like the icon
-  // vanishing partway rather than a clean, full-length swipe.
-  //
-  // Fix: while a drag is active, the gif is rendered through a real
-  // OverlayEntry instead of inline - the same mechanism Flutter's own
-  // Draggable uses internally for its feedback widget, and which this
-  // app already relies on elsewhere (linking_screen.dart's desktop ->
-  // vault drag). An Overlay paints above the entire Scaffold, so the
-  // icon is no longer constrained by - or paintable-over by - either
-  // half's own box, and can genuinely travel the full screen.
-  void _onStart(DragStartDetails _) {
-    if (_playing || _overlayEntry != null) return;
-    final box = _slotKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null) return;
-    final topLeft = box.localToGlobal(Offset.zero);
-    final size = box.size;
-    final entry = OverlayEntry(
-      builder: (_) => Positioned(
-        left: topLeft.dx,
-        top: topLeft.dy,
-        width: size.width,
-        height: size.height,
-        child: IgnorePointer(
-          child: Transform.translate(
-            offset: Offset(0, _drag),
-            child: ActionGif(
-              key: _gifKey,
-              assetPath: widget.assetPath,
-              height: widget.gifHeight,
-            ),
-          ),
-        ),
-      ),
-    );
-    setState(() => _overlayEntry = entry);
-    Overlay.of(context).insert(entry);
-  }
-
-  void _onUpdate(double delta) {
-    if (_playing || _overlayEntry == null) return;
-    _drag = widget.swipeDown
-        ? (_drag + delta).clamp(0.0, double.infinity)
-        : (_drag + delta).clamp(double.negativeInfinity, 0.0);
-    _overlayEntry?.markNeedsBuild();
-  }
-
-  void _onEnd() {
-    if (_overlayEntry == null) return;
-    final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
-    _overlayEntry?.remove();
-    setState(() {
-      _overlayEntry = null;
-      _drag = 0;
-    });
-    if (reached) _gifKey.currentState?.trigger(widget.onConfirm);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragStart: _onStart,
-      onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
-      onVerticalDragEnd: (_) => _onEnd(),
-      child: Container(
-        width: double.infinity,
-        color: kVoid,
-        // 2026-08-19: "rather than the whole page, indicate the user is
-        // to PULL or PUSH, so just have magic stars around the words
-        // PULL and PUSH" - the full-zone SparkleBackground (2026-08-18)
-        // hinted at the gif art too, which isn't itself the actionable
-        // hint (the caption is what tells you which gesture this half
-        // is). Sparkles now scope to just the caption below.
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          mainAxisAlignment: widget.alignTop
-              // 2026-08-16: "Pull can be higher, seeing it will
-              // be pulled from top to down" - pull sits toward
-              // the top of its half instead of dead center,
-              // matching the "content flows down from above"
-              // mental model; push stays centered.
-              ? MainAxisAlignment.start
-              : MainAxisAlignment.center,
-          children: [
-            if (widget.alignTop) const SizedBox(height: 12),
-            // Reserves the same footprint as the real gif so nothing
-            // else in this Column reflows while it's living in the
-            // overlay during an active drag.
-            SizedBox(
-              key: _slotKey,
-              height: widget.gifHeight,
-              child: _overlayEntry == null
-                  ? ActionGif(
-                      key: _gifKey,
-                      assetPath: widget.assetPath,
-                      height: widget.gifHeight,
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                if (!_playing) const Positioned.fill(child: SparkleBackground()),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(widget.caption,
-                      style: const TextStyle(
-                          color: kTextMid,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 // ── Spinning sync icon ─────────────────────────────────────────────────────────
 
 class _SpinningSync extends StatefulWidget {

@@ -1,0 +1,148 @@
+// widgets/gif_swipe_trigger.dart
+//
+// 2026-08-14: extracted from home_screen.dart's private _GifSwipeTrigger
+// so CommitScreen could use the exact same swipe-to-confirm mechanic for
+// its own push, not a lookalike copy - "the button needs to not be a
+// tap, but the consistency requires a swipe up for pushes... make the
+// button something that's consistent with the main page's PUSH and gif
+// swipe up." Behavior and layout unchanged from the original, just
+// public and reusable.
+
+import 'package:flutter/material.dart';
+import '../theme.dart';
+import 'action_gif.dart';
+import 'sparkle_background.dart';
+
+class GifSwipeTrigger extends StatefulWidget {
+  final String assetPath;
+  final String caption;
+  final bool swipeDown; // true = swipe down triggers, false = swipe up
+  final double gifHeight;
+  final bool alignTop;
+  final Future<void> Function() onConfirm;
+  const GifSwipeTrigger({
+    super.key,
+    required this.assetPath,
+    required this.caption,
+    required this.swipeDown,
+    required this.gifHeight,
+    this.alignTop = false,
+    required this.onConfirm,
+  });
+
+  @override
+  State<GifSwipeTrigger> createState() => _GifSwipeTriggerState();
+}
+
+class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
+  static const _threshold = 56.0;
+  final _gifKey = GlobalKey<ActionGifState>();
+  final _slotKey = GlobalKey();
+  double _drag = 0;
+  OverlayEntry? _overlayEntry;
+
+  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
+
+  @override
+  void dispose() {
+    _overlayEntry?.remove();
+    super.dispose();
+  }
+
+  void _onStart(DragStartDetails _) {
+    if (_playing || _overlayEntry != null) return;
+    final box = _slotKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: topLeft.dx,
+        top: topLeft.dy,
+        width: size.width,
+        height: size.height,
+        child: IgnorePointer(
+          child: Transform.translate(
+            offset: Offset(0, _drag),
+            child: ActionGif(
+              key: _gifKey,
+              assetPath: widget.assetPath,
+              height: widget.gifHeight,
+            ),
+          ),
+        ),
+      ),
+    );
+    setState(() => _overlayEntry = entry);
+    Overlay.of(context).insert(entry);
+  }
+
+  void _onUpdate(double delta) {
+    if (_playing || _overlayEntry == null) return;
+    _drag = widget.swipeDown
+        ? (_drag + delta).clamp(0.0, double.infinity)
+        : (_drag + delta).clamp(double.negativeInfinity, 0.0);
+    _overlayEntry?.markNeedsBuild();
+  }
+
+  void _onEnd() {
+    if (_overlayEntry == null) return;
+    final reached = (widget.swipeDown ? _drag : -_drag) >= _threshold;
+    _overlayEntry?.remove();
+    setState(() {
+      _overlayEntry = null;
+      _drag = 0;
+    });
+    if (reached) _gifKey.currentState?.trigger(widget.onConfirm);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragStart: _onStart,
+      onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
+      onVerticalDragEnd: (_) => _onEnd(),
+      child: Container(
+        width: double.infinity,
+        color: kVoid,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: widget.alignTop
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
+          children: [
+            if (widget.alignTop) const SizedBox(height: 12),
+            SizedBox(
+              key: _slotKey,
+              height: widget.gifHeight,
+              child: _overlayEntry == null
+                  ? ActionGif(
+                      key: _gifKey,
+                      assetPath: widget.assetPath,
+                      height: widget.gifHeight,
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 14),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (!_playing) const Positioned.fill(child: SparkleBackground()),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Text(widget.caption,
+                      style: const TextStyle(
+                          color: kTextMid,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
