@@ -302,8 +302,8 @@ class HomeScreen extends StatelessWidget {
       SyncOk(:final message)  => message,
       // 2026-08-14 diagnostic: see SyncNoChanges.debug's comment.
       SyncNoChanges(:final debug) =>
-          debug == null ? 'Nothing to sync' : 'Nothing to sync - $debug',
-      SyncConflict()           => 'Conflict - resolve on desktop then sync again',
+          debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
+      SyncConflict()           => 'Conflict - resolve on desktop then sync again.',
       SyncFailed(:final diagnosis) => diagnosis,
     };
     ScaffoldMessenger.of(context).showSnackBar(
