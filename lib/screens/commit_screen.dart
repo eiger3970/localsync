@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
 import '../services/repository_provider.dart';
+import '../services/sync_service.dart';
 
 class CommitScreen extends StatefulWidget {
   final Repository repo;
@@ -138,13 +139,29 @@ class _CommitScreenState extends State<CommitScreen> {
     // no real work at all. Now calls the real push() (see
     // sync_service.dart), same as every other sync action in the app,
     // just with the typed message instead of an auto-generated one.
-    await context
+    final result = await context
         .read<RepositoryProvider>()
         .pushRepository(widget.repo.id!, commitMessage: msg);
     if (!mounted) return;
     setState(() => _pushing = false);
 
-    if (mounted) Navigator.pop(context);
+    // 2026-08-14 real-device finding: this used to pop unconditionally
+    // with the result discarded - so "nothing to commit" (typed a
+    // message but never actually edited a file) and a genuine failure
+    // both looked identical to a successful commit+push: the screen
+    // just closed with no explanation. Now mirrors home_screen.dart's
+    // feedback - show what actually happened, and only leave the
+    // screen once something real went up, so a no-op or error stays
+    // visible and actionable instead of silently discarding the typed
+    // message.
+    if (result == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(syncResultMessage(result)),
+        duration: const Duration(seconds: 12),
+      ),
+    );
+    if (result is SyncOk && mounted) Navigator.pop(context);
   }
 }
 

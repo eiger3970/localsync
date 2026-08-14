@@ -92,6 +92,20 @@ class SyncEvent {
   factory SyncEvent.done(SyncResult r)  => SyncEvent(result: r);
 }
 
+/// Single source of truth for turning a SyncResult into user-facing text -
+/// shared by every screen that runs a sync so results can never drift out
+/// of sync with each other again (home_screen.dart's SnackBar and
+/// commit_screen.dart's silently-discarded result used to each need their
+/// own copy of this).
+String syncResultMessage(SyncResult result) => switch (result) {
+      SyncOk(:final message) => message,
+      // 2026-08-14 diagnostic: see SyncNoChanges.debug's comment.
+      SyncNoChanges(:final debug) =>
+          debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
+      SyncConflict() => 'Conflict - resolve on desktop then sync again.',
+      SyncFailed(:final diagnosis) => diagnosis,
+    };
+
 // ── Params passed into the isolate ───────────────────────────────────────────
 // Plain data only - git2dart objects don't cross isolates, so everything
 // an isolate function needs travels in here instead of being read off

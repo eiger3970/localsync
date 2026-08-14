@@ -298,16 +298,11 @@ class HomeScreen extends StatelessWidget {
   Future<void> _runAndShow(BuildContext context, Future<SyncResult?> op) async {
     final result = await op;
     if (!context.mounted || result == null) return;
-    final text = switch (result) {
-      SyncOk(:final message)  => message,
-      // 2026-08-14 diagnostic: see SyncNoChanges.debug's comment.
-      SyncNoChanges(:final debug) =>
-          debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
-      SyncConflict()           => 'Conflict - resolve on desktop then sync again.',
-      SyncFailed(:final diagnosis) => diagnosis,
-    };
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text), duration: const Duration(seconds: 12)),
+      SnackBar(
+        content: Text(syncResultMessage(result)),
+        duration: const Duration(seconds: 12),
+      ),
     );
   }
 
