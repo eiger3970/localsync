@@ -21,6 +21,12 @@ class CommitScreen extends StatefulWidget {
 
 class _CommitScreenState extends State<CommitScreen> {
   final _msgCtrl = TextEditingController();
+  // 2026-08-14: see GifSwipeTrigger.onSettled's comment - _commit()
+  // (onConfirm) only does the real push and stashes what happened here;
+  // the snackbar + conditional pop moved to _afterCommit() (onSettled),
+  // which only fires once the full swipe animation has actually played
+  // out, not just whenever the network call happens to finish.
+  SyncResult? _lastResult;
 
   @override
   void initState() {
@@ -98,14 +104,20 @@ class _CommitScreenState extends State<CommitScreen> {
             // GifSwipeTrigger the home screen's PUSH half uses
             // (extracted to widgets/gif_swipe_trigger.dart so both
             // screens share one real implementation), not a lookalike.
+            // 2026-08-14: "the templates only show 1, but the full list
+            // showing is better" - 220 ate too much of the list's space
+            // for what this screen actually needs (a compact confirm
+            // gesture, not a dedicated full-screen zone like the home
+            // screen's PUSH half). Shrunk to give the list its room back.
             SizedBox(
-              height: 220,
+              height: 130,
               child: GifSwipeTrigger(
                 assetPath: 'assets/gifs/git_push.gif',
                 caption: 'COMMIT & PUSH',
                 swipeDown: false,
-                gifHeight: 140,
+                gifHeight: 70,
                 onConfirm: _commit,
+                onSettled: _afterCommit,
               ),
             ),
           ],
@@ -150,27 +162,33 @@ class _CommitScreenState extends State<CommitScreen> {
     // no real work at all. Now calls the real push() (see
     // sync_service.dart), same as every other sync action in the app,
     // just with the typed message instead of an auto-generated one.
-    final result = await context
+    _lastResult = await context
         .read<RepositoryProvider>()
         .pushRepository(widget.repo.id!, commitMessage: msg);
-    if (!mounted || result == null) return;
+  }
 
-    // 2026-08-14 real-device finding: this used to pop unconditionally
-    // with the result discarded - so "nothing to commit" (typed a
-    // message but never actually edited a file) and a genuine failure
-    // both looked identical to a successful commit+push: the screen
-    // just closed with no explanation. Now mirrors home_screen.dart's
-    // feedback - show what actually happened, and only leave the
-    // screen once something real went up, so a no-op or error stays
-    // visible and actionable instead of silently discarding the typed
-    // message.
+  // 2026-08-14 real-device finding: this used to pop unconditionally
+  // with the result discarded - so "nothing to commit" (typed a
+  // message but never actually edited a file) and a genuine failure
+  // both looked identical to a successful commit+push: the screen
+  // just closed with no explanation. Now shows what actually happened,
+  // and only leaves the screen once something real went up.
+  //
+  // Runs as GifSwipeTrigger's onSettled - after the full swipe
+  // animation (real push and its 2000ms floor, whichever is later) has
+  // actually finished, not just whenever the network call resolves, so
+  // landing back on the home screen doesn't cut the animation off
+  // mid-flight with nothing continuing it there.
+  void _afterCommit() {
+    final result = _lastResult;
+    if (!mounted || result == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(syncResultMessage(result)),
         duration: const Duration(seconds: 12),
       ),
     );
-    if (result is SyncOk && mounted) Navigator.pop(context);
+    if (result is SyncOk) Navigator.pop(context);
   }
 }
 

@@ -20,6 +20,19 @@ class GifSwipeTrigger extends StatefulWidget {
   final double gifHeight;
   final bool alignTop;
   final Future<void> Function() onConfirm;
+  // 2026-08-14: "the screen immediately switches to the main screen, so
+  // the gif shows for a split second. Then the main screen shows no
+  // pushing gif, so that's a mismatch missing the flow of continuation"
+  // - a caller that navigates away as soon as onConfirm's own Future
+  // resolves cuts the animation off before its real 2000ms-minimum
+  // floor (owned by ActionGif.trigger(), see that widget) has actually
+  // played out, since that floor only delays when trigger() itself
+  // resolves, not anything the caller does inside onConfirm. onSettled
+  // fires after the whole trigger() - real action AND floor, whichever
+  // is later - is truly done, so a caller that wants to navigate can
+  // wait for the full, honest animation instead of just the network
+  // call.
+  final VoidCallback? onSettled;
   const GifSwipeTrigger({
     super.key,
     required this.assetPath,
@@ -28,6 +41,7 @@ class GifSwipeTrigger extends StatefulWidget {
     required this.gifHeight,
     this.alignTop = false,
     required this.onConfirm,
+    this.onSettled,
   });
 
   @override
@@ -93,7 +107,11 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       _overlayEntry = null;
       _drag = 0;
     });
-    if (reached) _gifKey.currentState?.trigger(widget.onConfirm);
+    if (reached) {
+      _gifKey.currentState?.trigger(widget.onConfirm).then((_) {
+        if (mounted) widget.onSettled?.call();
+      });
+    }
   }
 
   @override
