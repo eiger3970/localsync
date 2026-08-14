@@ -9,6 +9,7 @@ import '../models/repository.dart';
 import '../models/commit_template.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
+import '../widgets/action_gif.dart';
 
 class CommitScreen extends StatefulWidget {
   final Repository repo;
@@ -20,6 +21,7 @@ class CommitScreen extends StatefulWidget {
 
 class _CommitScreenState extends State<CommitScreen> {
   final _msgCtrl = TextEditingController();
+  final _gifKey = GlobalKey<ActionGifState>();
   bool _pushing = false;
 
   @override
@@ -89,16 +91,29 @@ class _CommitScreenState extends State<CommitScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // 2026-08-14: "Either the tap button commit and push is a
+            // swipe up of the push up gif or the switching to main page
+            // shows the pushup gif running" - real device feedback that
+            // this screen's plain spinner didn't match the home screen's
+            // push gif at all. A drag-swipe gesture doesn't fit this
+            // screen (there's already a deliberate tap-to-confirm step
+            // after typing a message), so this reuses the same
+            // ActionGif + asset instead - same real-progress-not-faked
+            // trigger() contract as the home screen's swipe, just
+            // fired by a tap here.
+            Center(
+              child: ActionGif(
+                key: _gifKey,
+                assetPath: 'assets/gifs/git_push.gif',
+                height: 80,
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _pushing ? null : _commit,
-                child: _pushing
-                  ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(color: kVoid, strokeWidth: 2),
-                    )
-                  : const Text('COMMIT & PUSH'),
+                child: const Text('COMMIT & PUSH'),
               ),
             ),
           ],
@@ -139,9 +154,18 @@ class _CommitScreenState extends State<CommitScreen> {
     // no real work at all. Now calls the real push() (see
     // sync_service.dart), same as every other sync action in the app,
     // just with the typed message instead of an auto-generated one.
-    final result = await context
-        .read<RepositoryProvider>()
-        .pushRepository(widget.repo.id!, commitMessage: msg);
+    //
+    // 2026-08-14: wrapped in the gif's trigger() (see the ActionGif
+    // widget above) instead of a bare await - races the real push
+    // against the same 2000ms-minimum/no-fake-completion contract the
+    // home screen's swipe-push already uses, so this screen's gif
+    // isn't just decorative, it reflects the actual operation.
+    SyncResult? result;
+    await _gifKey.currentState?.trigger(() async {
+      result = await context
+          .read<RepositoryProvider>()
+          .pushRepository(widget.repo.id!, commitMessage: msg);
+    });
     if (!mounted) return;
     setState(() => _pushing = false);
 
@@ -154,14 +178,15 @@ class _CommitScreenState extends State<CommitScreen> {
     // screen once something real went up, so a no-op or error stays
     // visible and actionable instead of silently discarding the typed
     // message.
-    if (result == null) return;
+    final finalResult = result;
+    if (finalResult == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(syncResultMessage(result)),
+        content: Text(syncResultMessage(finalResult)),
         duration: const Duration(seconds: 12),
       ),
     );
-    if (result is SyncOk && mounted) Navigator.pop(context);
+    if (finalResult is SyncOk && mounted) Navigator.pop(context);
   }
 }
 
