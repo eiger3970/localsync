@@ -8,6 +8,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
@@ -254,7 +255,7 @@ class _IdleViewState extends State<_IdleView>
                           child: Opacity(
                             opacity: 0.85,
                             child: _DeviceGlyph(
-                              icon: Icons.computer_rounded,
+                              svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
                               label: 'Your desktop',
                               caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
                               accent: true,
@@ -266,7 +267,7 @@ class _IdleViewState extends State<_IdleView>
                         childWhenDragging: Opacity(
                           opacity: 0.3,
                           child: _DeviceGlyph(
-                            icon: Icons.computer_rounded,
+                            svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
                             label: 'Your desktop',
                             caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
                             accent: true,
@@ -279,7 +280,7 @@ class _IdleViewState extends State<_IdleView>
                         // fixes the pulse fading the desktop label's color
                         // relative to the vault glyph's solid one.
                         child: _DeviceGlyph(
-                          icon: Icons.computer_rounded,
+                          svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
                           label: 'Your desktop',
                           caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
                           accent: true,
@@ -1598,7 +1599,16 @@ class _ScopeRow extends StatelessWidget {
 // leftover bloat: don't keep an unused widget around "in case".
 
 class _DeviceGlyph extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  // 2026-08-20: desktop glyph now uses pairing_laptop_plain.svg (same
+  // body as the pairing screen's keyway lock, just without the cut -
+  // this view isn't about key-pairing specifically) instead of the
+  // generic Icons.computer_rounded, for visual consistency with the
+  // rest of the pairing flow. svgAsset takes precedence over icon when
+  // both are given - icon stays supported for callers that don't have
+  // a custom asset (the vault side, still Icons.folder_rounded or
+  // similar).
+  final String? svgAsset;
   final String label;
   final String caption;
   final bool accent;
@@ -1607,7 +1617,8 @@ class _DeviceGlyph extends StatelessWidget {
   final Animation<double>? pulse;
   final bool hovering;
   const _DeviceGlyph({
-    required this.icon,
+    this.icon,
+    this.svgAsset,
     required this.label,
     required this.caption,
     this.accent = false,
@@ -1615,7 +1626,8 @@ class _DeviceGlyph extends StatelessWidget {
     this.iconSize = 56,
     this.pulse,
     this.hovering = false,
-  });
+  }) : assert(icon != null || svgAsset != null,
+            'must provide either icon or svgAsset');
 
   @override
   Widget build(BuildContext context) {
@@ -1637,7 +1649,9 @@ class _DeviceGlyph extends StatelessWidget {
     // layout heights regardless of drop-target hover state - fixes the
     // "notebook image isn't the same height as desktop" report.
     final color = accent ? kGreen : kTextDim;
-    Widget iconWidget = Icon(icon, size: iconSize, color: color);
+    Widget iconWidget = svgAsset != null
+        ? SvgPicture.asset(svgAsset!, width: iconSize, height: iconSize)
+        : Icon(icon, size: iconSize, color: color);
     if (pulse != null) {
       iconWidget = AnimatedBuilder(
         animation: pulse!,
