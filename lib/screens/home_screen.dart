@@ -541,6 +541,9 @@ void _showAbout(BuildContext context) {
             const SizedBox(height: 12),
             const Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
+            const SizedBox(height: 4),
+            const Text('Solo-built by kworld - hand-coded, no low-code or app-builder tools.',
+                style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 20),
             const Text('DISCLAIMER',
                 style: TextStyle(
@@ -564,10 +567,10 @@ void _showAbout(BuildContext context) {
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            Text(
+            const Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
-              '<YOUR_CONTACT_EMAIL_OR_HANDLE>',
-              style: const TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+              'open an issue at codeberg.org/kworld/synclocal-obsidian',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
             const Text('CREDITS',
@@ -577,8 +580,14 @@ void _showAbout(BuildContext context) {
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text('<YOUR_CREDITS_TEXT>',
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            const Text(
+              'Bash, Blender, C, C++, CHUV public library, Claude, Codemagic, '
+              'Dart, Eye of MATE, Flameshot, GIMP, iLoader, Inkscape, iPhone, '
+              'Kanban plugin, Logseq, Médiathèque Valais Sion Makerspace '
+              '(3D printing), Obsidian, Palais de Rumine public library, '
+              'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, Vim',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
             const SizedBox(height: 12),
             TextButton(
               style: TextButton.styleFrom(
