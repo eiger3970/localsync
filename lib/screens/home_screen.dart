@@ -569,7 +569,7 @@ void _showAbout(BuildContext context) {
             const SizedBox(height: 6),
             const Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
-              'open an issue at codeberg.org/kworld/synclocal-obsidian',
+              'open an issue at codeberg.org/kworld/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
