@@ -17,6 +17,7 @@ dependencies:
   cryptography: ^2.7.0
   openssh_ed25519: ^1.0.0
   dartssh2: ^2.9.0
+  flutter_svg: ^2.0.10+1
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +37,7 @@ flutter:
     - assets/gifs/
     - assets/icon/icon.png
     - assets/icon/logo_word_with_circle.png
+    - assets/pairing/
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"

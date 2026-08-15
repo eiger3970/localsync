@@ -4,12 +4,15 @@
 // phone's SSH key. Password is never stored - only held in this screen's
 // local state for the duration of the request.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
+import '../widgets/key_pairing_trigger.dart';
+import '../widgets/shredding_password_field.dart';
 import 'linking_screen.dart';
 
 class PairingScreen extends StatefulWidget {
@@ -28,7 +31,7 @@ class PairingScreen extends StatefulWidget {
 class _PairingScreenState extends State<PairingScreen> {
   late final PairingController _ctrl;
   final _passwordCtrl = TextEditingController();
-  bool _obscure = true;
+  final _shredKey = GlobalKey<ShreddingPasswordFieldState>();
 
   @override
   void initState() {
@@ -38,6 +41,7 @@ class _PairingScreenState extends State<PairingScreen> {
       desktopIp:   widget.desktopIp,
     );
     _ctrl.addListener(_onChange);
+    _passwordCtrl.addListener(_onChange);
   }
 
   void _onChange() => setState(() {});
@@ -83,33 +87,15 @@ class _PairingScreenState extends State<PairingScreen> {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 24),
-            TextField(
+            ShreddingPasswordField(
+              key: _shredKey,
               controller: _passwordCtrl,
-              obscureText: _obscure,
               enabled: !_ctrl.isRunning,
-              style: const TextStyle(color: kStar),
-              decoration: InputDecoration(
-                labelText: 'Desktop password',
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-              ),
-              onSubmitted: (_) => _pair(),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _ctrl.isRunning ? null : _pair,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kGreen,
-                  foregroundColor: kVoid,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: const RoundedRectangleBorder(),
-                ),
-                child: Text(_ctrl.isRunning ? 'PAIRING…' : 'PAIR'),
-              ),
+            const SizedBox(height: 12),
+            KeyPairingTrigger(
+              enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+              onConfirm: _pair,
             ),
             if (result is StepFailure) ...[
               const SizedBox(height: 20),
@@ -149,9 +135,11 @@ class _PairingScreenState extends State<PairingScreen> {
   }
 
   Future<void> _pair() async {
-    if (_passwordCtrl.text.isEmpty) return;
-    await _ctrl.pairWithPassword(_passwordCtrl.text);
-    _passwordCtrl.clear();
+    final password = _passwordCtrl.text;
+    if (password.isEmpty) return;
+    final shredding = _shredKey.currentState?.shred();
+    if (shredding != null) unawaited(shredding);
+    await _ctrl.pairWithPassword(password);
   }
 
   void _continueToVaultSetup(BuildContext context) {

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="385" viewBox="650 15 260 250">
+  <rect x="650" y="15" width="260" height="250" fill="#03020A"/>
+
+  <rect x="673.4" y="29.9" width="196.3" height="188.5" rx="11.7" fill="#1E1A35"/>
+  <path d="M673.4,218.4 L869.7,218.4 L889.2,245.7 L653.9,245.7 Z" fill="#1E1A35" stroke="#00FF41" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- border: gap re-centered for the keyhole's new size (right edge lands on screen's own
+       horizontal middle, 673.4 + 196.3/2 = 771.55, rather than an arbitrary stopping point) -->
+  <path d="M685.1,29.9 L858,29.9 A11.7,11.7 0 0 1 869.7,41.6 L869.7,206.7 A11.7,11.7 0 0 1 858,218.4 L673.4,218.4 L673.4,138.94
+           M673.4,109.34 L673.4,41.6 A11.7,11.7 0 0 1 685.1,29.9"
+        fill="none" stroke="#00FF41" stroke-width="3" stroke-linejoin="round" stroke-linecap="butt"/>
+
+  <!-- keyway: scaled so its right edge lands exactly on the screen's horizontal middle -->
+  <g transform="translate(572.91,47.8) scale(0.779)">
+    <path d="M129,79 L255,79 L255,141 L237,141 L237,93 L219,93 L219,117 L201,117 L183,117 L183,99 L165,99 L165,111 L147,111 L147,117 L129,117 Z"
+          fill="#03020A" stroke="none"/>
+    <path d="M129,79 L255,79 L255,141 L237,141 L237,93 L219,93 L219,117 L201,117 L183,117 L183,99 L165,99 L165,111 L147,111 L147,117 L129,117"
+          fill="none" stroke="#00FF41" stroke-width="3.85" stroke-linejoin="round" stroke-linecap="round"/>
+  </g>
+</svg>
