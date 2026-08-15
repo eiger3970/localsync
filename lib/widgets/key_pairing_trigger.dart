@@ -16,11 +16,20 @@ class KeyPairingTrigger extends StatefulWidget {
   final Future<void> Function() onConfirm;
   final VoidCallback? onSettled;
   final bool enabled;
+  // Overridable so a caller that reuses this purely for its drag gesture
+  // (e.g. linking_screen.dart's failed-view "PAIR NOW", which just
+  // navigates rather than actually registering anything itself) doesn't
+  // have to show "REGISTERING KEY..." for something that isn't happening
+  // yet.
+  final String idleLabel;
+  final String runningLabel;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
     this.onSettled,
     this.enabled = true,
+    this.idleLabel = 'DRAG THE KEY INTO THE LOCK',
+    this.runningLabel = 'REGISTERING KEY…',
   });
 
   @override
@@ -153,9 +162,9 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
             bottom: 4,
             child: Text(
               _running
-                  ? 'REGISTERING KEY…'
+                  ? widget.runningLabel
                   : (widget.enabled
-                      ? 'DRAG THE KEY INTO THE LOCK'
+                      ? widget.idleLabel
                       : 'TYPE THE PASSWORD FIRST'),
               style: const TextStyle(
                   color: kTextDim, fontSize: 11, letterSpacing: 1.5),

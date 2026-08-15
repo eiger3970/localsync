@@ -19,6 +19,7 @@ import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/key_pairing_trigger.dart';
 import '../widgets/sparkle_background.dart';
 import '../widgets/leash_swipe_confirm.dart';
 import 'home_screen.dart';
@@ -1473,9 +1474,18 @@ class _FailedView extends StatelessWidget {
 
           if (failure.error == LinkingError.pairingNotComplete ||
               failure.error == LinkingError.sshAuthFailed) ...[
-            _PrimaryButton(
-              label: 'PAIR NOW',
-              onPressed: () => Navigator.push(
+            // 2026-08-15: "I want to use the images to drag for the pair
+            // now" - PAIR NOW replaced with the same drag-the-key gesture
+            // used inside PairingScreen itself. No real async work here
+            // (just a navigation), so onConfirm is a no-op and the actual
+            // push happens in onSettled, once the drag/glow animation has
+            // genuinely finished playing - same onSettled contract as
+            // GifSwipeTrigger/CommitScreen, so the transition never cuts
+            // the animation off mid-flight.
+            KeyPairingTrigger(
+              runningLabel: 'OPENING PAIRING…',
+              onConfirm: () async {},
+              onSettled: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const PairingScreen(
