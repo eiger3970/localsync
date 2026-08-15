@@ -564,10 +564,10 @@ void _showAbout(BuildContext context) {
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text(
-              'Logseq support and FOSS collaboration welcome - '
+            Text(
+              '$kNoteAppName support and FOSS collaboration welcome - '
               '<YOUR_CONTACT_EMAIL_OR_HANDLE>',
-              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+              style: const TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
             const Text('CREDITS',
