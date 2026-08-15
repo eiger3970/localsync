@@ -20,7 +20,7 @@ func git_libgit2_shutdown_ref() -> Int32
 private func retainLibgit2Symbols() {
   // Never actually called in a way that matters - just needs to exist
   // as a real reference so the linker can't prove it's unused.
-  if ProcessInfo.processInfo.environment["SYNCLOCAL_NEVER_SET"] != nil {
+  if ProcessInfo.processInfo.environment["LOCALSYNC_NEVER_SET"] != nil {
     _ = git_libgit2_init_ref()
     _ = git_libgit2_shutdown_ref()
   }
@@ -30,12 +30,12 @@ private func retainLibgit2Symbols() {
 //
 // Root cause this exists: real user documentation of years of working
 // Working Copy + Obsidian usage showed the actual working direction is
-// the OPPOSITE of what Synclocal originally assumed. Obsidian creates
+// the OPPOSITE of what Localsync originally assumed. Obsidian creates
 // and owns its vault folder itself (on-device, "Continue without
 // sync"); a separate sync app can only gain write access to that
 // folder afterward, via iOS's real cross-app folder picker - the same
 // mechanism Working Copy's "Link Repository to -> Directory" screen
-// uses under the hood. Synclocal had it backwards: cloning into its
+// uses under the hood. Localsync had it backwards: cloning into its
 // own private folder and hoping Obsidian could later "open" it - no
 // such import path exists in Obsidian's iOS UI.
 //

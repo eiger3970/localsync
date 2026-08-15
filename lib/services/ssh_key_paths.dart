@@ -19,8 +19,8 @@ class SshKeyPaths {
       (await getApplicationSupportDirectory()).path;
 
   static Future<String> privateKeyPath() async =>
-      '${await _supportDir()}/synclocal_id_ed25519';
+      '${await _supportDir()}/localsync_id_ed25519';
 
   static Future<String> publicKeyPath() async =>
-      '${await _supportDir()}/synclocal_id_ed25519.pub';
+      '${await _supportDir()}/localsync_id_ed25519.pub';
 }

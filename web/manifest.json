@@ -1,6 +1,6 @@
 {
-    "name": "synclocal",
-    "short_name": "synclocal",
+    "name": "localsync",
+    "short_name": "localsync",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

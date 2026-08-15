@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>synclocal mockup</title>
+<title>localsync mockup</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -401,7 +401,7 @@
 <body>
 
 <div class="stage">
-  <div class="label">synclocal · interactive mockup</div>
+  <div class="label">localsync · interactive mockup</div>
 
   <div class="phone">
     <div class="notch"></div>
@@ -415,7 +415,7 @@
     <!-- APP BAR (dynamic) -->
     <div class="app-bar" id="appBar">
       <div class="app-bar-back" id="backBtn" style="display:none" onclick="goBack()">← back</div>
-      <div class="app-bar-title" id="appTitle">SYNCLOCAL</div>
+      <div class="app-bar-title" id="appTitle">LOCALSYNC</div>
       <div id="appBarRight">
         <span class="topright-icon" title="All synced">✓</span>
       </div>
@@ -502,7 +502,7 @@
           <div class="big-icon">⇄</div>
           <div class="heading">Link your vault</div>
           <div class="subtext">
-            synclocal runs the 8-step linking sequence automatically.<br><br>
+            localsync runs the 8-step linking sequence automatically.<br><br>
             You'll be prompted at two points to interact with Obsidian.
           </div>
           <button class="primary-btn" onclick="navigate('screen-link-running','VAULT SETUP',true)">START LINKING</button>
@@ -538,7 +538,7 @@
    (swipe it away in app switcher)
 
 → Then tap Continue below</div>
-          <div class="ios-note">synclocal is paused — iOS needs a moment between these steps.</div>
+          <div class="ios-note">localsync is paused — iOS needs a moment between these steps.</div>
           <button class="primary-btn" onclick="navigate('screen-link-parked2','VAULT SETUP',false)">CONTINUE</button>
         </div>
       </div>
@@ -556,7 +556,7 @@
    (spinner in bottom-left of Obsidian)
 
 → Return here and tap Continue</div>
-          <div class="ios-note">synclocal is paused — iOS needs a moment between these steps.</div>
+          <div class="ios-note">localsync is paused — iOS needs a moment between these steps.</div>
           <button class="primary-btn" onclick="navigate('screen-link-complete','VAULT SETUP',false)">CONTINUE</button>
         </div>
       </div>
@@ -569,9 +569,9 @@
           <div class="heading">Vault linked</div>
           <div class="subtext">
             Your Obsidian vault is connected to your desktop repository.<br><br>
-            synclocal will sync automatically on open and close.
+            localsync will sync automatically on open and close.
           </div>
-          <button class="primary-btn" onclick="navigate('screen-home','SYNCLOCAL',false)">DONE</button>
+          <button class="primary-btn" onclick="navigate('screen-home','LOCALSYNC',false)">DONE</button>
         </div>
       </div>
 
@@ -592,7 +592,7 @@
           </div>
           <div style="height:24px"></div>
           <button class="primary-btn" onclick="navigate('screen-link-idle','VAULT SETUP',false)">TRY AGAIN</button>
-          <button class="ghost-btn" onclick="navigate('screen-home','SYNCLOCAL',false)">CANCEL</button>
+          <button class="ghost-btn" onclick="navigate('screen-home','LOCALSYNC',false)">CANCEL</button>
         </div>
       </div>
 
@@ -643,7 +643,7 @@
 
   <!-- NAV TABS -->
   <div class="nav-tabs">
-    <div class="nav-tab active" id="tab-home" onclick="jumpTo('screen-home','SYNCLOCAL',false,'tab-home')">Home</div>
+    <div class="nav-tab active" id="tab-home" onclick="jumpTo('screen-home','LOCALSYNC',false,'tab-home')">Home</div>
     <div class="nav-tab" id="tab-idle"    onclick="jumpTo('screen-link-idle','VAULT SETUP',true,'tab-idle')">Setup: idle</div>
     <div class="nav-tab" id="tab-run"     onclick="jumpTo('screen-link-running','VAULT SETUP',true,'tab-run')">Setup: running</div>
     <div class="nav-tab" id="tab-park"    onclick="jumpTo('screen-link-parked','VAULT SETUP',true,'tab-park')">Setup: parked</div>
