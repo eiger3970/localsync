@@ -76,8 +76,15 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             obscureText: _obscure,
             enabled: widget.enabled && !_shredding,
             style: const TextStyle(color: kStar),
+            // 2026-08-16: "this is a strong white as though is a solid
+            // immutable text... should change to a faded text which is
+            // a typical hint" - labelText renders bold and floats above
+            // the field permanently once focused/filled, reading as
+            // fixed content rather than a placeholder. hintText uses the
+            // theme's already-dimmed hintStyle (kTextDim) and actually
+            // disappears once typing starts, matching a real hint.
             decoration: InputDecoration(
-              labelText: 'Desktop password',
+              hintText: 'Desktop password…',
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => _obscure = !_obscure),

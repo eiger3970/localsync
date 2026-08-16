@@ -25,12 +25,19 @@ class KeyPairingTrigger extends StatefulWidget {
   final VoidCallback? onSettled;
   final bool enabled;
   final String runningLabel;
+  // 2026-08-16: "moving phonekey to the right will allow badge 2 to be
+  // on the left of the 2 images" - rendered by this widget itself
+  // (rather than positioned externally, e.g. by ContentAboveDragCanvas)
+  // so it can be pixel-aligned against the key/lock's actual rest row
+  // instead of a guessed offset from outside.
+  final Widget? leadingBadge;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
     this.onSettled,
     this.enabled = true,
     this.runningLabel = 'REGISTERING KEY…',
+    this.leadingBadge,
   });
 
   @override
@@ -49,6 +56,17 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   // fallback for the (untested) case of unbounded constraints.
   static const _fallbackCanvasHeight = 240.0;
   static const _edgePad = 8.0;
+  // Reserved to the left of the key's rest position when leadingBadge is
+  // set - a 24px badge circle plus a 12px gap, matching _StepBadge.
+  static const _badgeReserve = 36.0;
+  static const _badgeSize = 24.0;
+  // 2026-08-16: "the images are down near the bottom" - the pair used to
+  // sit vertically centered within the whole (now very tall) canvas,
+  // which put it far below the content and the leading badge instead of
+  // right next to them. Anchored near the top of the canvas instead -
+  // the draggable area (see _clamp) still spans the full canvas height,
+  // only the idle/rest position moved.
+  static const _pairRowTop = _edgePad + 12;
 
   // Where each SVG's tooth pattern actually sits relative to its own
   // widget's top-left corner, derived from both assets' viewBox/transform
@@ -87,9 +105,9 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     super.dispose();
   }
 
-  Offset _target(double canvasWidth) {
+  Offset _target(double canvasWidth, double keyRestLeft) {
     final lockLeft = canvasWidth - _lockWidth - _edgePad;
-    final targetLeft = lockLeft + _lockOriginFromLeft - (_edgePad + _keyOriginFromLeft);
+    final targetLeft = lockLeft + _lockOriginFromLeft - (keyRestLeft + _keyOriginFromLeft);
     return Offset(targetLeft, _verticalNudge);
   }
 
@@ -123,7 +141,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
       _dragging = true;
       _snapped = false;
       _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
-          canvasWidth, canvasHeight);
+          canvasWidth, canvasHeight, keyRestLeft);
     });
   }
 
@@ -132,13 +150,13 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     if (!_dragging) return;
     setState(() {
       _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
-          canvasWidth, canvasHeight);
+          canvasWidth, canvasHeight, keyRestLeft);
     });
     // Live hit-test - success fires the moment the key is dragged over the
     // lock, no need to lift a finger precisely on target.
-    if ((_drag - _target(canvasWidth)).distance <= _successRadius) {
+    if ((_drag - _target(canvasWidth, keyRestLeft)).distance <= _successRadius) {
       _dragging = false;
-      _snap(canvasWidth);
+      _snap(canvasWidth, keyRestLeft);
     }
   }
 
@@ -148,17 +166,23 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     _animateTo(Offset.zero);
   }
 
-  Offset _clamp(Offset o, double canvasWidth, double canvasHeight) {
-    final minDx = -_edgePad;
-    final maxDx = canvasWidth - _keyWidth - _edgePad;
-    final minDy = -(canvasHeight - _keyHeight) / 2;
-    final maxDy = (canvasHeight - _keyHeight) / 2;
+  Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft) {
+    final minDx = _edgePad - keyRestLeft;
+    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft;
+    // Rest is now near the top (see _pairRowTop), but the draggable range
+    // still spans the whole canvas top-to-bottom, not just the area
+    // around the rest position - "doesn't drag whole page, only the
+    // bottom and not above badge 2" was this same bug: the pair's visual
+    // position moving didn't used to change these bounds, but they were
+    // computed for a vertically-centered rest, which no longer matches.
+    final minDy = -_pairRowTop;
+    final maxDy = canvasHeight - _keyHeight - _pairRowTop;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
-  void _snap(double canvasWidth) {
+  void _snap(double canvasWidth, double keyRestLeft) {
     setState(() => _snapped = true);
-    _animateTo(_target(canvasWidth)).then((_) => _startPairing());
+    _animateTo(_target(canvasWidth, keyRestLeft)).then((_) => _startPairing());
   }
 
   Future<void> _animateTo(Offset target) async {
@@ -195,9 +219,10 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
       final canvasHeight =
           constraints.maxHeight.isFinite ? constraints.maxHeight : _fallbackCanvasHeight;
       final lockLeft = canvasWidth - _lockWidth - _edgePad;
-      final lockTop = (canvasHeight - _lockHeight) / 2;
-      final keyRestLeft = _edgePad;
-      final keyRestTop = (canvasHeight - _keyHeight) / 2;
+      final lockTop = _pairRowTop;
+      final keyRestLeft =
+          _edgePad + (widget.leadingBadge != null ? _badgeReserve : 0);
+      final keyRestTop = _pairRowTop + (_lockHeight - _keyHeight) / 2;
       final active = _running || _snapped;
 
       return SizedBox(
@@ -217,6 +242,13 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
           // mid-drag. Explicit Keys on every child make identity
           // survive the shuffle regardless of list position.
           children: [
+            if (widget.leadingBadge != null)
+              Positioned(
+                key: const ValueKey('leadingBadge'),
+                left: _edgePad,
+                top: _pairRowTop + (_lockHeight - _badgeSize) / 2,
+                child: widget.leadingBadge!,
+              ),
             // Lock painted first (bottom) at its fixed position - opaque
             // canvas, so anything painted before it here would vanish
             // wherever the key later overlaps it.

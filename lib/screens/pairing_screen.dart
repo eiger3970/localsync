@@ -98,13 +98,18 @@ class _PairingScreenState extends State<PairingScreen> {
       // no ScrollView - the measurement is real now.
       body: SafeArea(
         child: ContentAboveDragCanvas(
+          // 2026-08-16: "missing the number 2 on the left" (restored -
+          // dropping it two rounds ago was a real regression, not
+          // requested) then "moving phonekey to the right will allow
+          // badge 2 to be on the left of the 2 images" - the badge now
+          // lives inside KeyPairingTrigger itself via leadingBadge, so it
+          // can be pixel-aligned to the key/lock's actual rest row
+          // instead of positioned externally by guesswork.
           canvas: KeyPairingTrigger(
             enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
             onConfirm: _pair,
+            leadingBadge: const _StepBadge(2),
           ),
-          // 2026-08-16: "missing the number 2 on the left" - restored;
-          // dropping it last round was a real regression, not requested.
-          canvasBadge: const _StepBadge(2),
           content: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
