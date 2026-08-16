@@ -34,6 +34,13 @@
 // allow badge 2 to be on the left of the 2 images" needed pixel-perfect
 // alignment against the key/lock's actual rest row, which this widget
 // can't know. Moved into KeyPairingTrigger itself as `leadingBadge`.
+//
+// 2026-08-16: "step 2 jumps from bottom under the error messages, to the
+// original position directly under step 1... needs to be fixed or
+// smoothed" - when a successful pair clears the failure box, content
+// height drops and the canvas's top offset changes with it. The
+// reposition itself is correct (content really did just get shorter);
+// it was just an instant cut, not animated. Positioned -> AnimatedPositioned.
 
 import 'package:flutter/material.dart';
 
@@ -55,6 +62,8 @@ class ContentAboveDragCanvas extends StatefulWidget {
 }
 
 class _ContentAboveDragCanvasState extends State<ContentAboveDragCanvas> {
+  static const _reflowDuration = Duration(milliseconds: 320);
+
   final _contentKey = GlobalKey();
   final _bottomKey = GlobalKey();
   double _contentHeight = 0;
@@ -69,7 +78,9 @@ class _ContentAboveDragCanvasState extends State<ContentAboveDragCanvas> {
 
     return Stack(
       children: [
-        Positioned(
+        AnimatedPositioned(
+          duration: _reflowDuration,
+          curve: Curves.easeOutCubic,
           top: _contentHeight,
           left: 0,
           right: 0,
