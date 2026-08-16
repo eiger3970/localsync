@@ -301,7 +301,12 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.pairingNotComplete =>
           'Drag the key into the lock below to pair, then try setup again.',
         LinkingError.pairingPasswordRejected =>
-          'Check the password and try again.\n'
+          // 2026-08-16: "it's impossible to check the password as it no
+          // longer shows" - the field shreds itself on submit (never
+          // stored, by design), so "check the password" told the user to
+          // do something the app itself made impossible. The only real
+          // available action is retyping it.
+          'Retype your desktop password and try again.\n'
               'This is your desktop login password - used once, never stored.',
         LinkingError.cloneVerificationFailed =>
           'The download may not have finished, or the folder was moved or deleted after setup.\n'

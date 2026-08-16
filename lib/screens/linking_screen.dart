@@ -1325,130 +1325,144 @@ class _FailedView extends StatelessWidget {
     final isPairingFailure = failure.error == LinkingError.pairingNotComplete ||
         failure.error == LinkingError.sshAuthFailed;
 
-    // 2026-08-16: rebuilt from one long SingleChildScrollView (which
-    // confined the drag-the-key gesture to a small fixed box, and put it
-    // inside the same Scrollable that was stealing early vertical-drag
-    // events - "I have to drag down and then the phonekey drags up")
-    // into: a scrollable strip for the diagnostic text up top, then a
-    // plain (non-scrolling) Expanded area below it that hands the drag
-    // widget the actual remaining screen space to roam in, with no
-    // ancestor Scrollable competing for the gesture.
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  const Text('Something stopped',
-                      style: TextStyle(
-                          color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 20),
+    // 2026-08-16: "drag only in bottom left corner, not possible on
+    // entire screen?" - reported three times running a Row/Column/
+    // Expanded-based layout, including after wrapping the trigger in
+    // SizedBox.expand. Rather than keep guessing at which loose
+    // constraint in that chain wasn't resolving to the real available
+    // space, the pairing-failure branch is rebuilt around a Stack: the
+    // drag canvas is a Positioned.fill BACKGROUND layer (guaranteed to
+    // receive the Stack's true resolved size), diagnostic text is
+    // pinned to the top, CANCEL pinned to the bottom - both float over
+    // the canvas rather than competing with it for space in a Column.
+    final diagnostics = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 8),
+        const Text('Something stopped',
+            style: TextStyle(
+                color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 20),
 
-                  // What happened
-                  DiagCard(
-                    label: 'WHAT HAPPENED',
-                    text: failure.diagnosis,
-                    accent: Colors.redAccent,
-                  ),
-                  const SizedBox(height: 12),
+        // What happened
+        DiagCard(
+          label: 'WHAT HAPPENED',
+          text: failure.diagnosis,
+          accent: Colors.redAccent,
+        ),
+        const SizedBox(height: 12),
 
-                  // 2026-08-16: "I just told you text is verbose and to
-                  // use infographics for workflow processes" - for the
-                  // pairing failures, the fix is the drag graphic
-                  // directly below, so a text card spelling out "drag
-                  // the key into the lock" on top of it was pure
-                  // redundancy. Dropped the card, replaced with a plain
-                  // arrow pointing straight at the thing to do - zero
-                  // reading required. Other failure types keep the text
-                  // card since there's no graphic answering them.
-                  if (!isPairingFailure) ...[
-                    DiagCard(
-                      label: 'HOW TO FIX IT',
-                      text: failure.resolution,
-                      accent: kGreen,
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 4),
-                    const Center(
-                      child: Icon(Icons.keyboard_arrow_down_rounded,
-                          color: kGreen, size: 32),
-                    ),
-                  ],
-
-                  if (failure.debugDetail != null &&
-                      failure.debugDetail!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    DiagCard(
-                      label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
-                      text: failure.debugDetail!,
-                      accent: Colors.redAccent,
-                    ),
-                  ],
-                ],
-              ),
-            ),
+        // 2026-08-16: "I just told you text is verbose and to use
+        // infographics for workflow processes" - for the pairing
+        // failures, the fix is the drag graphic directly below, so a
+        // text card spelling out "drag the key into the lock" on top of
+        // it was pure redundancy. Dropped the card, replaced with a
+        // plain arrow pointing straight at the thing to do - zero
+        // reading required. Other failure types keep the text card
+        // since there's no graphic answering them.
+        if (!isPairingFailure) ...[
+          DiagCard(
+            label: 'HOW TO FIX IT',
+            text: failure.resolution,
+            accent: kGreen,
           ),
-          const SizedBox(height: 12),
+        ] else ...[
+          const SizedBox(height: 4),
+          const Center(
+            child: Icon(Icons.keyboard_arrow_down_rounded,
+                color: kGreen, size: 32),
+          ),
+        ],
 
-          if (isPairingFailure) ...[
-            // 2026-08-15: "I want to use the images to drag for the pair
-            // now" - PAIR NOW replaced with the same drag-the-key gesture
-            // used inside PairingScreen itself. No real async work here
-            // (just a navigation), so onConfirm is a no-op and the actual
-            // push happens in onSettled, once the drag/glow animation has
-            // genuinely finished playing - same onSettled contract as
-            // GifSwipeTrigger/CommitScreen, so the transition never cuts
-            // the animation off mid-flight.
-            // 2026-08-16: "drag only in bottom left corner, not possible
-            // on entire screen?" - SizedBox.expand forces the trigger to
-            // actually claim the full available width and height rather
-            // than trusting the surrounding Column's loose constraints
-            // to already resolve to the full space.
-            Expanded(
-              child: SizedBox.expand(
-                child: KeyPairingTrigger(
-                  runningLabel: 'OPENING PAIRING…',
-                  onConfirm: () async {},
-                  onSettled: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PairingScreen(
-                        desktopUser: 'rapi5',
-                        desktopIp: '172.20.10.11',
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ] else ...[
+        if (failure.debugDetail != null &&
+            failure.debugDetail!.trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          DiagCard(
+            label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+            text: failure.debugDetail!,
+            accent: Colors.redAccent,
+          ),
+        ],
+      ],
+    );
+
+    final cancelButton = Center(
+      child: TextButton(
+        onPressed: () => _leaveSetup(context),
+        child: const Text('CANCEL',
+            style: TextStyle(color: kTextDim, fontSize: 11, letterSpacing: 1)),
+      ),
+    );
+
+    if (!isPairingFailure) {
+      // No drag graphic involved for this failure type - plain scrolling
+      // content is enough, same shape as before this rework.
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(child: SingleChildScrollView(child: diagnostics)),
+            const SizedBox(height: 32),
             // 2026-08-16: TRY AGAIN (re-runs the whole 8-step setup
             // sequence) only makes sense for failures unrelated to
             // pairing - direct feedback that showing it alongside PAIR
-            // NOW was confusing, and correctly so: retrying setup without
-            // pairing first here would just fail the same way again.
-            _PrimaryButton(
-              label: 'TRY AGAIN',
-              onPressed: ctrl.startLinking,
-            ),
+            // NOW was confusing, and correctly so: retrying setup
+            // without pairing first here would just fail the same way
+            // again.
+            _PrimaryButton(label: 'TRY AGAIN', onPressed: ctrl.startLinking),
             const SizedBox(height: 12),
+            cancelButton,
           ],
-          Center(
-            child: TextButton(
-              onPressed: () => _leaveSetup(context),
-              child: const Text('CANCEL',
-                  style: TextStyle(
-                      color: kTextDim, fontSize: 11, letterSpacing: 1)),
+        ),
+      );
+    }
+
+    // 2026-08-15: "I want to use the images to drag for the pair now" -
+    // PAIR NOW replaced with the same drag-the-key gesture used inside
+    // PairingScreen itself. No real async work here (just a
+    // navigation), so onConfirm is a no-op and the actual push happens
+    // in onSettled, once the drag/glow animation has genuinely finished
+    // playing - same onSettled contract as GifSwipeTrigger/CommitScreen,
+    // so the transition never cuts the animation off mid-flight.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: KeyPairingTrigger(
+            runningLabel: 'OPENING PAIRING…',
+            onConfirm: () async {},
+            onSettled: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const PairingScreen(
+                  desktopUser: 'rapi5',
+                  desktopIp: '172.20.10.11',
+                ),
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 64,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: SingleChildScrollView(child: diagnostics),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: cancelButton,
+          ),
+        ),
+      ],
     );
   }
 }
