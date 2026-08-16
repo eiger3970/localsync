@@ -62,7 +62,7 @@ class ContentAboveDragCanvas extends StatefulWidget {
 }
 
 class _ContentAboveDragCanvasState extends State<ContentAboveDragCanvas> {
-  static const _reflowDuration = Duration(milliseconds: 320);
+  static const _reflowDuration = Duration(milliseconds: 600);
 
   final _contentKey = GlobalKey();
   final _bottomKey = GlobalKey();
