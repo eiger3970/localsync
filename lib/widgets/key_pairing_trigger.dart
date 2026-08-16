@@ -56,10 +56,19 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   // fallback for the (untested) case of unbounded constraints.
   static const _fallbackCanvasHeight = 240.0;
   static const _edgePad = 8.0;
-  // Reserved to the left of the key's rest position when leadingBadge is
-  // set - a 24px badge circle plus a 12px gap, matching _StepBadge.
-  static const _badgeReserve = 36.0;
+  // 2026-08-16: "Badges 1 and 2 need to be vertically aligned" - badge 1
+  // (in the caller's own content) sits at x=24, matching that screen's
+  // Padding.all(24); this widget's own canvas only had 8px of edge
+  // padding (_edgePad), so badge 2 was rendering 16px further left than
+  // badge 1. _badgeLeft matches the caller's content padding explicitly
+  // instead of reusing _edgePad, which is a different, unrelated margin
+  // (the canvas's own right-edge/lock margin).
+  static const _badgeLeft = 24.0;
   static const _badgeSize = 24.0;
+  static const _badgeGap = 12.0;
+  // Reserved to the left of the key's rest position when leadingBadge is
+  // set - the badge's own left inset, its width, and a gap.
+  static const _badgeReserve = _badgeLeft + _badgeSize + _badgeGap - _edgePad;
   // 2026-08-16: "the images are down near the bottom" - the pair used to
   // sit vertically centered within the whole (now very tall) canvas,
   // which put it far below the content and the leading badge instead of
@@ -141,7 +150,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
       _dragging = true;
       _snapped = false;
       _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
-          canvasWidth, canvasHeight, keyRestLeft);
+          canvasWidth, canvasHeight, keyRestLeft, keyRestTop);
     });
   }
 
@@ -150,7 +159,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     if (!_dragging) return;
     setState(() {
       _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
-          canvasWidth, canvasHeight, keyRestLeft);
+          canvasWidth, canvasHeight, keyRestLeft, keyRestTop);
     });
     // Live hit-test - success fires the moment the key is dragged over the
     // lock, no need to lift a finger precisely on target.
@@ -166,17 +175,19 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     _animateTo(Offset.zero);
   }
 
-  Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft) {
+  Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft,
+      double keyRestTop) {
     final minDx = _edgePad - keyRestLeft;
     final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft;
-    // Rest is now near the top (see _pairRowTop), but the draggable range
-    // still spans the whole canvas top-to-bottom, not just the area
-    // around the rest position - "doesn't drag whole page, only the
-    // bottom and not above badge 2" was this same bug: the pair's visual
-    // position moving didn't used to change these bounds, but they were
-    // computed for a vertically-centered rest, which no longer matches.
-    final minDy = -_pairRowTop;
-    final maxDy = canvasHeight - _keyHeight - _pairRowTop;
+    // 2026-08-16: "phonekey drag cannot go up" - real bug, not the same
+    // one as before: this used -_pairRowTop (~20) instead of -keyRestTop
+    // (~70, since the key's own rest row sits partway down the taller
+    // lock's height, not flush with the canvas top) - so upward drag was
+    // clamped after only ~20px of travel instead of reaching the actual
+    // top of the canvas. Bounds are relative to the key's own rest
+    // position, so they need the key's own rest top, not the pair row's.
+    final minDy = -keyRestTop;
+    final maxDy = canvasHeight - _keyHeight - keyRestTop;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
@@ -245,7 +256,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
             if (widget.leadingBadge != null)
               Positioned(
                 key: const ValueKey('leadingBadge'),
-                left: _edgePad,
+                left: _badgeLeft,
                 top: _pairRowTop + (_lockHeight - _badgeSize) / 2,
                 child: widget.leadingBadge!,
               ),

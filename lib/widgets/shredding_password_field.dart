@@ -80,11 +80,18 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             // immutable text... should change to a faded text which is
             // a typical hint" - labelText renders bold and floats above
             // the field permanently once focused/filled, reading as
-            // fixed content rather than a placeholder. hintText uses the
-            // theme's already-dimmed hintStyle (kTextDim) and actually
+            // fixed content rather than a placeholder. hintText actually
             // disappears once typing starts, matching a real hint.
+            //
+            // 2026-08-16, follow-up: "too small and dark, I can't read
+            // it" - the theme's shared hintStyle (kTextDim, 12px) is
+            // fine for a lightweight aside but too dim/small to read
+            // comfortably as the only label this field has. Overridden
+            // locally rather than changed in theme.dart, since other
+            // fields' hints weren't flagged and shouldn't shift too.
             decoration: InputDecoration(
               hintText: 'Desktop password…',
+              hintStyle: const TextStyle(color: kTextMid, fontSize: 14),
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => _obscure = !_obscure),

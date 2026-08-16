@@ -96,7 +96,21 @@ class _PairingScreenState extends State<PairingScreen> {
       // keyboard opens - which is exactly why the canvas tracked
       // keyboard state instead of actual content size. Plain Column,
       // no ScrollView - the measurement is real now.
-      body: SafeArea(
+      // 2026-08-16: "the WHAT HAPPENED and HOW TO FIX IT text is below,
+      // then the keyboard is below, so there's no hope of me progressing
+      // as I can't drag the phonekey" - once a failure box lengthens the
+      // content AND the keyboard is open at the same time, the canvas can
+      // shrink to a genuinely tiny sliver. KeyPairingTrigger already
+      // dismisses the keyboard once a drag *starts*, but a drag needs
+      // real finger movement to register at all - a plain tap on a
+      // barely-visible sliver does nothing. A tap-anywhere-to-dismiss
+      // GestureDetector (a plain tap, not a pan, so it doesn't compete
+      // with the drag gesture) gives an always-available way to reclaim
+      // the screen before the canvas is even reachable.
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
         child: ContentAboveDragCanvas(
           // 2026-08-16: "missing the number 2 on the left" (restored -
           // dropping it two rounds ago was a real regression, not
@@ -202,6 +216,7 @@ class _PairingScreenState extends State<PairingScreen> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
