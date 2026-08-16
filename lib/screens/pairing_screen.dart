@@ -15,6 +15,7 @@ import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
+import '../widgets/swap_gif_swipe_confirm.dart';
 import 'linking_screen.dart';
 
 class PairingScreen extends StatefulWidget {
@@ -357,19 +358,18 @@ class _PairedSuccessView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onContinue,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kGreen,
-                foregroundColor: kVoid,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                shape: const RoundedRectangleBorder(),
-              ),
-              child: const Text('CONTINUE - SET UP VAULT',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
+          // 2026-08-16: plain tap ElevatedButton replaced with the same
+          // dog-on-a-leash swipe-to-confirm control used for the other
+          // "confirm and move on" moments in the app (vault creation,
+          // leaving setup) - one consistent confirm gesture instead of
+          // this screen being the only one still using a tap button.
+          // Kept a label (unlike those two) since this is a standalone
+          // screen with no preceding checklist step already implying
+          // "now swipe."
+          SwapGifSwipeConfirm(
+            animatedAssetPath: 'assets/gifs/progress_running.gif',
+            label: 'SWIPE TO SET UP VAULT',
+            onConfirm: onContinue,
           ),
         ],
       ),

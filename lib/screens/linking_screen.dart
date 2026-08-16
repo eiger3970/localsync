@@ -21,7 +21,7 @@ import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/sparkle_background.dart';
-import '../widgets/leash_swipe_confirm.dart';
+import '../widgets/swap_gif_swipe_confirm.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
 
@@ -607,7 +607,7 @@ class _ParkedViewState extends State<_ParkedView> {
                   // able to figure out to slide... once the gif is
                   // correctly showing the person holding the dog on
                   // the leash").
-                  _SwapGifSwipeConfirm(
+                  SwapGifSwipeConfirm(
                     animatedAssetPath: 'assets/gifs/progress_running.gif',
                     onConfirm: ctrl.confirmVaultCreated,
                     validate: _validateVaultCreationDone,
@@ -1002,122 +1002,9 @@ class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
   }
 }
 
-// 2026-08-19: rebuilt around LeashSwipeConfirm (widgets/
-// leash_swipe_confirm.dart) - this class still owns the outer gesture
-// detection, the drag/threshold decision, and the sparkle/label/error
-// chrome; the inner widget just renders whatever drag state it's told
-// and exposes the gif trigger, same GlobalKey pattern as the previous
-// SwapGifTrigger-based version.
-class _SwapGifSwipeConfirm extends StatefulWidget {
-  final String animatedAssetPath;
-  final String? label;
-  final VoidCallback onConfirm;
-  final String? Function()? validate;
-  const _SwapGifSwipeConfirm({
-    required this.animatedAssetPath,
-    this.label,
-    required this.onConfirm,
-    this.validate,
-  });
-
-  @override
-  State<_SwapGifSwipeConfirm> createState() => _SwapGifSwipeConfirmState();
-}
-
-class _SwapGifSwipeConfirmState extends State<_SwapGifSwipeConfirm> {
-  static const _threshold = 64.0;
-  final _gifKey = GlobalKey<LeashSwipeConfirmState>();
-  String? _error;
-  double _drag = 0;
-  bool _springingBack = false;
-  // 2026-08-19: "gif is not reaching right edge of screen" - resolved
-  // from this control's own actual available width (via LayoutBuilder
-  // below) instead of a fixed constant, so the drag clamp and the
-  // widget's own reserved width always agree with the real screen.
-  // Placeholder until the first LayoutBuilder pass runs.
-  double _maxDrag = 200;
-
-  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
-
-  void _onUpdate(double delta) {
-    if (_playing || _springingBack) return;
-    setState(() => _drag = (_drag + delta).clamp(0.0, _maxDrag));
-  }
-
-  Future<void> _onEnd() async {
-    if (_playing || _springingBack) return;
-    final reached = _drag >= _threshold;
-    final error = reached ? widget.validate?.call() : null;
-
-    if (!reached || error != null) {
-      setState(() {
-        _error = error ?? _error;
-        _drag = 0;
-        _springingBack = true;
-      });
-      await Future.delayed(const Duration(milliseconds: 220));
-      if (mounted) setState(() => _springingBack = false);
-      return;
-    }
-
-    setState(() => _error = null);
-    _gifKey.currentState?.playThenRun(widget.onConfirm);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        _maxDrag = LeashSwipeConfirm.resolveMaxDrag(constraints.maxWidth);
-        return GestureDetector(
-          onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
-          onHorizontalDragEnd: (_) => _onEnd(),
-          child: SizedBox(
-            width: double.infinity,
-            child: Stack(
-              alignment: Alignment.centerLeft,
-              children: [
-                if (!_playing) const Positioned.fill(child: SparkleBackground()),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LeashSwipeConfirm(
-                      key: _gifKey,
-                      animatedAssetPath: widget.animatedAssetPath,
-                      dragAmount: _drag,
-                      maxDrag: _maxDrag,
-                      threshold: _threshold,
-                      snappingBack: _springingBack,
-                      height: 70,
-                    ),
-                    if (widget.label != null) ...[
-                      const SizedBox(height: 8),
-                      Text(widget.label!,
-                          style: const TextStyle(
-                              color: kTextMid,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1)),
-                    ],
-                    if (_error != null) ...[
-                      const SizedBox(height: 8),
-                      Text(_error!,
-                          style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
+// 2026-08-16: SwapGifSwipeConfirm (formerly private _SwapGifSwipeConfirm
+// here) moved to widgets/swap_gif_swipe_confirm.dart so PairingScreen
+// could reuse it for CONTINUE - SET UP VAULT.
 
 // ── Complete ───────────────────────────────────────────────────────────────────
 //
@@ -1376,7 +1263,7 @@ class _CompleteViewState extends State<_CompleteView>
             // consistency between the two confirm actions. _leaveSetup,
             // not a bare pop - see this file's header comment for the
             // black-screen crash this fixes.
-            child: _SwapGifSwipeConfirm(
+            child: SwapGifSwipeConfirm(
               animatedAssetPath: 'assets/gifs/progress_running.gif',
               onConfirm: () => _leaveSetup(context),
             ),
