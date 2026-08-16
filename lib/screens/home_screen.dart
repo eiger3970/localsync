@@ -153,13 +153,18 @@ class HomeScreen extends StatelessWidget {
                     // 2026-08-16: "can the key be pairing_phone_key.svg"
                     // - swapped the generic Material key icon for the
                     // actual key asset used in the pairing gesture
-                    // itself, same green ed25519-teeth key, not just a
-                    // stand-in glyph. Not const anymore - SvgPicture.asset
-                    // isn't a const constructor.
+                    // itself, not just a stand-in glyph. "Make the key
+                    // icon white" - the asset's own baked-in stroke is
+                    // green (matches the pairing screen's theme), so
+                    // tinted via colorFilter to kStar here instead,
+                    // matching the other menu icons in this list. Not
+                    // const anymore - SvgPicture.asset isn't a const
+                    // constructor.
                     children: [
                       SvgPicture.asset(
                         'assets/pairing/pairing_phone_key.svg',
                         width: 18,
+                        colorFilter: const ColorFilter.mode(kStar, BlendMode.srcIn),
                       ),
                       const SizedBox(width: 12),
                       const Expanded(

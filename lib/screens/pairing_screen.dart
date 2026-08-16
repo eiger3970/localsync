@@ -6,6 +6,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
@@ -82,117 +83,123 @@ class _PairingScreenState extends State<PairingScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
-      // 2026-08-16: "drag only in bottom left corner, not possible on
-      // entire screen?" (x3) then "messed up with images now over the
-      // top area with text" once the canvas actually did go full-bleed -
-      // a Positioned.fill canvas vertically centered in the whole screen
-      // inevitably overlaps whatever text sits at the top, since nothing
-      // reserved that space. ContentAboveDragCanvas measures the real
-      // content height and positions the canvas exactly below it.
+      // 2026-08-16: "drag only in bottom left corner" (x3), then "messed
+      // up with images now over the top area with text", then "images
+      // are way down the bottom of the page... keyboard appears and now
+      // I can't see the phonekey image... unable to progress" - the real
+      // bug in this last round: `content` was wrapped in a
+      // SingleChildScrollView, which does NOT shrink-wrap to its child's
+      // natural height - it fills whatever height it's given. That made
+      // ContentAboveDragCanvas measure almost the *entire available
+      // screen* as "content height" rather than the real (short) text
+      // height, and that available height itself shrinks when the
+      // keyboard opens - which is exactly why the canvas tracked
+      // keyboard state instead of actual content size. Plain Column,
+      // no ScrollView - the measurement is real now.
       body: SafeArea(
         child: ContentAboveDragCanvas(
           canvas: KeyPairingTrigger(
             enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
             onConfirm: _pair,
           ),
+          // 2026-08-16: "missing the number 2 on the left" - restored;
+          // dropping it last round was a real regression, not requested.
+          canvasBadge: const _StepBadge(2),
           content: Padding(
             padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                      'Connect to ${widget.desktopUser}@${widget.desktopIp}',
-                      style: const TextStyle(
-                          color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 16),
-                    // 2026-08-16: "this is verbose and needs to be
-                    // simplified. Can you design an infographic for
-                    // this workflow process?" - replaced the
-                    // type-once/never-stored paragraph with a 3-step
-                    // icon strip. No new asset pipeline needed (reuses
-                    // Material icons in the app's existing palette) -
-                    // glanceable in one look instead of a sentence to
-                    // parse.
-                    const _PasswordWorkflowStrip(),
-                    const SizedBox(height: 24),
-                    // 2026-08-16: dropped the "2" step badge that used to
-                    // sit next to the drag graphic - now that the canvas
-                    // is the whole screen's background, it's obviously
-                    // the next/only thing left to interact with once the
-                    // password is typed, no label needed to point at it.
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _StepBadge(1),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ShreddingPasswordField(
-                            key: _shredKey,
-                            controller: _passwordCtrl,
-                            enabled: !_ctrl.isRunning,
-                          ),
-                        ),
-                      ],
-                    ),
-                    // 2026-08-16: wrapped as one single Keyed block
-                    // (rather than loose conditional children) after
-                    // finding a real bug elsewhere this session where
-                    // an unkeyed conditional sibling shifting list
-                    // position confused Flutter's element
-                    // reconciliation mid-gesture - defensive fix for
-                    // the reported "vertical red line" artifact left
-                    // behind after this box disappears on retry.
-                    if (result is StepFailure)
-                      Column(
-                        key: const ValueKey('failureBox'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          // 2026-08-16: was a bespoke Container using
-                          // kTextDim at 14px for the resolution text -
-                          // direct feedback that it was "too small and
-                          // dark to read." Switched to the same DiagCard
-                          // used everywhere else in the app (kStar, 15px,
-                          // 1.7 line height) instead of inventing a
-                          // dimmer, harder-to-read variant just for this
-                          // screen.
-                          DiagCard(
-                            label: 'WHAT HAPPENED',
-                            text: result.diagnosis,
-                            accent: Colors.redAccent,
-                          ),
-                          const SizedBox(height: 12),
-                          DiagCard(
-                            label: 'HOW TO FIX IT',
-                            text: result.resolution,
-                            accent: kGreen,
-                          ),
-                          // 2026-08-16: guards against both null AND an
-                          // empty/whitespace-only debugDetail - real device
-                          // feedback showed the "Raw error" label with
-                          // nothing underneath it, which a bare null-check
-                          // wouldn't have caught if the underlying
-                          // exception's toString() ever comes back blank.
-                          if (result.debugDetail != null &&
-                              result.debugDetail!.trim().isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            DiagCard(
-                              label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
-                              text: result.debugDetail!,
-                              accent: Colors.redAccent,
-                            ),
-                          ],
-                        ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Connect to ${widget.desktopUser}@${widget.desktopIp}',
+                  style: const TextStyle(
+                      color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 16),
+                // 2026-08-16: "this is verbose and needs to be
+                // simplified. Can you design an infographic for
+                // this workflow process?" - replaced the
+                // type-once/never-stored paragraph with a 3-step
+                // icon strip. No new asset pipeline needed (reuses
+                // Material icons in the app's existing palette) -
+                // glanceable in one look instead of a sentence to
+                // parse.
+                const _PasswordWorkflowStrip(),
+                const SizedBox(height: 24),
+                // 2026-08-16: "1 is not on same line as text" - badge
+                // was top-aligned against a field whose label sits
+                // vertically centered when empty, not flush with the
+                // top. Center alignment instead.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const _StepBadge(1),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ShreddingPasswordField(
+                        key: _shredKey,
+                        controller: _passwordCtrl,
+                        enabled: !_ctrl.isRunning,
                       ),
+                    ),
                   ],
                 ),
-              ),
+                // 2026-08-16: wrapped as one single Keyed block
+                // (rather than loose conditional children) after
+                // finding a real bug elsewhere this session where
+                // an unkeyed conditional sibling shifting list
+                // position confused Flutter's element
+                // reconciliation mid-gesture - defensive fix for
+                // the reported "vertical red line" artifact left
+                // behind after this box disappears on retry.
+                if (result is StepFailure)
+                  Column(
+                    key: const ValueKey('failureBox'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 20),
+                      // 2026-08-16: was a bespoke Container using
+                      // kTextDim at 14px for the resolution text -
+                      // direct feedback that it was "too small and
+                      // dark to read." Switched to the same DiagCard
+                      // used everywhere else in the app (kStar, 15px,
+                      // 1.7 line height) instead of inventing a
+                      // dimmer, harder-to-read variant just for this
+                      // screen.
+                      DiagCard(
+                        label: 'WHAT HAPPENED',
+                        text: result.diagnosis,
+                        accent: Colors.redAccent,
+                      ),
+                      const SizedBox(height: 12),
+                      DiagCard(
+                        label: 'HOW TO FIX IT',
+                        text: result.resolution,
+                        accent: kGreen,
+                      ),
+                      // 2026-08-16: guards against both null AND an
+                      // empty/whitespace-only debugDetail - real device
+                      // feedback showed the "Raw error" label with
+                      // nothing underneath it, which a bare null-check
+                      // wouldn't have caught if the underlying
+                      // exception's toString() ever comes back blank.
+                      if (result.debugDetail != null &&
+                          result.debugDetail!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        DiagCard(
+                          label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                          text: result.debugDetail!,
+                          accent: Colors.redAccent,
+                        ),
+                      ],
+                    ],
+                  ),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   Future<void> _pair() async {
@@ -242,25 +249,37 @@ class _PasswordWorkflowStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _step(Icons.password_rounded, 'TYPE PASSWORD'),
+        _step(const Icon(Icons.password_rounded, color: kGreen, size: 26),
+            'TYPE PASSWORD'),
         _arrow(),
-        _step(Icons.vpn_key_rounded, 'INSTALLS KEY'),
+        // 2026-08-16: "change image to pairing_phone_key.svg" - the
+        // actual key asset used in the drag gesture, not a generic
+        // Material key glyph.
+        _step(
+          SvgPicture.asset('assets/pairing/pairing_phone_key.svg',
+              width: 30, colorFilter: const ColorFilter.mode(kGreen, BlendMode.srcIn)),
+          'INSTALLS KEY',
+        ),
         _arrow(),
-        _step(Icons.block_rounded, 'PASSWORD NEVER STORED'),
+        _step(const Icon(Icons.block_rounded, color: kGreen, size: 26),
+            'PASSWORD NEVER STORED'),
       ],
     );
   }
 
-  Widget _step(IconData icon, String label) {
+  Widget _step(Widget icon, String label) {
     return Expanded(
       child: Column(
         children: [
-          Icon(icon, color: kGreen, size: 26),
-          const SizedBox(height: 6),
+          SizedBox(height: 26, child: Center(child: icon)),
+          const SizedBox(height: 8),
+          // 2026-08-16: "text is too small and dark" - 9px kTextDim was
+          // genuinely hard to read; bumped to 11px kTextMid, same
+          // readability bar as the DiagCard fix earlier this session.
           Text(label,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  color: kTextDim, fontSize: 9, letterSpacing: 1, height: 1.3)),
+                  color: kTextMid, fontSize: 11, letterSpacing: 0.6, height: 1.3)),
         ],
       ),
     );

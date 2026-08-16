@@ -14,12 +14,31 @@
 // technique used at both KeyPairingTrigger call sites (PairingScreen,
 // linking_screen.dart's failed-setup view), so it's shared here instead
 // of duplicated.
+//
+// 2026-08-16, real bug found in the CALLERS, not here: both callers
+// wrapped their `content` in a SingleChildScrollView. SingleChildScrollView
+// does not shrink-wrap to its child's natural height in the scroll
+// direction - it fills whatever height it's given, even when the child
+// is much shorter. Since this widget's own content slot is genuinely
+// unconstrained (Positioned with top/left/right but no bottom, so the
+// child picks its own height), that meant _contentHeight was measuring
+// almost the *entire available screen height* rather than the real text
+// height - and that available height itself shrinks when the keyboard
+// opens (Scaffold's resizeToAvoidBottomInset), which is exactly why the
+// canvas appeared to "sit at the bottom" normally and "rise up" only
+// while typing: the measured number was tracking keyboard state, not
+// content size. Both call sites now pass a plain Column with no
+// ScrollView, so the measurement is real.
 
 import 'package:flutter/material.dart';
 
 class ContentAboveDragCanvas extends StatefulWidget {
   final Widget content;
   final Widget canvas;
+  // Small marker (e.g. a step-number badge) pinned to the top-left of
+  // the canvas area itself, right where it starts - not part of
+  // `content`'s own measured height.
+  final Widget? canvasBadge;
   // Pinned to the very bottom, e.g. a CANCEL button - measured the same
   // way so the canvas doesn't run underneath it either.
   final Widget? bottomPinned;
@@ -27,6 +46,7 @@ class ContentAboveDragCanvas extends StatefulWidget {
     super.key,
     required this.content,
     required this.canvas,
+    this.canvasBadge,
     this.bottomPinned,
   });
 
@@ -56,6 +76,12 @@ class _ContentAboveDragCanvasState extends State<ContentAboveDragCanvas> {
           bottom: _bottomHeight,
           child: widget.canvas,
         ),
+        if (widget.canvasBadge != null)
+          Positioned(
+            top: _contentHeight + 8,
+            left: 24,
+            child: widget.canvasBadge!,
+          ),
         Positioned(
           top: 0,
           left: 0,

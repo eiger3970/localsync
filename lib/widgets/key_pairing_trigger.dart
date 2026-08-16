@@ -113,6 +113,12 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onStart(DragStartDetails d, double canvasWidth, double canvasHeight,
       double keyRestLeft, double keyRestTop) {
     if (_running || !widget.enabled) return;
+    // 2026-08-16: "keyboard appears and now I can't see the phonekey
+    // image at the bottom of the screen... unable to progress" -
+    // dismiss the keyboard the moment a drag starts so the canvas always
+    // has the full screen to work with, not just whatever's left above
+    // the keyboard.
+    FocusScope.of(context).unfocus();
     setState(() {
       _dragging = true;
       _snapped = false;

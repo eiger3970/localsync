@@ -1434,6 +1434,15 @@ class _FailedView extends StatelessWidget {
     // since nothing reserved that space. ContentAboveDragCanvas measures
     // the real content (and CANCEL) height and positions the canvas
     // exactly between them instead of guessing a fixed offset.
+    //
+    // 2026-08-16, follow-up: the SingleChildScrollView here was the real
+    // bug behind "images are way down the bottom of the page... keyboard
+    // appears and now I can't see the phonekey image... unable to
+    // progress" on PairingScreen's identical setup - SingleChildScrollView
+    // fills whatever height it's given rather than shrink-wrapping to its
+    // child, so the measured "content height" was tracking the available
+    // screen height (which shrinks with the keyboard) instead of the
+    // actual short diagnostic text. Plain Padding, no ScrollView.
     return ContentAboveDragCanvas(
       canvas: KeyPairingTrigger(
         runningLabel: 'OPENING PAIRING…',
@@ -1450,7 +1459,7 @@ class _FailedView extends StatelessWidget {
       ),
       content: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-        child: SingleChildScrollView(child: diagnostics),
+        child: diagnostics,
       ),
       bottomPinned: Padding(
         padding: const EdgeInsets.all(20),
