@@ -1493,7 +1493,8 @@ class _FailedView extends StatelessWidget {
                     ),
                   ],
 
-                  if (failure.debugDetail != null) ...[
+                  if (failure.debugDetail != null &&
+                      failure.debugDetail!.trim().isNotEmpty) ...[
                     const SizedBox(height: 12),
                     DiagCard(
                       label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',

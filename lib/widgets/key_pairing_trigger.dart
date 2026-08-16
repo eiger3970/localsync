@@ -96,9 +96,15 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   void _onStart(DragStartDetails d) {
     if (_running || !widget.enabled) return;
-    _dragging = true;
-    _snapped = false;
-    _dragStart = _drag;
+    // setState here (not just on the first update) so the sparkle hint
+    // is removed from the tree on touch-down, before any movement -
+    // keeps the Stack's child list settled for the whole gesture instead
+    // of changing shape one frame into the drag.
+    setState(() {
+      _dragging = true;
+      _snapped = false;
+      _dragStart = _drag;
+    });
   }
 
   void _onUpdate(DragUpdateDetails d, double canvasWidth, double canvasHeight) {
@@ -177,11 +183,24 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
         height: canvasHeight,
         width: canvasWidth,
         child: Stack(
+          // 2026-08-16: real device bug - "only moves a millimetre and
+          // stops, only drags properly on 2nd attempt." Root cause: the
+          // sparkle hint below is conditionally present/absent (gated on
+          // !_dragging), sitting BETWEEN the lock and the key in this
+          // list. With no explicit Keys, the instant a drag starts and
+          // the first setState fires, the sparkle entry disappears and
+          // the key's Positioned+GestureDetector shifts from index 2 to
+          // index 1 - Flutter can't tell that's the same widget moved,
+          // not a new one, so it tears down and recreates the
+          // GestureDetector's element (and its live gesture recognizer)
+          // mid-drag. Explicit Keys on every child make identity
+          // survive the shuffle regardless of list position.
           children: [
             // Lock painted first (bottom) at its fixed position - opaque
             // canvas, so anything painted before it here would vanish
             // wherever the key later overlaps it.
             Positioned(
+              key: const ValueKey('lock'),
               left: lockLeft,
               top: lockTop,
               width: _lockWidth,
@@ -196,6 +215,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
             // Idle affordance - only while there's nothing else to look at.
             if (widget.enabled && !_dragging && !_running && !_snapped)
               Positioned(
+                key: const ValueKey('sparkle'),
                 left: keyRestLeft - 30,
                 top: keyRestTop - 30,
                 width: _keyWidth + 60,
@@ -206,6 +226,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
             // including across the lock's own canvas, without vanishing
             // behind it.
             Positioned(
+              key: const ValueKey('key'),
               left: keyRestLeft + _drag.dx,
               top: keyRestTop + _drag.dy,
               width: _keyWidth,
@@ -225,6 +246,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
             ),
             if (_running)
               Positioned(
+                key: const ValueKey('runningLabel'),
                 bottom: 4,
                 left: 0,
                 right: 0,

@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
+import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
 import 'linking_screen.dart';
@@ -94,19 +95,16 @@ class _PairingScreenState extends State<PairingScreen> {
                         style: const TextStyle(
                             color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 10),
-                      // 2026-08-16: "It is never stored" -> spelled out,
-                      // per feedback that a bare pronoun two sentences
-                      // into a technical paragraph is genuinely ambiguous
-                      // for a non-expert reader, even though it reads as
-                      // repetitive to an expert one.
-                      const Text(
-                        'Enter your desktop login password once, just to '
-                        'install this phone\'s key. The desktop login '
-                        'password is never stored - only used for this '
-                        'one connection.',
-                        style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                      ),
+                      const SizedBox(height: 16),
+                      // 2026-08-16: "this is verbose and needs to be
+                      // simplified. Can you design an infographic for
+                      // this workflow process?" - replaced the
+                      // type-once/never-stored paragraph with a 3-step
+                      // icon strip. No new asset pipeline needed (reuses
+                      // Material icons in the app's existing palette) -
+                      // glanceable in one look instead of a sentence to
+                      // parse.
+                      const _PasswordWorkflowStrip(),
                       const SizedBox(height: 24),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,35 +122,40 @@ class _PairingScreenState extends State<PairingScreen> {
                       ),
                       if (result is StepFailure) ...[
                         const SizedBox(height: 20),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: kSurface,
-                            border: const Border(
-                                left: BorderSide(color: Colors.redAccent, width: 2)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(result.diagnosis,
-                                  style: const TextStyle(color: kStar, fontSize: 16)),
-                              const SizedBox(height: 8),
-                              Text(result.resolution,
-                                  style: const TextStyle(
-                                      color: kTextDim, fontSize: 14, height: 1.6)),
-                              if (result.debugDetail != null) ...[
-                                const SizedBox(height: 12),
-                                Text('Raw error (temporary diagnostic):',
-                                    style: const TextStyle(color: kTextDim, fontSize: 13)),
-                                const SizedBox(height: 4),
-                                Text(result.debugDetail!,
-                                    style: const TextStyle(
-                                        color: Colors.redAccent, fontSize: 13)),
-                              ],
-                            ],
-                          ),
+                        // 2026-08-16: was a bespoke Container using
+                        // kTextDim at 14px for the resolution text -
+                        // direct feedback that it was "too small and
+                        // dark to read." Switched to the same DiagCard
+                        // used everywhere else in the app (kStar, 15px,
+                        // 1.7 line height) instead of inventing a
+                        // dimmer, harder-to-read variant just for this
+                        // screen.
+                        DiagCard(
+                          label: 'WHAT HAPPENED',
+                          text: result.diagnosis,
+                          accent: Colors.redAccent,
                         ),
+                        const SizedBox(height: 12),
+                        DiagCard(
+                          label: 'HOW TO FIX IT',
+                          text: result.resolution,
+                          accent: kGreen,
+                        ),
+                        // 2026-08-16: guards against both null AND an
+                        // empty/whitespace-only debugDetail - real device
+                        // feedback showed the "Raw error" label with
+                        // nothing underneath it, which a bare null-check
+                        // wouldn't have caught if the underlying
+                        // exception's toString() ever comes back blank.
+                        if (result.debugDetail != null &&
+                            result.debugDetail!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          DiagCard(
+                            label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                            text: result.debugDetail!,
+                            accent: Colors.redAccent,
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -206,6 +209,49 @@ class _PairingScreenState extends State<PairingScreen> {
     // don't make them find and tap a second one.
     linkingCtrl.startLinking();
   }
+}
+
+// ── Password workflow, as a glance not a paragraph ──────────────────────────
+//
+// 2026-08-16: replaces "Enter your desktop login password once, just to
+// install this phone's key. The desktop login password is never stored -
+// only used for this one connection." Three icons read left to right:
+// type it -> it installs a key -> it's never kept.
+class _PasswordWorkflowStrip extends StatelessWidget {
+  const _PasswordWorkflowStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _step(Icons.password_rounded, 'TYPE ONCE'),
+        _arrow(),
+        _step(Icons.vpn_key_rounded, 'INSTALLS KEY'),
+        _arrow(),
+        _step(Icons.block_rounded, 'NEVER STORED'),
+      ],
+    );
+  }
+
+  Widget _step(IconData icon, String label) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: kGreen, size: 26),
+          const SizedBox(height: 6),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: kTextDim, fontSize: 9, letterSpacing: 1, height: 1.3)),
+        ],
+      ),
+    );
+  }
+
+  Widget _arrow() => const Padding(
+        padding: EdgeInsets.only(bottom: 20),
+        child: Icon(Icons.arrow_forward_rounded, color: kTextDim, size: 16),
+      );
 }
 
 // ── Step number, no sentence needed ─────────────────────────────────────────
