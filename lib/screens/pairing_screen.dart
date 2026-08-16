@@ -217,6 +217,13 @@ class _PairingScreenState extends State<PairingScreen> {
 // install this phone's key. The desktop login password is never stored -
 // only used for this one connection." Three icons read left to right:
 // type it -> it installs a key -> it's never kept.
+//
+// 2026-08-16, revised: "NEVER STORED implies the INSTALLS KEY is never
+// stored, but you need to refer to the password" - correct read: the KEY
+// is the thing that persists (stays installed on the desktop), the
+// PASSWORD is the thing that doesn't. Bookending both end labels with
+// "PASSWORD" makes the subject of "never stored" unambiguous regardless
+// of which icon it's sitting next to.
 class _PasswordWorkflowStrip extends StatelessWidget {
   const _PasswordWorkflowStrip();
 
@@ -224,11 +231,11 @@ class _PasswordWorkflowStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _step(Icons.password_rounded, 'TYPE ONCE'),
+        _step(Icons.password_rounded, 'TYPE PASSWORD'),
         _arrow(),
         _step(Icons.vpn_key_rounded, 'INSTALLS KEY'),
         _arrow(),
-        _step(Icons.block_rounded, 'NEVER STORED'),
+        _step(Icons.block_rounded, 'PASSWORD NEVER STORED'),
       ],
     );
   }

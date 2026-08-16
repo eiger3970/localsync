@@ -70,7 +70,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   late final AnimationController _snapCtrl;
   Offset _drag = Offset.zero; // offset from rest position
-  Offset _dragStart = Offset.zero;
   bool _dragging = false;
   bool _snapped = false; // sitting exactly in the lock, glow stays on
   bool _running = false; // pairing in flight - gesture locked out
@@ -94,24 +93,40 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     return Offset(targetLeft, _verticalNudge);
   }
 
-  void _onStart(DragStartDetails d) {
+  // 2026-08-16: "Phone key drag is limited to left bottom square area, is
+  // whole screen not viable?" - it was, unintentionally: the
+  // GestureDetector only wrapped the key's own small visual footprint
+  // (~110x68), so a drag could only be *started* by touching exactly
+  // where the key currently sat, not anywhere in the canvas. Rebuilt
+  // around a single canvas-wide GestureDetector (see build()) using
+  // absolute pointer position instead of incremental deltas from the
+  // key's prior spot - touch down anywhere in the play area and the key
+  // jumps under your finger immediately, matching "whole screen."
+  Offset _keyPosFromPointer(
+      Offset localPosition, double keyRestLeft, double keyRestTop) {
+    return Offset(
+      localPosition.dx - keyRestLeft - _keyWidth / 2,
+      localPosition.dy - keyRestTop - _keyHeight / 2,
+    );
+  }
+
+  void _onStart(DragStartDetails d, double canvasWidth, double canvasHeight,
+      double keyRestLeft, double keyRestTop) {
     if (_running || !widget.enabled) return;
-    // setState here (not just on the first update) so the sparkle hint
-    // is removed from the tree on touch-down, before any movement -
-    // keeps the Stack's child list settled for the whole gesture instead
-    // of changing shape one frame into the drag.
     setState(() {
       _dragging = true;
       _snapped = false;
-      _dragStart = _drag;
+      _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
+          canvasWidth, canvasHeight);
     });
   }
 
-  void _onUpdate(DragUpdateDetails d, double canvasWidth, double canvasHeight) {
+  void _onUpdate(DragUpdateDetails d, double canvasWidth, double canvasHeight,
+      double keyRestLeft, double keyRestTop) {
     if (!_dragging) return;
     setState(() {
-      _drag = _clamp(_dragStart + d.delta, canvasWidth, canvasHeight);
-      _dragStart = _drag;
+      _drag = _clamp(_keyPosFromPointer(d.localPosition, keyRestLeft, keyRestTop),
+          canvasWidth, canvasHeight);
     });
     // Live hit-test - success fires the moment the key is dragged over the
     // lock, no need to lift a finger precisely on target.
@@ -222,18 +237,15 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 height: _keyHeight + 60,
                 child: const SparkleBackground(),
               ),
-            // Key painted second (on top) so it can slide anywhere,
-            // including across the lock's own canvas, without vanishing
-            // behind it.
+            // Key - purely visual now, the gesture layer below owns all
+            // touch handling so it can grab the key from anywhere in the
+            // canvas, not just this small box.
             Positioned(
               key: const ValueKey('key'),
               left: keyRestLeft + _drag.dx,
               top: keyRestTop + _drag.dy,
               width: _keyWidth,
-              child: GestureDetector(
-                onPanStart: _onStart,
-                onPanUpdate: (d) => _onUpdate(d, canvasWidth, canvasHeight),
-                onPanEnd: _onEnd,
+              child: IgnorePointer(
                 child: AnimatedOpacity(
                   opacity: _running ? 0.55 : (widget.enabled ? 1 : 0.35),
                   duration: const Duration(milliseconds: 200),
@@ -258,6 +270,21 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                   ),
                 ),
               ),
+            // Gesture layer spans the whole canvas (not just the key's own
+            // footprint) so touching down anywhere grabs the key and
+            // brings it to your finger, instead of requiring the first
+            // touch to land exactly on the key's current position.
+            Positioned.fill(
+              key: const ValueKey('dragSurface'),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (d) =>
+                    _onStart(d, canvasWidth, canvasHeight, keyRestLeft, keyRestTop),
+                onPanUpdate: (d) =>
+                    _onUpdate(d, canvasWidth, canvasHeight, keyRestLeft, keyRestTop),
+                onPanEnd: _onEnd,
+              ),
+            ),
           ],
         ),
       );

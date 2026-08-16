@@ -302,8 +302,7 @@ extension LinkingErrorDetails on LinkingError {
           'Drag the key into the lock below to pair, then try setup again.',
         LinkingError.pairingPasswordRejected =>
           'Check the password and try again.\n'
-              'This is your desktop login password, entered once just to '
-              'install this phone\'s key - it is never stored.',
+              'This is your desktop login password - used once, never stored.',
         LinkingError.cloneVerificationFailed =>
           'The download may not have finished, or the folder was moved or deleted after setup.\n'
               'Tap TRY AGAIN to re-download your notes.\n'
