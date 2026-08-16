@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
@@ -149,10 +150,19 @@ class HomeScreen extends StatelessWidget {
                   value: 'pair',
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.vpn_key_outlined, color: kStar, size: 18),
-                      SizedBox(width: 12),
-                      Expanded(
+                    // 2026-08-16: "can the key be pairing_phone_key.svg"
+                    // - swapped the generic Material key icon for the
+                    // actual key asset used in the pairing gesture
+                    // itself, same green ed25519-teeth key, not just a
+                    // stand-in glyph. Not const anymore - SvgPicture.asset
+                    // isn't a const constructor.
+                    children: [
+                      SvgPicture.asset(
+                        'assets/pairing/pairing_phone_key.svg',
+                        width: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,

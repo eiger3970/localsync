@@ -17,6 +17,7 @@ import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
+import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
@@ -1426,43 +1427,35 @@ class _FailedView extends StatelessWidget {
     // in onSettled, once the drag/glow animation has genuinely finished
     // playing - same onSettled contract as GifSwipeTrigger/CommitScreen,
     // so the transition never cuts the animation off mid-flight.
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: KeyPairingTrigger(
-            runningLabel: 'OPENING PAIRING…',
-            onConfirm: () async {},
-            onSettled: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const PairingScreen(
-                  desktopUser: 'rapi5',
-                  desktopIp: '172.20.10.11',
-                ),
-              ),
+    //
+    // 2026-08-16: "messed up with images now over the top area with
+    // text" - a Positioned.fill canvas vertically centered in the whole
+    // screen inevitably overlapped the diagnostic text pinned above it,
+    // since nothing reserved that space. ContentAboveDragCanvas measures
+    // the real content (and CANCEL) height and positions the canvas
+    // exactly between them instead of guessing a fixed offset.
+    return ContentAboveDragCanvas(
+      canvas: KeyPairingTrigger(
+        runningLabel: 'OPENING PAIRING…',
+        onConfirm: () async {},
+        onSettled: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const PairingScreen(
+              desktopUser: 'rapi5',
+              desktopIp: '172.20.10.11',
             ),
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 64,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: SingleChildScrollView(child: diagnostics),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: cancelButton,
-          ),
-        ),
-      ],
+      ),
+      content: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        child: SingleChildScrollView(child: diagnostics),
+      ),
+      bottomPinned: Padding(
+        padding: const EdgeInsets.all(20),
+        child: cancelButton,
+      ),
     );
   }
 }

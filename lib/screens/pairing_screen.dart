@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
+import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
@@ -82,33 +83,25 @@ class _PairingScreenState extends State<PairingScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
       // 2026-08-16: "drag only in bottom left corner, not possible on
-      // entire screen?" - reported three times running a Row/Column/
-      // Expanded-based layout, including after wrapping the trigger in
-      // SizedBox.expand. Rather than keep guessing at which loose
-      // constraint in that chain wasn't resolving to the real available
-      // space, rebuilt around a Stack instead: the drag canvas is a
-      // Positioned.fill BACKGROUND layer (guaranteed to receive the
-      // Stack's true resolved size - no Row/Column cross-axis ambiguity
-      // possible), and the text/password content floats on top in its
-      // own naturally-sized box pinned to the top. Touches over the text
-      // area go to the text; everywhere else on screen (which is most of
-      // it) goes straight to the drag canvas underneath.
+      // entire screen?" (x3) then "messed up with images now over the
+      // top area with text" once the canvas actually did go full-bleed -
+      // a Positioned.fill canvas vertically centered in the whole screen
+      // inevitably overlaps whatever text sits at the top, since nothing
+      // reserved that space. ContentAboveDragCanvas measures the real
+      // content height and positions the canvas exactly below it.
       body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: KeyPairingTrigger(
-                enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
-                onConfirm: _pair,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+        child: ContentAboveDragCanvas(
+          canvas: KeyPairingTrigger(
+            enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+            onConfirm: _pair,
+          ),
+          content: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
                       'Connect to ${widget.desktopUser}@${widget.desktopIp}',
                       style: const TextStyle(
                           color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
@@ -197,10 +190,9 @@ class _PairingScreenState extends State<PairingScreen> {
                 ),
               ),
             ),
-          ],
+          ),
         ),
-      ),
-    );
+      );
   }
 
   Future<void> _pair() async {
