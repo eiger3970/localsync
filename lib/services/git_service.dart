@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
+import 'vault_backup.dart';
 
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
 /// on iOS via CocoaPods - see lib/STRUCTURE.md for why this replaced the
@@ -122,8 +123,22 @@ class GitServiceImpl implements GitService {
         // git fetch && git reset --hard origin/main` does on a fresh
         // non-empty directory, and libgit2's hard reset force-
         // overwrites conflicting untracked files during its checkout
-        // step, so Obsidian's brand-new placeholder content is safely
-        // replaced by the desktop's real vault content.
+        // step.
+        //
+        // 2026-08-16: that last sentence's framing - "Obsidian's
+        // brand-new placeholder content is safely replaced" - only
+        // holds for a genuinely fresh vault. This exact !_isCloned
+        // branch is also what runs when re-linking an *already-used*
+        // vault folder (e.g. after a reinstall wipes the app's local
+        // git state and repo database, forcing the user back through
+        // vault picking against a folder that may hold real, unsynced
+        // notes) - the hard reset below would force-overwrite those
+        // with zero warning. sync_service.dart's own missing-.git
+        // recovery already backs up first for exactly this reason
+        // ("make sure I don't lose data", 2026-08-20) - this path
+        // handles the same missing-.git condition and needs the same
+        // protection, not a narrower one.
+        final backedUp = await backupVaultIfNotEmpty(localVaultPath);
         final repo = Repository.init(
           path: localVaultPath,
           initialHead: defaultBranch,
@@ -141,7 +156,10 @@ class GitServiceImpl implements GitService {
         } finally {
           repo.free();
         }
-        return const StepSuccess(message: 'Cloned bare repo');
+        return StepSuccess(
+            message: backedUp
+                ? 'Cloned bare repo (existing folder content backed up first).'
+                : 'Cloned bare repo');
       }
 
       final repo = Repository.open(localVaultPath);

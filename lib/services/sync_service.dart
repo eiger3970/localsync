@@ -47,6 +47,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
+import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 
 // ── Result types ───────────────────────────────────────────────────────────────
@@ -377,7 +378,7 @@ Future<SyncResult> _withRepo(
   // never a silent loss.
   if (!await Directory('${p.vaultPath}/.git').exists()) {
     try {
-      final backedUp = await _backupVaultIfNotEmpty(p.vaultPath);
+      final backedUp = await backupVaultIfNotEmpty(p.vaultPath);
       final repo = git.Repository.init(
         path: p.vaultPath, initialHead: p.branch, originUrl: p.remoteUrl,
       );
@@ -488,49 +489,10 @@ void _finishMergeCommit(git.Repository repo, {String? message}) {
     updateRef: 'HEAD',
     author: _fixedSignature,
     committer: _fixedSignature,
-    message: message ?? 'Merge conflicts (both sides kept) ${_isolateTimestamp()}',
+    message: message ?? 'Merge conflicts (both sides kept) ${backupTimestamp()}',
     tree: tree,
     parents: [localCommit, remoteCommit],
   );
-}
-
-// Same YYYYMMDDhhmm format as SyncService._timestamp() - duplicated as
-// a tiny top-level function rather than shared, since this runs inside
-// the isolate and can't reach an instance method on the main-isolate
-// SyncService object.
-String _isolateTimestamp() {
-  final n = DateTime.now();
-  String p2(int v) => v.toString().padLeft(2, '0');
-  return '${n.year}${p2(n.month)}${p2(n.day)}${p2(n.hour)}${p2(n.minute)}';
-}
-
-// ── Vault backup — safety net for the missing-.git recovery path above ──────
-
-/// If [vaultPath] already has any content, copies the whole thing to a
-/// timestamped sibling folder before the caller does anything
-/// destructive to it. Returns true if a backup was actually made.
-Future<bool> _backupVaultIfNotEmpty(String vaultPath) async {
-  final dir = Directory(vaultPath);
-  if (!await dir.exists()) return false;
-  final entries = await dir.list().toList();
-  if (entries.isEmpty) return false;
-
-  final backupPath = '${vaultPath}_localsync_backup_${_isolateTimestamp()}';
-  await _copyDirectoryContents(dir, Directory(backupPath));
-  return true;
-}
-
-Future<void> _copyDirectoryContents(Directory source, Directory dest) async {
-  await dest.create(recursive: true);
-  await for (final entity in source.list(followLinks: false)) {
-    final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
-    final destPath = '${dest.path}/$name';
-    if (entity is Directory) {
-      await _copyDirectoryContents(entity, Directory(destPath));
-    } else if (entity is File) {
-      await entity.copy(destPath);
-    }
-  }
 }
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
