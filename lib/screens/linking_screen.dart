@@ -1517,16 +1517,23 @@ class _FailedView extends StatelessWidget {
             // genuinely finished playing - same onSettled contract as
             // GifSwipeTrigger/CommitScreen, so the transition never cuts
             // the animation off mid-flight.
+            // 2026-08-16: "drag only in bottom left corner, not possible
+            // on entire screen?" - SizedBox.expand forces the trigger to
+            // actually claim the full available width and height rather
+            // than trusting the surrounding Column's loose constraints
+            // to already resolve to the full space.
             Expanded(
-              child: KeyPairingTrigger(
-                runningLabel: 'OPENING PAIRING…',
-                onConfirm: () async {},
-                onSettled: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const PairingScreen(
-                      desktopUser: 'rapi5',
-                      desktopIp: '172.20.10.11',
+              child: SizedBox.expand(
+                child: KeyPairingTrigger(
+                  runningLabel: 'OPENING PAIRING…',
+                  onConfirm: () async {},
+                  onSettled: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PairingScreen(
+                        desktopUser: 'rapi5',
+                        desktopIp: '172.20.10.11',
+                      ),
                     ),
                   ),
                 ),

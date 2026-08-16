@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
+import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
@@ -120,43 +121,56 @@ class _PairingScreenState extends State<PairingScreen> {
                           ),
                         ],
                       ),
-                      if (result is StepFailure) ...[
-                        const SizedBox(height: 20),
-                        // 2026-08-16: was a bespoke Container using
-                        // kTextDim at 14px for the resolution text -
-                        // direct feedback that it was "too small and
-                        // dark to read." Switched to the same DiagCard
-                        // used everywhere else in the app (kStar, 15px,
-                        // 1.7 line height) instead of inventing a
-                        // dimmer, harder-to-read variant just for this
-                        // screen.
-                        DiagCard(
-                          label: 'WHAT HAPPENED',
-                          text: result.diagnosis,
-                          accent: Colors.redAccent,
+                      // 2026-08-16: wrapped as one single Keyed block
+                      // (rather than loose conditional children) after
+                      // finding a real bug elsewhere this session where
+                      // an unkeyed conditional sibling shifting list
+                      // position confused Flutter's element
+                      // reconciliation mid-gesture - defensive fix for
+                      // the reported "vertical red line" artifact left
+                      // behind after this box disappears on retry.
+                      if (result is StepFailure)
+                        Column(
+                          key: const ValueKey('failureBox'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            // 2026-08-16: was a bespoke Container using
+                            // kTextDim at 14px for the resolution text -
+                            // direct feedback that it was "too small and
+                            // dark to read." Switched to the same DiagCard
+                            // used everywhere else in the app (kStar, 15px,
+                            // 1.7 line height) instead of inventing a
+                            // dimmer, harder-to-read variant just for this
+                            // screen.
+                            DiagCard(
+                              label: 'WHAT HAPPENED',
+                              text: result.diagnosis,
+                              accent: Colors.redAccent,
+                            ),
+                            const SizedBox(height: 12),
+                            DiagCard(
+                              label: 'HOW TO FIX IT',
+                              text: result.resolution,
+                              accent: kGreen,
+                            ),
+                            // 2026-08-16: guards against both null AND an
+                            // empty/whitespace-only debugDetail - real device
+                            // feedback showed the "Raw error" label with
+                            // nothing underneath it, which a bare null-check
+                            // wouldn't have caught if the underlying
+                            // exception's toString() ever comes back blank.
+                            if (result.debugDetail != null &&
+                                result.debugDetail!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              DiagCard(
+                                label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                                text: result.debugDetail!,
+                                accent: Colors.redAccent,
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 12),
-                        DiagCard(
-                          label: 'HOW TO FIX IT',
-                          text: result.resolution,
-                          accent: kGreen,
-                        ),
-                        // 2026-08-16: guards against both null AND an
-                        // empty/whitespace-only debugDetail - real device
-                        // feedback showed the "Raw error" label with
-                        // nothing underneath it, which a bare null-check
-                        // wouldn't have caught if the underlying
-                        // exception's toString() ever comes back blank.
-                        if (result.debugDetail != null &&
-                            result.debugDetail!.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          DiagCard(
-                            label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
-                            text: result.debugDetail!,
-                            accent: Colors.redAccent,
-                          ),
-                        ],
-                      ],
                     ],
                   ),
                 ),
@@ -174,10 +188,23 @@ class _PairingScreenState extends State<PairingScreen> {
                   children: [
                     const _StepBadge(2),
                     const SizedBox(width: 12),
+                    // 2026-08-16: "drag only in bottom left corner, not
+                    // possible on entire screen?" - a Row's non-stretched
+                    // cross axis (height, here) only loosely bounds its
+                    // children rather than forcing them to fill it, and
+                    // KeyPairingTrigger's own LayoutBuilder was trusting
+                    // that loose bound to already equal the real
+                    // available space. SizedBox.expand forces it to
+                    // actually claim the full width AND height regardless
+                    // of how that upstream constraint resolves, instead
+                    // of relying on multiple layers of loose-constraint
+                    // propagation to happen to add up correctly.
                     Expanded(
-                      child: KeyPairingTrigger(
-                        enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
-                        onConfirm: _pair,
+                      child: SizedBox.expand(
+                        child: KeyPairingTrigger(
+                          enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+                          onConfirm: _pair,
+                        ),
                       ),
                     ),
                   ],
@@ -306,7 +333,19 @@ class _PairedSuccessView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.check_circle, color: kGreen, size: 88),
+          // 2026-08-16: replaced the generic checkmark with the same
+          // success-dog gif already used for the "Your notes have
+          // arrived!" moment in linking_screen.dart - one consistent
+          // mascot for "this step is done," not a plain Material icon.
+          const ControllableGif(
+            assetPath: 'assets/gifs/dog_success_stand.gif',
+            playing: true,
+            height: 88,
+            frameDurationOverrides: {
+              4: Duration(milliseconds: 700),
+              5: Duration(milliseconds: 50),
+            },
+          ),
           const SizedBox(height: 24),
           const Text('Paired!',
               style: TextStyle(
