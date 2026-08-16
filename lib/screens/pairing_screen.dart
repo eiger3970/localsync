@@ -92,7 +92,19 @@ class _PairingScreenState extends State<PairingScreen> {
               controller: _passwordCtrl,
               enabled: !_ctrl.isRunning,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // 2026-08-16: moved here (right under the field it explains)
+            // after direct feedback that the old hint text sat below the
+            // ~190px key/lock graphic instead of near the password field -
+            // "unsure why TYPE THE PASSWORD FIRST is under the images
+            // rather than directly under the Desktop password field".
+            Text(
+              _passwordCtrl.text.isEmpty
+                  ? 'Type your password, then drag the key into the lock below to pair.'
+                  : 'Drag the key into the lock to pair.',
+              style: const TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
+            ),
+            const SizedBox(height: 16),
             KeyPairingTrigger(
               enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
               onConfirm: _pair,

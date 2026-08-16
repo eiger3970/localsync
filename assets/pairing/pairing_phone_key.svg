@@ -1,5 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="290" height="180" viewBox="50 24 145 90">
-  <rect x="50" y="24" width="145" height="90" fill="#03020A"/>
+  <!-- No background rect (unlike the laptop assets) - this key now slides
+       on top of the laptop's own canvas at full drag (see key_pairing_trigger.dart),
+       so an opaque fill here would paint a solid black patch over the
+       laptop's body instead of letting it show through around the outline. -->
 
   <g transform="scale(0.7)" stroke="#00FF41" stroke-width="4.3" fill="none" stroke-linejoin="round" stroke-linecap="round">
     <rect x="93" y="55" width="36" height="86" rx="10"/>

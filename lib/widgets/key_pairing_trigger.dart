@@ -1,34 +1,35 @@
 // widgets/key_pairing_trigger.dart
 //
-// Drag-to-pair gesture for PairingScreen: pairing_phone_key.svg slides
-// right into pairing_laptop_lock.svg's matching keyway. Same overall
-// contract as GifSwipeTrigger/ActionGif (drag past a threshold ->
-// snap -> race a real async action against a minimum floor so the
-// result never flashes too briefly) but horizontal, and driven by two
-// static SVGs plus a snap animation rather than a looping gif, since
-// there's no gif asset for this gesture yet.
+// Drag-to-pair gesture for PairingScreen: pairing_phone_key.svg is freely
+// draggable anywhere within a generous play area and locks in the moment
+// it's dropped near pairing_laptop_lock.svg's matching keyway - not a
+// constrained single-axis slider. Same overall contract as
+// GifSwipeTrigger/ActionGif (drag -> snap -> race a real async action
+// against a minimum floor so the result never flashes too briefly).
+//
+// 2026-08-16: rebuilt from a horizontal-only slider (drag distance capped
+// at the resting gap between the two SVGs, which meant the key could
+// never physically reach the keyway - "only drags slightly to the right,
+// then glows green") into true free 2D drag with distance-based success,
+// per direct feedback: "should be able to drag anywhere on the screen as
+// human users like to play and learn, and when the user drags over the
+// computer lock, success."
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
+import 'sparkle_background.dart';
 
 class KeyPairingTrigger extends StatefulWidget {
   final Future<void> Function() onConfirm;
   final VoidCallback? onSettled;
   final bool enabled;
-  // Overridable so a caller that reuses this purely for its drag gesture
-  // (e.g. linking_screen.dart's failed-view "PAIR NOW", which just
-  // navigates rather than actually registering anything itself) doesn't
-  // have to show "REGISTERING KEY..." for something that isn't happening
-  // yet.
-  final String idleLabel;
   final String runningLabel;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
     this.onSettled,
     this.enabled = true,
-    this.idleLabel = 'DRAG THE KEY INTO THE LOCK',
     this.runningLabel = 'REGISTERING KEY…',
   });
 
@@ -40,14 +41,32 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     with SingleTickerProviderStateMixin {
   static const _keyWidth = 110.0;
   static const _lockWidth = 176.0;
-  static const _gap = 18.0;
-  static const _maxDrag = _gap; // phone slides across the gap to meet the lock
+  static const _canvasHeight = 240.0; // taller than the old 190 - real room to drag
+  static const _edgePad = 8.0;
+
+  // Where each SVG's tooth pattern actually sits relative to its own
+  // widget's top-left corner, derived from both assets' viewBox/transform
+  // math (both cut paths share raw path origin (129,79)).
+  static const _keyOriginFromLeft = 30.57;
+  static const _lockOriginFromLeft = 15.84;
+  static const _keyHeight = _keyWidth * 90 / 145; // ~68.28
+  static const _lockHeight = _lockWidth * 250 / 260; // ~169.23
+  // Vertical gap between the two tooth-pattern origins when both SVGs are
+  // simply centered in the same canvas - the two assets' art isn't
+  // centered identically within their own viewBoxes, so this isn't
+  // derivable from _keyHeight/_lockHeight alone; verified by rendering
+  // both at these exact display widths and checking pixel alignment.
+  // Independent of canvas height (both centering offsets move together).
+  static const _verticalNudge = -10.5;
+
+  static const _successRadius = 44.0; // generous - "not too difficult"
   static const _minRun = Duration(milliseconds: 2000);
 
   late final AnimationController _snapCtrl;
-  double _dragStart = 0;
-  double _drag = 0; // 0 (resting) .. _maxDrag (flush against the lock)
+  Offset _drag = Offset.zero; // offset from rest position
+  Offset _dragStart = Offset.zero;
   bool _dragging = false;
+  bool _snapped = false; // sitting exactly in the lock, glow stays on
   bool _running = false; // pairing in flight - gesture locked out
 
   @override
@@ -63,37 +82,58 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     super.dispose();
   }
 
+  Offset _target(double canvasWidth) {
+    final lockLeft = canvasWidth - _lockWidth - _edgePad;
+    final targetLeft = lockLeft + _lockOriginFromLeft - (_edgePad + _keyOriginFromLeft);
+    return Offset(targetLeft, _verticalNudge);
+  }
+
   void _onStart(DragStartDetails d) {
     if (_running || !widget.enabled) return;
     _dragging = true;
+    _snapped = false;
     _dragStart = _drag;
   }
 
-  void _onUpdate(DragUpdateDetails d) {
+  void _onUpdate(DragUpdateDetails d, double canvasWidth) {
     if (!_dragging) return;
     setState(() {
-      _drag = (_dragStart + d.delta.dx).clamp(0.0, _maxDrag);
-      _dragStart = _drag; // running accumulator for the next incremental delta
+      _drag = _clamp(_dragStart + d.delta, canvasWidth);
+      _dragStart = _drag;
     });
+    // Live hit-test - success fires the moment the key is dragged over the
+    // lock, no need to lift a finger precisely on target.
+    if ((_drag - _target(canvasWidth)).distance <= _successRadius) {
+      _dragging = false;
+      _snap(canvasWidth);
+    }
   }
 
   void _onEnd(DragEndDetails d) {
     if (!_dragging) return;
     _dragging = false;
-    final reached = _drag >= _maxDrag * 0.8;
-    if (reached) {
-      _animateTo(_maxDrag).then((_) => _startPairing());
-    } else {
-      _animateTo(0);
-    }
+    _animateTo(Offset.zero);
   }
 
-  Future<void> _animateTo(double target) async {
+  Offset _clamp(Offset o, double canvasWidth) {
+    final minDx = -_edgePad;
+    final maxDx = canvasWidth - _keyWidth - _edgePad;
+    final minDy = -(_canvasHeight - _keyHeight) / 2;
+    final maxDy = (_canvasHeight - _keyHeight) / 2;
+    return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
+  }
+
+  void _snap(double canvasWidth) {
+    setState(() => _snapped = true);
+    _animateTo(_target(canvasWidth)).then((_) => _startPairing());
+  }
+
+  Future<void> _animateTo(Offset target) async {
     final from = _drag;
     _snapCtrl
       ..value = 0
       ..reset();
-    final anim = Tween<double>(begin: from, end: target).animate(
+    final anim = Tween<Offset>(begin: from, end: target).animate(
       CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOutCubic),
     );
     void listener() => setState(() => _drag = anim.value);
@@ -107,72 +147,91 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     setState(() => _running = true);
     await Future.wait([Future.delayed(_minRun), widget.onConfirm()]);
     if (!mounted) return;
-    setState(() => _running = false);
-    await _animateTo(0);
+    setState(() {
+      _running = false;
+      _snapped = false;
+    });
+    await _animateTo(Offset.zero);
     widget.onSettled?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    final progress = _drag / _maxDrag; // 0..1
-    return SizedBox(
-      height: 190,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // phone_key sits flush against the lock once dragged/paired -
-              // no fixed gap SizedBox here, _drag itself provides the motion.
-              Transform.translate(
-                offset: Offset(_drag, 0),
-                child: GestureDetector(
-                  onHorizontalDragStart: _onStart,
-                  onHorizontalDragUpdate: _onUpdate,
-                  onHorizontalDragEnd: _onEnd,
-                  child: SizedBox(
-                    width: _keyWidth,
-                    child: AnimatedOpacity(
-                      opacity: _running ? 0.55 : (widget.enabled ? 1 : 0.35),
-                      duration: const Duration(milliseconds: 200),
-                      child: SvgPicture.asset(
-                        'assets/pairing/pairing_phone_key.svg',
-                        width: _keyWidth,
-                      ),
-                    ),
-                  ),
+    return LayoutBuilder(builder: (context, constraints) {
+      final canvasWidth = constraints.maxWidth;
+      final lockLeft = canvasWidth - _lockWidth - _edgePad;
+      final lockTop = (_canvasHeight - _lockHeight) / 2;
+      final keyRestLeft = _edgePad;
+      final keyRestTop = (_canvasHeight - _keyHeight) / 2;
+      final active = _running || _snapped;
+
+      return SizedBox(
+        height: _canvasHeight,
+        width: canvasWidth,
+        child: Stack(
+          children: [
+            // Lock painted first (bottom) at its fixed position - opaque
+            // canvas, so anything painted before it here would vanish
+            // wherever the key later overlaps it.
+            Positioned(
+              left: lockLeft,
+              top: lockTop,
+              width: _lockWidth,
+              child: _PulsingLock(
+                active: active,
+                child: SvgPicture.asset(
+                  'assets/pairing/pairing_laptop_lock.svg',
+                  width: _lockWidth,
                 ),
               ),
-              const SizedBox(width: _gap),
-              SizedBox(
-                width: _lockWidth,
-                child: _PulsingLock(
-                  active: _running || progress >= 0.999,
-                  child: SvgPicture.asset(
-                    'assets/pairing/pairing_laptop_lock.svg',
-                    width: _lockWidth,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            bottom: 4,
-            child: Text(
-              _running
-                  ? widget.runningLabel
-                  : (widget.enabled
-                      ? widget.idleLabel
-                      : 'TYPE THE PASSWORD FIRST'),
-              style: const TextStyle(
-                  color: kTextDim, fontSize: 11, letterSpacing: 1.5),
             ),
-          ),
-        ],
-      ),
-    );
+            // Idle affordance - only while there's nothing else to look at.
+            if (widget.enabled && !_dragging && !_running && !_snapped)
+              Positioned(
+                left: keyRestLeft - 30,
+                top: keyRestTop - 30,
+                width: _keyWidth + 60,
+                height: _keyHeight + 60,
+                child: const SparkleBackground(),
+              ),
+            // Key painted second (on top) so it can slide anywhere,
+            // including across the lock's own canvas, without vanishing
+            // behind it.
+            Positioned(
+              left: keyRestLeft + _drag.dx,
+              top: keyRestTop + _drag.dy,
+              width: _keyWidth,
+              child: GestureDetector(
+                onPanStart: _onStart,
+                onPanUpdate: (d) => _onUpdate(d, canvasWidth),
+                onPanEnd: _onEnd,
+                child: AnimatedOpacity(
+                  opacity: _running ? 0.55 : (widget.enabled ? 1 : 0.35),
+                  duration: const Duration(milliseconds: 200),
+                  child: SvgPicture.asset(
+                    'assets/pairing/pairing_phone_key.svg',
+                    width: _keyWidth,
+                  ),
+                ),
+              ),
+            ),
+            if (_running)
+              Positioned(
+                bottom: 4,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Text(
+                    widget.runningLabel,
+                    style: const TextStyle(
+                        color: kTextDim, fontSize: 11, letterSpacing: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 }
 

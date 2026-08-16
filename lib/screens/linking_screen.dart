@@ -1496,13 +1496,18 @@ class _FailedView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+          ] else ...[
+            // 2026-08-16: TRY AGAIN (re-runs the whole 8-step setup
+            // sequence) only makes sense for failures unrelated to
+            // pairing - direct feedback that showing it alongside PAIR
+            // NOW was confusing, and correctly so: retrying setup without
+            // pairing first here would just fail the same way again.
+            _PrimaryButton(
+              label: 'TRY AGAIN',
+              onPressed: ctrl.startLinking,
+            ),
+            const SizedBox(height: 12),
           ],
-
-          _PrimaryButton(
-            label: 'TRY AGAIN',
-            onPressed: ctrl.startLinking,
-          ),
-          const SizedBox(height: 12),
           Center(
             child: TextButton(
               onPressed: () => _leaveSetup(context),
