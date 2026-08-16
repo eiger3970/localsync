@@ -299,7 +299,7 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.unexpectedLinkError =>
           'Check the target app is installed and try again.',
         LinkingError.pairingNotComplete =>
-          'Run pairing first from Settings, then try setup again.',
+          'Drag the key into the lock below to pair, then try setup again.',
         LinkingError.pairingPasswordRejected =>
           'Check the password and try again.\n'
               'This is your desktop login password, entered once just to '

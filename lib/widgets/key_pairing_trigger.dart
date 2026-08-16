@@ -41,7 +41,13 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     with SingleTickerProviderStateMixin {
   static const _keyWidth = 110.0;
   static const _lockWidth = 176.0;
-  static const _canvasHeight = 240.0; // taller than the old 190 - real room to drag
+  // 2026-08-16: was a fixed 240 - direct feedback that the key "only
+  // drags around its own square area" wanted the actual full remaining
+  // screen space, not just a bigger fixed box. Now takes whatever height
+  // the caller's layout hands it (both screens now wrap this in Expanded
+  // instead of a SingleChildScrollView), with 240 kept only as a
+  // fallback for the (untested) case of unbounded constraints.
+  static const _fallbackCanvasHeight = 240.0;
   static const _edgePad = 8.0;
 
   // Where each SVG's tooth pattern actually sits relative to its own
@@ -95,10 +101,10 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     _dragStart = _drag;
   }
 
-  void _onUpdate(DragUpdateDetails d, double canvasWidth) {
+  void _onUpdate(DragUpdateDetails d, double canvasWidth, double canvasHeight) {
     if (!_dragging) return;
     setState(() {
-      _drag = _clamp(_dragStart + d.delta, canvasWidth);
+      _drag = _clamp(_dragStart + d.delta, canvasWidth, canvasHeight);
       _dragStart = _drag;
     });
     // Live hit-test - success fires the moment the key is dragged over the
@@ -115,11 +121,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     _animateTo(Offset.zero);
   }
 
-  Offset _clamp(Offset o, double canvasWidth) {
+  Offset _clamp(Offset o, double canvasWidth, double canvasHeight) {
     final minDx = -_edgePad;
     final maxDx = canvasWidth - _keyWidth - _edgePad;
-    final minDy = -(_canvasHeight - _keyHeight) / 2;
-    final maxDy = (_canvasHeight - _keyHeight) / 2;
+    final minDy = -(canvasHeight - _keyHeight) / 2;
+    final maxDy = (canvasHeight - _keyHeight) / 2;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
@@ -159,14 +165,16 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final canvasWidth = constraints.maxWidth;
+      final canvasHeight =
+          constraints.maxHeight.isFinite ? constraints.maxHeight : _fallbackCanvasHeight;
       final lockLeft = canvasWidth - _lockWidth - _edgePad;
-      final lockTop = (_canvasHeight - _lockHeight) / 2;
+      final lockTop = (canvasHeight - _lockHeight) / 2;
       final keyRestLeft = _edgePad;
-      final keyRestTop = (_canvasHeight - _keyHeight) / 2;
+      final keyRestTop = (canvasHeight - _keyHeight) / 2;
       final active = _running || _snapped;
 
       return SizedBox(
-        height: _canvasHeight,
+        height: canvasHeight,
         width: canvasWidth,
         child: Stack(
           children: [
@@ -203,7 +211,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
               width: _keyWidth,
               child: GestureDetector(
                 onPanStart: _onStart,
-                onPanUpdate: (d) => _onUpdate(d, canvasWidth),
+                onPanUpdate: (d) => _onUpdate(d, canvasWidth, canvasHeight),
                 onPanEnd: _onEnd,
                 child: AnimatedOpacity(
                   opacity: _running ? 0.55 : (widget.enabled ? 1 : 0.35),

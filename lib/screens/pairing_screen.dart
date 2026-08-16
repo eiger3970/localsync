@@ -69,78 +69,119 @@ class _PairingScreenState extends State<PairingScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Connect to ${widget.desktopUser}@${widget.desktopIp}',
-              style: const TextStyle(
-                  color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Enter your desktop login password once, just to install '
-              'this phone\'s key. It is never stored - only used for this '
-              'one connection.',
-              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-            ),
-            const SizedBox(height: 24),
-            ShreddingPasswordField(
-              key: _shredKey,
-              controller: _passwordCtrl,
-              enabled: !_ctrl.isRunning,
-            ),
-            const SizedBox(height: 8),
-            // 2026-08-16: moved here (right under the field it explains)
-            // after direct feedback that the old hint text sat below the
-            // ~190px key/lock graphic instead of near the password field -
-            // "unsure why TYPE THE PASSWORD FIRST is under the images
-            // rather than directly under the Desktop password field".
-            Text(
-              _passwordCtrl.text.isEmpty
-                  ? 'Type your password, then drag the key into the lock below to pair.'
-                  : 'Drag the key into the lock to pair.',
-              style: const TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            KeyPairingTrigger(
-              enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
-              onConfirm: _pair,
-            ),
-            if (result is StepFailure) ...[
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: kSurface,
-                  border: const Border(
-                      left: BorderSide(color: Colors.redAccent, width: 2)),
+      // 2026-08-16: rebuilt from one long SingleChildScrollView (which
+      // squeezed the key/lock drag gesture into a small fixed box and
+      // put it inside the same Scrollable that was stealing early
+      // vertical-drag events - "I have to drag down and then the
+      // phonekey drags up") into: a scrollable strip for the text/status
+      // content up top, then a plain (non-scrolling) Expanded area below
+      // it that hands the drag widget the actual remaining screen space
+      // to roam in, with no ancestor Scrollable competing for the
+      // gesture.
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Connect to ${widget.desktopUser}@${widget.desktopIp}',
+                        style: const TextStyle(
+                            color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 10),
+                      // 2026-08-16: "It is never stored" -> spelled out,
+                      // per feedback that a bare pronoun two sentences
+                      // into a technical paragraph is genuinely ambiguous
+                      // for a non-expert reader, even though it reads as
+                      // repetitive to an expert one.
+                      const Text(
+                        'Enter your desktop login password once, just to '
+                        'install this phone\'s key. The desktop login '
+                        'password is never stored - only used for this '
+                        'one connection.',
+                        style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _StepBadge(1),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ShreddingPasswordField(
+                              key: _shredKey,
+                              controller: _passwordCtrl,
+                              enabled: !_ctrl.isRunning,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (result is StepFailure) ...[
+                        const SizedBox(height: 20),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: kSurface,
+                            border: const Border(
+                                left: BorderSide(color: Colors.redAccent, width: 2)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(result.diagnosis,
+                                  style: const TextStyle(color: kStar, fontSize: 16)),
+                              const SizedBox(height: 8),
+                              Text(result.resolution,
+                                  style: const TextStyle(
+                                      color: kTextDim, fontSize: 14, height: 1.6)),
+                              if (result.debugDetail != null) ...[
+                                const SizedBox(height: 12),
+                                Text('Raw error (temporary diagnostic):',
+                                    style: const TextStyle(color: kTextDim, fontSize: 13)),
+                                const SizedBox(height: 4),
+                                Text(result.debugDetail!,
+                                    style: const TextStyle(
+                                        color: Colors.redAccent, fontSize: 13)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                child: Column(
+              ),
+              const SizedBox(height: 12),
+              // 2026-08-16: replaced the old "Type your password, then
+              // drag the key..." sentence entirely - direct feedback
+              // that it was too verbose and users prefer the visuals to
+              // carry the instruction. The step-2 badge is the only
+              // label left; the graphic (plus its own sparkle hint once
+              // the key becomes actionable) does the rest.
+              Expanded(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(result.diagnosis,
-                        style: const TextStyle(color: kStar, fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text(result.resolution,
-                        style: const TextStyle(color: kTextDim, fontSize: 14, height: 1.6)),
-                    if (result.debugDetail != null) ...[
-                      const SizedBox(height: 12),
-                      Text('Raw error (temporary diagnostic):',
-                          style: const TextStyle(color: kTextDim, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text(result.debugDetail!,
-                          style: const TextStyle(
-                              color: Colors.redAccent, fontSize: 13)),
-                    ],
+                    const _StepBadge(2),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: KeyPairingTrigger(
+                        enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+                        onConfirm: _pair,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -164,6 +205,33 @@ class _PairingScreenState extends State<PairingScreen> {
     // with its own START button - user just finished one setup step,
     // don't make them find and tap a second one.
     linkingCtrl.startLinking();
+  }
+}
+
+// ── Step number, no sentence needed ─────────────────────────────────────────
+//
+// 2026-08-16: replaces a full instruction sentence per direct feedback
+// ("text is too verbose, users prefer images... perhaps 1 of 2 left of
+// password and 2 of 2 left of the images"). Just a plain numbered marker -
+// the password field and the key/lock graphic explain themselves.
+class _StepBadge extends StatelessWidget {
+  final int number;
+  const _StepBadge(this.number);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: kGreen, width: 1.4),
+      ),
+      child: Text('$number',
+          style: const TextStyle(
+              color: kGreen, fontSize: 12, fontWeight: FontWeight.w700)),
+    );
   }
 }
 

@@ -1435,45 +1435,79 @@ class _FailedView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final failure = ctrl.lastFailure!;
+    final isPairingFailure = failure.error == LinkingError.pairingNotComplete ||
+        failure.error == LinkingError.sshAuthFailed;
 
-    return SingleChildScrollView(
+    // 2026-08-16: rebuilt from one long SingleChildScrollView (which
+    // confined the drag-the-key gesture to a small fixed box, and put it
+    // inside the same Scrollable that was stealing early vertical-drag
+    // events - "I have to drag down and then the phonekey drags up")
+    // into: a scrollable strip for the diagnostic text up top, then a
+    // plain (non-scrolling) Expanded area below it that hands the drag
+    // widget the actual remaining screen space to roam in, with no
+    // ancestor Scrollable competing for the gesture.
+    return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          const Text('Something stopped',
-              style: TextStyle(
-                  color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 20),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  const Text('Something stopped',
+                      style: TextStyle(
+                          color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 20),
 
-          // What happened
-          DiagCard(
-            label: 'WHAT HAPPENED',
-            text: failure.diagnosis,
-            accent: Colors.redAccent,
+                  // What happened
+                  DiagCard(
+                    label: 'WHAT HAPPENED',
+                    text: failure.diagnosis,
+                    accent: Colors.redAccent,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 2026-08-16: "I just told you text is verbose and to
+                  // use infographics for workflow processes" - for the
+                  // pairing failures, the fix is the drag graphic
+                  // directly below, so a text card spelling out "drag
+                  // the key into the lock" on top of it was pure
+                  // redundancy. Dropped the card, replaced with a plain
+                  // arrow pointing straight at the thing to do - zero
+                  // reading required. Other failure types keep the text
+                  // card since there's no graphic answering them.
+                  if (!isPairingFailure) ...[
+                    DiagCard(
+                      label: 'HOW TO FIX IT',
+                      text: failure.resolution,
+                      accent: kGreen,
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 4),
+                    const Center(
+                      child: Icon(Icons.keyboard_arrow_down_rounded,
+                          color: kGreen, size: 32),
+                    ),
+                  ],
+
+                  if (failure.debugDetail != null) ...[
+                    const SizedBox(height: 12),
+                    DiagCard(
+                      label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                      text: failure.debugDetail!,
+                      accent: Colors.redAccent,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
 
-          // How to fix it
-          DiagCard(
-            label: 'HOW TO FIX IT',
-            text: failure.resolution,
-            accent: kGreen,
-          ),
-
-          if (failure.debugDetail != null) ...[
-            const SizedBox(height: 12),
-            DiagCard(
-              label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
-              text: failure.debugDetail!,
-              accent: Colors.redAccent,
-            ),
-          ],
-          const SizedBox(height: 32),
-
-          if (failure.error == LinkingError.pairingNotComplete ||
-              failure.error == LinkingError.sshAuthFailed) ...[
+          if (isPairingFailure) ...[
             // 2026-08-15: "I want to use the images to drag for the pair
             // now" - PAIR NOW replaced with the same drag-the-key gesture
             // used inside PairingScreen itself. No real async work here
@@ -1482,15 +1516,17 @@ class _FailedView extends StatelessWidget {
             // genuinely finished playing - same onSettled contract as
             // GifSwipeTrigger/CommitScreen, so the transition never cuts
             // the animation off mid-flight.
-            KeyPairingTrigger(
-              runningLabel: 'OPENING PAIRING…',
-              onConfirm: () async {},
-              onSettled: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PairingScreen(
-                    desktopUser: 'rapi5',
-                    desktopIp: '172.20.10.11',
+            Expanded(
+              child: KeyPairingTrigger(
+                runningLabel: 'OPENING PAIRING…',
+                onConfirm: () async {},
+                onSettled: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PairingScreen(
+                      desktopUser: 'rapi5',
+                      desktopIp: '172.20.10.11',
+                    ),
                   ),
                 ),
               ),
