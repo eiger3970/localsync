@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
+import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
@@ -246,6 +247,15 @@ class _PairingScreenState extends State<PairingScreen> {
     // straight on the failure screen having never seen that step at
     // all. Idle view is the real entry point again; the drag gesture
     // is what calls startLinking() now.
+    //
+    // 2026-08-17 (second pass): real device bug - LinkingController is a
+    // singleton provided at app root (main.dart), not re-created per
+    // screen. If an earlier drag attempt (before this pairing) already
+    // failed with "not paired yet", that failure state was still sitting
+    // in the controller - landing back on a fresh LinkingScreen showed
+    // that STALE failure immediately, before the user ever saw the idle
+    // view. reset() clears it so idle view is what actually shows.
+    context.read<LinkingController>().reset();
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LinkingScreen()),
