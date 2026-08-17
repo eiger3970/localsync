@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="385" viewBox="650 15 260 250">
-  <rect x="650" y="15" width="260" height="250" fill="#03020A"/>
-
+  <!-- 2026-08-17: no full-canvas background rect - was a solid opaque
+       fill matching the app's own void background, which made the
+       pulsing glow read as "black square + ring around it" instead of
+       blending into the shape like the vault icon's transparent glow
+       does. The keyway cutout below still works correctly since it
+       renders against the app's own matching #03020A background. -->
   <rect x="673.4" y="29.9" width="196.3" height="188.5" rx="11.7" fill="#1E1A35"/>
   <path d="M673.4,218.4 L869.7,218.4 L889.2,245.7 L653.9,245.7 Z" fill="#1E1A35" stroke="#00FF41" stroke-width="3" stroke-linejoin="round"/>
 
