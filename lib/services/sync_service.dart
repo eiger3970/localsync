@@ -605,6 +605,18 @@ String? _dedupeAndCheckAppend(String ours, String theirs) {
   final remaining = theirsLines.sublist(overlap);
   if (remaining.every((l) => l.trim().isEmpty)) return ours;
 
+  // 2026-08-17: real device bug - two sibling edits to the same line (e.g.
+  // both sides rewrote line 1 to different text) have overlap == 0 (no
+  // shared prefix at all between ours/theirs), yet "theirs isn't a
+  // duplicate substring of ours" trivially passes for any two different
+  // strings - meaning every genuine same-line conflict silently fell
+  // through to a plain append with no warning callout, instead of ever
+  // reaching the real conflict UI below. Requiring overlap > 0 means
+  // theirs must genuinely be "ours plus more" (one side's edit is a
+  // continuation/superset of the other's) - the actual case this was
+  // meant for - not just "text that happens to differ".
+  if (overlap == 0) return null;
+
   final oursSet = oursLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
   final remainingNonBlank = remaining.where((l) => l.trim().isNotEmpty).toList();
   if (remainingNonBlank.isNotEmpty &&
