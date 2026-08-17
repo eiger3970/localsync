@@ -271,6 +271,12 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
               width: _lockWidth,
               child: PulsingGlow(
                 active: active,
+                // Bigger than the default (24/4) - this SVG is ~260x250,
+                // much larger than the small icon PulsingGlow was tuned
+                // for elsewhere, so the default glow read as faint by
+                // comparison. Scaled up to match visual weight.
+                blurRadius: 40,
+                spreadRadius: 8,
                 child: SvgPicture.asset(
                   'assets/pairing/pairing_laptop_lock.svg',
                   width: _lockWidth,

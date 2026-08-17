@@ -10,7 +10,20 @@ import '../theme.dart';
 class PulsingGlow extends StatefulWidget {
   final bool active;
   final Widget child;
-  const PulsingGlow({super.key, required this.active, required this.child});
+  // Fixed pixel glow size doesn't scale with what it wraps - the same
+  // 24/4 default reads as strong around a small icon (vault drop target)
+  // but weak around the much bigger pairing lock image (260x250). Callers
+  // wrapping something large should pass bigger values to match visual
+  // weight, rather than the glow just looking proportionally fainter.
+  final double blurRadius;
+  final double spreadRadius;
+  const PulsingGlow({
+    super.key,
+    required this.active,
+    required this.child,
+    this.blurRadius = 24,
+    this.spreadRadius = 4,
+  });
 
   @override
   State<PulsingGlow> createState() => _PulsingGlowState();
@@ -45,8 +58,8 @@ class _PulsingGlowState extends State<PulsingGlow>
           boxShadow: [
             BoxShadow(
               color: kGreen.withOpacity(0.15 + 0.15 * _ctrl.value),
-              blurRadius: 24,
-              spreadRadius: 4,
+              blurRadius: widget.blurRadius,
+              spreadRadius: widget.spreadRadius,
             ),
           ],
         ),
