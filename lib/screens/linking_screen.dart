@@ -18,6 +18,7 @@ import '../models/repository.dart';
 import '../services/repository_provider.dart';
 import '../widgets/action_gif.dart';
 import '../widgets/content_above_drag_canvas.dart';
+import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
@@ -1383,6 +1384,7 @@ class _FailedView extends StatelessWidget {
             label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
             text: failure.debugDetail!,
             accent: Colors.redAccent,
+            maxLength: 300,
           ),
         ],
       ],
@@ -1606,10 +1608,14 @@ class _DeviceGlyph extends StatelessWidget {
     // the *whole* glyph (icon+label+caption) in a fading Opacity, so
     // the desktop side visibly washed out relative to the solid vault
     // side despite using the identical color value. Pulse now wraps
-    // only the icon. Icon also always sits in a matching padding+border
-    // box (transparent unless hovering) so both glyphs have identical
-    // layout heights regardless of drop-target hover state - fixes the
-    // "notebook image isn't the same height as desktop" report.
+    // only the icon. Icon also always sits in a matching padding box so
+    // both glyphs have identical layout heights regardless of
+    // drop-target hover state - fixes the "notebook image isn't the
+    // same height as desktop" report.
+    // 2026-08-17: hover cue switched from a green border to the same
+    // pulsing glow (PulsingGlow) the pairing screen's lock uses once
+    // the key seats, so the two "something just connected" moments in
+    // the app read as the same effect.
     final color = accent ? kGreen : kTextDim;
     Widget iconWidget = svgAsset != null
         ? SvgPicture.asset(svgAsset!, width: iconSize, height: iconSize)
@@ -1628,16 +1634,12 @@ class _DeviceGlyph extends StatelessWidget {
       width: width,
       child: Column(
         children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: hovering ? kGreen : Colors.transparent,
-                width: 2,
-              ),
+          PulsingGlow(
+            active: hovering,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: iconWidget,
             ),
-            child: iconWidget,
           ),
           const SizedBox(height: 12),
           Text(label,

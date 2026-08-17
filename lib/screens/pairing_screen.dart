@@ -10,7 +10,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_state.dart';
-import '../features/linking/linking_controller.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
@@ -209,6 +208,7 @@ class _PairingScreenState extends State<PairingScreen> {
                           label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
                           text: result.debugDetail!,
                           accent: Colors.redAccent,
+                          maxLength: 300,
                         ),
                       ],
                     ],
@@ -237,15 +237,19 @@ class _PairingScreenState extends State<PairingScreen> {
       Navigator.popUntil(context, (route) => route.isFirst);
       return;
     }
-    final linkingCtrl = context.read<LinkingController>();
+    // 2026-08-17: no longer auto-calls startLinking() here. That was
+    // meant to save a second tap, but it skipped straight past
+    // LinkingScreen's idle view - the drag-and-drop-the-desktop-onto-
+    // the-vault gesture that's the actual, expected first step of
+    // setup. If checkingPairing then failed fast (a network blip, or
+    // an iOS permission prompt getting dismissed), the user landed
+    // straight on the failure screen having never seen that step at
+    // all. Idle view is the real entry point again; the drag gesture
+    // is what calls startLinking() now.
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LinkingScreen()),
     );
-    // Kicks off immediately rather than landing on another idle screen
-    // with its own START button - user just finished one setup step,
-    // don't make them find and tap a second one.
-    linkingCtrl.startLinking();
   }
 }
 

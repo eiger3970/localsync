@@ -80,5 +80,7 @@
 	<array>
 		<string>obsidian</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Localsync connects to your paired desktop over your local network to sync your Obsidian vault.</string>
 </dict>
 </plist>

@@ -18,6 +18,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
+import 'pulsing_glow.dart';
 import 'sparkle_background.dart';
 
 class KeyPairingTrigger extends StatefulWidget {
@@ -268,7 +269,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
               left: lockLeft,
               top: lockTop,
               width: _lockWidth,
-              child: _PulsingLock(
+              child: PulsingGlow(
                 active: active,
                 child: SvgPicture.asset(
                   'assets/pairing/pairing_laptop_lock.svg',
@@ -341,54 +342,3 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   }
 }
 
-// Soft green glow behind the lock once the key has seated / while pairing
-// runs - the SVGs themselves are static, this is the only "it's live" cue.
-class _PulsingLock extends StatefulWidget {
-  final bool active;
-  final Widget child;
-  const _PulsingLock({required this.active, required this.child});
-
-  @override
-  State<_PulsingLock> createState() => _PulsingLockState();
-}
-
-class _PulsingLockState extends State<_PulsingLock>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.active) return widget.child;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, child) => DecoratedBox(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: kGreen.withOpacity(0.15 + 0.15 * _ctrl.value),
-              blurRadius: 24,
-              spreadRadius: 4,
-            ),
-          ],
-        ),
-        child: child,
-      ),
-      child: widget.child,
-    );
-  }
-}

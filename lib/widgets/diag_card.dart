@@ -15,15 +15,24 @@ class DiagCard extends StatelessWidget {
   final String label;
   final String text;
   final Color accent;
+  // Raw exception text has no natural length limit - unlike the
+  // human-written WHAT HAPPENED/HOW TO FIX IT strings, it can run long
+  // enough to push the rest of the screen (including a drag canvas)
+  // mostly off-screen. Left null for those short, hand-written strings.
+  final int? maxLength;
   const DiagCard({
     super.key,
     required this.label,
     required this.text,
     required this.accent,
+    this.maxLength,
   });
 
   @override
   Widget build(BuildContext context) {
+    final displayText = maxLength != null && text.length > maxLength!
+        ? '${text.substring(0, maxLength!)}…'
+        : text;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -41,7 +50,7 @@ class DiagCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5)),
           const SizedBox(height: 8),
-          Text(text,
+          Text(displayText,
               style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
         ],
       ),
