@@ -277,6 +277,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 // comparison. Scaled up to match visual weight.
                 blurRadius: 40,
                 spreadRadius: 8,
+                // Without this the glow follows the plain rectangular
+                // bounding box and reads as a hard square, even though
+                // the SVG's own corners are rounded internally - the
+                // shadow doesn't know that. Rounds the shadow to match.
+                cornerRadius: 16,
                 child: SvgPicture.asset(
                   'assets/pairing/pairing_laptop_lock.svg',
                   width: _lockWidth,

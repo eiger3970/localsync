@@ -17,12 +17,19 @@ class PulsingGlow extends StatefulWidget {
   // weight, rather than the glow just looking proportionally fainter.
   final double blurRadius;
   final double spreadRadius;
+  // The glow follows this box's own shape, not the child's internal
+  // drawing - a plain rectangle (default) casts a square-cornered glow
+  // regardless of blur/spread size, even if the SVG inside has rounded
+  // corners. Round this to match, or the glow just looks like a bigger
+  // square instead of a proper halo.
+  final double cornerRadius;
   const PulsingGlow({
     super.key,
     required this.active,
     required this.child,
     this.blurRadius = 24,
     this.spreadRadius = 4,
+    this.cornerRadius = 0,
   });
 
   @override
@@ -55,6 +62,9 @@ class _PulsingGlowState extends State<PulsingGlow>
       animation: _ctrl,
       builder: (_, child) => DecoratedBox(
         decoration: BoxDecoration(
+          borderRadius: widget.cornerRadius > 0
+              ? BorderRadius.circular(widget.cornerRadius)
+              : null,
           boxShadow: [
             BoxShadow(
               color: kGreen.withOpacity(0.15 + 0.15 * _ctrl.value),
