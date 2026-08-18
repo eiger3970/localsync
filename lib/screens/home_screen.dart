@@ -105,189 +105,167 @@ class HomeScreen extends StatelessWidget {
                 }
                 if (v == 'delete') _confirmDelete(context, provider, repo);
               },
-              // 2026-08-11: labels alone still drew "why are these
-              // needed?" on real device review - added a one-line reason
-              // under each so the menu explains itself without relying on
-              // a tooltip (already known not to fire on iOS tap, see the
-              // fix note above) or a chat explanation the user won't have
-              // open next time they wonder.
-              //
-              // 2026-08-19: reordered - the two everyday, repo-scoped
-              // actions (commit, auto/manual toggle) now lead, since
-              // they're what gets tapped most once set up is done;
-              // Pair/Set up (one-time/rare) moved below a divider;
-              // Remove stays last, now with the same "files are not
-              // deleted" explainer as its own confirm dialog below, so
-              // "Remove" doesn't read as ambiguous about what it removes.
-              itemBuilder: (_) => [
-                if (provider.repos.isNotEmpty) ...[
-                  PopupMenuItem(
-                    value: 'commit',
-                    child: Text('Commit with message...',
+              // 2026-08-18: full menu cleanup per explicit list - one
+              // flat alphabetical order (About, Conflicts, Connection,
+              // Device name, Pair, Pull, Vault), no dividers. Only
+              // exception: Commit stays pinned first since it's what
+              // gets tapped most once set up is done - a stated reason
+              // to deviate from alphabetical, not an arbitrary one (see
+              // house naming rule). One-line explainer under each label
+              // still stands in for a hover tooltip, which doesn't fire
+              // on iOS tap.
+              itemBuilder: (_) {
+                final hasRepo = provider.repos.isNotEmpty;
+                return [
+                  if (hasRepo)
+                    PopupMenuItem(
+                      value: 'commit',
+                      child: Text('Commit with message...',
+                          style: TextStyle(color: kStar, fontSize: 14)),
+                    ),
+                  const PopupMenuItem(
+                    value: 'about',
+                    child: Text('About',
                         style: TextStyle(color: kStar, fontSize: 14)),
                   ),
-                  // 2026-08-18: "I can't think of a solution to a
-                  // desktop mouseover info feature for the phone
-                  // finger controls" - no hover tooltips on a touch
-                  // screen, so same fix as the Pair/Set-up items below:
-                  // a persistent one-line explainer under the label
-                  // instead of relying on a tooltip that can't fire.
-                  PopupMenuItem(
-                    value: 'toggle_auto',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          provider.selectedRepo!.autoSync
-                              ? 'Switch to manual'
-                              : 'Switch to auto',
-                          style: const TextStyle(color: kStar, fontSize: 14),
-                        ),
-                        Text(
-                          provider.selectedRepo!.autoSync
-                              ? 'Stop pulling automatically when the app opens'
-                              : 'Pull automatically every time the app opens',
-                          style:
-                              const TextStyle(color: kTextMid, fontSize: 13),
-                        ),
-                      ],
+                  if (hasRepo)
+                    PopupMenuItem(
+                      value: 'conflicts',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Conflicts',
+                              style: TextStyle(color: kStar, fontSize: 14)),
+                          Text('Files with unresolved sync conflicts',
+                              style: TextStyle(color: kTextMid, fontSize: 13)),
+                        ],
+                      ),
                     ),
-                  ),
-                  // 2026-08-18: step 1 of the conflict-picker plan -
-                  // see conflict_scanner.dart's header comment. Sits
-                  // with the other repo-scoped everyday actions above
-                  // the divider, not down with Pair/Set up.
-                  PopupMenuItem(
-                    value: 'conflicts',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Conflicts',
-                            style: TextStyle(color: kStar, fontSize: 14)),
-                        Text('Files with unresolved sync conflicts',
-                            style:
-                                TextStyle(color: kTextMid, fontSize: 13)),
-                      ],
+                  if (hasRepo)
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Connection of sync - remove',
+                          style: TextStyle(
+                              color: Colors.redAccent, fontSize: 14)),
                     ),
-                  ),
-                  const PopupMenuDivider(),
-                ],
-                PopupMenuItem(
-                  value: 'pair',
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    // 2026-08-16: "can the key be pairing_phone_key.svg"
-                    // - swapped the generic Material key icon for the
-                    // actual key asset used in the pairing gesture
-                    // itself, not just a stand-in glyph. "Make the key
-                    // icon white" - the asset's own baked-in stroke is
-                    // green (matches the pairing screen's theme), so
-                    // tinted via colorFilter to kStar here instead,
-                    // matching the other menu icons in this list. Not
-                    // const anymore - SvgPicture.asset isn't a const
-                    // constructor.
-                    children: [
-                      SvgPicture.asset(
-                        'assets/pairing/pairing_phone_key.svg',
-                        width: 18,
-                        colorFilter: const ColorFilter.mode(kStar, BlendMode.srcIn),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('Pair with desktop',
-                                style: TextStyle(color: kStar, fontSize: 14)),
-                            Text('New phone, or lost connection',
-                                style:
-                                    TextStyle(color: kTextMid, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'link',
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.phone_iphone, color: kStar, size: 18),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                                // 2026-08-18: noun-first per house
-                                // naming rule ("Vault, add another" not
-                                // "Add another vault") - matches the
-                                // "Nodes, diamond" convention used
-                                // elsewhere.
-                                provider.repos.isEmpty
-                                    ? 'Vault - set up'
-                                    : 'Vault - add another',
-                                style: TextStyle(color: kStar, fontSize: 14)),
-                            Text(
-                                provider.repos.isEmpty
-                                    ? 'Link a $kContainerName to this phone'
-                                    : 'Link another $kContainerName to this phone',
-                                style:
-                                    TextStyle(color: kTextMid, fontSize: 13)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (provider.repos.isNotEmpty) ...[
-                  // 2026-08-19: "Change Remove to Remove sync
-                  // connection. Remove the explanation text" - the
-                  // label now says directly what it removes, so the
-                  // one-line explainer other items still carry (no
-                  // tooltip fires on iOS tap, see the 2026-08-11 fix
-                  // note above) isn't needed here anymore.
+                  // 2026-08-18: device-level, not repo-scoped - used as
+                  // the git commit author so a sync conflict can say who
+                  // made a change, not just when (see sync_service.dart's
+                  // _signatureFor). Placeholder in the explainer, not a
+                  // real/pseudonym example - names never go in app UI text.
                   const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Remove sync connection',
-                        style:
-                            TextStyle(color: Colors.redAccent, fontSize: 14)),
+                    value: 'device_name',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Device name',
+                            style: TextStyle(color: kStar, fontSize: 14)),
+                        Text('Shown in sync conflicts, e.g. <DEVICE_NAME>',
+                            style: TextStyle(color: kTextMid, fontSize: 13)),
+                      ],
+                    ),
                   ),
-                ],
-                const PopupMenuDivider(),
-                // 2026-08-18: device-level, not repo-scoped - used as the
-                // git commit author so a sync conflict can say who made
-                // a change, not just when (see sync_service.dart's
-                // _signatureFor). Sits with About, not the repo-scoped
-                // items above the first divider.
-                const PopupMenuItem(
-                  value: 'device_name',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Device name',
-                          style: TextStyle(color: kStar, fontSize: 14)),
-                      Text('Shown in sync conflicts, e.g. "Ken\'s phone"',
-                          style: TextStyle(color: kTextMid, fontSize: 13)),
-                    ],
+                  PopupMenuItem(
+                    value: 'pair',
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      // 2026-08-16: "can the key be pairing_phone_key.svg"
+                      // - swapped the generic Material key icon for the
+                      // actual key asset used in the pairing gesture
+                      // itself, not just a stand-in glyph. "Make the key
+                      // icon white" - the asset's own baked-in stroke is
+                      // green (matches the pairing screen's theme), so
+                      // tinted via colorFilter to kStar here instead,
+                      // matching the other menu icons in this list. Not
+                      // const anymore - SvgPicture.asset isn't a const
+                      // constructor.
+                      children: [
+                        SvgPicture.asset(
+                          'assets/pairing/pairing_phone_key.svg',
+                          width: 18,
+                          colorFilter:
+                              const ColorFilter.mode(kStar, BlendMode.srcIn),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Pair with desktop',
+                                  style:
+                                      TextStyle(color: kStar, fontSize: 14)),
+                              Text('New phone, or lost connection',
+                                  style: TextStyle(
+                                      color: kTextMid, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // 2026-08-20: "credits at the bottom for: misc info,
-                // credits, version, disclaimer, contact" - a real About
-                // screen was missing entirely. Last item, own divider,
-                // matches where this sits in most apps.
-                const PopupMenuItem(
-                  value: 'about',
-                  child: Text('About',
-                      style: TextStyle(color: kStar, fontSize: 14)),
-                ),
-              ],
+                  // 2026-08-18: renamed from Switch to manual/auto -
+                  // "Pull manually"/"Pull automatically" says the actual
+                  // action, not a generic mode-switch label.
+                  if (hasRepo)
+                    PopupMenuItem(
+                      value: 'toggle_auto',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            provider.selectedRepo!.autoSync
+                                ? 'Pull manually'
+                                : 'Pull automatically',
+                            style:
+                                const TextStyle(color: kStar, fontSize: 14),
+                          ),
+                          Text(
+                            provider.selectedRepo!.autoSync
+                                ? 'Stop pulling automatically when the app opens'
+                                : 'Pull automatically every time the app opens',
+                            style: const TextStyle(
+                                color: kTextMid, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  PopupMenuItem(
+                    value: 'link',
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.phone_iphone,
+                            color: kStar, size: 18),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                  provider.repos.isEmpty
+                                      ? 'Vault - set up'
+                                      : 'Vault - add another',
+                                  style: TextStyle(
+                                      color: kStar, fontSize: 14)),
+                              Text(
+                                  provider.repos.isEmpty
+                                      ? 'Link a $kContainerName to this phone'
+                                      : 'Link another $kContainerName to this phone',
+                                  style: TextStyle(
+                                      color: kTextMid, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              },
             ),
           ),
           Consumer<RepositoryProvider>(
