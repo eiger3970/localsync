@@ -64,80 +64,86 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     final r = widget.result;
-    return AlertDialog(
-      backgroundColor: kSurface,
-      title: const Text('This sync will:',
-          style: TextStyle(color: kStar, fontSize: 17)),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 2026-08-18, corrected again same day: instantly adding/
-            // removing the details widget was an abrupt jump, not a
-            // transition - real ask was for the details to "smoothly
-            // transition in", carrying the button row smoothly down
-            // with it, not appear/disappear in one frame. AnimatedSize
-            // animates its own height change, so growth (and the button
-            // row's resulting shift) is now a smooth slide, not a jump.
-            // Alphabetical: add, change, remove - per house naming rule.
-            if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
-            if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
-            if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeInOut,
-              alignment: Alignment.topLeft,
-              child: _showDetails
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 240),
-                        child: SingleChildScrollView(
-                            child: _FileList(result: r)),
-                      ),
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-          ],
+    // 2026-08-18: "no change with this version" - the outer Align/
+    // Padding anchoring the ROUTE's position was correct, but AlertDialog
+    // itself (via Dialog.build()) wraps its own content in a second,
+    // hard-coded Center - that inner Center was still recentering the
+    // title/bullets vertically as AnimatedSize grew the box, undoing the
+    // outer fix. Only way to actually kill it: stop using
+    // AlertDialog/Dialog at all. This is a plain Material box now, same
+    // visual result, no hidden inner centering left to fight.
+    return Material(
+      color: kSurface,
+      elevation: 8,
+      borderRadius: BorderRadius.circular(12),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('This sync will:',
+                  style: TextStyle(color: kStar, fontSize: 17)),
+              const SizedBox(height: 12),
+              // Alphabetical: add, change, remove - per house naming rule.
+              if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
+              if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
+              if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topLeft,
+                child: _showDetails
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: SingleChildScrollView(
+                              child: _FileList(result: r)),
+                        ),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
+              const SizedBox(height: 8),
+              // 2026-08-18: AlertDialog's default actions row (OverflowBar)
+              // can wrap to vertical when three icon+label buttons don't
+              // fit - that's exactly what happened. A plain Row with
+              // Expanded on each button forces one horizontal row always.
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.list,
+                      label: 'Details',
+                      color: kStar,
+                      onPressed: () =>
+                          setState(() => _showDetails = !_showDetails),
+                    ),
+                  ),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.close,
+                      label: "Don't sync",
+                      color: Colors.redAccent,
+                      onPressed: () => Navigator.pop(context, false),
+                    ),
+                  ),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.sync,
+                      label: 'Sync',
+                      color: kGreen,
+                      onPressed: () => Navigator.pop(context, true),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
-      // 2026-08-18: AlertDialog's default actions row (OverflowBar) can
-      // wrap to vertical when three icon+label buttons don't fit -
-      // that's exactly what happened. A plain Row with Expanded on each
-      // button forces one horizontal row always, shrinking button
-      // content to fit rather than ever stacking.
-      actions: [
-        Row(
-          children: [
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.list,
-                label: 'Details',
-                color: kStar,
-                onPressed: () => setState(() => _showDetails = !_showDetails),
-              ),
-            ),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.close,
-                label: "Don't sync",
-                color: Colors.redAccent,
-                onPressed: () => Navigator.pop(context, false),
-              ),
-            ),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.sync,
-                label: 'Sync',
-                color: kGreen,
-                onPressed: () => Navigator.pop(context, true),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
