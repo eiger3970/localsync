@@ -85,6 +85,47 @@ class SyncFailed extends SyncResult {
   String get resolution => error.resolution;
 }
 
+/// 2026-08-18: a pull/push that would delete a large chunk of existing
+/// content used to fast-forward silently, same as any other clean sync -
+/// no different from adding one new note. Real fear behind this: one
+/// device gets emptied by mistake, then a normal-looking sync (no
+/// conflict, nothing to repair) propagates that emptiness and wipes the
+/// other device's real data too. Callers must stop and show [summary],
+/// then re-run the same pull()/push() with confirmed:true if the user
+/// agrees - see _isLargeDeletion below for the threshold.
+class SyncNeedsConfirmation extends SyncResult {
+  // Paths, not just counts - "sometimes users need to know more than a
+  // number" (2026-08-18). The plain-language summary stays the default
+  // view; these back an optional drill-down the dialog can show on
+  // request, so the default case is still a one-line read.
+  final List<String> addedFiles;
+  final List<String> removedFiles;
+  final List<String> modifiedFiles;
+  const SyncNeedsConfirmation({
+    this.addedFiles = const [],
+    this.removedFiles = const [],
+    this.modifiedFiles = const [],
+  });
+
+  int get filesAdded    => addedFiles.length;
+  int get filesRemoved  => removedFiles.length;
+  int get filesModified => modifiedFiles.length;
+
+  String get summary {
+    final parts = <String>[];
+    if (filesRemoved > 0) {
+      parts.add('remove $filesRemoved file${filesRemoved == 1 ? '' : 's'}');
+    }
+    if (filesAdded > 0) {
+      parts.add('add $filesAdded file${filesAdded == 1 ? '' : 's'}');
+    }
+    if (filesModified > 0) {
+      parts.add('change $filesModified file${filesModified == 1 ? '' : 's'}');
+    }
+    return 'This sync will ${parts.join(', ')}. Continue?';
+  }
+}
+
 class SyncEvent {
   final SyncPhase?  phase;
   final SyncResult? result;
@@ -105,6 +146,7 @@ String syncResultMessage(SyncResult result) => switch (result) {
           debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
       SyncConflict() => 'Conflict - resolve on desktop then sync again.',
       SyncFailed(:final diagnosis) => diagnosis,
+      SyncNeedsConfirmation(:final summary) => summary,
     };
 
 // ── Params passed into the isolate ───────────────────────────────────────────
@@ -121,6 +163,8 @@ class _SyncParams {
   final String sshPublicKeyPath;
   final String sshPassphrase;
   final String commitMessage;
+  final String deviceName;
+  final bool confirmed;
   const _SyncParams({
     required this.vaultPath,
     required this.remoteUrl,
@@ -130,6 +174,8 @@ class _SyncParams {
     required this.sshPublicKeyPath,
     required this.sshPassphrase,
     required this.commitMessage,
+    required this.deviceName,
+    this.confirmed = false,
   });
 }
 
@@ -146,6 +192,12 @@ class SyncService {
   final String sshPrivateKeyPath;
   final String sshPublicKeyPath;
   final String sshPassphrase;
+  // 2026-08-18: the git commit author name for this device - see
+  // _signatureFor below. Plain data, read from DatabaseService by the
+  // caller before constructing this (SharedPreferences can't be reached
+  // from inside compute()'s isolate, same reason every other value here
+  // is passed in rather than looked up on demand).
+  final String deviceName;
   final VaultFolderService _vaultFolder;
 
   SyncService({
@@ -156,6 +208,7 @@ class SyncService {
     required this.remotePath,
     required this.sshPrivateKeyPath,
     required this.sshPublicKeyPath,
+    required this.deviceName,
     this.remotePort      = 22,
     this.branch           = 'main',
     this.sshPassphrase    = '',
@@ -166,6 +219,7 @@ class SyncService {
     Repository repo, {
     required String sshPrivateKeyPath,
     required String sshPublicKeyPath,
+    required String deviceName,
   }) => SyncService(
     vaultPath:         repo.localPath,
     vaultBookmark:     repo.vaultBookmark,
@@ -176,6 +230,7 @@ class SyncService {
     branch:            'main',
     sshPrivateKeyPath: sshPrivateKeyPath,
     sshPublicKeyPath:  sshPublicKeyPath,
+    deviceName:        deviceName,
   );
 
   String get _remoteUrl => 'ssh://$remoteUser@$remoteHost:$remotePort$remotePath';
@@ -184,7 +239,11 @@ class SyncService {
   /// (established app behavior - doesn't block the user on git plumbing
   /// they don't understand), then fast-forwards if behind, merges
   /// (repairing conflicts in place) if diverged. Never pushes.
-  Stream<SyncEvent> pull() => _run(_pullInIsolate, SyncPhase.pulling);
+  /// [confirmed] skips the deletion-safety check below (see
+  /// SyncNeedsConfirmation) - pass true only on a second call after the
+  /// user has already seen and agreed to the summary from the first.
+  Stream<SyncEvent> pull({bool confirmed = false}) =>
+      _run(_pullInIsolate, SyncPhase.pulling, confirmed: confirmed);
 
   /// Send local changes up. Commits any dirty local tree, fetches
   /// (needed to know whether a fast-forward push is even possible),
@@ -192,13 +251,16 @@ class SyncService {
   /// a pull first - matching real `git push`'s rejection - rather than
   /// silently merging on the user's behalf. [commitMessage] overrides
   /// the auto-generated timestamp, for the typed-message path.
-  Stream<SyncEvent> push({String? commitMessage}) =>
-      _run(_pushInIsolate, SyncPhase.pushing, commitMessage: commitMessage);
+  /// [confirmed] - see pull() above.
+  Stream<SyncEvent> push({String? commitMessage, bool confirmed = false}) =>
+      _run(_pushInIsolate, SyncPhase.pushing,
+          commitMessage: commitMessage, confirmed: confirmed);
 
   Stream<SyncEvent> _run(
     Future<SyncResult> Function(_SyncParams) isolateFn,
     SyncPhase phase, {
     String? commitMessage,
+    bool confirmed = false,
   }) async* {
     if (vaultBookmark.isEmpty) {
       yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
@@ -220,6 +282,8 @@ class SyncService {
         sshPublicKeyPath: sshPublicKeyPath,
         sshPassphrase: sshPassphrase,
         commitMessage: commitMessage ?? _timestamp(),
+        deviceName: deviceName,
+        confirmed: confirmed,
       );
       yield SyncEvent.done(await compute(isolateFn, params));
     } finally {
@@ -246,7 +310,7 @@ class SyncService {
 
 Future<SyncResult> _pullInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
-    _commitDirtyTree(repo, p.commitMessage);
+    _commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -258,7 +322,19 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
     if (localOid == baseOid) {
-      // Clean fast-forward - nothing local to preserve.
+      // Clean fast-forward - nothing local to preserve, so this is
+      // exactly the "normal-looking, no conflict" case the deletion
+      // check exists for.
+      if (!p.confirmed) {
+        final counts = _diffFileCounts(repo, localOid, remoteOid);
+        if (_isLargeDeletion(counts)) {
+          return SyncNeedsConfirmation(
+            addedFiles: counts.added,
+            removedFiles: counts.removed,
+            modifiedFiles: counts.modified,
+          );
+        }
+      }
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
       return const SyncOk('Downloaded latest notes.');
     }
@@ -277,7 +353,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
     }
-    _finishMergeCommit(repo, message: 'Merge desktop and phone ${p.commitMessage}');
+    _finishMergeCommit(repo, p.deviceName,
+        message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     return const SyncOk('Merged in changes from desktop.');
   });
@@ -292,7 +369,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // can't see?" - yes, and now the result says so explicitly (only
     // when a commit actually happened - if the tree was already
     // clean, p.commitMessage was never used, so don't claim it was).
-    final committed = _commitDirtyTree(repo, p.commitMessage);
+    final committed = _commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -328,6 +405,23 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       // `git push` is rejected here too; left for pull() to resolve,
       // not silently merged on push's behalf.
       return const SyncFailed(LinkingError.cannotFastForward);
+    }
+
+    // Local is cleanly ahead of remote - same deletion-safety check as
+    // pull()'s fast-forward branch, mirrored here since a local delete
+    // (files removed on this device, then committed above) pushed up
+    // silently wipes them on every other device too, with no conflict
+    // to flag it.
+    if (!p.confirmed) {
+      final newLocalOid = repo.head.target;
+      final counts = _diffFileCounts(repo, remoteOid, newLocalOid);
+      if (_isLargeDeletion(counts)) {
+        return SyncNeedsConfirmation(
+          addedFiles: counts.added,
+          removedFiles: counts.removed,
+          modifiedFiles: counts.modified,
+        );
+      }
     }
 
     final err = _pushWithRetry(repo, remote, callbacks, p.branch);
@@ -425,7 +519,7 @@ Future<SyncResult> _withRepo(
         _repairAllConflictsOnDisk(p.vaultPath,
             otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
       }
-      _finishMergeCommit(repo);
+      _finishMergeCommit(repo, p.deviceName);
       repo.stateCleanup();
     }
     final remote = git.Remote.lookup(repo: repo, name: 'origin');
@@ -451,16 +545,17 @@ Future<SyncResult> _withRepo(
 /// resulting tree's oid against HEAD's tree oid instead - a tree-hash
 /// comparison is unambiguous and doesn't depend on the status API at
 /// all, so it can't be wrong the same way.
-bool _commitDirtyTree(git.Repository repo, String message) {
+bool _commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
   final parent  = git.Commit.lookup(repo: repo, oid: headOid);
   final tree    = _stageAndWriteTree(repo);
   if (tree.oid == parent.tree.oid) return false;
+  final signature = _signatureFor(deviceName);
   git.Commit.create(
     repo: repo,
     updateRef: 'HEAD',
-    author: _fixedSignature,
-    committer: _fixedSignature,
+    author: signature,
+    committer: signature,
     message: message,
     tree: tree,
     parents: [parent],
@@ -471,7 +566,7 @@ bool _commitDirtyTree(git.Repository repo, String message) {
 /// Completes an in-progress merge (from Merge.commit) by staging
 /// whatever is in the working directory now (post-repair) and creating
 /// the merge commit with both parents.
-void _finishMergeCommit(git.Repository repo, {String? message}) {
+void _finishMergeCommit(git.Repository repo, String deviceName, {String? message}) {
   final localOid = repo.head.target;
   final git.Oid remoteOid;
   try {
@@ -483,17 +578,51 @@ void _finishMergeCommit(git.Repository repo, {String? message}) {
   final localCommit  = git.Commit.lookup(repo: repo, oid: localOid);
   final remoteCommit = git.Commit.lookup(repo: repo, oid: remoteOid);
   final tree          = _stageAndWriteTree(repo);
+  final signature      = _signatureFor(deviceName);
 
   git.Commit.create(
     repo: repo,
     updateRef: 'HEAD',
-    author: _fixedSignature,
-    committer: _fixedSignature,
+    author: signature,
+    committer: signature,
     message: message ?? 'Merge conflicts (both sides kept) ${backupTimestamp()}',
     tree: tree,
     parents: [localCommit, remoteCommit],
   );
 }
+
+/// File-path diff between two commits, old -> new. Paths, not just
+/// counts, so a confirmation dialog can offer a drill-down into exactly
+/// which files, not just how many.
+({List<String> added, List<String> removed, List<String> modified})
+    _diffFileCounts(git.Repository repo, git.Oid oldOid, git.Oid newOid) {
+  final oldTree = git.Commit.lookup(repo: repo, oid: oldOid).tree;
+  final newTree = git.Commit.lookup(repo: repo, oid: newOid).tree;
+  final diff = git.Diff.treeToTree(repo: repo, oldTree: oldTree, newTree: newTree);
+  final added = <String>[], removed = <String>[], modified = <String>[];
+  for (final delta in diff.deltas) {
+    switch (delta.status) {
+      case git.GitDelta.added:
+        added.add(delta.newFile.path);
+      case git.GitDelta.deleted:
+        removed.add(delta.oldFile.path);
+      case git.GitDelta.modified:
+        modified.add(delta.newFile.path);
+      default:
+        break;
+    }
+  }
+  return (added: added, removed: removed, modified: modified);
+}
+
+/// Threshold for "large chunk of existing content" - the real fear this
+/// guards against is bulk/accidental emptying (a whole folder or vault
+/// gone missing), not the ordinary one-note-deleted case, so this only
+/// trips on a handful or more of files disappearing at once.
+bool _isLargeDeletion(
+        ({List<String> added, List<String> removed, List<String> modified})
+            counts) =>
+    counts.removed.length >= 3;
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
   final index = repo.index;
@@ -503,11 +632,15 @@ git.Tree _stageAndWriteTree(git.Repository repo) {
   return git.Tree.lookup(repo: repo, oid: treeOid);
 }
 
-// Fixed local identity, same convention the old Working Copy resolution
-// text used to tell users to type in manually - the app sets this
-// itself now, nothing to ask the user for.
-git.Signature get _fixedSignature =>
-    git.Signature.create(name: 'Localsync', email: 'localsync@device.local');
+// 2026-08-18: was a single fixed "Localsync" identity for every device -
+// harmless for the sync itself (git doesn't care who authored what),
+// but meant a conflict could never say who made the conflicting change,
+// only when. Falls back to "Localsync" if the user hasn't set a device
+// name yet (kebab menu -> Device name), same as before for anyone who
+// never touches the setting.
+git.Signature _signatureFor(String deviceName) => git.Signature.create(
+    name: deviceName.trim().isEmpty ? 'Localsync' : deviceName.trim(),
+    email: 'localsync@device.local');
 
 /// Push with one retry on non-fast-forward rejection (remote moved
 /// between our fetch and this push - re-fetch and fast-forward if
@@ -665,11 +798,21 @@ String _repairConflictMarkers(String content,
           .join('\n');
       return '$ours\n$otherLines\n';
     }
+    // 2026-08-18: "yours" used to sit as bare unwrapped text right
+    // before the callout - readable, but with no marker of its own,
+    // there was no reliable way to tell where it started (could be a
+    // whole paragraph or one word mid-sentence) when re-reading the
+    // file later for the tap-to-pick conflict picker. Wrapping it in a
+    // matching callout gives both sides the same clean, parseable
+    // boundary conflict_scanner.dart needs - still just as readable by
+    // eye in Obsidian, now two stacked callouts instead of prose+one.
     final label = otherTime != null ? '$otherLabel — $otherTime' : otherLabel;
-    final callout = theirs.split('\n').map((l) => '> $l\n').join('');
-    return '$ours\n\n'
+    final oursCallout = ours.split('\n').map((l) => '> $l\n').join('');
+    final theirsCallout = theirs.split('\n').map((l) => '> $l\n').join('');
+    return '> [!info]+ SYNC CONFLICT — yours (review and delete one)\n'
+        '$oursCallout\n'
         '> [!warning]+ SYNC CONFLICT — $label (review and delete one)\n'
-        '$callout\n';
+        '$theirsCallout\n';
   }
 
   var fixed = content.replaceAllMapped(_fullConflictPattern, mergeBoth);
@@ -679,16 +822,23 @@ String _repairConflictMarkers(String content,
 }
 
 /// Mirrors synco.sh's SYNCO_OTHER_LABEL/SYNCO_OTHER_TIME - the other
-/// side's commit summary and formatted date, used to name which
+/// side's device name and formatted date, used to name which
 /// device/when a conflicting version came from instead of a generic
 /// label.
+///
+/// 2026-08-18: was commit.summary (the commit MESSAGE - a typed note or,
+/// for most auto-syncs, just another timestamp) - that could only ever
+/// answer "when", never "who", since every device used to share one
+/// fixed git identity. Now reads commit.author.name instead, which is
+/// the actual device name (see _signatureFor) - "who" is finally a real
+/// answer, not a second copy of "when".
 ({String label, String time}) _labelForCommit(git.Repository repo, git.Oid oid) {
   try {
     final commit = git.Commit.lookup(repo: repo, oid: oid);
     final t = DateTime.fromMillisecondsSinceEpoch(commit.time * 1000);
     String p2(int v) => v.toString().padLeft(2, '0');
     final time = '${t.year}-${p2(t.month)}-${p2(t.day)} ${p2(t.hour)}:${p2(t.minute)}';
-    return (label: commit.summary, time: time);
+    return (label: commit.author.name, time: time);
   } catch (_) {
     return (label: 'other device', time: '');
   }

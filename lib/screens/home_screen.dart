@@ -12,7 +12,9 @@ import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/gif_swipe_trigger.dart';
+import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
+import 'conflicts_screen.dart';
 import 'linking_screen.dart';
 import 'pairing_screen.dart';
 
@@ -47,7 +49,8 @@ class HomeScreen extends StatelessWidget {
                           repo: provider.selectedRepo!,
                           allRepos: provider.repos,
                           onTap: () => _runAndShow(context,
-                              provider.pullRepository(provider.selectedRepo!.id!)),
+                              ({bool confirmed = false}) => provider.pullRepository(
+                                  provider.selectedRepo!.id!, confirmed: confirmed)),
                           onSelect: provider.selectRepo,
                         ),
                 ),
@@ -84,6 +87,7 @@ class HomeScreen extends StatelessWidget {
                 if (v == 'pair') _openPairing(context);
                 if (v == 'link') _openLinking(context);
                 if (v == 'about') _showAbout(context);
+                if (v == 'device_name') _editDeviceName(context, provider);
                 final repo = provider.selectedRepo;
                 if (repo == null) return;
                 if (v == 'commit') {
@@ -93,6 +97,10 @@ class HomeScreen extends StatelessWidget {
                   );
                 }
                 if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
+                if (v == 'conflicts') {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
+                }
                 if (v == 'delete') _confirmDelete(context, provider, repo);
               },
               // 2026-08-11: labels alone still drew "why are these
@@ -141,6 +149,24 @@ class HomeScreen extends StatelessWidget {
                           style:
                               const TextStyle(color: kTextMid, fontSize: 13),
                         ),
+                      ],
+                    ),
+                  ),
+                  // 2026-08-18: step 1 of the conflict-picker plan -
+                  // see conflict_scanner.dart's header comment. Sits
+                  // with the other repo-scoped everyday actions above
+                  // the divider, not down with Pair/Set up.
+                  PopupMenuItem(
+                    value: 'conflicts',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Conflicts',
+                            style: TextStyle(color: kStar, fontSize: 14)),
+                        Text('Files with unresolved sync conflicts',
+                            style:
+                                TextStyle(color: kTextMid, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -227,6 +253,24 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ],
                 const PopupMenuDivider(),
+                // 2026-08-18: device-level, not repo-scoped - used as the
+                // git commit author so a sync conflict can say who made
+                // a change, not just when (see sync_service.dart's
+                // _signatureFor). Sits with About, not the repo-scoped
+                // items above the first divider.
+                const PopupMenuItem(
+                  value: 'device_name',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Device name',
+                          style: TextStyle(color: kStar, fontSize: 14)),
+                      Text('Shown in sync conflicts, e.g. "Ken\'s phone"',
+                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                    ],
+                  ),
+                ),
                 // 2026-08-20: "credits at the bottom for: misc info,
                 // credits, version, disclaimer, contact" - a real About
                 // screen was missing entirely. Last item, own divider,
@@ -293,10 +337,12 @@ class HomeScreen extends StatelessWidget {
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
           return _SyncGestureZone(
-            onPull: () =>
-                _runAndShow(context, provider.pullRepository(repo.id!)),
-            onPush: () =>
-                _runAndShow(context, provider.pushRepository(repo.id!)),
+            onPull: () => _runAndShow(context,
+                ({bool confirmed = false}) =>
+                    provider.pullRepository(repo.id!, confirmed: confirmed)),
+            onPush: () => _runAndShow(context,
+                ({bool confirmed = false}) =>
+                    provider.pushRepository(repo.id!, confirmed: confirmed)),
           );
         },
       ),
@@ -309,9 +355,22 @@ class HomeScreen extends StatelessWidget {
   // the action finishes. A brief SnackBar is enough to confirm it
   // without adding a permanent status field to Repository for what's
   // fundamentally a one-off confirmation, not state worth persisting.
-  Future<void> _runAndShow(BuildContext context, Future<SyncResult?> op) async {
-    final result = await op;
+  // 2026-08-18: [op] takes a confirmed flag now instead of being an
+  // already-started Future, so a SyncNeedsConfirmation result can
+  // trigger a plain yes/no dialog and then re-run the exact same
+  // pull/push with confirmed:true - see sync_service.dart.
+  Future<void> _runAndShow(
+    BuildContext context,
+    Future<SyncResult?> Function({bool confirmed}) op,
+  ) async {
+    var result = await op();
     if (!context.mounted || result == null) return;
+    if (result case SyncNeedsConfirmation()) {
+      final proceed = await showSyncConfirmDialog(context, result);
+      if (proceed != true || !context.mounted) return;
+      result = await op(confirmed: true);
+      if (!context.mounted || result == null) return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(syncResultMessage(result)),
@@ -375,6 +434,48 @@ class HomeScreen extends StatelessWidget {
     );
     if (confirmed == true && repo.id != null) {
       await provider.removeRepository(repo.id!);
+    }
+  }
+
+  // 2026-08-18: pre-fills with whatever's already set (empty on first
+  // use) rather than assuming - this is the identity that'll show up on
+  // every future conflict, worth letting the user see/confirm the
+  // current value, not just blindly overwrite it.
+  Future<void> _editDeviceName(
+    BuildContext context,
+    RepositoryProvider provider,
+  ) async {
+    final current = await provider.getDeviceName() ?? '';
+    if (!context.mounted) return;
+    final ctrl = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Device name',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: kStar),
+          decoration: const InputDecoration(hintText: "e.g. Ken's phone"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel',
+                style: TextStyle(color: kTextDim, fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
+            child: const Text('Save',
+                style: TextStyle(color: kStar, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      await provider.setDeviceName(name);
     }
   }
 }
