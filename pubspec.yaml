@@ -18,6 +18,11 @@ dependencies:
   openssh_ed25519: ^1.0.0
   dartssh2: ^2.9.0
   flutter_svg: ^2.0.10+1
+  # 2026-08-18: default device name (e.g. "Ken's iPhone") for the sync
+  # identity/conflict "who" - pure-Dart plugin API, no CocoaPods native
+  # code of its own to link (unlike git2dart's FFI symbols), so lower
+  # risk than that saga, but still a new native platform channel.
+  device_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

@@ -32,6 +32,46 @@ class ConflictPickerScreen extends StatefulWidget {
 class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   bool _resolving = false;
 
+  // 2026-08-18: tapping a panel used to resolve immediately - no second
+  // step, no explanation. Real user fear surfaced testing this: "what
+  // will happen next, can it be reversed, what am I doing?" This asks
+  // first, states plainly what happens, and says exactly how it's
+  // recoverable (a backup note - see conflict_scanner.dart's
+  // resolveConflict) instead of just asserting "don't worry."
+  Future<void> _confirmAndChoose(String label, String chosen) async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Keep this version?',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: Text(
+          'This note will be updated to keep "$label" and remove the '
+          'other version from it.\n\n'
+          'Both full versions are saved first to a plain note in '
+          '"LocalSync Conflict Backups" in your vault, so if you pick '
+          'the wrong one you can still find and copy the other version '
+          'back yourself - this app can\'t undo it automatically, but '
+          'nothing is deleted for good.',
+          style: const TextStyle(color: kTextMid, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not now',
+                style: TextStyle(color: kTextDim, fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Keep this version',
+                style: TextStyle(color: kStar, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) await _choose(chosen);
+  }
+
   Future<void> _choose(String chosen) async {
     setState(() => _resolving = true);
     final vaultFolder = VaultFolderService();
@@ -64,7 +104,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text('Tap the version to keep.',
+                const Text(
+                    "Tap a version to review it, then confirm - nothing "
+                    'is changed until you confirm.',
                     style: TextStyle(color: kTextMid, fontSize: 13)),
                 const SizedBox(height: 16),
                 _ConflictPanel(
@@ -74,7 +116,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       : wordDiffOurs(entry.ours, entry.theirs),
                   plainText: entry.ours,
                   highlightColor: Colors.redAccent,
-                  onTap: () => _choose(entry.ours),
+                  onTap: () => _confirmAndChoose('Your version', entry.ours),
                 ),
                 const SizedBox(height: 16),
                 _ConflictPanel(
@@ -86,7 +128,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       : wordDiffTheirs(entry.ours, entry.theirs),
                   plainText: entry.theirs,
                   highlightColor: kGreen,
-                  onTap: () => _choose(entry.theirs),
+                  onTap: () => _confirmAndChoose(
+                      entry.when != null
+                          ? '${entry.who} - ${entry.when}'
+                          : entry.who,
+                      entry.theirs),
                 ),
               ],
             ),

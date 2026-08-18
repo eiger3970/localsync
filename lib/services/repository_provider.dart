@@ -5,6 +5,7 @@ import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'database_service.dart';
+import 'device_name.dart';
 import 'sync_service.dart';
 import 'ssh_key_paths.dart';
 
@@ -99,11 +100,14 @@ class RepositoryProvider extends ChangeNotifier {
     if (idx == -1) return null;
 
     final repo    = _repos[idx];
+    final savedName = await _db.getDeviceName();
     final service = SyncService.fromRepo(
       repo,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
       sshPublicKeyPath:  await SshKeyPaths.publicKeyPath(),
-      deviceName:        await _db.getDeviceName() ?? '',
+      deviceName: (savedName != null && savedName.trim().isNotEmpty)
+          ? savedName
+          : await defaultDeviceName(),
     );
 
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);

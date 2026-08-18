@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
+import '../services/device_name.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/diag_card.dart';
@@ -445,7 +446,14 @@ class HomeScreen extends StatelessWidget {
     BuildContext context,
     RepositoryProvider provider,
   ) async {
-    final current = await provider.getDeviceName() ?? '';
+    final saved = await provider.getDeviceName();
+    // 2026-08-18: nothing saved yet -> pre-fill with the phone's own
+    // name instead of a blank field, so the dialog shows what's
+    // actually being used right now (see device_name.dart) rather than
+    // looking unset when a real default is already in effect.
+    final current = (saved != null && saved.trim().isNotEmpty)
+        ? saved
+        : await defaultDeviceName();
     if (!context.mounted) return;
     final ctrl = TextEditingController(text: current);
     final name = await showDialog<String>(
