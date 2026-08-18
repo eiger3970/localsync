@@ -32,18 +32,24 @@ Future<bool?> showSyncConfirmDialog(
 ) {
   return showDialog<bool>(
     context: context,
-    // 2026-08-18: "the text unnecessarily moves up" - Flutter's default
-    // dialog route centers its content, so as AnimatedSize grows the
-    // dialog taller, the whole box re-centers on screen, dragging the
-    // top text upward along with it - the animation itself was smooth,
-    // but the dialog's position was still shifting under it. Anchoring
-    // to a fixed top offset instead of true center means growth only
-    // ever extends downward from a pinned top edge - nothing above the
-    // details area can move, only new content appears below it.
+    // 2026-08-18: "the text unnecessarily moves up" - anchoring to a
+    // fixed top offset (instead of true center) means growth only ever
+    // extends downward from a pinned point - nothing above the details
+    // area can move, only new content appears below it.
+    //
+    // 2026-08-18, same day: a fixed 96px sat too high - close enough to
+    // the top that the PULL/PUSH gif animating behind the dialog (on
+    // the home screen underneath) was visible and distracting around
+    // the dialog's edges. The old centered AlertDialog happened to sit
+    // low enough to cover it. Anchor point is now a fraction of screen
+    // height (28%) instead of a fixed pixel value - lower on screen
+    // like the old centered position did, but still a fixed point (not
+    // true centering), so the no-upward-movement fix from above holds.
     builder: (dialogContext) => Align(
       alignment: Alignment.topCenter,
       child: Padding(
-        padding: const EdgeInsets.only(top: 96),
+        padding: EdgeInsets.only(
+            top: MediaQuery.of(dialogContext).size.height * 0.28),
         child: _SyncConfirmDialog(result: result),
       ),
     ),
