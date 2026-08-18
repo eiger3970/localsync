@@ -60,28 +60,32 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 2026-08-18: corrected same day - the fixed-height empty
-            // box (plus its "Tap Details..." hint) kept the button row
-            // a fixed, large distance below the bullets even when
-            // collapsed. Real ask: stay tight when collapsed (no
-            // reserved gap, no redundant hint text), and it's fine for
-            // the dialog - and the button row with it - to grow
-            // downward once Details is tapped and real content exists
-            // to show. Only bad case was the buttons/text jumping
-            // around with no content justifying it; growing to fit
-            // actual content is normal and expected.
+            // 2026-08-18, corrected again same day: instantly adding/
+            // removing the details widget was an abrupt jump, not a
+            // transition - real ask was for the details to "smoothly
+            // transition in", carrying the button row smoothly down
+            // with it, not appear/disappear in one frame. AnimatedSize
+            // animates its own height change, so growth (and the button
+            // row's resulting shift) is now a smooth slide, not a jump.
             // Alphabetical: add, change, remove - per house naming rule.
             if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
             if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
             if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
-            if (_showDetails)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: SingleChildScrollView(child: _FileList(result: r)),
-                ),
-              ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topLeft,
+              child: _showDetails
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 240),
+                        child: SingleChildScrollView(
+                            child: _FileList(result: r)),
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
           ],
         ),
       ),
