@@ -290,20 +290,19 @@ class LinkingController extends ChangeNotifier {
   // silently break it. Re-verify against the real device before
   // trusting this list if it's been a while since the versions above.
   //
-  // 2026-08-18: reverted the 2026-08-19 simplification below - real
-  // device testing found a fresh vault ending up completely empty
-  // (Obsidian and Files app both confirmed zero files, despite
-  // LocalSync's own git layer reporting "up to date" with the remote).
-  // The single-force-close version had never actually been tested
-  // against this failure mode; the original research's confirmed-
-  // correct sequence (see [[project_synclocal_vault_recipe]], "Final
-  // steps confirmed correct 2026-08-12") is the full three-step cycle -
-  // force close, reopen (lets Obsidian index the folder and show its
-  // Trust author prompt), force close again - not just one close. That
-  // reopen step is likely what stabilizes the security-scoped bookmark
-  // path before LocalSync's clone ever touches it; skipping it may be
-  // exactly why the clone silently checked out into a path Obsidian/
-  // Files never actually saw content land in.
+  // 2026-08-18: the exact recipe, verbatim, per direct correction - not
+  // a reconstructed/summarized version. [[project_synclocal_vault_recipe]]'s
+  // "11 Create Obsidian Vault on Phone" and "Failed to resolve path"
+  // sections were previously treated as two competing candidates for
+  // "the trick that creates a new path on the iPhone" and only one was
+  // picked (2026-08-12's "Final steps confirmed correct" note). That
+  // was wrong - both pieces belong together, in this exact order: New
+  // tab (right after the vault opens), THEN the force-close/reopen/
+  // force-close cycle. The 2026-08-19 simplification to a single force
+  // close, and this file's own earlier partial revert (reopen/close
+  // without "New tab"), were both incomplete versions of this recipe -
+  // real device testing tonight confirmed the incomplete versions don't
+  // work (fresh vault ended up completely empty on disk).
   List<String> get vaultCreationSteps => [
         'swipe up to open $kNoteAppName',
         'swipe from left to right',
@@ -314,6 +313,7 @@ class LinkingController extends ChangeNotifier {
         'Store in iCloud: off by default',
         'tap Create',
         'new vault opens',
+        'New tab',
         'force close $kNoteAppName',
         'reopen $kNoteAppName (indexes files, Trust author prompt)',
         'force close $kNoteAppName again',
