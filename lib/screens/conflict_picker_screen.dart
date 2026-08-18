@@ -48,12 +48,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         content: Text(
           'This note will be updated to keep "$label" and remove the '
           'other version from it.\n\n'
-          'Both full versions are saved first to a plain note in '
-          '"LocalSync Conflict Backups" in your vault, so if you pick '
-          'the wrong one you can still find and copy the other version '
-          'back yourself - this app can\'t undo it automatically, but '
-          'nothing is deleted for good.',
-          style: const TextStyle(color: kTextMid, fontSize: 14),
+          'Both full versions are saved first to a folder called '
+          '"LocalSync Conflict Backups", visible at the top of your '
+          'file list in Obsidian - so if you pick the wrong one you '
+          'can still find and copy the other version back yourself. '
+          'This app can\'t undo it automatically, but nothing is '
+          'deleted for good.',
+          style: const TextStyle(color: kStar, fontSize: 16),
         ),
         actions: [
           TextButton(

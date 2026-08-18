@@ -98,14 +98,24 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       backgroundColor: kSurface,
                       title: const Text('How conflicts are kept safe',
                           style: TextStyle(color: kStar, fontSize: 17)),
+                      // 2026-08-18: "still too small and dark", "need a
+                      // clearer location" - bumped to kStar/16px to
+                      // match the rest of the app's readable text, and
+                      // named the exact spot instead of the vague "in
+                      // your vault": a normal top-level folder, visible
+                      // in Obsidian's own file list like any other
+                      // folder, not hidden or app-only.
                       content: const Text(
                         'Resolving a conflict always saves both full '
-                        'versions to "LocalSync Conflict Backups" in '
-                        'your vault first, before anything is changed. '
-                        'Nothing is lost, even if you pick the wrong '
-                        'one - just open that note in Obsidian to find '
-                        'the other version.',
-                        style: TextStyle(color: kTextMid, fontSize: 14),
+                        'versions first, before anything is changed.\n\n'
+                        'Location: open Obsidian, look at your file '
+                        'list (the folder icon in the left sidebar) - '
+                        'there\'s a folder called "LocalSync Conflict '
+                        'Backups" at the top level, right alongside '
+                        'your other folders. Nothing is lost, even if '
+                        'you pick the wrong one - just open the note '
+                        'inside it to find the other version.',
+                        style: TextStyle(color: kStar, fontSize: 16),
                       ),
                       actions: [
                         TextButton(
