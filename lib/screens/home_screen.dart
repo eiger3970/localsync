@@ -223,9 +223,14 @@ class HomeScreen extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
+                                // 2026-08-18: noun-first per house
+                                // naming rule ("Vault, add another" not
+                                // "Add another vault") - matches the
+                                // "Nodes, diamond" convention used
+                                // elsewhere.
                                 provider.repos.isEmpty
-                                    ? 'Set up a $kContainerName'
-                                    : 'Add another $kContainerName',
+                                    ? 'Vault, set up'
+                                    : 'Vault, add another',
                                 style: TextStyle(color: kStar, fontSize: 14)),
                             Text(
                                 provider.repos.isEmpty
