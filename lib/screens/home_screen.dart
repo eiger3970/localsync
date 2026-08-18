@@ -315,9 +315,15 @@ class HomeScreen extends StatelessWidget {
       result = await op(confirmed: true);
       if (!context.mounted || result == null) return;
     }
+    // 2026-08-18: "make text size larger... on the main page 0's bottom
+    // of screen message" - was relying on Flutter's default SnackBar
+    // text theme (small, no explicit color), same underlying issue as
+    // every other "too small and dark" fix tonight.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(syncResultMessage(result)),
+        backgroundColor: kSurface,
+        content: Text(syncResultMessage(result),
+            style: const TextStyle(color: kStar, fontSize: 16)),
         duration: const Duration(seconds: 12),
       ),
     );

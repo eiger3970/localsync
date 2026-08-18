@@ -199,7 +199,9 @@ class _CommitScreenState extends State<CommitScreen> {
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(syncResultMessage(result)),
+        backgroundColor: kSurface,
+        content: Text(syncResultMessage(result),
+            style: const TextStyle(color: kStar, fontSize: 16)),
         duration: const Duration(seconds: 12),
       ),
     );

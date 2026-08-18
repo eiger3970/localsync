@@ -18,6 +18,12 @@ import '../services/device_name.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
 
+// 2026-08-18: "red colour more difficult than green below with same
+// text size" - Material's default Colors.redAccent is noticeably
+// lower-contrast against a dark background than kGreen's neon punch.
+// A brighter, more saturated red reads at the same perceptual loudness.
+const _kBrightRed = Color(0xFFFF3B30);
+
 class ConflictPickerScreen extends StatefulWidget {
   final Repository repo;
   final ConflictEntry entry;
@@ -140,7 +146,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       ? null
                       : wordDiffOurs(entry.ours, entry.theirs),
                   plainText: entry.ours,
-                  highlightColor: Colors.redAccent,
+                  highlightColor: _kBrightRed,
                   onTap: () => _confirmAndChoose(
                       _myDeviceName.isEmpty ? 'This device' : _myDeviceName,
                       entry.ours),
@@ -199,12 +205,12 @@ class _ConflictPanel extends StatelessWidget {
             Text(title,
                 style: TextStyle(
                     color: highlightColor,
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             tokens == null
                 ? Text(plainText,
-                    style: const TextStyle(color: kStar, fontSize: 15))
+                    style: const TextStyle(color: kStar, fontSize: 17))
                 : Text.rich(
                     TextSpan(
                       children: tokens!
@@ -212,10 +218,10 @@ class _ConflictPanel extends StatelessWidget {
                                 text: t.text,
                                 style: t.op == DiffOp.equal
                                     ? const TextStyle(
-                                        color: kStar, fontSize: 15)
+                                        color: kStar, fontSize: 17)
                                     : TextStyle(
                                         color: highlightColor,
-                                        fontSize: 15,
+                                        fontSize: 17,
                                         decoration: TextDecoration.underline,
                                         decorationColor: highlightColor,
                                         decorationThickness: 2,
