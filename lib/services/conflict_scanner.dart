@@ -24,6 +24,7 @@
 // whichever side won, nothing fuzzier than a direct substring replace.
 
 import 'dart:io';
+import 'vault_backup.dart';
 
 class ConflictEntry {
   final String filePath; // relative to the vault root
@@ -128,15 +129,47 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   return entries;
 }
 
+/// 2026-08-18: "fear of tapping an irreversible action and losing
+/// critical data forever" - a real gap, not just a wording problem. The
+/// picker screen already asks for a second explicit confirm before
+/// calling this, but the confirm alone doesn't make anything
+/// recoverable - this does. Both full versions get written to a plain
+/// Obsidian note before the file is touched, so whichever side gets
+/// discarded is still sitting in the vault afterward, in plain text, no
+/// git knowledge required to find it.
+Future<void> _backupConflictBeforeResolving(
+  String vaultPath,
+  ConflictEntry entry,
+) async {
+  final backupDir = Directory('$vaultPath/LocalSync Conflict Backups');
+  await backupDir.create(recursive: true);
+  final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
+  final backupFile =
+      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
+  final theirsHeading =
+      entry.when != null ? '${entry.who} - ${entry.when}' : entry.who;
+  await backupFile.writeAsString(
+    '# Conflict backup\n\n'
+    'Original file: ${entry.filePath}\n\n'
+    '## Your version\n\n'
+    '${entry.ours}\n\n'
+    '## $theirsHeading\n\n'
+    '${entry.theirs}\n',
+  );
+}
+
 /// Rewrites [filePath] (relative to [vaultPath]), replacing exactly the
 /// conflict span [entry] was found at with [chosen] (typically
 /// entry.ours or entry.theirs, picked by the user). Direct substring
-/// replace at known offsets - no re-parsing, no guessing.
+/// replace at known offsets - no re-parsing, no guessing. Always backs
+/// up both original versions first (see above) - never called without
+/// that safety net in place.
 Future<void> resolveConflict(
   String vaultPath,
   ConflictEntry entry,
   String chosen,
 ) async {
+  await _backupConflictBeforeResolving(vaultPath, entry);
   final file = File('$vaultPath/${entry.filePath}');
   final content = await file.readAsString();
   if (entry.matchEnd > content.length) return; // file changed since scan
