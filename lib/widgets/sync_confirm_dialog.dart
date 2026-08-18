@@ -32,7 +32,21 @@ Future<bool?> showSyncConfirmDialog(
 ) {
   return showDialog<bool>(
     context: context,
-    builder: (dialogContext) => _SyncConfirmDialog(result: result),
+    // 2026-08-18: "the text unnecessarily moves up" - Flutter's default
+    // dialog route centers its content, so as AnimatedSize grows the
+    // dialog taller, the whole box re-centers on screen, dragging the
+    // top text upward along with it - the animation itself was smooth,
+    // but the dialog's position was still shifting under it. Anchoring
+    // to a fixed top offset instead of true center means growth only
+    // ever extends downward from a pinned top edge - nothing above the
+    // details area can move, only new content appears below it.
+    builder: (dialogContext) => Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 96),
+        child: _SyncConfirmDialog(result: result),
+      ),
+    ),
   );
 }
 
