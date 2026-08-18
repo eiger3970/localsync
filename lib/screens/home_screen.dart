@@ -17,6 +17,7 @@ import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
 import 'linking_screen.dart';
+import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -395,10 +396,19 @@ class HomeScreen extends StatelessWidget {
         ),
       );
 
-  void _openLinking(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LinkingScreen()),
-      );
+  // 2026-08-18: "Add another vault" used to land straight on a stale
+  // failure screen from whatever the PREVIOUS linking attempt left
+  // behind - LinkingController is an app-root singleton (same class of
+  // bug already fixed once tonight for stale pairing state), so simply
+  // navigating here without resetting it first just displays leftover
+  // state, not a fresh attempt. Reset before every navigation in.
+  void _openLinking(BuildContext context) {
+    context.read<LinkingController>().reset();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LinkingScreen()),
+    );
+  }
 
   Future<void> _confirmDelete(
     BuildContext context,

@@ -401,9 +401,20 @@ class LinkingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 2026-08-18: real device bug - "Add another vault" landed straight
+  // on a stale "Something stopped" failure screen from a PREVIOUS
+  // linking attempt, retrying the SAME old bookmark/path (still
+  // showing the earlier PathAccessException) instead of starting a
+  // genuinely new attempt. This only ever cleared _step/_lastFailure/
+  // _isRunning - the picked vault path/bookmark from the prior attempt
+  // survived untouched, so even callers that do reset the flow state
+  // were still handing the next clone the old, bad bookmark.
   void _reset() {
     _step = LinkingStep.idle;
     _lastFailure = null;
     _isRunning = false;
+    _pickedVaultPath = null;
+    _pickedVaultBookmark = null;
+    _pickingFolder = false;
   }
 }
