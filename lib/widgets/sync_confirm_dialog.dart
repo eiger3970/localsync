@@ -60,52 +60,100 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-08-18: this block (the bullets) must never move or
+            // resize when Details is toggled - real-device feedback was
+            // exactly this, the original text visibly shifting. It's
+            // now structurally isolated from _showDetails: nothing
+            // below this point can affect its size, since the details
+            // area right below has a FIXED height always, whether
+            // showing the file list or empty - the dialog's total
+            // height never changes, so nothing above ever moves.
             // Alphabetical: add, change, remove - per house naming rule.
             if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
             if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
             if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
-            // 2026-08-18: "Details" used to sit inside content, split
-            // from the other two buttons down in actions - real-device
-            // feedback was to put all three together on one row along
-            // the bottom. Now purely conditional content (the toggled
-            // file list); the Details button itself moved to actions
-            // below, still just toggling this, not closing the dialog.
-            if (_showDetails)
-              Flexible(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 240),
-                  child: SingleChildScrollView(
-                    child: _FileList(result: r),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 160,
+              child: _showDetails
+                  ? SingleChildScrollView(child: _FileList(result: r))
+                  : const Align(
+                      alignment: Alignment.topLeft,
+                      child: Text('Tap Details below to see the file list.',
+                          style: TextStyle(color: kTextDim, fontSize: 13)),
+                    ),
+            ),
           ],
         ),
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
+      // 2026-08-18: AlertDialog's default actions row (OverflowBar) can
+      // wrap to vertical when three icon+label buttons don't fit -
+      // that's exactly what happened. A plain Row with Expanded on each
+      // button forces one horizontal row always, shrinking button
+      // content to fit rather than ever stacking.
       actions: [
-        // 2026-08-18: all three buttons on one bottom row per
-        // real-device feedback, each colored to its meaning at a
-        // glance - Details neutral white, Don't sync red, Sync green.
-        TextButton.icon(
-          onPressed: () => setState(() => _showDetails = !_showDetails),
-          icon: const Icon(Icons.list, color: kStar, size: 18),
-          label: const Text('Details',
-              style: TextStyle(color: kStar, fontSize: 15)),
-        ),
-        TextButton.icon(
-          onPressed: () => Navigator.pop(context, false),
-          icon: const Icon(Icons.close, color: Colors.redAccent, size: 18),
-          label: const Text("Don't sync",
-              style: TextStyle(color: Colors.redAccent, fontSize: 15)),
-        ),
-        TextButton.icon(
-          onPressed: () => Navigator.pop(context, true),
-          icon: const Icon(Icons.sync, color: kGreen, size: 18),
-          label: const Text('Sync',
-              style: TextStyle(color: kGreen, fontSize: 15)),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.list,
+                label: 'Details',
+                color: kStar,
+                onPressed: () => setState(() => _showDetails = !_showDetails),
+              ),
+            ),
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.close,
+                label: "Don't sync",
+                color: Colors.redAccent,
+                onPressed: () => Navigator.pop(context, false),
+              ),
+            ),
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.sync,
+                label: 'Sync',
+                color: kGreen,
+                onPressed: () => Navigator.pop(context, true),
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 2),
+          Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: color, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
