@@ -230,8 +230,8 @@ class HomeScreen extends StatelessWidget {
                                 // "Nodes, diamond" convention used
                                 // elsewhere.
                                 provider.repos.isEmpty
-                                    ? 'Vault, set up'
-                                    : 'Vault, add another',
+                                    ? 'Vault - set up'
+                                    : 'Vault - add another',
                                 style: TextStyle(color: kStar, fontSize: 14)),
                             Text(
                                 provider.repos.isEmpty
