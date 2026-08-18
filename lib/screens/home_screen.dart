@@ -120,34 +120,33 @@ class HomeScreen extends StatelessWidget {
                   if (hasRepo)
                     PopupMenuItem(
                       value: 'commit',
-                      child: Text('Commit with message...',
-                          style: TextStyle(color: kStar, fontSize: 14)),
+                      child: const _MenuRow(
+                        icon: Icons.edit_note,
+                        label: 'Commit with message...',
+                      ),
                     ),
                   const PopupMenuItem(
                     value: 'about',
-                    child: Text('About',
-                        style: TextStyle(color: kStar, fontSize: 14)),
+                    child: _MenuRow(icon: Icons.info_outline, label: 'About'),
                   ),
                   if (hasRepo)
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'conflicts',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Conflicts',
-                              style: TextStyle(color: kStar, fontSize: 14)),
-                          Text('Files with unresolved sync conflicts',
-                              style: TextStyle(color: kTextMid, fontSize: 13)),
-                        ],
+                      child: _MenuRow(
+                        icon: Icons.compare_arrows,
+                        label: 'Conflicts',
+                        subtitle: 'Files with unresolved sync conflicts',
                       ),
                     ),
                   if (hasRepo)
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('Connection of sync - remove',
-                          style: TextStyle(
-                              color: Colors.redAccent, fontSize: 14)),
+                      child: _MenuRow(
+                        icon: Icons.link_off,
+                        iconColor: Colors.redAccent,
+                        label: 'Connection of sync - remove',
+                        labelColor: Colors.redAccent,
+                      ),
                     ),
                   // 2026-08-18: device-level, not repo-scoped - used as
                   // the git commit author so a sync conflict can say who
@@ -156,31 +155,21 @@ class HomeScreen extends StatelessWidget {
                   // real/pseudonym example - names never go in app UI text.
                   const PopupMenuItem(
                     value: 'device_name',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Device name',
-                            style: TextStyle(color: kStar, fontSize: 14)),
-                        Text('Shown in sync conflicts, e.g. <DEVICE_NAME>',
-                            style: TextStyle(color: kTextMid, fontSize: 13)),
-                      ],
+                    child: _MenuRow(
+                      icon: Icons.smartphone,
+                      label: 'Device name',
+                      subtitle: 'Shown in sync conflicts',
                     ),
                   ),
                   PopupMenuItem(
                     value: 'pair',
+                    // 2026-08-16: "can the key be pairing_phone_key.svg" -
+                    // real key asset from the pairing gesture, not a
+                    // stand-in Material icon like the rest of this menu -
+                    // this one's kept custom since it's already built and
+                    // matches the pairing screen's own theme.
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
-                      // 2026-08-16: "can the key be pairing_phone_key.svg"
-                      // - swapped the generic Material key icon for the
-                      // actual key asset used in the pairing gesture
-                      // itself, not just a stand-in glyph. "Make the key
-                      // icon white" - the asset's own baked-in stroke is
-                      // green (matches the pairing screen's theme), so
-                      // tinted via colorFilter to kStar here instead,
-                      // matching the other menu icons in this list. Not
-                      // const anymore - SvgPicture.asset isn't a const
-                      // constructor.
                       children: [
                         SvgPicture.asset(
                           'assets/pairing/pairing_phone_key.svg',
@@ -212,56 +201,26 @@ class HomeScreen extends StatelessWidget {
                   if (hasRepo)
                     PopupMenuItem(
                       value: 'toggle_auto',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            provider.selectedRepo!.autoSync
-                                ? 'Pull manually'
-                                : 'Pull automatically',
-                            style:
-                                const TextStyle(color: kStar, fontSize: 14),
-                          ),
-                          Text(
-                            provider.selectedRepo!.autoSync
-                                ? 'Stop pulling automatically when the app opens'
-                                : 'Pull automatically every time the app opens',
-                            style: const TextStyle(
-                                color: kTextMid, fontSize: 13),
-                          ),
-                        ],
+                      child: _MenuRow(
+                        icon: Icons.sync,
+                        label: provider.selectedRepo!.autoSync
+                            ? 'Pull manually'
+                            : 'Pull automatically',
+                        subtitle: provider.selectedRepo!.autoSync
+                            ? 'Stop pulling automatically when the app opens'
+                            : 'Pull automatically every time the app opens',
                       ),
                     ),
                   PopupMenuItem(
                     value: 'link',
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.phone_iphone,
-                            color: kStar, size: 18),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                  provider.repos.isEmpty
-                                      ? 'Vault - set up'
-                                      : 'Vault - add another',
-                                  style: TextStyle(
-                                      color: kStar, fontSize: 14)),
-                              Text(
-                                  provider.repos.isEmpty
-                                      ? 'Link a $kContainerName to this phone'
-                                      : 'Link another $kContainerName to this phone',
-                                  style: TextStyle(
-                                      color: kTextMid, fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ],
+                    child: _MenuRow(
+                      icon: Icons.phone_iphone,
+                      label: provider.repos.isEmpty
+                          ? 'Vault - set up'
+                          : 'Vault - add another',
+                      subtitle: provider.repos.isEmpty
+                          ? 'Link a $kContainerName to this phone'
+                          : 'Link another $kContainerName to this phone',
                     ),
                   ),
                 ];
@@ -478,6 +437,53 @@ class HomeScreen extends StatelessWidget {
     if (name != null && name.isNotEmpty) {
       await provider.setDeviceName(name);
     }
+  }
+}
+
+// ── Kebab menu row (icon + label + optional subtitle) ────────────────────────
+//
+// 2026-08-18: "all 8 points could have small svg images on the left of
+// them" - only Pair/Vault had icons before, the rest looked bare next
+// to them. Built-in Material icons, not custom SVG - same reasoning as
+// the Conflicts screen's safety-icon row: no way to preview rendering
+// before a sideload, and custom SVG art has a real history of needing
+// several iterations to get right in this app. One shared row widget
+// instead of repeating the icon+column layout 6 times.
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final Color labelColor;
+  final String? subtitle;
+  const _MenuRow({
+    required this.icon,
+    this.iconColor = kStar,
+    required this.label,
+    this.labelColor = kStar,
+    this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, color: iconColor, size: 18),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: TextStyle(color: labelColor, fontSize: 14)),
+              if (subtitle != null)
+                Text(subtitle!,
+                    style: const TextStyle(color: kTextMid, fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
