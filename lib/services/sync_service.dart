@@ -837,7 +837,12 @@ String _repairConflictMarkers(String content,
     final commit = git.Commit.lookup(repo: repo, oid: oid);
     final t = DateTime.fromMillisecondsSinceEpoch(commit.time * 1000);
     String p2(int v) => v.toString().padLeft(2, '0');
-    final time = '${t.year}-${p2(t.month)}-${p2(t.day)} ${p2(t.hour)}:${p2(t.minute)}';
+    // 2026-08-18: house timestamp convention is YYYYMMDDhhmm, no
+    // separators - matches _timestamp()'s own commit-message format
+    // elsewhere in this file, and the naming standard used throughout
+    // the rest of the app. Was "YYYY-MM-DD hh:mm" - readable, but
+    // inconsistent with everywhere else.
+    final time = '${t.year}${p2(t.month)}${p2(t.day)}${p2(t.hour)}${p2(t.minute)}';
     return (label: commit.author.name, time: time);
   } catch (_) {
     return (label: 'other device', time: '');
