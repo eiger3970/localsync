@@ -50,52 +50,78 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
         backgroundColor: kVoid,
         title: const Text('Conflicts', style: TextStyle(color: kStar)),
       ),
-      body: FutureBuilder<List<ConflictEntry>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child: CircularProgressIndicator(color: kGreen),
-            );
-          }
-          final entries = snapshot.data ?? const [];
-          if (entries.isEmpty) {
-            return const Center(
-              child: Text('No unresolved conflicts.',
-                  style: TextStyle(color: kTextMid, fontSize: 15)),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: entries.length,
-            separatorBuilder: (_, __) => const Divider(color: kTextDim),
-            itemBuilder: (context, i) {
-              final e = entries[i];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(e.filePath,
-                    style: const TextStyle(color: kStar, fontSize: 15)),
-                subtitle: Text(
-                  e.when != null
-                      ? 'Conflicting change by ${e.who} - ${e.when}'
-                      : 'Conflicting change by ${e.who}',
-                  style: const TextStyle(color: kTextMid, fontSize: 13),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: kTextDim),
-                onTap: () async {
-                  final resolved = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ConflictPickerScreen(
-                          repo: widget.repo, entry: e),
-                    ),
+      body: Column(
+        children: [
+          // 2026-08-18: "valuable information a user needs to know,
+          // ensure this is somewhere easy for users to be aware of" -
+          // shown here, before any specific conflict is even opened, so
+          // the reassurance lands on approach rather than only inside
+          // the confirm dialog at the moment of deciding. Always
+          // visible on this screen, not just when conflicts exist.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            color: kSurface,
+            child: const Text(
+              'Resolving a conflict always saves both full versions to '
+              '"LocalSync Conflict Backups" in your vault first - '
+              'nothing is lost, even if you pick the wrong one.',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<ConflictEntry>>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(
+                    child: CircularProgressIndicator(color: kGreen),
                   );
-                  if (resolved == true) setState(() => _future = _scan());
-                },
-              );
-            },
-          );
-        },
+                }
+                final entries = snapshot.data ?? const [];
+                if (entries.isEmpty) {
+                  return const Center(
+                    child: Text('No unresolved conflicts.',
+                        style: TextStyle(color: kTextMid, fontSize: 15)),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: entries.length,
+                  separatorBuilder: (_, __) => const Divider(color: kTextDim),
+                  itemBuilder: (context, i) {
+                    final e = entries[i];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(e.filePath,
+                          style: const TextStyle(color: kStar, fontSize: 15)),
+                      subtitle: Text(
+                        e.when != null
+                            ? 'Conflicting change by ${e.who} - ${e.when}'
+                            : 'Conflicting change by ${e.who}',
+                        style: const TextStyle(color: kTextMid, fontSize: 13),
+                      ),
+                      trailing:
+                          const Icon(Icons.chevron_right, color: kTextDim),
+                      onTap: () async {
+                        final resolved = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ConflictPickerScreen(
+                                repo: widget.repo, entry: e),
+                          ),
+                        );
+                        if (resolved == true) {
+                          setState(() => _future = _scan());
+                        }
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
