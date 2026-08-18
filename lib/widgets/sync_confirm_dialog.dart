@@ -64,15 +64,13 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
             if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
             if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
             if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
-            const SizedBox(height: 8),
-            if (!_showDetails)
-              TextButton.icon(
-                onPressed: () => setState(() => _showDetails = true),
-                icon: const Icon(Icons.list, color: kStar, size: 18),
-                label: const Text('Details',
-                    style: TextStyle(color: kStar, fontSize: 15)),
-              )
-            else
+            // 2026-08-18: "Details" used to sit inside content, split
+            // from the other two buttons down in actions - real-device
+            // feedback was to put all three together on one row along
+            // the bottom. Now purely conditional content (the toggled
+            // file list); the Details button itself moved to actions
+            // below, still just toggling this, not closing the dialog.
+            if (_showDetails)
               Flexible(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 240),
@@ -84,14 +82,22 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
       actions: [
-        // "Not now"/"Continue" -> action verbs: what will actually
-        // happen if you tap it, not a generic yes/no.
+        // 2026-08-18: all three buttons on one bottom row per
+        // real-device feedback, each colored to its meaning at a
+        // glance - Details neutral white, Don't sync red, Sync green.
+        TextButton.icon(
+          onPressed: () => setState(() => _showDetails = !_showDetails),
+          icon: const Icon(Icons.list, color: kStar, size: 18),
+          label: const Text('Details',
+              style: TextStyle(color: kStar, fontSize: 15)),
+        ),
         TextButton.icon(
           onPressed: () => Navigator.pop(context, false),
-          icon: const Icon(Icons.close, color: kTextDim, size: 18),
+          icon: const Icon(Icons.close, color: Colors.redAccent, size: 18),
           label: const Text("Don't sync",
-              style: TextStyle(color: kTextDim, fontSize: 15)),
+              style: TextStyle(color: Colors.redAccent, fontSize: 15)),
         ),
         TextButton.icon(
           onPressed: () => Navigator.pop(context, true),
