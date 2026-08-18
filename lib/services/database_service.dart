@@ -17,6 +17,7 @@ import '../models/commit_template.dart';
 const _kRepositoriesKey    = 'db_repositories';
 const _kTemplatesKey       = 'db_commit_templates';
 const _kTemplatesSeededKey = 'db_commit_templates_seeded';
+const _kDeviceNameKey      = 'db_device_name';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -78,6 +79,29 @@ class DatabaseService {
       return;
     }
     await _prefsDeleteRepository(id);
+  }
+
+  // ── Device name ─────────────────────────────────────────────────────────────
+  // 2026-08-18: used as the git commit author instead of the old fixed
+  // "Localsync" identity (see sync_service.dart's _signatureFor) so a
+  // sync conflict can say who made a change, not just when. A single
+  // string, not per-web-in-memory-demo like repos/templates above -
+  // shared_preferences already handles web fine for a plain value.
+  static String? _webDeviceName;
+
+  Future<String?> getDeviceName() async {
+    if (kIsWeb) return _webDeviceName;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kDeviceNameKey);
+  }
+
+  Future<void> setDeviceName(String name) async {
+    if (kIsWeb) {
+      _webDeviceName = name;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDeviceNameKey, name);
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────

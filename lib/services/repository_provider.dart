@@ -39,6 +39,13 @@ class RepositoryProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── Device name ─────────────────────────────────────────────────────────────
+  // Used as the git commit author for this device - see sync_service.dart's
+  // _signatureFor. Exposed here (not straight to DatabaseService from the
+  // UI) so every read/write of app state goes through one place.
+  Future<String?> getDeviceName() => _db.getDeviceName();
+  Future<void> setDeviceName(String name) => _db.setDeviceName(name);
+
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {
@@ -76,11 +83,13 @@ class RepositoryProvider extends ChangeNotifier {
   // The result carries the actual commit message used, so a caller can
   // show it (see home_screen.dart's SnackBar) instead of the action
   // being invisible once it's done.
-  Future<SyncResult?> pullRepository(int id) =>
-      _run(id, (service) => service.pull());
+  Future<SyncResult?> pullRepository(int id, {bool confirmed = false}) =>
+      _run(id, (service) => service.pull(confirmed: confirmed));
 
-  Future<SyncResult?> pushRepository(int id, {String? commitMessage}) =>
-      _run(id, (service) => service.push(commitMessage: commitMessage));
+  Future<SyncResult?> pushRepository(int id,
+          {String? commitMessage, bool confirmed = false}) =>
+      _run(id, (service) =>
+          service.push(commitMessage: commitMessage, confirmed: confirmed));
 
   Future<SyncResult?> _run(
     int id,
@@ -94,6 +103,7 @@ class RepositoryProvider extends ChangeNotifier {
       repo,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
       sshPublicKeyPath:  await SshKeyPaths.publicKeyPath(),
+      deviceName:        await _db.getDeviceName() ?? '',
     );
 
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
@@ -143,6 +153,14 @@ class RepositoryProvider extends ChangeNotifier {
                 lastError:           diagnosis,
                 lastErrorResolution: resolution,
                 lastErrorDebug:      debugDetail,
+              );
+            // 2026-08-18: not an error and not a completed sync - the
+            // caller (a confirmation dialog) decides what happens next,
+            // so this just drops back to idle with nothing recorded.
+            case SyncNeedsConfirmation():
+              _repos[i] = _repos[i].copyWith(
+                status:    SyncStatus.idle,
+                syncPhase: SyncPhase.idle,
               );
           }
           notifyListeners();

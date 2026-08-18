@@ -10,6 +10,7 @@ import '../models/commit_template.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/gif_swipe_trigger.dart';
+import '../widgets/sync_confirm_dialog.dart';
 
 class CommitScreen extends StatefulWidget {
   final Repository repo;
@@ -179,9 +180,23 @@ class _CommitScreenState extends State<CommitScreen> {
   // actually finished, not just whenever the network call resolves, so
   // landing back on the home screen doesn't cut the animation off
   // mid-flight with nothing continuing it there.
-  void _afterCommit() {
+  // 2026-08-18: a SyncNeedsConfirmation result (see sync_service.dart)
+  // means the swipe animation already played out, but the actual push
+  // hasn't happened yet - show the plain-language summary now, and only
+  // push for real (and only then possibly pop) if the user agrees.
+  Future<void> _afterCommit() async {
     final result = _lastResult;
     if (!mounted || result == null) return;
+    if (result case SyncNeedsConfirmation()) {
+      final proceed = await showSyncConfirmDialog(context, result);
+      if (proceed != true || !mounted) return;
+      final msg = _msgCtrl.text.trim();
+      _lastResult = await context.read<RepositoryProvider>().pushRepository(
+          widget.repo.id!, commitMessage: msg, confirmed: true);
+      if (!mounted) return;
+      _afterCommit();
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(syncResultMessage(result)),
