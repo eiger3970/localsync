@@ -60,29 +60,28 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 2026-08-18: this block (the bullets) must never move or
-            // resize when Details is toggled - real-device feedback was
-            // exactly this, the original text visibly shifting. It's
-            // now structurally isolated from _showDetails: nothing
-            // below this point can affect its size, since the details
-            // area right below has a FIXED height always, whether
-            // showing the file list or empty - the dialog's total
-            // height never changes, so nothing above ever moves.
+            // 2026-08-18: corrected same day - the fixed-height empty
+            // box (plus its "Tap Details..." hint) kept the button row
+            // a fixed, large distance below the bullets even when
+            // collapsed. Real ask: stay tight when collapsed (no
+            // reserved gap, no redundant hint text), and it's fine for
+            // the dialog - and the button row with it - to grow
+            // downward once Details is tapped and real content exists
+            // to show. Only bad case was the buttons/text jumping
+            // around with no content justifying it; growing to fit
+            // actual content is normal and expected.
             // Alphabetical: add, change, remove - per house naming rule.
             if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
             if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
             if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 160,
-              child: _showDetails
-                  ? SingleChildScrollView(child: _FileList(result: r))
-                  : const Align(
-                      alignment: Alignment.topLeft,
-                      child: Text('Tap Details below to see the file list.',
-                          style: TextStyle(color: kTextDim, fontSize: 13)),
-                    ),
-            ),
+            if (_showDetails)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  child: SingleChildScrollView(child: _FileList(result: r)),
+                ),
+              ),
           ],
         ),
       ),
