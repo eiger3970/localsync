@@ -52,21 +52,72 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       ),
       body: Column(
         children: [
-          // 2026-08-18: "valuable information a user needs to know,
-          // ensure this is somewhere easy for users to be aware of" -
-          // shown here, before any specific conflict is even opened, so
-          // the reassurance lands on approach rather than only inside
-          // the confirm dialog at the moment of deciding. Always
-          // visible on this screen, not just when conflicts exist.
+          // 2026-08-18: "too small and dark", "too verbose, create svg
+          // images" - a full paragraph in dim small text asked the user
+          // to read to feel reassured, the opposite of reassuring.
+          // Built-in icons (not custom SVG - real rendering risk with
+          // no way to preview them, per pairing_laptop_lock.svg's own
+          // "took many iterations" history) walk the 3-step safety
+          // story at a glance: conflict -> both saved -> pick anytime.
+          // Full detail (exact folder name) stays one tap away via the
+          // info button, not deleted - "Show details" is the same
+          // pattern the sync-confirm dialog already uses.
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             color: kSurface,
-            child: const Text(
-              'Resolving a conflict always saves both full versions to '
-              '"LocalSync Conflict Backups" in your vault first - '
-              'nothing is lost, even if you pick the wrong one.',
-              style: TextStyle(color: kTextMid, fontSize: 13),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _SafetyStep(
+                        icon: Icons.compare_arrows,
+                        label: 'Conflict',
+                      ),
+                      Icon(Icons.arrow_forward, color: kTextDim, size: 18),
+                      _SafetyStep(
+                        icon: Icons.backup,
+                        label: 'Both saved',
+                      ),
+                      Icon(Icons.arrow_forward, color: kTextDim, size: 18),
+                      _SafetyStep(
+                        icon: Icons.touch_app,
+                        label: 'Pick anytime',
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline, color: kTextMid),
+                  tooltip: 'How this works',
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      backgroundColor: kSurface,
+                      title: const Text('How conflicts are kept safe',
+                          style: TextStyle(color: kStar, fontSize: 17)),
+                      content: const Text(
+                        'Resolving a conflict always saves both full '
+                        'versions to "LocalSync Conflict Backups" in '
+                        'your vault first, before anything is changed. '
+                        'Nothing is lost, even if you pick the wrong '
+                        'one - just open that note in Obsidian to find '
+                        'the other version.',
+                        style: TextStyle(color: kTextMid, fontSize: 14),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Got it',
+                              style: TextStyle(color: kStar, fontSize: 15)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -123,6 +174,28 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SafetyStep extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _SafetyStep({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: kGreen, size: 26),
+        const SizedBox(height: 4),
+        // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
+        // to kStar/14px - "too small and dark, make easier to read".
+        Text(label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: kStar, fontSize: 12)),
+      ],
     );
   }
 }
