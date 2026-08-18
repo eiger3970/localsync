@@ -78,6 +78,21 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
+    // 2026-08-18: real device finding - a vault linked to a
+    // non-already-empty folder gets a "LocalSync Vault Backup
+    // <timestamp>" snapshot (see vault_backup.dart) that can contain
+    // old, already-stale conflict markers from before. Scanning inside
+    // backup folders surfaced those as live, actionable conflicts -
+    // confusing and wrong, since resolving a snapshot of the past
+    // isn't a real action. Same reasoning excludes this scanner's own
+    // "LocalSync Conflict Backups" output from being re-scanned as a
+    // conflict, though that one's format doesn't match the callout
+    // patterns below anyway.
+    final relPath = entity.path.replaceFirst('${dir.path}/', '');
+    if (relPath.startsWith('LocalSync Vault Backup ') ||
+        relPath.startsWith('LocalSync Conflict Backups/')) {
+      continue;
+    }
     final String content;
     try {
       content = await entity.readAsString();
@@ -88,7 +103,6 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
         !content.contains('CONFLICT-OTHER')) {
       continue;
     }
-    final relPath = entity.path.replaceFirst('${dir.path}/', '');
     final isKanban = _kanbanFrontmatterPattern.hasMatch(content);
 
     if (isKanban) {
