@@ -28,23 +28,44 @@ String backupTimestamp() {
 }
 
 /// If [vaultPath] already has any content, copies the whole thing to a
-/// timestamped sibling folder before the caller does anything
-/// destructive to it. Returns true if a backup was actually made.
+/// timestamped folder before the caller does anything destructive to
+/// it. Returns true if a backup was actually made.
+///
+/// 2026-08-18: was a *sibling* folder (`${vaultPath}_localsync_backup_
+/// ...`, next to the vault, not inside it) - real device testing hit
+/// `PathAccessException ... Operation not permitted` trying to create
+/// it, reproducible on a fresh install (ruling out stale app state).
+/// Root cause: a security-scoped bookmark only grants access within
+/// the bookmarked folder itself, not to create new siblings in its
+/// parent directory - the same reason "LocalSync Conflict Backups"
+/// (created *inside* the vault) has never hit this, only this sibling
+/// path did. Moved inside the vault to match.
 Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return false;
   final entries = await dir.list().toList();
   if (entries.isEmpty) return false;
 
-  final backupPath = '${vaultPath}_localsync_backup_${backupTimestamp()}';
-  await _copyDirectoryContents(dir, Directory(backupPath));
+  // The backup folder now lives inside the very directory being copied
+  // - skipName keeps this top-level call from walking straight into its
+  // own just-created (empty) backup folder and copying it into itself.
+  // Only applies at this top level; a genuine subdirectory deeper in
+  // the tree that happens to share the name is never touched by it.
+  final backupName = 'LocalSync Vault Backup ${backupTimestamp()}';
+  await _copyDirectoryContents(dir, Directory('$vaultPath/$backupName'),
+      skipName: backupName);
   return true;
 }
 
-Future<void> _copyDirectoryContents(Directory source, Directory dest) async {
+Future<void> _copyDirectoryContents(
+  Directory source,
+  Directory dest, {
+  String? skipName,
+}) async {
   await dest.create(recursive: true);
   await for (final entity in source.list(followLinks: false)) {
     final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
+    if (name == skipName) continue;
     final destPath = '${dest.path}/$name';
     if (entity is Directory) {
       await _copyDirectoryContents(entity, Directory(destPath));
