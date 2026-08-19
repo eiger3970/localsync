@@ -81,8 +81,17 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
 // 2026-08-19: matches one already-wrapped callout header, at any quote
 // depth (`>`, `> >`, `> > >`, ...) - extractStackedVersions strips
 // depth first, so this only ever needs to match depth-0 headers.
+//
+// [-—] (accepts a regular dash OR an em dash) - real device finding,
+// same night as the flatten fix: this file used to write an em dash,
+// content already on a vault from before that got fixed to a regular
+// dash is invisible to a parser that only recognizes the new
+// character, silently skipping exactly the already-broken content this
+// whole mechanism exists to repair. The write side (below) only ever
+// produces a regular dash now - this stays permissive on read so
+// older, already-written content is still recoverable.
 final calloutHeaderPattern = RegExp(
-  r'^\[!(?:info|warning)\]\+ SYNC CONFLICT - (.+?) \(review and delete one[^)]*\)$',
+  r'^\[!(?:info|warning)\]\+ SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)$',
   multiLine: true,
 );
 
@@ -217,8 +226,11 @@ String repairConflictMarkers(String content,
 // unconditionally: a file with no adjacency problem simply has nothing
 // for this pattern to match, and re-flattening an already-canonical
 // block is idempotent.
+// [-—] - see calloutHeaderPattern's comment above: must recognize
+// already-written em-dash content too, not just the current write
+// format, or this whole consolidation pass silently skips it.
 final _stackedRunPattern = RegExp(
-  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT - .+? \(review and delete one[^)]*\)\n'
+  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one[^)]*\)\n'
   r'(?:> .*\n?)*\n?){2,}',
 );
 

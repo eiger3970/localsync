@@ -148,6 +148,44 @@ void main() {
     });
   });
 
+  group('em dash vs regular dash (real device bug, confirmed same night as '
+      'the narrow-hunk fix above)', () {
+    test('a stacked block written with the OLD em-dash separator is still '
+        'recognized and consolidated, not silently skipped', () {
+      // Real device repro: an already-broken block from before the
+      // dash fix (nested `> >`, duplicate empty header, em dash
+      // throughout) sat completely untouched after a fresh pull -
+      // proven by pulling the raw file and finding it byte-identical
+      // to before. Root cause: consolidateStackedRuns's own pattern
+      // only recognized the NEW regular-dash format it now writes, so
+      // it silently failed to even see this text as a conflict block
+      // worth consolidating.
+      const legacyBlock = '> [!info]+ SYNC CONFLICT — yours (review and delete one)\n'
+          '> [!info]+ SYNC CONFLICT — yours (review and delete one)\n'
+          '> > PHONE ROUND 2 EDIT 202608190909\n'
+          '\n'
+          '> [!warning]+ SYNC CONFLICT — desktop obsidian — 202608190910 (review and delete one)\n'
+          '> > DESKTOP ROUND 2 EDIT 202608190909\n'
+          '\n'
+          '\n'
+          '> [!warning]+ SYNC CONFLICT — Desktop test — 202608181955 (review and delete one)\n'
+          '> Original line: CHANGED ON DESKTOP 20260818d.\n';
+
+      final out = consolidateStackedRuns(legacyBlock);
+
+      final infoCount =
+          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+      expect(infoCount, 1,
+          reason: 'legacy em-dash content must be recognized and the '
+              'orphaned duplicate header dropped, same as new-format content');
+      expect(out.contains('> >'), isFalse,
+          reason: 'legacy nesting must also be flattened, not left as-is');
+      expect(out, contains('PHONE ROUND 2 EDIT 202608190909'));
+      expect(out, contains('DESKTOP ROUND 2 EDIT 202608190909'));
+      expect(out, contains('CHANGED ON DESKTOP 20260818d.'));
+    });
+  });
+
   group('extractStackedVersions', () {
     test('plain unwrapped text (never conflicted) returns one synthetic version', () {
       final versions = extractStackedVersions('just some note content');
