@@ -71,8 +71,11 @@ class ConflictEntry {
 // CONFLICT callouts - one-or-more, not exactly two - since
 // _repairConflictMarkers now flattens any number of previously-stacked
 // versions into siblings at this same depth instead of nesting them.
+// [-—] accepts a regular dash or an em dash - see conflict_repair.dart's
+// calloutHeaderPattern comment: content written before the em-dash fix
+// must stay parseable, not silently invisible to this scanner.
 final _stackedBlockPattern = RegExp(
-  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT - .+? \(review and delete one\)\n'
+  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one\)\n'
   r'(?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*\n?)+',
 );
 // 2026-08-19: body capture stops before another header line instead of
@@ -84,7 +87,7 @@ final _stackedBlockPattern = RegExp(
 // no header directly following another header, but this stays
 // defensive rather than relying on that invariant silently.
 final _calloutPattern = RegExp(
-  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT - (.+?) \(review and delete one\)\n'
+  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] (.+?) \(review and delete one\)\n'
   r'((?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*)',
 );
 
@@ -165,7 +168,11 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
         final versions = <ConflictVersion>[];
         for (final m in _calloutPattern.allMatches(block.group(0)!)) {
           final rawLabel = m.group(1)!;
-          final sep = rawLabel.indexOf(' - ');
+          // Accepts either separator - see calloutHeaderPattern's
+          // comment in conflict_repair.dart: an older, already-written
+          // label can still carry the em dash this app used to write.
+          var sep = rawLabel.indexOf(' - ');
+          if (sep == -1) sep = rawLabel.indexOf(' — ');
           versions.add(ConflictVersion(
             who: sep == -1 ? rawLabel : rawLabel.substring(0, sep),
             when: sep == -1 ? null : rawLabel.substring(sep + 3),
