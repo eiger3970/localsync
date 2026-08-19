@@ -52,7 +52,8 @@ class HomeScreen extends StatelessWidget {
                           allRepos: provider.repos,
                           onTap: () => _runAndShow(context,
                               ({bool confirmed = false}) => provider.pullRepository(
-                                  provider.selectedRepo!.id!, confirmed: confirmed)),
+                                  provider.selectedRepo!.id!, confirmed: confirmed),
+                              repo: provider.selectedRepo),
                           onSelect: provider.selectRepo,
                         ),
                 ),
@@ -283,7 +284,8 @@ class HomeScreen extends StatelessWidget {
           return _SyncGestureZone(
             onPull: () => _runAndShow(context,
                 ({bool confirmed = false}) =>
-                    provider.pullRepository(repo.id!, confirmed: confirmed)),
+                    provider.pullRepository(repo.id!, confirmed: confirmed),
+                repo: repo),
             onPush: () => _runAndShow(context,
                 ({bool confirmed = false}) =>
                     provider.pushRepository(repo.id!, confirmed: confirmed)),
@@ -303,10 +305,21 @@ class HomeScreen extends StatelessWidget {
   // already-started Future, so a SyncNeedsConfirmation result can
   // trigger a plain yes/no dialog and then re-run the exact same
   // pull/push with confirmed:true - see sync_service.dart.
+  //
+  // 2026-08-19: [repo] is optional and only used for the new
+  // SyncOkWithConflicts case below - "way too convoluted, automate it"
+  // was the real complaint: a successful-looking pull gave no signal a
+  // conflict needed attention, so the only way to discover one was
+  // already knowing to check a menu with no badge on it (mapped out in
+  // this session's own mermaid flowchart). Push never produces this
+  // result (a conflict can only come from a pull's merge), so its call
+  // site below doesn't pass [repo] and this branch is simply
+  // unreachable there.
   Future<void> _runAndShow(
     BuildContext context,
-    Future<SyncResult?> Function({bool confirmed}) op,
-  ) async {
+    Future<SyncResult?> Function({bool confirmed}) op, {
+    Repository? repo,
+  }) async {
     var result = await op();
     if (!context.mounted || result == null) return;
     if (result case SyncNeedsConfirmation()) {
@@ -327,6 +340,10 @@ class HomeScreen extends StatelessWidget {
         duration: const Duration(seconds: 12),
       ),
     );
+    if (result case SyncOkWithConflicts() when repo != null && context.mounted) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
+    }
   }
 
   void _openPairing(BuildContext context) => Navigator.push(
