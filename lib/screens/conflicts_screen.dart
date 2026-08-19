@@ -7,6 +7,7 @@
 // in Obsidian by hand for now - the tap-to-pick resolution UI is the
 // deliberately deferred step 2, once this list itself proves useful.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
@@ -206,21 +207,41 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             final versionWord = e.versions.length == 2
                                 ? 'Both versions'
                                 : 'All ${e.versions.length} versions';
+                            // 2026-08-19: "why is the button link needed?
+                            // ... make 'backed up' a link, taking the
+                            // user directly there. This is cleaner than
+                            // two times the eye bleed" - one tappable
+                            // word inline instead of a separate action
+                            // button repeating the same idea.
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
-                                content: Text(
-                                    'Resolved. $versionWord backed up in '
-                                    '"LocalSync Conflict Backups".',
+                                content: Text.rich(
+                                  TextSpan(
                                     style: const TextStyle(
-                                        color: kStar, fontSize: 15)),
-                                action: SnackBarAction(
-                                  label: 'OPEN OBSIDIAN',
-                                  textColor: kGreen,
-                                  onPressed: () {
-                                    IosAppServiceImpl()
-                                        .openObsidian(vaultName: vaultName);
-                                  },
+                                        color: kStar, fontSize: 15),
+                                    children: [
+                                      TextSpan(
+                                          text: 'Resolved. $versionWord '),
+                                      TextSpan(
+                                        text: 'backed up',
+                                        style: const TextStyle(
+                                          color: kGreen,
+                                          fontWeight: FontWeight.bold,
+                                          decoration:
+                                              TextDecoration.underline,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () {
+                                            IosAppServiceImpl().openObsidian(
+                                                vaultName: vaultName);
+                                          },
+                                      ),
+                                      const TextSpan(
+                                          text:
+                                              ' in "LocalSync Conflict Backups".'),
+                                    ],
+                                  ),
                                 ),
                                 duration: const Duration(seconds: 8),
                               ),
