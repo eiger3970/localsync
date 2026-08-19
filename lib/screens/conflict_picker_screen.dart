@@ -88,14 +88,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _DialogPoint(icon: Icons.check_circle, text: 'Keeps "$label"'),
             _DialogPoint(
-                icon: Icons.close,
+                icon: Icons.check_circle,
+                color: kGreen,
+                text: 'Keeps "$label"'),
+            _DialogPoint(
+                icon: Icons.cancel,
+                color: _kBrightRed,
                 text: otherCount == 1
                     ? 'Removes the other version from this note'
                     : 'Removes the other $otherCount versions from this note'),
             const _DialogPoint(
-                icon: Icons.backup,
+                icon: Icons.check_circle,
+                color: kGreen,
                 text: 'Every version backed up first, in '
                     '"LocalSync Conflict Backups"'),
           ],
@@ -201,11 +206,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
 
 /// One short icon + label line in the confirm dialog - see
 /// _confirmAndChoose's 2026-08-19 comment for why this replaced two
-/// paragraphs of prose.
+/// paragraphs of prose. [icon] is always a filled-circle glyph
+/// (check_circle / cancel) - real feedback, live: a bare "X" next to a
+/// filled check-circle read as inconsistent/"amateur". [color] is
+/// semantic (green = keeps/safe, red = removes), not decorative -
+/// real feedback, live: the remove line's icon was accidentally still
+/// green, the same color as everything else, when it should read as
+/// the one negative action in the list.
 class _DialogPoint extends StatelessWidget {
   final IconData icon;
+  final Color color;
   final String text;
-  const _DialogPoint({required this.icon, required this.text});
+  const _DialogPoint(
+      {required this.icon, required this.color, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +227,7 @@ class _DialogPoint extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: kGreen, size: 18),
+          Icon(icon, color: color, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
