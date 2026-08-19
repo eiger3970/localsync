@@ -23,8 +23,8 @@ void main() {
       final out = repairConflictMarkers(content,
           otherLabel: 'Desktop', otherTime: '202608181200');
 
-      expect(out, contains('[!info]+ SYNC CONFLICT — yours'));
-      expect(out, contains('[!warning]+ SYNC CONFLICT — Desktop — 202608181200'));
+      expect(out, contains('[!info]+ SYNC CONFLICT - yours'));
+      expect(out, contains('[!warning]+ SYNC CONFLICT - Desktop - 202608181200'));
       // Exactly one quote level - never '> >'.
       expect(out.contains('> >'), isFalse);
       expect(out, contains('> line A'));
@@ -97,6 +97,57 @@ void main() {
     });
   });
 
+  group('repairConflictMarkers - narrow git hunk next to an untouched '
+      'older conflict (real device bug, 2026-08-19)', () {
+    test('a single-line hunk landing next to an already-stacked callout '
+        'still recovers all versions, no duplicate/empty header', () {
+      // Exact real-device shape: a note already has one unresolved
+      // conflict (an [!info]+ "yours" callout followed by an unrelated
+      // [!warning]+ callout further down). The user then edits ONLY the
+      // body line under the first callout - not its header - on both
+      // phone and desktop, differently. Git's resulting conflict hunk
+      // is therefore exactly that one line: the header above it, and
+      // the whole second callout below, are untouched and never appear
+      // between <<<<<<< and >>>>>>> at all.
+      final content = '# Conflict test note\n'
+          '\n'
+          'Edit the line below differently on phone and desktop.\n'
+          '\n'
+          '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+          '${_markers('> PHONE ROUND 2 EDIT 202608190909', '> DESKTOP ROUND 2 EDIT 202608190909')}'
+          '\n'
+          '> [!warning]+ SYNC CONFLICT - Desktop test - 202608181955 (review and delete one)\n'
+          '> Original line: CHANGED ON DESKTOP 20260818d.\n';
+
+      final out = repairConflictMarkers(content,
+          otherLabel: 'desktop obsidian', otherTime: '202608190910');
+
+      // No duplicate/empty "yours" header left dangling with no body -
+      // that's what leaked raw header text into the picker's body text
+      // on the real device.
+      final infoCount =
+          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+      expect(infoCount, 1,
+          reason: 'the old, now-empty duplicate header must be dropped, '
+              'not kept as a second info callout');
+
+      // All three real versions must survive: the pre-existing
+      // "Desktop test" version, and both sides of the new edit.
+      expect(out, contains('PHONE ROUND 2 EDIT 202608190909'));
+      expect(out, contains('DESKTOP ROUND 2 EDIT 202608190909'));
+      expect(out, contains('CHANGED ON DESKTOP 20260818d.'));
+
+      // The old callout must not be stranded as an orphaned, separately
+      // -looking block - every warning callout must have been produced
+      // through the same flatten path, so there should be exactly 3
+      // total callouts (1 info + 2 warning) with no line consisting of
+      // only a header and no body.
+      final warningCount =
+          RegExp(r'\[!warning\]\+ SYNC CONFLICT').allMatches(out).length;
+      expect(warningCount, 2);
+    });
+  });
+
   group('extractStackedVersions', () {
     test('plain unwrapped text (never conflicted) returns one synthetic version', () {
       final versions = extractStackedVersions('just some note content');
@@ -107,10 +158,10 @@ void main() {
 
     test('a real stacked block extracts every version at the right depth',
         () {
-      const block = '> [!info]+ SYNC CONFLICT — yours (review and delete one)\n'
+      const block = '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
           '> v1\n'
           '\n'
-          '> [!warning]+ SYNC CONFLICT — Desktop (review and delete one)\n'
+          '> [!warning]+ SYNC CONFLICT - Desktop (review and delete one)\n'
           '> v2\n';
       final versions = extractStackedVersions(block);
       expect(versions, hasLength(2));
