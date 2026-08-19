@@ -51,11 +51,20 @@ class IosAppServiceImpl implements IosAppService {
       return const StepFailure(LinkingError.obsidianNotInstalled);
     }
     try {
-      final uri = Uri(
-        scheme: 'obsidian',
-        host: 'open',
-        queryParameters: {'vault': vaultName, 'file': vaultRelativePath},
-      );
+      // 2026-08-19: real device bug - Dart's Uri(queryParameters: {...})
+      // percent-encodes every character in a value that isn't "query
+      // component safe", including `/` (-> %2F). Obsidian's own file
+      // parameter expects literal `/` between folder segments, each
+      // segment individually encoded (spaces etc.) - not the whole
+      // path double-encoded as one opaque blob. With the wrong
+      // encoding, Obsidian silently failed to resolve the file and
+      // just opened whatever note it already had active, with no error
+      // surfaced anywhere - confirmed on device, opened a 3-hour-old
+      // unrelated note instead of the one just backed up.
+      final encodedFile =
+          vaultRelativePath.split('/').map(Uri.encodeComponent).join('/');
+      final uri = Uri.parse(
+          'obsidian://open?vault=${Uri.encodeComponent(vaultName)}&file=$encodedFile');
       await launchUrl(uri, mode: LaunchMode.externalApplication);
       return const StepSuccess(message: 'Backup note opened');
     } catch (e) {
