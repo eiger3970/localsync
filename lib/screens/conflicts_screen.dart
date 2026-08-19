@@ -198,13 +198,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           // link.
                           final vaultName = result?.vaultName;
                           if (vaultName != null && context.mounted) {
+                            // 2026-08-19: real bug, live - "Both
+                            // versions" is wrong once a note has 3+
+                            // stacked versions (see the Kanban
+                            // multi-version test this session), not
+                            // just the common 2-way case.
+                            final versionWord = e.versions.length == 2
+                                ? 'Both versions'
+                                : 'All ${e.versions.length} versions';
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
-                                content: const Text(
-                                    'Resolved. Both versions backed up in '
+                                content: Text(
+                                    'Resolved. $versionWord backed up in '
                                     '"LocalSync Conflict Backups".',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                         color: kStar, fontSize: 15)),
                                 action: SnackBarAction(
                                   label: 'OPEN OBSIDIAN',
