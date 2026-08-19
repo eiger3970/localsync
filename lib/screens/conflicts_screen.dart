@@ -208,11 +208,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 ? 'Both versions'
                                 : 'All ${e.versions.length} versions';
                             // 2026-08-19: "why is the button link needed?
-                            // ... make 'backed up' a link, taking the
-                            // user directly there. This is cleaner than
-                            // two times the eye bleed" - one tappable
-                            // word inline instead of a separate action
-                            // button repeating the same idea.
+                            // ... make 'backed up' a link" - first pass
+                            // linked the verb. Real follow-up: "ideally
+                            // the link would be better in the actual
+                            // location the text says at the end of the
+                            // sentence" - a link should name the
+                            // destination, not the action, so it moved
+                            // onto "LocalSync Conflict Backups" instead.
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
@@ -222,9 +224,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                         color: kStar, fontSize: 15),
                                     children: [
                                       TextSpan(
-                                          text: 'Resolved. $versionWord '),
+                                          text: 'Resolved. $versionWord '
+                                              'backed up in '),
                                       TextSpan(
-                                        text: 'backed up',
+                                        text: 'LocalSync Conflict Backups',
                                         style: const TextStyle(
                                           color: kGreen,
                                           fontWeight: FontWeight.bold,
@@ -237,9 +240,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                 vaultName: vaultName);
                                           },
                                       ),
-                                      const TextSpan(
-                                          text:
-                                              ' in "LocalSync Conflict Backups".'),
+                                      const TextSpan(text: '.'),
                                     ],
                                   ),
                                 ),
