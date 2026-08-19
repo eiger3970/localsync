@@ -17,6 +17,22 @@ class RepositoryProvider extends ChangeNotifier {
   bool                 _loading   = true;
   int?                 _selectedRepoId;
 
+  // 2026-08-19: the auto-sync-on-launch pull below runs from the
+  // constructor, before any screen exists to navigate from - it can't
+  // just push a route the way home_screen.dart's manual pull handler
+  // does. This is the signal HomeScreen watches instead: a repo id
+  // shows up here once an auto-launch pull comes back with real
+  // unresolved conflicts, HomeScreen navigates to ConflictsScreen for
+  // it on the next frame and calls clearPendingConflict() so it only
+  // fires once. Without this, "way too convoluted, automate it" was
+  // only half fixed - a manually-tapped pull got the new navigation,
+  // but the auto-sync pull that fires on every app launch (the more
+  // common path for a repo with AUTO sync on) had none at all, not
+  // even the old snackbar.
+  int? _pendingConflictRepoId;
+  int? get pendingConflictRepoId => _pendingConflictRepoId;
+  void clearPendingConflict() { _pendingConflictRepoId = null; }
+
   List<Repository>     get repos     => _repos;
   List<CommitTemplate> get templates => _templates;
   bool                 get loading   => _loading;
@@ -65,7 +81,11 @@ class RepositoryProvider extends ChangeNotifier {
     // launch behavior is "bring in whatever's new", i.e. a pull, never
     // a push of local changes the user hasn't reviewed yet.
     for (final repo in _repos.where((r) => r.autoSync)) {
-      pullRepository(repo.id!);
+      final result = await pullRepository(repo.id!);
+      if (result case SyncOkWithConflicts()) {
+        _pendingConflictRepoId = repo.id;
+        notifyListeners();
+      }
     }
   }
 

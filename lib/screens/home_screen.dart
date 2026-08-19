@@ -275,6 +275,31 @@ class HomeScreen extends StatelessWidget {
             return const SizedBox.shrink();
           }
           final repo = provider.selectedRepo!;
+          // 2026-08-19: the auto-sync-on-launch pull (RepositoryProvider
+          // ._init()) runs before this screen even exists, so it can't
+          // navigate directly the way _runAndShow's manual-pull handler
+          // below does - it just leaves a repo id here instead. Same
+          // post-frame-callback pattern as the empty-repos redirect
+          // above. Cleared immediately so a later unrelated rebuild
+          // (e.g. selecting a different repo) doesn't re-trigger it.
+          final pendingId = provider.pendingConflictRepoId;
+          if (pendingId != null) {
+            final pendingRepo = provider.repos
+                .where((r) => r.id == pendingId)
+                .cast<Repository?>()
+                .firstWhere((_) => true, orElse: () => null);
+            // clearPendingConflict() calls notifyListeners() - must not
+            // run synchronously mid-build (Flutter forbids triggering a
+            // rebuild while one is already in progress), so both it and
+            // the navigation itself wait for the frame to finish.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              provider.clearPendingConflict();
+              if (pendingRepo != null && context.mounted) {
+                Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => ConflictsScreen(repo: pendingRepo)));
+              }
+            });
+          }
           // 2026-08-17: the repo tile's summary row moved into the app
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.
