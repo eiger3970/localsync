@@ -104,8 +104,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 text: otherCount == 1
                     ? 'Removes the other version from this note'
                     : 'Removes the other $otherCount versions from this note'),
+            // 2026-08-19: real feedback, live - this used check_circle
+            // too, same glyph as the "keeps" line above, which read as
+            // if the two were related (they're not - this is separate
+            // reassurance info, not part of the keep/remove decision).
+            // Icons.backup matches conflicts_screen.dart's own
+            // _SafetyStep row, which already uses this exact icon for
+            // the same concept.
             const _DialogPoint(
-                icon: Icons.check_circle,
+                icon: Icons.backup,
                 color: kGreen,
                 text: 'Every version backed up first, in '
                     '"LocalSync Conflict Backups"'),
