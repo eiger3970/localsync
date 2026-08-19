@@ -24,6 +24,12 @@ import '../services/word_diff.dart';
 // A brighter, more saturated red reads at the same perceptual loudness.
 const _kBrightRed = Color(0xFFFF3B30);
 
+typedef ConflictResolvedResult = ({
+  bool resolved,
+  String? vaultName,
+  String? backupRelPath,
+});
+
 class ConflictPickerScreen extends StatefulWidget {
   final Repository repo;
   final ConflictEntry entry;
@@ -122,18 +128,34 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     if (proceed == true) await _choose(chosen);
   }
 
+  // 2026-08-19: pop carries the backup note's location, not just
+  // success/failure - real user feedback, live: told to go find
+  // "LocalSync Conflict Backups" in Obsidian's file list by hand,
+  // "humans don't need to know petty shite, that's for computer
+  // machines to deal with." conflicts_screen.dart uses this to offer a
+  // direct "View backup" deep-link instead.
   Future<void> _choose(String chosen) async {
     setState(() => _resolving = true);
     final vaultFolder = VaultFolderService();
     final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    String? backupRelPath;
     try {
       if (path != null) {
-        await resolveConflict(path, widget.entry, chosen);
+        backupRelPath = await resolveConflict(path, widget.entry, chosen);
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
-    if (mounted) Navigator.pop(context, true);
+    if (mounted) {
+      Navigator.pop(
+        context,
+        (
+          resolved: true,
+          vaultName: path?.split('/').last,
+          backupRelPath: backupRelPath,
+        ),
+      );
+    }
   }
 
   @override

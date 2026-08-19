@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/conflict_scanner.dart';
+import '../services/ios_app_service.dart';
 import '../services/vault_folder_service.dart';
 import 'conflict_picker_screen.dart';
 
@@ -168,15 +169,47 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       trailing:
                           const Icon(Icons.chevron_right, color: kTextDim),
                       onTap: () async {
-                        final resolved = await Navigator.push<bool>(
+                        final result =
+                            await Navigator.push<ConflictResolvedResult>(
                           context,
                           MaterialPageRoute(
                             builder: (_) => ConflictPickerScreen(
                                 repo: widget.repo, entry: e),
                           ),
                         );
-                        if (resolved == true) {
+                        if (result?.resolved == true) {
                           setState(() => _future = _scan());
+                          // 2026-08-19: real user feedback, live - told
+                          // to go find the backup folder in Obsidian's
+                          // file list by hand instead of the app just
+                          // taking them there. Deep-links straight to
+                          // the exact note this resolve just wrote,
+                          // skipping the folder hunt entirely.
+                          final vaultName = result?.vaultName;
+                          final backupRelPath = result?.backupRelPath;
+                          if (vaultName != null &&
+                              backupRelPath != null &&
+                              context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: kSurface,
+                                content: const Text('Resolved. Backup saved.',
+                                    style: TextStyle(
+                                        color: kStar, fontSize: 15)),
+                                action: SnackBarAction(
+                                  label: 'VIEW BACKUP',
+                                  textColor: kGreen,
+                                  onPressed: () {
+                                    IosAppServiceImpl().openObsidianFile(
+                                      vaultName: vaultName,
+                                      vaultRelativePath: backupRelPath,
+                                    );
+                                  },
+                                ),
+                                duration: const Duration(seconds: 8),
+                              ),
+                            );
+                          }
                         }
                       },
                     );
