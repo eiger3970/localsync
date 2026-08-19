@@ -68,23 +68,37 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // first, states plainly what happens, and says exactly how it's
   // recoverable (a backup note - see conflict_scanner.dart's
   // resolveConflict) instead of just asserting "don't worry."
+  //
+  // 2026-08-19: two paragraphs of prose replaced with 3 short icon +
+  // label lines - "too verbose, more curt, use a list or points" - same
+  // "show the shape at a glance, not a paragraph to read" instinct as
+  // the Conflicts screen's own 3-icon safety row (conflicts_screen.dart's
+  // _SafetyStep). Wording also generalized from "the other version" to
+  // a count, since a note can now genuinely have more than 2 stacked
+  // versions (see conflict_scanner.dart's ConflictEntry.versions).
   Future<void> _confirmAndChoose(String label, String chosen) async {
+    final otherCount = widget.entry.versions.length - 1;
     final proceed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
         title: const Text('Keep this version?',
             style: TextStyle(color: kStar, fontSize: 17)),
-        content: Text(
-          'This note will be updated to keep "$label" and remove the '
-          'other version from it.\n\n'
-          'Both full versions are saved first to a folder called '
-          '"LocalSync Conflict Backups", visible at the top of your '
-          'file list in Obsidian - so if you pick the wrong one you '
-          'can still find and copy the other version back yourself. '
-          'This app can\'t undo it automatically, but nothing is '
-          'deleted for good.',
-          style: const TextStyle(color: kStar, fontSize: 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(icon: Icons.check_circle, text: 'Keeps "$label"'),
+            _DialogPoint(
+                icon: Icons.close,
+                text: otherCount == 1
+                    ? 'Removes the other version from this note'
+                    : 'Removes the other $otherCount versions from this note'),
+            const _DialogPoint(
+                icon: Icons.backup,
+                text: 'Every version backed up first, in '
+                    '"LocalSync Conflict Backups"'),
+          ],
         ),
         actions: [
           TextButton(
@@ -181,6 +195,33 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+/// One short icon + label line in the confirm dialog - see
+/// _confirmAndChoose's 2026-08-19 comment for why this replaced two
+/// paragraphs of prose.
+class _DialogPoint extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _DialogPoint({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: kGreen, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(color: kStar, fontSize: 15)),
+          ),
+        ],
+      ),
     );
   }
 }
