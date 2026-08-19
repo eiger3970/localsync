@@ -148,6 +148,47 @@ void main() {
     });
   });
 
+  group('consolidateStackedRuns must never merge unrelated conflicts '
+      '(real device finding, 2026-08-19 - tried a wider blank-line '
+      'tolerance and reverted it)', () {
+    test('two genuinely separate conflict blocks, 2 blank lines apart, '
+        'stay separate - not merged into one combined list', () {
+      // Real device shape: a title-heading conflict and a completely
+      // unrelated, later conflict elsewhere in the same note, both
+      // written by this app, happened to end up exactly 2 blank lines
+      // apart - the same gap size that also appears between true
+      // siblings of ONE accumulating conflict elsewhere in real files.
+      // There is no reliable way to tell these two shapes apart from
+      // blank-line count alone, so the safe choice is to never bridge
+      // more than one blank line - under-consolidating (a stale block
+      // stays its own entry) is safe; over-consolidating (unrelated
+      // content silently offered as one N-way choice) is not.
+      const content = '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+          '> TITLE PHONE EDIT\n'
+          '\n'
+          '> [!warning]+ SYNC CONFLICT - Desktop (review and delete one)\n'
+          '> TITLE DESKTOP EDIT\n'
+          '\n'
+          '\n'
+          '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+          '> UNRELATED PHONE EDIT\n'
+          '\n'
+          '> [!warning]+ SYNC CONFLICT - Desktop (review and delete one)\n'
+          '> UNRELATED DESKTOP EDIT\n';
+
+      final out = consolidateStackedRuns(content);
+
+      // If this were 1, the two unrelated conflicts got merged into a
+      // single 4-version list - the exact regression this test exists
+      // to catch.
+      final infoCount =
+          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+      expect(infoCount, 2,
+          reason: 'each genuinely separate conflict must keep its own '
+              '"yours" head version, not be folded into the other');
+    });
+  });
+
   group('em dash vs regular dash (real device bug, confirmed same night as '
       'the narrow-hunk fix above)', () {
     test('a stacked block written with the OLD em-dash separator is still '

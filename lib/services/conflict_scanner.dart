@@ -74,6 +74,17 @@ class ConflictEntry {
 // [-—] accepts a regular dash or an em dash - see conflict_repair.dart's
 // calloutHeaderPattern comment: content written before the em-dash fix
 // must stay parseable, not silently invisible to this scanner.
+// Deliberately `\n?` (exactly one optional blank line), not wider -
+// see conflict_repair.dart's _stackedRunPattern comment for why: a
+// wider tolerance was tried and reverted because there is no reliable
+// way to tell "these are siblings of one conflict, separated by an
+// accumulated extra blank line" apart from "these are two unrelated
+// conflicts that just happen to sit near each other" - both shapes
+// were observed in the same real file. `\n?` matches what this app's
+// own write template always produces between true siblings, so a
+// conflict separated from a true sibling by 2+ blank lines (legacy
+// content only, so far) stays split into its own entry rather than
+// risk merging unrelated content together.
 final _stackedBlockPattern = RegExp(
   r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one\)\n'
   r'(?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*\n?)+',
