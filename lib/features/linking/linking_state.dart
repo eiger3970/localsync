@@ -176,6 +176,20 @@ enum LinkingError {
   /// successfully; this is the picker never launching in the first
   /// place).
   vaultPickerFailed,
+
+  /// 2026-08-19: real device bug - both git_service.dart's and
+  /// pairing_controller.dart's own _diagnose() only ever classified a
+  /// handful of specific exception strings (credentials/auth,
+  /// not-found) and silently defaulted everything else to
+  /// connectionRefused - so a completely unrelated exception (a real
+  /// case found on device: a filesystem PathAccessException from the
+  /// vault-backup step) showed as "Cannot reach your desktop. SSH
+  /// connection refused." and sent the user chasing network/pairing
+  /// steps that had nothing to do with the real failure. This is the
+  /// honest fallback for anything that doesn't match a known pattern -
+  /// see the RAW ERROR section (StepFailure.debugDetail) for what
+  /// actually happened.
+  unclassifiedError,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -224,6 +238,8 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.vaultFolderAccessLost =>
           'Localsync lost access to your vault folder.',
         LinkingError.vaultPickerFailed => 'Could not open Files.',
+        LinkingError.unclassifiedError =>
+          'Something went wrong that LocalSync did not expect.',
       };
 
   String get resolution => switch (this) {
@@ -330,5 +346,8 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.vaultPickerFailed =>
           'Tap TRY AGAIN.\n'
               'If this keeps happening, force-closing and reopening Localsync may help.',
+        LinkingError.unclassifiedError =>
+          'Check the RAW ERROR section below for what actually happened.\n'
+              'Tap TRY AGAIN - most causes here are one-off, not a real network or pairing problem.',
       };
 }

@@ -11,6 +11,7 @@
 // scoped bookmark, resolved and explicitly start/stop-accessed around
 // every use.
 
+import 'dart:io';
 import 'package:flutter/services.dart';
 
 class VaultFolderResult {
@@ -65,5 +66,27 @@ class VaultFolderService {
   /// per Apple's documented security-scoped resource pattern.
   Future<void> stopAccessing(String bookmark) async {
     await _channel.invokeMethod('stopAccessing', {'bookmark': bookmark});
+  }
+
+  /// Writes [content] to [path] through NSFileCoordinator instead of a
+  /// plain dart:io write - see AppDelegate.swift's coordinatedWrite for
+  /// the real device incident this targets (a confirmed-working
+  /// conflict resolution silently reverted, likely because Obsidian's
+  /// own cached buffer was never told the file changed externally).
+  /// NOT confirmed to fix that on a real device - falls back to a plain
+  /// write on any failure (channel missing, e.g. in tests; or a native
+  /// error) so this can never leave a write half-done or regress below
+  /// the previous plain-write behavior.
+  Future<void> coordinatedWrite(String path, String content) async {
+    try {
+      final ok = await _channel.invokeMethod<bool>(
+        'coordinatedWrite',
+        {'path': path, 'content': content},
+      );
+      if (ok == true) return;
+    } catch (_) {
+      // Fall through to the plain-write fallback below.
+    }
+    await File(path).writeAsString(content);
   }
 }

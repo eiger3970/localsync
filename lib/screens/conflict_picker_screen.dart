@@ -120,8 +120,25 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final tooBig = entry.ours.length > maxDiffTokens * 6 ||
-        entry.theirs.length > maxDiffTokens * 6;
+    final versions = entry.versions;
+    // 2026-08-19: word-diff is inherently pairwise (LCS between exactly
+    // two strings) - it only ever generalized to the original ours/
+    // theirs case. A note can now carry 3+ stacked unresolved versions
+    // (see conflict_scanner.dart's ConflictEntry.versions) after
+    // several rounds of the same conflict never being resolved; for
+    // that case each panel falls back to plain text (same fallback
+    // already used for oversized text below) rather than a diff against
+    // an arbitrarily-chosen "other" side, which would just be
+    // misleading.
+    final useDiff = versions.length == 2 &&
+        versions[0].body.length <= maxDiffTokens * 6 &&
+        versions[1].body.length <= maxDiffTokens * 6;
+
+    String titleFor(int i) {
+      if (i == 0) return _myDeviceName.isEmpty ? 'This device' : _myDeviceName;
+      final v = versions[i];
+      return v.when != null ? '${v.who} - ${v.when}' : v.who;
+    }
 
     return Scaffold(
       backgroundColor: kVoid,
@@ -135,38 +152,33 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                const Text(
-                    "Tap a version to review it, then confirm - nothing "
-                    'is changed until you confirm.',
-                    style: TextStyle(color: kStar, fontSize: 15)),
+                Text(
+                    versions.length > 2
+                        ? "This note has ${versions.length} unresolved "
+                            'versions stacked up - they were never fully '
+                            'resolved before another change arrived. Tap '
+                            'the one to keep; the rest are still saved to '
+                            '"LocalSync Conflict Backups".'
+                        : "Tap a version to review it, then confirm - "
+                            'nothing is changed until you confirm.',
+                    style: const TextStyle(color: kStar, fontSize: 15)),
                 const SizedBox(height: 16),
-                _ConflictPanel(
-                  title: _myDeviceName.isEmpty ? 'This device' : _myDeviceName,
-                  tokens: tooBig
-                      ? null
-                      : wordDiffOurs(entry.ours, entry.theirs),
-                  plainText: entry.ours,
-                  highlightColor: _kBrightRed,
-                  onTap: () => _confirmAndChoose(
-                      _myDeviceName.isEmpty ? 'This device' : _myDeviceName,
-                      entry.ours),
-                ),
-                const SizedBox(height: 16),
-                _ConflictPanel(
-                  title: entry.when != null
-                      ? '${entry.who} - ${entry.when}'
-                      : entry.who,
-                  tokens: tooBig
-                      ? null
-                      : wordDiffTheirs(entry.ours, entry.theirs),
-                  plainText: entry.theirs,
-                  highlightColor: kGreen,
-                  onTap: () => _confirmAndChoose(
-                      entry.when != null
-                          ? '${entry.who} - ${entry.when}'
-                          : entry.who,
-                      entry.theirs),
-                ),
+                for (var i = 0; i < versions.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 16),
+                  _ConflictPanel(
+                    title: titleFor(i),
+                    tokens: !useDiff
+                        ? null
+                        : (i == 0
+                            ? wordDiffOurs(versions[0].body, versions[1].body)
+                            : wordDiffTheirs(
+                                versions[0].body, versions[1].body)),
+                    plainText: versions[i].body,
+                    highlightColor: i == 0 ? _kBrightRed : kGreen,
+                    onTap: () =>
+                        _confirmAndChoose(titleFor(i), versions[i].body),
+                  ),
+                ],
               ],
             ),
     );

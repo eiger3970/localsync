@@ -73,14 +73,21 @@ class PairingController extends ChangeNotifier {
     }
   }
 
+  // 2026-08-19: was defaulting anything unmatched to connectionRefused -
+  // same misdiagnosis class fixed in git_service.dart's _diagnose() the
+  // same day. See LinkingError.unclassifiedError.
   LinkingError _diagnose(Object e) {
     final msg = e.toString();
     if (msg.contains('Connection refused') ||
         msg.contains('No route to host') ||
-        msg.contains('timed out'))            return LinkingError.connectionRefused;
+        msg.contains('timed out')) {
+      return LinkingError.connectionRefused;
+    }
     if (msg.contains('Authentication') ||
         msg.contains('SSHAuthFailError') ||
-        msg.contains('password'))             return LinkingError.pairingPasswordRejected;
-    return LinkingError.connectionRefused;
+        msg.contains('password')) {
+      return LinkingError.pairingPasswordRejected;
+    }
+    return LinkingError.unclassifiedError;
   }
 }

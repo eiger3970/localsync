@@ -25,33 +25,58 @@
 
 import 'dart:io';
 import 'vault_backup.dart';
+import 'vault_folder_service.dart';
+
+/// One side of a conflict. [who]/[when] are null for index 0 ("yours" -
+/// this device's own version; the picker screen shows the real device
+/// name for that slot instead of the literal label text).
+class ConflictVersion {
+  final String who;
+  final String? when;
+  final String body;
+  const ConflictVersion({required this.who, this.when, required this.body});
+}
 
 class ConflictEntry {
   final String filePath; // relative to the vault root
-  final String ours;
-  final String theirs;
-  final String who;
-  final String? when;
+  // 2026-08-19: was a fixed ours/theirs pair - couldn't represent more
+  // than one other side. See sync_service.dart's _extractStackedVersions
+  // for why a note can now genuinely carry 3+ stacked, still-unresolved
+  // versions (repeated conflicts on the same line/card before the user
+  // ever resolved the previous one) - index 0 is always "yours", the
+  // rest are every other still-unresolved version, oldest first.
+  final List<ConflictVersion> versions;
   final bool isKanban;
   final int matchStart;
   final int matchEnd;
   const ConflictEntry({
     required this.filePath,
-    required this.ours,
-    required this.theirs,
-    required this.who,
-    this.when,
+    required this.versions,
     required this.isKanban,
     required this.matchStart,
     required this.matchEnd,
   });
+
+  String get ours => versions.first.body;
+  // Kept for call sites that only ever dealt with exactly one other
+  // side (the common case) - "theirs" is the single most-recent other
+  // version. Callers that need every stacked version should read
+  // [versions] directly.
+  String get theirs => versions.length > 1 ? versions.last.body : '';
+  String get who => versions.length > 1 ? versions.last.who : '';
+  String? get when => versions.length > 1 ? versions.last.when : null;
 }
 
-final _pairedCalloutPattern = RegExp(
-  r'> \[!info\]\+ SYNC CONFLICT — yours \(review and delete one\)\n'
-  r'((?:> .*\n?)*)'
-  r'\n?'
-  r'> \[!warning\]\+ SYNC CONFLICT — (.+?) \(review and delete one\)\n'
+// 2026-08-19: matches one whole run of consecutive, non-nested SYNC
+// CONFLICT callouts - one-or-more, not exactly two - since
+// _repairConflictMarkers now flattens any number of previously-stacked
+// versions into siblings at this same depth instead of nesting them.
+final _stackedBlockPattern = RegExp(
+  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT — .+? \(review and delete one\)\n'
+  r'(?:> .*\n?)*\n?)+',
+);
+final _calloutPattern = RegExp(
+  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT — (.+?) \(review and delete one\)\n'
   r'((?:> .*\n?)*)',
 );
 
@@ -110,32 +135,42 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
         final oursLine = m.group(1)!;
         final commentLines = _kanbanLinePattern.allMatches(m.group(2)!);
         if (commentLines.isEmpty) continue;
-        final who = commentLines.first.group(1)!;
-        final theirsText =
-            commentLines.map((c) => c.group(2)!).join('\n');
+        // Kanban conflicts can't nest (a card is always one line), so
+        // no flattening is needed here - but several devices can still
+        // stack several CONFLICT-OTHER comments on the same card before
+        // anyone resolves it. Each becomes its own version, same as the
+        // non-Kanban path below, instead of collapsing them into one.
         entries.add(ConflictEntry(
           filePath: relPath,
-          ours: oursLine,
-          theirs: theirsText,
-          who: who,
+          versions: [
+            ConflictVersion(who: 'yours', body: oursLine),
+            for (final c in commentLines)
+              ConflictVersion(who: c.group(1)!, body: c.group(2)!),
+          ],
           isKanban: true,
           matchStart: m.start,
           matchEnd: m.end,
         ));
       }
     } else {
-      for (final m in _pairedCalloutPattern.allMatches(content)) {
-        final rawLabel = m.group(2)!;
-        final sep = rawLabel.indexOf(' — ');
+      for (final block in _stackedBlockPattern.allMatches(content)) {
+        final versions = <ConflictVersion>[];
+        for (final m in _calloutPattern.allMatches(block.group(0)!)) {
+          final rawLabel = m.group(1)!;
+          final sep = rawLabel.indexOf(' — ');
+          versions.add(ConflictVersion(
+            who: sep == -1 ? rawLabel : rawLabel.substring(0, sep),
+            when: sep == -1 ? null : rawLabel.substring(sep + 3),
+            body: _stripQuoteBlock(m.group(2)!),
+          ));
+        }
+        if (versions.length < 2) continue; // malformed - nothing to act on
         entries.add(ConflictEntry(
           filePath: relPath,
-          ours: _stripQuoteBlock(m.group(1)!),
-          theirs: _stripQuoteBlock(m.group(3)!),
-          who: sep == -1 ? rawLabel : rawLabel.substring(0, sep),
-          when: sep == -1 ? null : rawLabel.substring(sep + 3),
+          versions: versions,
           isKanban: false,
-          matchStart: m.start,
-          matchEnd: m.end,
+          matchStart: block.start,
+          matchEnd: block.end,
         ));
       }
     }
@@ -147,10 +182,10 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
 /// critical data forever" - a real gap, not just a wording problem. The
 /// picker screen already asks for a second explicit confirm before
 /// calling this, but the confirm alone doesn't make anything
-/// recoverable - this does. Both full versions get written to a plain
-/// Obsidian note before the file is touched, so whichever side gets
-/// discarded is still sitting in the vault afterward, in plain text, no
-/// git knowledge required to find it.
+/// recoverable - this does. Every stacked version gets written to a
+/// plain Obsidian note before the file is touched, so whichever ones
+/// get discarded are still sitting in the vault afterward, in plain
+/// text, no git knowledge required to find them.
 Future<void> _backupConflictBeforeResolving(
   String vaultPath,
   ConflictEntry entry,
@@ -160,15 +195,17 @@ Future<void> _backupConflictBeforeResolving(
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =
       File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
-  final theirsHeading =
-      entry.when != null ? '${entry.who} - ${entry.when}' : entry.who;
+  final sections = entry.versions.asMap().entries.map((e) {
+    final v = e.value;
+    final heading = e.key == 0
+        ? 'Your version'
+        : (v.when != null ? '${v.who} - ${v.when}' : v.who);
+    return '## $heading\n\n${v.body}\n';
+  }).join('\n');
   await backupFile.writeAsString(
     '# Conflict backup\n\n'
     'Original file: ${entry.filePath}\n\n'
-    '## Your version\n\n'
-    '${entry.ours}\n\n'
-    '## $theirsHeading\n\n'
-    '${entry.theirs}\n',
+    '$sections',
   );
 }
 
@@ -184,11 +221,16 @@ Future<void> resolveConflict(
   String chosen,
 ) async {
   await _backupConflictBeforeResolving(vaultPath, entry);
-  final file = File('$vaultPath/${entry.filePath}');
-  final content = await file.readAsString();
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) return; // file changed since scan
   final replacement = entry.isKanban ? chosen : '$chosen\n';
   final updated = content.replaceRange(
       entry.matchStart, entry.matchEnd, replacement);
-  await file.writeAsString(updated);
+  // 2026-08-19: coordinated (not plain) write - see
+  // vault_folder_service.dart's coordinatedWrite for why: a resolution
+  // written the plain way was found silently reverted by Obsidian's own
+  // cache on a real device, this is the best-available fix, unconfirmed
+  // on device.
+  await VaultFolderService().coordinatedWrite(filePath, updated);
 }
