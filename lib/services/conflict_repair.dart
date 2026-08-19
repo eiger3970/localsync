@@ -229,6 +229,29 @@ String repairConflictMarkers(String content,
 // [-—] - see calloutHeaderPattern's comment above: must recognize
 // already-written em-dash content too, not just the current write
 // format, or this whole consolidation pass silently skips it.
+//
+// 2026-08-19, later the same night: tried widening the trailing `\n?`
+// to tolerate 2+ blank lines (a gap that appears between genuinely-
+// stacked siblings of ONE accumulating conflict, as an artifact of
+// older repair rounds) - but there is NO reliable way to tell "two
+// blank lines because these are siblings of the same conflict" apart
+// from "two blank lines because these are two completely different,
+// unrelated conflicts that just happen to sit near each other in the
+// document" - both shapes were observed in the same real test file,
+// with identical formatting. Widening the tolerance fixed the first
+// case but silently merged the second into one wrong combined list -
+// a user picking a version could then discard content from a totally
+// unrelated conflict without meaning to, which is worse than the
+// original bug (an orphaned, still-readable, still-editable-by-hand
+// leftover). Reverted to `\n?` (exactly one optional blank line) -
+// this is what this app's own write template always produces between
+// true siblings, so it's the correct signal to key on. **Known
+// residual limitation**, not fixed: a conflict block separated from
+// its true sibling by 2+ blank lines (only seen so far on legacy
+// content from before this session's fixes) stays unconsolidated -
+// cosmetically stale (may still show an old-format dash) but not
+// unsafe: it's never silently merged with anything, and remains
+// readable/hand-editable in the raw file either way.
 final _stackedRunPattern = RegExp(
   r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one[^)]*\)\n'
   r'(?:> .*\n?)*\n?){2,}',
