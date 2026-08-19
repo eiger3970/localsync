@@ -290,24 +290,42 @@ class SyncService {
       yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
       return;
     }
+    yield SyncEvent.phase(phase);
+    final params = _SyncParams(
+      vaultPath: resolvedPath,
+      remoteUrl: _remoteUrl,
+      remoteUser: remoteUser,
+      branch: branch,
+      sshPrivateKeyPath: sshPrivateKeyPath,
+      sshPublicKeyPath: sshPublicKeyPath,
+      sshPassphrase: sshPassphrase,
+      commitMessage: commitMessage ?? _timestamp(),
+      deviceName: deviceName,
+      confirmed: confirmed,
+    );
+    // 2026-08-19: real device bug, found chasing "the conflict this
+    // pull just created doesn't show up in the Conflicts screen it
+    // auto-navigates to" - stopAccessing() used to run in a `finally`
+    // AFTER the `yield SyncEvent.done(...)` above. RepositoryProvider's
+    // `await for` loop returns as soon as it sees that done event
+    // (case SyncOkWithConflicts(): ...; return result;) - which cancels
+    // this generator's subscription, triggering the finally block, but
+    // does NOT wait for that cancellation's cleanup to actually finish
+    // before the caller's own Future resolves. So a caller could
+    // already be acting on the result - in this case, immediately
+    // starting a *fresh* startAccessing() for ConflictsScreen's own
+    // scan - while this pull's stopAccessing() on the very same
+    // bookmark was still in flight. Computing the result and releasing
+    // access BEFORE yielding the done event removes that race
+    // entirely, regardless of how a consumer handles stream
+    // cancellation.
+    SyncResult result;
     try {
-      yield SyncEvent.phase(phase);
-      final params = _SyncParams(
-        vaultPath: resolvedPath,
-        remoteUrl: _remoteUrl,
-        remoteUser: remoteUser,
-        branch: branch,
-        sshPrivateKeyPath: sshPrivateKeyPath,
-        sshPublicKeyPath: sshPublicKeyPath,
-        sshPassphrase: sshPassphrase,
-        commitMessage: commitMessage ?? _timestamp(),
-        deviceName: deviceName,
-        confirmed: confirmed,
-      );
-      yield SyncEvent.done(await compute(isolateFn, params));
+      result = await compute(isolateFn, params);
     } finally {
       await _vaultFolder.stopAccessing(vaultBookmark);
     }
+    yield SyncEvent.done(result);
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
