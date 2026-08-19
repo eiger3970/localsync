@@ -179,31 +179,39 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         );
                         if (result?.resolved == true) {
                           setState(() => _future = _scan());
-                          // 2026-08-19: real user feedback, live - told
-                          // to go find the backup folder in Obsidian's
-                          // file list by hand instead of the app just
-                          // taking them there. Deep-links straight to
-                          // the exact note this resolve just wrote,
-                          // skipping the folder hunt entirely.
+                          // 2026-08-19: tried deep-linking straight to
+                          // the exact backup note (obsidian://open?
+                          // vault=...&file=...) - real device testing
+                          // found Obsidian doesn't honor the folder
+                          // portion of that path the way expected: it
+                          // silently opened a same-named file from a
+                          // completely unrelated old vault-backup
+                          // snapshot instead, twice, with two different
+                          // URL-encoding approaches. Showing WRONG
+                          // content is worse than making the user
+                          // navigate themselves, so this fell back to
+                          // opening just the vault (already
+                          // proven-reliable elsewhere - see
+                          // linking_controller.dart's openObsidianNow())
+                          // paired with an explicit folder name in the
+                          // message, rather than a broken file-specific
+                          // link.
                           final vaultName = result?.vaultName;
-                          final backupRelPath = result?.backupRelPath;
-                          if (vaultName != null &&
-                              backupRelPath != null &&
-                              context.mounted) {
+                          if (vaultName != null && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
-                                content: const Text('Resolved. Backup saved.',
+                                content: const Text(
+                                    'Resolved. Both versions backed up in '
+                                    '"LocalSync Conflict Backups".',
                                     style: TextStyle(
                                         color: kStar, fontSize: 15)),
                                 action: SnackBarAction(
-                                  label: 'VIEW BACKUP',
+                                  label: 'OPEN OBSIDIAN',
                                   textColor: kGreen,
                                   onPressed: () {
-                                    IosAppServiceImpl().openObsidianFile(
-                                      vaultName: vaultName,
-                                      vaultRelativePath: backupRelPath,
-                                    );
+                                    IosAppServiceImpl()
+                                        .openObsidian(vaultName: vaultName);
                                   },
                                 ),
                                 duration: const Duration(seconds: 8),

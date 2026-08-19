@@ -10,17 +10,6 @@ abstract class IosAppService {
   /// Obsidian last had active.
   Future<StepResult> openObsidian({String? vaultName});
 
-  /// 2026-08-19: real user feedback, live - told to go find "LocalSync
-  /// Conflict Backups" in Obsidian's own file list by hand: "humans
-  /// don't need to know petty shite, that's for computer machines to
-  /// deal with." The app already knows exactly which backup note it
-  /// just wrote (see conflict_scanner.dart's resolveConflict) - this
-  /// opens that specific note directly instead of describing a folder
-  /// to go find. [vaultRelativePath] is the note's path from the vault
-  /// root, e.g. "LocalSync Conflict Backups/note - 202608191945.md".
-  Future<StepResult> openObsidianFile(
-      {required String vaultName, required String vaultRelativePath});
-
   Future<bool> isObsidianInstalled();
 }
 
@@ -44,34 +33,16 @@ class IosAppServiceImpl implements IosAppService {
     }
   }
 
-  @override
-  Future<StepResult> openObsidianFile(
-      {required String vaultName, required String vaultRelativePath}) async {
-    if (!await isObsidianInstalled()) {
-      return const StepFailure(LinkingError.obsidianNotInstalled);
-    }
-    try {
-      // 2026-08-19: real device bug - Dart's Uri(queryParameters: {...})
-      // percent-encodes every character in a value that isn't "query
-      // component safe", including `/` (-> %2F). Obsidian's own file
-      // parameter expects literal `/` between folder segments, each
-      // segment individually encoded (spaces etc.) - not the whole
-      // path double-encoded as one opaque blob. With the wrong
-      // encoding, Obsidian silently failed to resolve the file and
-      // just opened whatever note it already had active, with no error
-      // surfaced anywhere - confirmed on device, opened a 3-hour-old
-      // unrelated note instead of the one just backed up.
-      final encodedFile =
-          vaultRelativePath.split('/').map(Uri.encodeComponent).join('/');
-      final uri = Uri.parse(
-          'obsidian://open?vault=${Uri.encodeComponent(vaultName)}&file=$encodedFile');
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      return const StepSuccess(message: 'Backup note opened');
-    } catch (e) {
-      return const StepFailure(LinkingError.obsidianNotInstalled);
-    }
-  }
-
+  // 2026-08-19: openObsidianFile() (deep-link to a specific note via
+  // obsidian://open?vault=...&file=...) was tried and removed - real
+  // device testing found Obsidian doesn't honor the folder portion of
+  // that path the way expected, across two different URL-encoding
+  // approaches. It silently opened a same-named file from a completely
+  // unrelated old vault-backup snapshot instead of the intended note,
+  // with no error surfaced. Showing wrong content is worse than making
+  // the user navigate themselves - conflicts_screen.dart falls back to
+  // openObsidian(vaultName:) (below, proven reliable) paired with an
+  // explicit folder name in the message, instead.
   @override
   Future<bool> isObsidianInstalled() async {
     return await canLaunchUrl(Uri.parse('obsidian://'));
