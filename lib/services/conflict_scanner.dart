@@ -212,15 +212,24 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
 /// plain Obsidian note before the file is touched, so whichever ones
 /// get discarded are still sitting in the vault afterward, in plain
 /// text, no git knowledge required to find them.
-Future<void> _backupConflictBeforeResolving(
+///
+/// 2026-08-19: returns the backup file's path relative to the vault
+/// root (e.g. "LocalSync Conflict Backups/note - 202608191945.md") -
+/// real user feedback, live: "where is 'LocalSync Conflict Backups'?
+/// give me an absolute path... humans don't need to know petty shite,
+/// that's for computer machines to deal with." The app already knows
+/// exactly where it just wrote this file - the caller uses this to
+/// deep-link straight to it in Obsidian (obsidian://open?vault=...
+/// &file=...) instead of describing a folder to go find by hand.
+Future<String> _backupConflictBeforeResolving(
   String vaultPath,
   ConflictEntry entry,
 ) async {
   final backupDir = Directory('$vaultPath/LocalSync Conflict Backups');
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
-  final backupFile =
-      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
+  final backupFileName = '$baseName - ${backupTimestamp()}.md';
+  final backupFile = File('${backupDir.path}/$backupFileName');
   final sections = entry.versions.asMap().entries.map((e) {
     final v = e.value;
     final heading = e.key == 0
@@ -233,6 +242,7 @@ Future<void> _backupConflictBeforeResolving(
     'Original file: ${entry.filePath}\n\n'
     '$sections',
   );
+  return 'LocalSync Conflict Backups/$backupFileName';
 }
 
 /// Rewrites [filePath] (relative to [vaultPath]), replacing exactly the
@@ -240,16 +250,18 @@ Future<void> _backupConflictBeforeResolving(
 /// entry.ours or entry.theirs, picked by the user). Direct substring
 /// replace at known offsets - no re-parsing, no guessing. Always backs
 /// up both original versions first (see above) - never called without
-/// that safety net in place.
-Future<void> resolveConflict(
+/// that safety net in place. Returns the backup file's vault-relative
+/// path (see _backupConflictBeforeResolving) so the caller can deep-
+/// link straight to it.
+Future<String> resolveConflict(
   String vaultPath,
   ConflictEntry entry,
   String chosen,
 ) async {
-  await _backupConflictBeforeResolving(vaultPath, entry);
+  final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
-  if (entry.matchEnd > content.length) return; // file changed since scan
+  if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
   final replacement = entry.isKanban ? chosen : '$chosen\n';
   final updated = content.replaceRange(
       entry.matchStart, entry.matchEnd, replacement);
@@ -259,4 +271,5 @@ Future<void> resolveConflict(
   // cache on a real device, this is the best-available fix, unconfirmed
   // on device.
   await VaultFolderService().coordinatedWrite(filePath, updated);
+  return backupRelPath;
 }

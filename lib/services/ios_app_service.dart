@@ -9,6 +9,18 @@ abstract class IosAppService {
   /// that vault (obsidian://open?vault=NAME) instead of whatever vault
   /// Obsidian last had active.
   Future<StepResult> openObsidian({String? vaultName});
+
+  /// 2026-08-19: real user feedback, live - told to go find "LocalSync
+  /// Conflict Backups" in Obsidian's own file list by hand: "humans
+  /// don't need to know petty shite, that's for computer machines to
+  /// deal with." The app already knows exactly which backup note it
+  /// just wrote (see conflict_scanner.dart's resolveConflict) - this
+  /// opens that specific note directly instead of describing a folder
+  /// to go find. [vaultRelativePath] is the note's path from the vault
+  /// root, e.g. "LocalSync Conflict Backups/note - 202608191945.md".
+  Future<StepResult> openObsidianFile(
+      {required String vaultName, required String vaultRelativePath});
+
   Future<bool> isObsidianInstalled();
 }
 
@@ -27,6 +39,25 @@ class IosAppServiceImpl implements IosAppService {
       await launchUrl(_obsidianUri(vaultName: vaultName),
           mode: LaunchMode.externalApplication);
       return const StepSuccess(message: 'Obsidian opened');
+    } catch (e) {
+      return const StepFailure(LinkingError.obsidianNotInstalled);
+    }
+  }
+
+  @override
+  Future<StepResult> openObsidianFile(
+      {required String vaultName, required String vaultRelativePath}) async {
+    if (!await isObsidianInstalled()) {
+      return const StepFailure(LinkingError.obsidianNotInstalled);
+    }
+    try {
+      final uri = Uri(
+        scheme: 'obsidian',
+        host: 'open',
+        queryParameters: {'vault': vaultName, 'file': vaultRelativePath},
+      );
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return const StepSuccess(message: 'Backup note opened');
     } catch (e) {
       return const StepFailure(LinkingError.obsidianNotInstalled);
     }
