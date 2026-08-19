@@ -87,10 +87,68 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
         self.startAccessing(call: call, result: result)
       case "stopAccessing":
         self.stopAccessing(call: call, result: result)
+      case "coordinatedWrite":
+        self.coordinatedWrite(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  // 2026-08-19: real device finding - a picker resolution the user
+  // confirmed working (device name/timestamp all correct at the time)
+  // was later found reverted back to its pre-resolution content, byte
+  // for byte, with no error surfaced anywhere. Most likely explanation:
+  // conflict_scanner.dart's resolveConflict() wrote the file via plain
+  // dart:io File.writeAsString(), which is a raw POSIX write - it does
+  // not go through NSFileCoordinator, so if Obsidian holds an
+  // NSFilePresenter on this vault folder (the normal iOS pattern for a
+  // document-based app watching a folder it doesn't exclusively own),
+  // Obsidian's own presenter is never told "this file changed
+  // externally, reload it" - its in-memory buffer stays stale, and its
+  // own next autosave (a timer, or losing focus) blindly overwrites
+  // Localsync's write right back to the unresolved version.
+  //
+  // NSFileCoordinator.coordinate(writingItemAt:) is the OS-level
+  // mechanism that exists specifically for this - it notifies every
+  // registered NSFilePresenter for the URL before/around the write, so
+  // if Obsidian is in fact a presenter here, this gives it the chance
+  // to invalidate its cache instead of clobbering it later. NOT yet
+  // confirmed on a real device that this actually stops the revert -
+  // the presenter-registration theory is the best available
+  // explanation given what was observed, not something inspectable
+  // from outside Obsidian's own code. dart:io's plain write remains the
+  // fallback (vault_folder_service.dart's coordinatedWrite) if this
+  // channel call fails for any reason, so behavior never regresses
+  // below what it was.
+  private func coordinatedWrite(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let path = args["path"] as? String,
+          let content = args["content"] as? String
+    else {
+      result(FlutterError(code: "BAD_ARGS", message: "path and content are required", details: nil))
+      return
+    }
+    let url = URL(fileURLWithPath: path)
+    let coordinator = NSFileCoordinator(filePresenter: nil)
+    var coordinationError: NSError?
+    var writeError: Error?
+    coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinationError) { coordinatedURL in
+      do {
+        try content.write(to: coordinatedURL, atomically: true, encoding: .utf8)
+      } catch {
+        writeError = error
+      }
+    }
+    if let coordinationError = coordinationError {
+      result(FlutterError(code: "COORDINATION_FAILED", message: coordinationError.localizedDescription, details: nil))
+      return
+    }
+    if let writeError = writeError {
+      result(FlutterError(code: "WRITE_FAILED", message: writeError.localizedDescription, details: nil))
+      return
+    }
+    result(true)
   }
 
   // Fixed 2026-08-11: real device hit "NO_ROOT_VC" - this app's

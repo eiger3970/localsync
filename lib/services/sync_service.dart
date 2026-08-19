@@ -47,6 +47,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
+import 'conflict_repair.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 
@@ -699,66 +700,11 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 //    the callout names which device/when the other version came from
 //    instead of a generic label. Ported line-for-line, not reinvented. ──
 
-final _fullConflictPattern = RegExp(
-  r'^<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n?',
-  multiLine: true,
-  dotAll: true,
-);
-final _partialConflictPattern = RegExp(r'^<<<<<<< [^\n]*\n', multiLine: true);
-final _kanbanFrontmatterPattern = RegExp(r'^kanban-plugin:', multiLine: true);
-
-String _normalizeWhitespace(String text) =>
-    text.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-/// Mirrors repair_conflicts.py's dedupe_and_check_append(): if theirs'
-/// lines, once the overlap with the end of ours is removed, don't
-/// duplicate anything already in ours, they're a clean additive change
-/// (both devices appended different new lines) - append with no
-/// conflict callout. Returns null if this auto-merge doesn't apply and
-/// the real conflict-callout fallback is needed.
-String? _dedupeAndCheckAppend(String ours, String theirs) {
-  final oursLines = ours.split('\n');
-  final theirsLines = theirs.split('\n');
-  var overlap = 0;
-  final maxCheck = oursLines.length < theirsLines.length
-      ? oursLines.length
-      : theirsLines.length;
-  for (var i = 1; i <= maxCheck; i++) {
-    final oursTail = oursLines.sublist(oursLines.length - i);
-    final theirsHead = theirsLines.sublist(0, i);
-    var equal = true;
-    for (var j = 0; j < i; j++) {
-      if (oursTail[j] != theirsHead[j]) {
-        equal = false;
-        break;
-      }
-    }
-    if (equal) overlap = i;
-  }
-  final remaining = theirsLines.sublist(overlap);
-  if (remaining.every((l) => l.trim().isEmpty)) return ours;
-
-  // 2026-08-17: real device bug - two sibling edits to the same line (e.g.
-  // both sides rewrote line 1 to different text) have overlap == 0 (no
-  // shared prefix at all between ours/theirs), yet "theirs isn't a
-  // duplicate substring of ours" trivially passes for any two different
-  // strings - meaning every genuine same-line conflict silently fell
-  // through to a plain append with no warning callout, instead of ever
-  // reaching the real conflict UI below. Requiring overlap > 0 means
-  // theirs must genuinely be "ours plus more" (one side's edit is a
-  // continuation/superset of the other's) - the actual case this was
-  // meant for - not just "text that happens to differ".
-  if (overlap == 0) return null;
-
-  final oursSet = oursLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
-  final remainingNonBlank = remaining.where((l) => l.trim().isNotEmpty).toList();
-  if (remainingNonBlank.isNotEmpty &&
-      remainingNonBlank.every((l) => !oursSet.contains(l.trim()))) {
-    return '$ours\n\n${remaining.join('\n').trim()}';
-  }
-  return null;
-}
-
+// 2026-08-19: the pure string-transform logic (regexes, dedupe, the
+// nested-conflict flatten fix) moved to conflict_repair.dart so it can
+// be unit-tested without dart:io/git2dart/Flutter - see
+// test/conflict_repair_test.dart. Only the disk-walking wrapper stays
+// here.
 void _repairAllConflictsOnDisk(String path,
     {String otherLabel = 'other device', String? otherTime}) {
   final dir = Directory(path);
@@ -768,57 +714,12 @@ void _repairAllConflictsOnDisk(String path,
     try {
       final content = entity.readAsStringSync();
       if (!content.contains('<<<<<<< ')) continue;
-      entity.writeAsStringSync(_repairConflictMarkers(content,
+      entity.writeAsStringSync(repairConflictMarkers(content,
           otherLabel: otherLabel, otherTime: otherTime));
     } catch (_) {
       // Skip unreadable files
     }
   }
-}
-
-String _repairConflictMarkers(String content,
-    {required String otherLabel, String? otherTime}) {
-  final isKanban = _kanbanFrontmatterPattern.hasMatch(content);
-
-  String mergeBoth(Match m) {
-    final ours = m.group(1)!.trim();
-    final theirs = m.group(2)!.trim();
-
-    if (_normalizeWhitespace(ours) == _normalizeWhitespace(theirs)) {
-      return '$ours\n';
-    }
-
-    final appended = _dedupeAndCheckAppend(ours, theirs);
-    if (appended != null) return '$appended\n';
-
-    if (isKanban) {
-      final otherLines = theirs
-          .split('\n')
-          .map((l) => '%% CONFLICT-OTHER ($otherLabel): $l %%')
-          .join('\n');
-      return '$ours\n$otherLines\n';
-    }
-    // 2026-08-18: "yours" used to sit as bare unwrapped text right
-    // before the callout - readable, but with no marker of its own,
-    // there was no reliable way to tell where it started (could be a
-    // whole paragraph or one word mid-sentence) when re-reading the
-    // file later for the tap-to-pick conflict picker. Wrapping it in a
-    // matching callout gives both sides the same clean, parseable
-    // boundary conflict_scanner.dart needs - still just as readable by
-    // eye in Obsidian, now two stacked callouts instead of prose+one.
-    final label = otherTime != null ? '$otherLabel — $otherTime' : otherLabel;
-    final oursCallout = ours.split('\n').map((l) => '> $l\n').join('');
-    final theirsCallout = theirs.split('\n').map((l) => '> $l\n').join('');
-    return '> [!info]+ SYNC CONFLICT — yours (review and delete one)\n'
-        '$oursCallout\n'
-        '> [!warning]+ SYNC CONFLICT — $label (review and delete one)\n'
-        '$theirsCallout\n';
-  }
-
-  var fixed = content.replaceAllMapped(_fullConflictPattern, mergeBoth);
-  // Stray/incomplete markers left over from a previous failed repair.
-  fixed = fixed.replaceAll(_partialConflictPattern, '');
-  return fixed;
 }
 
 /// Mirrors synco.sh's SYNCO_OTHER_LABEL/SYNCO_OTHER_TIME - the other
@@ -849,20 +750,36 @@ String _repairConflictMarkers(String content,
   }
 }
 
+// 2026-08-19: was defaulting anything unmatched to mergeConflict - same
+// misdiagnosis class fixed in git_service.dart's/pairing_controller.
+// dart's _diagnose() the same day (see LinkingError.unclassifiedError).
+// A real merge conflict is genuinely detected earlier via
+// Merge.analysis()/index.hasConflicts, not inferred from exception
+// text at all - this catch-all was only ever reachable for a
+// completely different, unrecognized failure, so labeling it
+// "mergeConflict" was never correct even before this fix.
 LinkingError _diagnose(Object e) {
   final msg = e.toString();
   if (msg.contains('Connection refused') ||
       msg.contains('No route to host') ||
       msg.contains('failed to connect') ||
-      msg.contains('timed out'))        return LinkingError.connectionRefused;
+      msg.contains('timed out')) {
+    return LinkingError.connectionRefused;
+  }
   if (msg.contains('authentication') ||
       msg.contains('Auth') ||
-      msg.contains('publickey'))        return LinkingError.sshAuthFailed;
+      msg.contains('publickey')) {
+    return LinkingError.sshAuthFailed;
+  }
   if (msg.contains('does not appear to be a git repository') ||
-      msg.contains('repository not found')) return LinkingError.bareRepoNotFound;
-  if (msg.contains('non-fast-forward') ||
-      msg.contains('fast-forward'))     return LinkingError.cannotFastForward;
-  if (msg.contains('index is locked') ||
-      msg.contains('index.lock'))       return LinkingError.indexLocked;
-  return LinkingError.mergeConflict;
+      msg.contains('repository not found')) {
+    return LinkingError.bareRepoNotFound;
+  }
+  if (msg.contains('non-fast-forward') || msg.contains('fast-forward')) {
+    return LinkingError.cannotFastForward;
+  }
+  if (msg.contains('index is locked') || msg.contains('index.lock')) {
+    return LinkingError.indexLocked;
+  }
+  return LinkingError.unclassifiedError;
 }

@@ -157,9 +157,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       title: Text(e.filePath,
                           style: const TextStyle(color: kStar, fontSize: 15)),
                       subtitle: Text(
-                        e.when != null
-                            ? 'Conflicting change by ${e.who} - ${e.when}'
-                            : 'Conflicting change by ${e.who}',
+                        e.versions.length > 2
+                            ? '${e.versions.length - 1} unresolved versions '
+                                'stacked - most recent by ${e.who}'
+                            : (e.when != null
+                                ? 'Conflicting change by ${e.who} - ${e.when}'
+                                : 'Conflicting change by ${e.who}'),
                         style: const TextStyle(color: kTextMid, fontSize: 13),
                       ),
                       trailing:

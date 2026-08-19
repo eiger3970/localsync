@@ -90,16 +90,33 @@ class GitServiceImpl implements GitService {
   /// and a dead-end "check your network" resolution with no PAIR NOW
   /// button, confirmed 2026-08-09 from the debugDetail text on a real
   /// device. Mirrors pairing_controller.dart's _diagnose().
+  ///
+  /// 2026-08-19: the fallback below used to default anything unmatched
+  /// to connectionRefused too - same bug, just not fully fixed the
+  /// first time. Confirmed on real device: a PathAccessException from
+  /// vault_backup.dart's EPERM (nothing to do with the network) showed
+  /// as "Cannot reach your desktop. SSH connection refused." and sent
+  /// the user chasing pairing/network steps for a filesystem bug. See
+  /// LinkingError.unclassifiedError.
   LinkingError _diagnose(Object e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('credential') ||
         msg.contains('auth') ||
         msg.contains('permission denied') ||
         msg.contains('hostkey') ||
-        msg.contains('host key'))          return LinkingError.sshAuthFailed;
-    if (msg.contains('not found') ||
-        msg.contains('no such file'))      return LinkingError.bareRepoNotFound;
-    return LinkingError.connectionRefused;
+        msg.contains('host key')) {
+      return LinkingError.sshAuthFailed;
+    }
+    if (msg.contains('not found') || msg.contains('no such file')) {
+      return LinkingError.bareRepoNotFound;
+    }
+    if (msg.contains('connection refused') ||
+        msg.contains('no route to host') ||
+        msg.contains('timed out') ||
+        msg.contains('network is unreachable')) {
+      return LinkingError.connectionRefused;
+    }
+    return LinkingError.unclassifiedError;
   }
 
   bool get _isCloned => Directory('$localVaultPath/.git').existsSync();
