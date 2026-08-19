@@ -72,12 +72,20 @@ class ConflictEntry {
 // _repairConflictMarkers now flattens any number of previously-stacked
 // versions into siblings at this same depth instead of nesting them.
 final _stackedBlockPattern = RegExp(
-  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT — .+? \(review and delete one\)\n'
-  r'(?:> .*\n?)*\n?)+',
+  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT - .+? \(review and delete one\)\n'
+  r'(?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*\n?)+',
 );
+// 2026-08-19: body capture stops before another header line instead of
+// greedily swallowing it - see conflict_repair.dart's
+// consolidateStackedRuns for the real device bug this caused (an old
+// header with no body of its own read as a version whose "body" was
+// literally the next header's raw text). The write side is now
+// guaranteed to always produce a single already-consolidated run with
+// no header directly following another header, but this stays
+// defensive rather than relying on that invariant silently.
 final _calloutPattern = RegExp(
-  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT — (.+?) \(review and delete one\)\n'
-  r'((?:> .*\n?)*)',
+  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT - (.+?) \(review and delete one\)\n'
+  r'((?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*)',
 );
 
 final _kanbanPairedPattern = RegExp(
@@ -157,7 +165,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
         final versions = <ConflictVersion>[];
         for (final m in _calloutPattern.allMatches(block.group(0)!)) {
           final rawLabel = m.group(1)!;
-          final sep = rawLabel.indexOf(' — ');
+          final sep = rawLabel.indexOf(' - ');
           versions.add(ConflictVersion(
             who: sep == -1 ? rawLabel : rawLabel.substring(0, sep),
             when: sep == -1 ? null : rawLabel.substring(sep + 3),

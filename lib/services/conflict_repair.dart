@@ -82,7 +82,7 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
 // depth (`>`, `> >`, `> > >`, ...) - extractStackedVersions strips
 // depth first, so this only ever needs to match depth-0 headers.
 final calloutHeaderPattern = RegExp(
-  r'^\[!(?:info|warning)\]\+ SYNC CONFLICT — (.+?) \(review and delete one[^)]*\)$',
+  r'^\[!(?:info|warning)\]\+ SYNC CONFLICT - (.+?) \(review and delete one[^)]*\)$',
   multiLine: true,
 );
 
@@ -167,7 +167,7 @@ String repairConflictMarkers(String content,
     // never nested one layer deeper. Every round after this one keeps
     // adding siblings, not depth.
     final theirsLabel =
-        otherTime != null ? '$otherLabel — $otherTime' : otherLabel;
+        otherTime != null ? '$otherLabel - $otherTime' : otherLabel;
     final versions = [
       ...extractStackedVersions(ours),
       (label: theirsLabel, body: theirs),
@@ -177,7 +177,7 @@ String repairConflictMarkers(String content,
       final kind = i == 0 ? '!info' : '!warning';
       final callout =
           versions[i].body.split('\n').map((l) => '> $l\n').join('');
-      blocks.add('> [$kind]+ SYNC CONFLICT — ${versions[i].label} '
+      blocks.add('> [$kind]+ SYNC CONFLICT - ${versions[i].label} '
           '(review and delete one)\n$callout');
     }
     return '${blocks.join('\n')}\n';
@@ -186,5 +186,54 @@ String repairConflictMarkers(String content,
   var fixed = content.replaceAllMapped(fullConflictPattern, mergeBoth);
   // Stray/incomplete markers left over from a previous failed repair.
   fixed = fixed.replaceAll(partialConflictPattern, '');
-  return fixed;
+  return consolidateStackedRuns(fixed);
+}
+
+// 2026-08-19: real device finding, confirmed the same night as the
+// flatten fix above - mergeBoth() only ever sees the text INSIDE one
+// git conflict marker hunk. Git's hunk boundary is only as wide as the
+// lines that actually differ between the two sides - if a user edits
+// just the one body line inside an existing callout (not its header),
+// git's hunk is exactly that one line, and the untouched header line
+// above it - along with any other already-stacked callout further
+// down the file - never passes through mergeBoth() at all. Confirmed
+// on real device: this produced a duplicate "yours" header (the old
+// untouched one, followed immediately by a fresh one mergeBoth() wrote
+// for just the conflicting line) and stranded an older callout further
+// down the file as if it were a separate, unrelated conflict - the
+// picker showed 2 versions instead of the real 3, and the orphaned old
+// header text leaked into a panel's body since the scanner's own
+// parsing didn't expect a header with no body of its own.
+//
+// This is a second, whole-file pass run after the per-hunk replace
+// above: it finds any run of 2+ directly-adjacent SYNC CONFLICT
+// callouts - regardless of whether mergeBoth() ever saw them as one
+// unit - and re-flattens that whole run through extractStackedVersions
+// again. That function already discards any header with an empty body
+// (exactly what an orphaned duplicate header looks like once
+// extracted), so this cleanly collapses the duplicate away and
+// recovers every real version, instead of leaving mergeBoth()'s
+// narrower, hunk-scoped view as the final answer. Safe to run
+// unconditionally: a file with no adjacency problem simply has nothing
+// for this pattern to match, and re-flattening an already-canonical
+// block is idempotent.
+final _stackedRunPattern = RegExp(
+  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT - .+? \(review and delete one[^)]*\)\n'
+  r'(?:> .*\n?)*\n?){2,}',
+);
+
+String consolidateStackedRuns(String content) {
+  return content.replaceAllMapped(_stackedRunPattern, (m) {
+    final versions = extractStackedVersions(m.group(0)!);
+    if (versions.length < 2) return m.group(0)!;
+    final blocks = <String>[];
+    for (var i = 0; i < versions.length; i++) {
+      final kind = i == 0 ? '!info' : '!warning';
+      final callout =
+          versions[i].body.split('\n').map((l) => '> $l\n').join('');
+      blocks.add('> [$kind]+ SYNC CONFLICT - ${versions[i].label} '
+          '(review and delete one)\n$callout');
+    }
+    return '${blocks.join('\n')}\n';
+  });
 }
