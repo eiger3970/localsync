@@ -127,6 +127,16 @@ class RepositoryProvider extends ChangeNotifier {
           switch (result) {
             case SyncNoChanges():
             case SyncOk():
+            // 2026-08-19: grouped with the other success cases, not
+            // treated as an error - the merge itself succeeded and the
+            // conflict is fully backed up/resolvable, this just also
+            // carries a followup action. home_screen.dart's caller
+            // checks for this case separately (before falling through
+            // to this generic status update) to navigate straight into
+            // the Conflicts screen - see SyncOkWithConflicts's own
+            // comment in sync_service.dart for why this replaced the
+            // old SyncConflict class.
+            case SyncOkWithConflicts():
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.ok,
                 syncPhase: SyncPhase.done,
@@ -142,14 +152,6 @@ class RepositoryProvider extends ChangeNotifier {
             // shape LinkingError already used - home_screen.dart's
             // dialog now renders all three through the same DiagCard
             // layout the setup flow uses.
-            case SyncConflict(:final conflictingFiles):
-              _repos[i] = _repos[i].copyWith(
-                status:    SyncStatus.error,
-                syncPhase: SyncPhase.idle,
-                lastError: 'Conflict in: $conflictingFiles',
-                lastErrorResolution:
-                    'Edit on desktop, resolve markers, then sync again.',
-              );
             case SyncFailed(:final diagnosis, :final resolution, :final debugDetail):
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.error,

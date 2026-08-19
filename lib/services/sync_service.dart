@@ -73,9 +73,25 @@ class SyncNoChanges extends SyncResult {
   const SyncNoChanges({this.debug});
 }
 
-class SyncConflict extends SyncResult {
-  final String conflictingFiles;
-  const SyncConflict(this.conflictingFiles);
+// 2026-08-19: real user finding, walked through the actual flow live -
+// "way too convoluted, automate it." A pull that produced a real,
+// still-unresolved conflict used to return the exact same SyncOk as
+// any other clean pull ("Merged in changes from desktop") - nothing on
+// screen said a decision was needed, so the only way to ever discover
+// a conflict was already knowing to check a menu with no badge on it.
+// This carries how many files actually need review, straight from
+// _repairAllConflictsOnDisk's own count - not a guess, not a separate
+// re-scan - so the caller can both say so honestly and navigate
+// straight into the Conflicts screen instead of a dead-end success
+// message. Replaces the old SyncConflict class, which existed for
+// this same purpose but was never actually returned by pull() -
+// permanently dead code from before the conflict-picker feature
+// existed, and modeled as a failure besides, which this isn't: the
+// merge itself succeeded, the conflict is fully backed up and
+// resolvable, this is a followup action, not an error.
+class SyncOkWithConflicts extends SyncResult {
+  final int conflictCount;
+  const SyncOkWithConflicts(this.conflictCount);
 }
 
 class SyncFailed extends SyncResult {
@@ -145,7 +161,9 @@ String syncResultMessage(SyncResult result) => switch (result) {
       // 2026-08-14 diagnostic: see SyncNoChanges.debug's comment.
       SyncNoChanges(:final debug) =>
           debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
-      SyncConflict() => 'Conflict - resolve on desktop then sync again.',
+      SyncOkWithConflicts(:final conflictCount) => conflictCount == 1
+          ? 'Merged in changes - 1 file needs your review.'
+          : 'Merged in changes - $conflictCount files need your review.',
       SyncFailed(:final diagnosis) => diagnosis,
       SyncNeedsConfirmation(:final summary) => summary,
     };
@@ -348,15 +366,17 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     // versions kept), never aborted or silently dropped.
     final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
     git.Merge.commit(repo: repo, commit: annotated);
+    var unresolvedCount = 0;
     if (repo.index.hasConflicts) {
       final other = _labelForCommit(repo, remoteOid);
-      _repairAllConflictsOnDisk(p.vaultPath,
+      unresolvedCount = _repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
     }
     _finishMergeCommit(repo, p.deviceName,
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
+    if (unresolvedCount > 0) return SyncOkWithConflicts(unresolvedCount);
     return const SyncOk('Merged in changes from desktop.');
   });
 }
@@ -705,8 +725,20 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 // be unit-tested without dart:io/git2dart/Flutter - see
 // test/conflict_repair_test.dart. Only the disk-walking wrapper stays
 // here.
-void _repairAllConflictsOnDisk(String path,
+//
+// 2026-08-19, later the same night: now returns how many files came
+// out of repair with a real, still-unresolved SYNC CONFLICT callout -
+// not just how many were touched, since repairConflictMarkers can
+// auto-merge a conflict cleanly with no callout left at all (identical
+// sides, or a clean non-overlapping append). This is what makes
+// automatic navigation into the Conflicts screen possible: the pull
+// result can now honestly say how many files actually need a decision
+// instead of a generic "merged" message that looks identical whether
+// nothing happened or three files just went into conflict - see this
+// session's own mermaid flowchart of the flow this replaces.
+int _repairAllConflictsOnDisk(String path,
     {String otherLabel = 'other device', String? otherTime}) {
+  var unresolvedCount = 0;
   final dir = Directory(path);
   for (final entity in dir.listSync(recursive: true, followLinks: false)) {
     if (entity is! File) continue;
@@ -714,12 +746,18 @@ void _repairAllConflictsOnDisk(String path,
     try {
       final content = entity.readAsStringSync();
       if (!content.contains('<<<<<<< ')) continue;
-      entity.writeAsStringSync(repairConflictMarkers(content,
-          otherLabel: otherLabel, otherTime: otherTime));
+      final repaired = repairConflictMarkers(content,
+          otherLabel: otherLabel, otherTime: otherTime);
+      entity.writeAsStringSync(repaired);
+      if (repaired.contains('SYNC CONFLICT') ||
+          repaired.contains('CONFLICT-OTHER')) {
+        unresolvedCount++;
+      }
     } catch (_) {
       // Skip unreadable files
     }
   }
+  return unresolvedCount;
 }
 
 /// Mirrors synco.sh's SYNCO_OTHER_LABEL/SYNCO_OTHER_TIME - the other
