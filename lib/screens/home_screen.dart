@@ -532,16 +532,33 @@ class HomeScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 2026-08-20: real question, live - "is this just for
+              // desktop, or what about for phones or for hotspots?"
+              // Clarified: this is always the desktop's own address on
+              // whatever network it's currently reachable through
+              // (USB tethering or your phone's hotspot both put it on
+              // some address within that network) - never this phone's
+              // own address, which this app has no need to know.
               const Text(
-                'Fix this if pairing or sync can\'t reach your desktop - '
-                'check the current address there with `ip -4 addr show`.',
+                'Your desktop\'s address, not this phone\'s - it changes '
+                'depending on how the desktop is connected right now '
+                '(USB tethering or your hotspot each give it a different '
+                'one). Check the current value there with '
+                '`ip -4 addr show`.',
                 style: TextStyle(color: kTextMid, fontSize: 13),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: ctrl,
                 autofocus: true,
-                keyboardType: TextInputType.number,
+                // 2026-08-20: real bug, found on first real use -
+                // TextInputType.number gives iOS's plain digit-only
+                // number pad, which has no decimal point key at all.
+                // An IP address is unusable to type on it.
+                // numberWithOptions(decimal: true) keeps the numeric
+                // pad but adds the "." key IP entry actually needs.
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(color: kStar),
                 decoration: InputDecoration(
                   hintText: 'e.g. 172.20.10.2',
