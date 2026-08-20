@@ -256,9 +256,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 : (e.when != null
                                     ? 'Conflicting change by ${e.who} - ${e.when}'
                                     : 'Conflicting change by ${e.who}')),
+                        // 2026-08-20: real feedback, live - "too dark
+                        // and grey", same complaint this screen has hit
+                        // repeatedly today on dim/small text (the
+                        // divider, the dialog backup line) - kStar/14px
+                        // matches how those were fixed.
                         style: TextStyle(
-                            color: reappeared ? Colors.amber : kTextMid,
-                            fontSize: 13),
+                            color: reappeared ? Colors.amber : kStar,
+                            fontSize: 14),
                       ),
                       trailing:
                           const Icon(Icons.chevron_right, color: kTextDim),
