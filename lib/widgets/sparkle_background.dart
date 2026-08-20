@@ -71,7 +71,7 @@ class _SparklePainter extends CustomPainter {
       final center = Offset(
           _positions[i].dx * size.width, _positions[i].dy * size.height);
       final paint = Paint()
-        ..color = kGreen.withOpacity(opacity * 0.6)
+        ..color = kGreen.withValues(alpha: opacity * 0.6)
         ..strokeWidth = 1.4;
       canvas.drawLine(
           center.translate(-radius, 0), center.translate(radius, 0), paint);

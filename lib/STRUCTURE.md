@@ -806,10 +806,18 @@ first row (1.1 on page 3, 3.0 on page 5) *is* the real swipe/tap
 gesture (`_SwipeChecklistRow`/`_TapChecklistRow`) instead of a
 checkbox describing a separate button elsewhere. The confirm gesture
 on both pages (I'VE CREATED IT / LOCALSYNC HOME) is now
-`_GifSwipeConfirm`, using `dog_progress_off_leash.gif` instead of a
+`SwapGifSwipeConfirm`, using `dog_progress_off_leash.gif` instead of a
 plain pill button. The old `_SwipeToConfirm` widget (pages 3/5's
 original swipe pills) was fully removed once both call sites moved
 off it - no dead code left behind.
+
+**2026-08-20 cleanup**: the page's original private `_GifSwipeConfirm`/
+`_GifSwipeConfirmState` (the widget this section used to describe) was
+itself superseded by the shared `SwapGifSwipeConfirm` above and left
+in the file, unused, for several sessions - removed during a lint/
+dead-code pass. If a future "I'VE CREATED IT" style confirm needs
+label/validate support that `SwapGifSwipeConfirm` doesn't have, add it
+there rather than resurrecting the old private class.
 
 ### Protected IP
 The 8-step sequence and error resolution strings live in:

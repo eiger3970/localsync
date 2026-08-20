@@ -93,7 +93,7 @@ class _DogPainter extends CustomPainter {
       canvas.drawPath(
         Path()..addPolygon(c.points, false),
         Paint()
-          ..color = const Color(0xFF00FF41).withOpacity(c.opacity)
+          ..color = const Color(0xFF00FF41).withValues(alpha: c.opacity)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 4
           ..strokeCap = StrokeCap.round

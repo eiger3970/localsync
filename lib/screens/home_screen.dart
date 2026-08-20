@@ -119,9 +119,9 @@ class HomeScreen extends StatelessWidget {
                 final hasRepo = provider.repos.isNotEmpty;
                 return [
                   if (hasRepo)
-                    PopupMenuItem(
+                    const PopupMenuItem(
                       value: 'commit',
-                      child: const _MenuRow(
+                      child: _MenuRow(
                         icon: Icons.edit_note,
                         label: 'Commit with message...',
                       ),
@@ -797,7 +797,7 @@ class _AutoBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: autoSync ? kGreen.withOpacity(0.15) : kBorder,
+        color: autoSync ? kGreen.withValues(alpha: 0.15) : kBorder,
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
@@ -848,12 +848,15 @@ class _StatusIcon extends StatelessWidget {
     final hasSyncing = repos.any((r) => r.status == SyncStatus.syncing);
     final allOk = repos.every((r) => r.status == SyncStatus.ok);
 
-    if (hasSyncing)
+    if (hasSyncing) {
       return const Icon(Icons.sync, color: Colors.amber, size: 22);
-    if (hasError)
+    }
+    if (hasError) {
       return const Icon(Icons.error_outline, color: Colors.redAccent, size: 22);
-    if (allOk)
+    }
+    if (allOk) {
       return const Icon(Icons.check_circle_outline, color: kGreen, size: 22);
+    }
     return const Icon(Icons.circle_outlined, color: kTextDim, size: 22);
   }
 }

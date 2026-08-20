@@ -50,23 +50,23 @@ final appTheme = ThemeData(
     labelSmall: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
   ),
   dividerColor: kBorder,
-  inputDecorationTheme: InputDecorationTheme(
+  inputDecorationTheme: const InputDecorationTheme(
     filled: true,
     fillColor: kSurface,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.zero,
-      borderSide: const BorderSide(color: kBorder),
+      borderSide: BorderSide(color: kBorder),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.zero,
-      borderSide: const BorderSide(color: kBorder),
+      borderSide: BorderSide(color: kBorder),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.zero,
-      borderSide: const BorderSide(color: kGreen),
+      borderSide: BorderSide(color: kGreen),
     ),
-    hintStyle: const TextStyle(color: kTextDim, fontSize: 12),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    hintStyle: TextStyle(color: kTextDim, fontSize: 12),
+    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
   ),
   elevatedButtonTheme: ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
