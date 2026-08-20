@@ -21,6 +21,7 @@ const _kTemplatesSeededKey    = 'db_commit_templates_seeded';
 const _kDeviceNameKey         = 'db_device_name';
 const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 const _kDesktopIpKey          = 'db_desktop_ip';
+const _kBareRepoPathKey       = 'db_bare_repo_path';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -132,6 +133,34 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDesktopIpKey, ip);
+  }
+
+  // ── Bare repo path override ────────────────────────────────────────────────
+  // 2026-08-20: real multi-repo gap, found while investigating "add
+  // multiple repositories" - bareRepoPath was a build-time constant
+  // just like desktopIp used to be, meaning every "Add another vault"
+  // attempt pointed at the exact same bare repo no matter which folder
+  // was picked - genuine multi-repo (a second vault syncing to its own
+  // separate bare repo) wasn't architecturally possible. Same override
+  // pattern as desktopIp: null means "use the build-time default," a
+  // real value means the user set a specific target for the *next*
+  // vault they link (via the Settings screen, before tapping "Add
+  // another vault").
+  static String? _webBareRepoPath;
+
+  Future<String?> getBareRepoPath() async {
+    if (kIsWeb) return _webBareRepoPath;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kBareRepoPathKey);
+  }
+
+  Future<void> setBareRepoPath(String path) async {
+    if (kIsWeb) {
+      _webBareRepoPath = path;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kBareRepoPathKey, path);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────

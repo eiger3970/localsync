@@ -34,7 +34,14 @@ class LinkingController extends ChangeNotifier {
   // getDesktopIp/setDesktopIp) so a user can fix this themselves
   // on-device, no rebuild required.
   String desktopIp;
-  final String bareRepoPath;
+  // 2026-08-20: was final - real multi-repo gap. Every "Add another
+  // vault" attempt pointed at the exact same bare repo regardless of
+  // which folder was picked, since this never varied. Now mutable,
+  // same override pattern as desktopIp (see database_service.dart's
+  // getBareRepoPath/setBareRepoPath) - the Settings screen lets a user
+  // set a different target *before* linking a new vault, so a second,
+  // genuinely separate vault can sync to its own separate bare repo.
+  String bareRepoPath;
   final int sshPort;
 
   final IosAppService _iosApps;
@@ -58,6 +65,15 @@ class LinkingController extends ChangeNotifier {
   /// no app restart needed.
   void updateDesktopIp(String ip) {
     desktopIp = ip;
+    notifyListeners();
+  }
+
+  /// Overwrites [bareRepoPath] and notifies listeners - same contract
+  /// as [updateDesktopIp]. Takes effect on the *next* vault link, not
+  /// retroactively on any already-linked Repository (those keep the
+  /// remotePath they were saved with).
+  void updateBareRepoPath(String path) {
+    bareRepoPath = path;
     notifyListeners();
   }
 

@@ -19,6 +19,7 @@ import 'conflicts_screen.dart';
 import 'linking_screen.dart';
 import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -91,7 +92,10 @@ class HomeScreen extends StatelessWidget {
                 if (v == 'link') _openLinking(context);
                 if (v == 'about') _showAbout(context);
                 if (v == 'device_name') _editDeviceName(context, provider);
-                if (v == 'desktop_ip') _editDesktopIp(context, provider);
+                if (v == 'settings') {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                }
                 final repo = provider.selectedRepo;
                 if (repo == null) return;
                 if (v == 'commit') {
@@ -150,21 +154,6 @@ class HomeScreen extends StatelessWidget {
                         labelColor: Colors.redAccent,
                       ),
                     ),
-                  // 2026-08-20: real user feedback - "this is difficult
-                  // for users, I need to build this in." The desktop's
-                  // IP drifts (USB tether vs hotspot vs plain DHCP
-                  // reassignment) and used to be a build-time constant,
-                  // meaning any drift needed a code edit and a full
-                  // rebuild+resideload just to reconnect. Now editable
-                  // on-device, same pattern as Device name below.
-                  const PopupMenuItem(
-                    value: 'desktop_ip',
-                    child: _MenuRow(
-                      icon: Icons.dns_outlined,
-                      label: 'Desktop IP',
-                      subtitle: 'Fix this if pairing/sync can\'t connect',
-                    ),
-                  ),
                   // 2026-08-18: device-level, not repo-scoped - used as
                   // the git commit author so a sync conflict can say who
                   // made a change, not just when (see sync_service.dart's
@@ -228,6 +217,23 @@ class HomeScreen extends StatelessWidget {
                             : 'Pull automatically every time the app opens',
                       ),
                     ),
+                  // 2026-08-20: real user feedback - "this is difficult
+                  // for users, I need to build this in." Desktop IP
+                  // drifts (USB tether vs hotspot vs plain DHCP
+                  // reassignment) and used to be a build-time constant.
+                  // Now a real screen (settings_screen.dart) - also
+                  // houses Bare repo path, added for genuine multi-repo
+                  // support (bareRepoPath was likewise a build-time
+                  // constant, meaning a second vault could never target
+                  // a different bare repo than the first).
+                  const PopupMenuItem(
+                    value: 'settings',
+                    child: _MenuRow(
+                      icon: Icons.settings_outlined,
+                      label: 'Settings',
+                      subtitle: 'Desktop IP, bare repo path',
+                    ),
+                  ),
                   PopupMenuItem(
                     value: 'link',
                     child: _MenuRow(
@@ -508,107 +514,6 @@ class HomeScreen extends StatelessWidget {
     );
     if (name != null && name.isNotEmpty) {
       await provider.setDeviceName(name);
-    }
-  }
-
-  // 2026-08-20: real user feedback, live - "this is difficult for
-  // users, I need to build this in." LinkingController.desktopIp is
-  // already the single live source of truth (main.dart applies any
-  // saved override to it at startup), so this pre-fills straight from
-  // there - no separate async lookup needed like device name's dance
-  // above. A plain IPv4 check catches an obviously wrong value before
-  // it's saved, rather than only surfacing as a mysterious connection
-  // failure on the next sync attempt.
-  static final _ipPattern =
-      RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
-
-  Future<void> _editDesktopIp(
-    BuildContext context,
-    RepositoryProvider provider,
-  ) async {
-    final linkingCtrl = context.read<LinkingController>();
-    final ctrl = TextEditingController(text: linkingCtrl.desktopIp);
-    String? error;
-    final ip = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setState) => AlertDialog(
-          backgroundColor: kSurface,
-          title: const Text('Desktop IP',
-              style: TextStyle(color: kStar, fontSize: 17)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 2026-08-20: real feedback, live - "clean this verbose
-              // text up." Cut the how-to-find-it instructions entirely
-              // (not actionable from the phone anyway, that's a desktop
-              // terminal step) - just the one fact that actually
-              // matters here, icon + short line matching this app's
-              // established pattern elsewhere (e.g. conflict_picker_
-              // screen.dart's _DialogPoint) instead of a paragraph.
-              // Built-in icon, not a custom SVG - real rendering risk
-              // with no way to preview, already decided against
-              // elsewhere in this app for the same reason.
-              const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.dns_outlined, color: kTextMid, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Your desktop\'s address - not this phone\'s. '
-                      'Changes between Tether and Hotspot.',
-                      style: TextStyle(color: kTextMid, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                autofocus: true,
-                // 2026-08-20: real bug, found on first real use -
-                // TextInputType.number gives iOS's plain digit-only
-                // number pad, which has no decimal point key at all.
-                // An IP address is unusable to type on it.
-                // numberWithOptions(decimal: true) keeps the numeric
-                // pad but adds the "." key IP entry actually needs.
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: kStar),
-                decoration: InputDecoration(
-                  hintText: 'e.g. 172.20.10.2',
-                  errorText: error,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel',
-                  style: TextStyle(color: kTextDim, fontSize: 15)),
-            ),
-            TextButton(
-              onPressed: () {
-                final trimmed = ctrl.text.trim();
-                if (!_ipPattern.hasMatch(trimmed)) {
-                  setState(() => error = 'Not a valid IP address');
-                  return;
-                }
-                Navigator.pop(dialogContext, trimmed);
-              },
-              child: const Text('Save',
-                  style: TextStyle(color: kStar, fontSize: 15)),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (ip != null && ip.isNotEmpty) {
-      await provider.setDesktopIp(ip);
-      linkingCtrl.updateDesktopIp(ip);
     }
   }
 }

@@ -69,6 +69,12 @@ class RepositoryProvider extends ChangeNotifier {
   Future<String?> getDesktopIp() => _db.getDesktopIp();
   Future<void> setDesktopIp(String ip) => _db.setDesktopIp(ip);
 
+  // ── Bare repo path override ────────────────────────────────────────────────
+  // See database_service.dart's getBareRepoPath/setBareRepoPath - same
+  // reasoning as Desktop IP above, real multi-repo gap.
+  Future<String?> getBareRepoPath() => _db.getBareRepoPath();
+  Future<void> setBareRepoPath(String path) => _db.setBareRepoPath(path);
+
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {
