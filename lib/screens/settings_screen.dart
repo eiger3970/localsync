@@ -82,36 +82,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SettingLabel(
-              icon: Icons.dns_outlined,
-              text: 'Your desktop\'s address - not this phone\'s. '
-                  'Changes between Tether and Hotspot.',
-            ),
-            const SizedBox(height: 8),
+            // 2026-08-20: real feedback, live - "looks complicated, less
+            // verbose is better." Both labels cut to one short line,
+            // same trim already applied elsewhere in this app for the
+            // same complaint.
             TextField(
               controller: _ipCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: kStar),
               decoration: InputDecoration(
                 labelText: 'Desktop IP',
+                helperText: 'Changes with Tether/Hotspot',
                 hintText: 'e.g. 172.20.10.2',
                 errorText: _ipError,
               ),
             ),
-            const SizedBox(height: 28),
-            const _SettingLabel(
-              icon: Icons.storage_outlined,
-              text: 'Which bare repo the next vault you link will sync to. '
-                  'A second, genuinely separate vault needs its own path '
-                  'here before you tap "Add another vault" - doesn\'t '
-                  'change any vault already linked.',
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
             TextField(
               controller: _pathCtrl,
               style: const TextStyle(color: kStar, fontSize: 13),
               decoration: InputDecoration(
                 labelText: 'Bare repo path',
+                helperText: 'For the next vault you link',
                 hintText: '/home/user/Git_bare_repo/name.git',
                 errorText: _pathError,
               ),
@@ -127,27 +119,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SettingLabel extends StatelessWidget {
-  final IconData icon;
-  final String text;
-  const _SettingLabel({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: kTextMid, size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(text,
-              style: const TextStyle(color: kTextMid, fontSize: 13)),
-        ),
-      ],
     );
   }
 }
