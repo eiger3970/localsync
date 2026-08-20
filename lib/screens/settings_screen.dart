@@ -86,13 +86,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // verbose is better." Both labels cut to one short line,
             // same trim already applied elsewhere in this app for the
             // same complaint.
+            // 2026-08-20: real bug, live - label/helper text rendered
+            // smaller than the input text itself (Material's default
+            // InputDecoration sizing), backwards from what's readable.
+            // Explicit styles here match this app's established
+            // kStar/kTextMid readability fixes rather than trusting
+            // the theme's small defaults for these two roles.
             TextField(
               controller: _ipCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: kStar),
+              style: const TextStyle(color: kStar, fontSize: 16),
               decoration: InputDecoration(
                 labelText: 'Desktop IP',
+                labelStyle: const TextStyle(color: kStar, fontSize: 15),
                 helperText: 'Changes with Tether/Hotspot',
+                helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                 hintText: 'e.g. 172.20.10.2',
                 errorText: _ipError,
               ),
@@ -100,10 +108,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 20),
             TextField(
               controller: _pathCtrl,
-              style: const TextStyle(color: kStar, fontSize: 13),
+              style: const TextStyle(color: kStar, fontSize: 14),
               decoration: InputDecoration(
                 labelText: 'Bare repo path',
+                labelStyle: const TextStyle(color: kStar, fontSize: 15),
                 helperText: 'For the next vault you link',
+                helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                 hintText: '/home/user/Git_bare_repo/name.git',
                 errorText: _pathError,
               ),
