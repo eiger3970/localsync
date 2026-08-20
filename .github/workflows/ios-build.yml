@@ -1,0 +1,64 @@
+# .github/workflows/ios-build.yml
+#
+# 2026-08-20: free alternative to Codemagic once its build minutes ran
+# out - GitHub Actions gives unlimited free minutes, including real
+# macOS runners, for public repositories, which this repo already is.
+# Mirrors codemagic.yaml's ios-release workflow step-for-step so both
+# stay usable in parallel; not a replacement, a fallback.
+#
+# Builds unsigned (--no-codesign), same as Codemagic - sideloading
+# handles signing on-device, so no certificates/secrets are needed here
+# either.
+
+name: iOS Build (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Clean stale build/Pods cache
+        run: flutter clean
+
+      - name: Disable Swift Package Manager, force CocoaPods
+        run: flutter config --no-enable-swift-package-manager
+
+      - name: Get Flutter packages
+        run: flutter pub get
+
+      - name: Build iOS archive
+        run: |
+          flutter build ipa --release --no-codesign --verbose 2>&1 | tee /tmp/build_verbose.log
+          mkdir -p build/ios/ipa
+          cd build/ios/archive
+          mkdir -p Payload
+          cp -r Runner.xcarchive/Products/Applications/Runner.app Payload/
+          zip -r ../ipa/Runner.ipa Payload/
+
+      - name: Verify libgit2 is actually embedded (diagnostic, not a fix)
+        run: |
+          APP=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          echo "=== Podfile.lock: was git2dart_binaries built via CocoaPods? ==="
+          grep -A3 -i "git2dart" ios/Podfile.lock || echo "MISSING: git2dart not in Podfile.lock at all"
+          echo "=== Frameworks/ inside Runner.app ==="
+          ls -la "$APP/Frameworks/" 2>&1 || echo "MISSING: no Frameworks dir in Runner.app"
+          echo "=== Does the Runner binary link libgit2/libssh2 at all? ==="
+          otool -L "$APP/Runner" 2>&1 | grep -i "git\|ssh2\|crypto" || echo "MISSING: no git/ssh2/crypto linkage found via otool -L"
+          echo "=== Is git_libgit2_init present in the Runner binary's own symbol table? ==="
+          nm "$APP/Runner" 2>&1 | grep git_libgit2 || echo "MISSING: git_libgit2_init not found via nm on Runner binary"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Runner-ipa
+          path: build/ios/ipa/*.ipa
