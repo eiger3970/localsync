@@ -15,6 +15,7 @@ import '../models/repository.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
+import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
 
@@ -149,6 +150,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     try {
       if (path != null) {
         backupRelPath = await resolveConflict(path, widget.entry, chosen);
+        // 2026-08-20: remember this resolution so a later scan can flag
+        // it if it reappears (Obsidian's cache reverting a resolved
+        // write) instead of it silently looking like an unremarkable
+        // new conflict - see resolved_watchlist.dart.
+        await DatabaseService().addResolvedRecords(
+          recordsFor(widget.entry, DateTime.now()),
+        );
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);

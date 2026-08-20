@@ -47,12 +47,12 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
       desktopIp:      '172.20.10.11',
-      // 2026-08-20: points at the real production bare repo, replacing
-      // Working Copy. A full mirror backup (Md_files_bare_backup_
-      // 202608200913.git) and a plain-folder copy of the actual vault
-      // (Archive/Obsidian_vault_backup_*) both exist as recovery points
-      // independent of anything this app does going forward.
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+      // 2026-08-20: back to the isolated test repo. Real-vault cutover
+      // (Md_files_bare.git) is on hold - not convinced yet on conflict
+      // resolution specifically (the NSFileCoordinator revert fix is
+      // still unconfirmed on real hardware). Keep testing here until
+      // that's actually proven, not just plausible.
+      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/localsync.git',
       sshPort:        22,
     );
     _lifecycleObserver = LocalSyncLifecycleObserver(

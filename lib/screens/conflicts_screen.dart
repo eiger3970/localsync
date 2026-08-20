@@ -12,7 +12,9 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/conflict_scanner.dart';
+import '../services/database_service.dart';
 import '../services/ios_app_service.dart';
+import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import 'conflict_picker_screen.dart';
 
@@ -27,6 +29,12 @@ class ConflictsScreen extends StatefulWidget {
 class _ConflictsScreenState extends State<ConflictsScreen> {
   final _vaultFolder = VaultFolderService();
   late Future<List<ConflictEntry>> _future;
+  // 2026-08-20: filePaths of entries this scan found that match a
+  // previously-resolved signature - see resolved_watchlist.dart. Keyed by
+  // filePath rather than by entry identity since ConflictEntry has no id
+  // of its own and filePath is unique enough for this app's one-conflict-
+  // per-note-in-practice usage.
+  Set<String> _revertedPaths = {};
 
   @override
   void initState() {
@@ -38,10 +46,29 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
     if (path == null) return const [];
     try {
-      return await scanForConflicts(path);
+      final entries = await scanForConflicts(path);
+      await _checkForReverts(entries);
+      return entries;
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
+  }
+
+  Future<void> _checkForReverts(List<ConflictEntry> entries) async {
+    final db = DatabaseService();
+    final now = DateTime.now();
+    final watchlist = pruneOld(await db.getResolvedWatchlist(), now);
+    final reverted = findReverted(entries, watchlist);
+    if (mounted) {
+      setState(() => _revertedPaths = reverted.map((r) => r.filePath).toSet());
+    }
+    // Persist unconditionally: flushes both expired entries (already
+    // dropped by pruneOld above) and matched ones (already done their
+    // job - flagged once, no need to keep re-flagging every future scan
+    // of the same file).
+    final remaining = watchlist.where((r) => !reverted.any((m) =>
+        m.filePath == r.filePath && m.who == r.who && m.when == r.when));
+    await db.setResolvedWatchlist(remaining.toList());
   }
 
   @override
@@ -154,18 +181,36 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   separatorBuilder: (_, __) => const Divider(color: kTextDim),
                   itemBuilder: (context, i) {
                     final e = entries[i];
+                    // 2026-08-20: this exact conflict was resolved before
+                    // and has now reappeared - most likely Obsidian's own
+                    // cache reverting the write (see resolved_watchlist.dart)
+                    // rather than a brand new conflict. Called out
+                    // explicitly instead of looking like an unremarkable
+                    // first-time entry, since the user already thought
+                    // this one was handled.
+                    final reappeared = _revertedPaths.contains(e.filePath);
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
+                      leading: reappeared
+                          ? const Icon(Icons.warning_amber,
+                              color: Colors.amber, size: 22)
+                          : null,
                       title: Text(e.filePath,
                           style: const TextStyle(color: kStar, fontSize: 15)),
                       subtitle: Text(
-                        e.versions.length > 2
-                            ? '${e.versions.length - 1} unresolved versions '
-                                'stacked - most recent by ${e.who}'
-                            : (e.when != null
-                                ? 'Conflicting change by ${e.who} - ${e.when}'
-                                : 'Conflicting change by ${e.who}'),
-                        style: const TextStyle(color: kTextMid, fontSize: 13),
+                        reappeared
+                            ? 'Resolved earlier, but this looks like it '
+                                'came back - possibly reverted by Obsidian. '
+                                'Check the backup note if unsure.'
+                            : (e.versions.length > 2
+                                ? '${e.versions.length - 1} unresolved versions '
+                                    'stacked - most recent by ${e.who}'
+                                : (e.when != null
+                                    ? 'Conflicting change by ${e.who} - ${e.when}'
+                                    : 'Conflicting change by ${e.who}')),
+                        style: TextStyle(
+                            color: reappeared ? Colors.amber : kTextMid,
+                            fontSize: 13),
                       ),
                       trailing:
                           const Icon(Icons.chevron_right, color: kTextDim),
