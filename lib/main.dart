@@ -47,19 +47,12 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
       desktopIp:      '172.20.10.11',
-      // 2026-08-20: NOT the live production repo yet. Points at a full
-      // mirror backup of Md_files_bare.git (same real content/scale/
-      // structure as the actual vault, taken 202608200913) instead of
-      // production itself - a dead-end repo with no remote back to the
-      // real one, so nothing this app does here can reach production.
-      // Purpose: earlier real-device testing only ever ran against a
-      // tiny 3-file seed vault, never anything close to real vault
-      // scale/depth - this is a full-scale rehearsal to close that gap
-      // (and re-verify the still-unconfirmed NSFileCoordinator revert
-      // fix, and the never-repro'd "2+ vaults linked" fragility) before
-      // ever pointing at Md_files_bare.git for real. Switch to
-      // '.../Md_files_bare.git' only once this rehearsal is clean.
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare_backup_202608200913.git',
+      // 2026-08-20: points at the real production bare repo, replacing
+      // Working Copy. A full mirror backup (Md_files_bare_backup_
+      // 202608200913.git) and a plain-folder copy of the actual vault
+      // (Archive/Obsidian_vault_backup_*) both exist as recovery points
+      // independent of anything this app does going forward.
+      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
       sshPort:        22,
     );
     _lifecycleObserver = LocalSyncLifecycleObserver(
