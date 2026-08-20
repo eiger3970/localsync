@@ -63,6 +63,12 @@ class RepositoryProvider extends ChangeNotifier {
   Future<String?> getDeviceName() => _db.getDeviceName();
   Future<void> setDeviceName(String name) => _db.setDeviceName(name);
 
+  // ── Desktop IP override ────────────────────────────────────────────────────
+  // See database_service.dart's getDesktopIp/setDesktopIp for why this
+  // exists - same one-place-for-app-state reasoning as device name above.
+  Future<String?> getDesktopIp() => _db.getDesktopIp();
+  Future<void> setDesktopIp(String ip) => _db.setDesktopIp(ip);
+
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {

@@ -91,6 +91,7 @@ class HomeScreen extends StatelessWidget {
                 if (v == 'link') _openLinking(context);
                 if (v == 'about') _showAbout(context);
                 if (v == 'device_name') _editDeviceName(context, provider);
+                if (v == 'desktop_ip') _editDesktopIp(context, provider);
                 final repo = provider.selectedRepo;
                 if (repo == null) return;
                 if (v == 'commit') {
@@ -149,6 +150,21 @@ class HomeScreen extends StatelessWidget {
                         labelColor: Colors.redAccent,
                       ),
                     ),
+                  // 2026-08-20: real user feedback - "this is difficult
+                  // for users, I need to build this in." The desktop's
+                  // IP drifts (USB tether vs hotspot vs plain DHCP
+                  // reassignment) and used to be a build-time constant,
+                  // meaning any drift needed a code edit and a full
+                  // rebuild+resideload just to reconnect. Now editable
+                  // on-device, same pattern as Device name below.
+                  const PopupMenuItem(
+                    value: 'desktop_ip',
+                    child: _MenuRow(
+                      icon: Icons.dns_outlined,
+                      label: 'Desktop IP',
+                      subtitle: 'Fix this if pairing/sync can\'t connect',
+                    ),
+                  ),
                   // 2026-08-18: device-level, not repo-scoped - used as
                   // the git commit author so a sync conflict can say who
                   // made a change, not just when (see sync_service.dart's
@@ -484,6 +500,81 @@ class HomeScreen extends StatelessWidget {
     );
     if (name != null && name.isNotEmpty) {
       await provider.setDeviceName(name);
+    }
+  }
+
+  // 2026-08-20: real user feedback, live - "this is difficult for
+  // users, I need to build this in." LinkingController.desktopIp is
+  // already the single live source of truth (main.dart applies any
+  // saved override to it at startup), so this pre-fills straight from
+  // there - no separate async lookup needed like device name's dance
+  // above. A plain IPv4 check catches an obviously wrong value before
+  // it's saved, rather than only surfacing as a mysterious connection
+  // failure on the next sync attempt.
+  static final _ipPattern =
+      RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
+
+  Future<void> _editDesktopIp(
+    BuildContext context,
+    RepositoryProvider provider,
+  ) async {
+    final linkingCtrl = context.read<LinkingController>();
+    final ctrl = TextEditingController(text: linkingCtrl.desktopIp);
+    String? error;
+    final ip = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) => AlertDialog(
+          backgroundColor: kSurface,
+          title: const Text('Desktop IP',
+              style: TextStyle(color: kStar, fontSize: 17)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Fix this if pairing or sync can\'t reach your desktop - '
+                'check the current address there with `ip -4 addr show`.',
+                style: TextStyle(color: kTextMid, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: kStar),
+                decoration: InputDecoration(
+                  hintText: 'e.g. 172.20.10.2',
+                  errorText: error,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel',
+                  style: TextStyle(color: kTextDim, fontSize: 15)),
+            ),
+            TextButton(
+              onPressed: () {
+                final trimmed = ctrl.text.trim();
+                if (!_ipPattern.hasMatch(trimmed)) {
+                  setState(() => error = 'Not a valid IP address');
+                  return;
+                }
+                Navigator.pop(dialogContext, trimmed);
+              },
+              child: const Text('Save',
+                  style: TextStyle(color: kStar, fontSize: 15)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ip != null && ip.isNotEmpty) {
+      await provider.setDesktopIp(ip);
+      linkingCtrl.updateDesktopIp(ip);
     }
   }
 }

@@ -20,6 +20,7 @@ const _kTemplatesKey          = 'db_commit_templates';
 const _kTemplatesSeededKey    = 'db_commit_templates_seeded';
 const _kDeviceNameKey         = 'db_device_name';
 const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
+const _kDesktopIpKey          = 'db_desktop_ip';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -104,6 +105,33 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDeviceNameKey, name);
+  }
+
+  // ── Desktop IP override ────────────────────────────────────────────────────
+  // 2026-08-20: real user feedback, live - the desktop's IP was a build-
+  // time constant in main.dart, meaning any network change (USB tether
+  // vs hotspot vs a DHCP reassignment - all three have actually happened
+  // across this project's sessions) required editing code and a full
+  // rebuild+resideload cycle just to fix connectivity. A user running
+  // this day-to-day, not developing it, can't do that. This is a saved
+  // override: null means "no override set, use the build-time default in
+  // main.dart" (same fallback behavior as before this existed), a real
+  // value means the user has corrected it themselves on-device.
+  static String? _webDesktopIp;
+
+  Future<String?> getDesktopIp() async {
+    if (kIsWeb) return _webDesktopIp;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kDesktopIpKey);
+  }
+
+  Future<void> setDesktopIp(String ip) async {
+    if (kIsWeb) {
+      _webDesktopIp = ip;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDesktopIpKey, ip);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────
