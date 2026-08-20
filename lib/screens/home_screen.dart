@@ -532,20 +532,29 @@ class HomeScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 2026-08-20: real question, live - "is this just for
-              // desktop, or what about for phones or for hotspots?"
-              // Clarified: this is always the desktop's own address on
-              // whatever network it's currently reachable through
-              // (USB tethering or your phone's hotspot both put it on
-              // some address within that network) - never this phone's
-              // own address, which this app has no need to know.
-              const Text(
-                'Your desktop\'s address, not this phone\'s - it changes '
-                'depending on how the desktop is connected right now '
-                '(USB tethering or your hotspot each give it a different '
-                'one). Check the current value there with '
-                '`ip -4 addr show`.',
-                style: TextStyle(color: kTextMid, fontSize: 13),
+              // 2026-08-20: real feedback, live - "clean this verbose
+              // text up." Cut the how-to-find-it instructions entirely
+              // (not actionable from the phone anyway, that's a desktop
+              // terminal step) - just the one fact that actually
+              // matters here, icon + short line matching this app's
+              // established pattern elsewhere (e.g. conflict_picker_
+              // screen.dart's _DialogPoint) instead of a paragraph.
+              // Built-in icon, not a custom SVG - real rendering risk
+              // with no way to preview, already decided against
+              // elsewhere in this app for the same reason.
+              const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.dns_outlined, color: kTextMid, size: 16),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your desktop\'s address - not this phone\'s. '
+                      'Changes when its connection does.',
+                      style: TextStyle(color: kTextMid, fontSize: 13),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(
