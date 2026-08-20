@@ -308,6 +308,19 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             // sentence" - a link should name the
                             // destination, not the action, so it moved
                             // onto "LocalSync Conflict Backups" instead.
+                            //
+                            // 2026-08-20: real feedback, live - naming
+                            // the folder as the link text reads as a
+                            // promise to open that exact folder, which
+                            // this can't do (see the 2026-08-19 comment
+                            // above - only opens the vault in general,
+                            // Obsidian shows whatever it last had open on
+                            // its own). A user tapped this twice and
+                            // landed in two different places, confused
+                            // why. "open Obsidian" is now the tappable
+                            // part - honest about what the tap actually
+                            // does - with the folder name as plain info
+                            // text for where to look once there.
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
@@ -318,9 +331,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     children: [
                                       TextSpan(
                                           text: 'Resolved. $versionWord '
-                                              'backed up in '),
+                                              'backed up in "LocalSync '
+                                              'Conflict Backups" - '),
                                       TextSpan(
-                                        text: 'LocalSync Conflict Backups',
+                                        text: 'open Obsidian',
                                         style: const TextStyle(
                                           color: kGreen,
                                           fontWeight: FontWeight.bold,
