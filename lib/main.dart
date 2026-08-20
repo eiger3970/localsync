@@ -62,13 +62,19 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
       sshPort:        22,
     );
-    // Applies a saved desktopIp override, if the user has ever set one
-    // via the Settings dialog - fire-and-forget, there's always some UI
-    // time before a real link attempt could race this. Falls back to
-    // the build-time default above on first run (nothing saved yet).
+    // Applies saved desktopIp/bareRepoPath overrides, if the user has
+    // ever set them via the Settings screen - fire-and-forget, there's
+    // always some UI time before a real link attempt could race this.
+    // Falls back to the build-time defaults above on first run (nothing
+    // saved yet).
     DatabaseService().getDesktopIp().then((saved) {
       if (saved != null && saved.trim().isNotEmpty) {
         _linkingController.updateDesktopIp(saved.trim());
+      }
+    });
+    DatabaseService().getBareRepoPath().then((saved) {
+      if (saved != null && saved.trim().isNotEmpty) {
+        _linkingController.updateBareRepoPath(saved.trim());
       }
     });
     _lifecycleObserver = LocalSyncLifecycleObserver(

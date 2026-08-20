@@ -970,7 +970,32 @@ class _CompleteViewState extends State<_CompleteView>
       (r) =>
           r.remoteHost == ctrl.desktopIp && r.remotePath == ctrl.bareRepoPath,
     );
-    if (alreadySaved) return;
+    if (alreadySaved) {
+      // 2026-08-20: real gap, found while adding multi-repo support -
+      // this used to silently no-op with zero feedback when the exact
+      // same desktop+bare-repo combo was already linked (the download
+      // above still ran in full either way, just the new DB record got
+      // dropped) - confusing, looked like a successful new link that
+      // quietly did nothing. Now says so explicitly. Real fix for the
+      // underlying case (wanting a second vault to sync to a different
+      // repo) is Settings -> Bare repo path, set before linking.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: kSurface,
+            content: Text(
+              'A vault is already linked to this exact desktop + bare '
+              'repo - nothing new was added. To link a genuinely '
+              'different vault, set a different Bare repo path in '
+              'Settings first.',
+              style: TextStyle(color: kStar, fontSize: 14),
+            ),
+            duration: Duration(seconds: 6),
+          ),
+        );
+      }
+      return;
+    }
 
     final vaultPath = ctrl.pickedVaultPath;
     final vaultBookmark = ctrl.pickedVaultBookmark;
