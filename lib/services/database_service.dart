@@ -13,11 +13,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
+import 'resolved_watchlist.dart';
 
-const _kRepositoriesKey    = 'db_repositories';
-const _kTemplatesKey       = 'db_commit_templates';
-const _kTemplatesSeededKey = 'db_commit_templates_seeded';
-const _kDeviceNameKey      = 'db_device_name';
+const _kRepositoriesKey       = 'db_repositories';
+const _kTemplatesKey          = 'db_commit_templates';
+const _kTemplatesSeededKey    = 'db_commit_templates_seeded';
+const _kDeviceNameKey         = 'db_device_name';
+const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -102,6 +104,40 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDeviceNameKey, name);
+  }
+
+  // ── Resolved-conflict watchlist ────────────────────────────────────────────
+  // See resolved_watchlist.dart for what this is and why - the matching/
+  // pruning logic itself is pure and unit-tested there, this is just the
+  // thin persistence wrapper, same shape as everything else in this file.
+  static List<ResolvedRecord> _webResolvedWatchlist = [];
+
+  Future<List<ResolvedRecord>> getResolvedWatchlist() async {
+    if (kIsWeb) return List.from(_webResolvedWatchlist);
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kResolvedWatchlistKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List<dynamic>)
+        .map((m) => ResolvedRecord.fromJson(m as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> setResolvedWatchlist(List<ResolvedRecord> list) async {
+    if (kIsWeb) {
+      _webResolvedWatchlist = list;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _kResolvedWatchlistKey,
+      jsonEncode(list.map((r) => r.toJson()).toList()),
+    );
+  }
+
+  Future<void> addResolvedRecords(List<ResolvedRecord> records) async {
+    final list = await getResolvedWatchlist();
+    list.addAll(records);
+    await setResolvedWatchlist(list);
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────
