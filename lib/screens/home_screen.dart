@@ -644,7 +644,12 @@ class _SpinningSyncState extends State<_SpinningSync>
         angle: _ctrl.value * 2 * math.pi,
         child: child,
       ),
-      child: const Icon(Icons.sync, color: kGreen, size: 22),
+      // 2026-08-20: real bug, live - "whilst syncing... pushed to the
+      // right over the kebab icon." This icon was 22px against the
+      // static _StatusDot's 7px - that extra 15px was exactly enough
+      // to tip the row over during syncing specifically, even after
+      // the vault-name width was capped. Shrunk to stay proportionate.
+      child: const Icon(Icons.sync, color: kGreen, size: 14),
     );
   }
 }
@@ -975,7 +980,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                     // push its siblings regardless of that ancestor
                     // chain's behavior.
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 130),
+                      constraints: const BoxConstraints(maxWidth: 110),
                       child: Text(
                         repo.name,
                         style: const TextStyle(
