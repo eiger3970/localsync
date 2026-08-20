@@ -323,6 +323,17 @@ class LinkingController extends ChangeNotifier {
   // without "New tab"), were both incomplete versions of this recipe -
   // real device testing tonight confirmed the incomplete versions don't
   // work (fresh vault ended up completely empty on disk).
+  // 2026-08-20: "1.12 reopen Obsidian / 1.13 force close Obsidian
+  // again" removed, per direct repeated instruction ("redundant as
+  // discussed at much length previously... remove them") - confirmed
+  // safe by the user's own real relink today, ticked as formality
+  // without literally performing them, real vault linked successfully.
+  // Caveat worth knowing if fresh *empty* vault creation ever breaks
+  // again: the 2026-08-19 comment above this list found the reopen/
+  // force-close-again cycle necessary specifically for that case
+  // ("fresh vault ended up completely empty on disk" without it) - this
+  // removal is a conscious tradeoff for the "add another" case, not a
+  // re-verification that fresh creation still works without it.
   List<String> get vaultCreationSteps => [
         'swipe up to open $kNoteAppName',
         'swipe from left to right',
@@ -335,8 +346,6 @@ class LinkingController extends ChangeNotifier {
         'new vault opens',
         'New tab',
         'force close $kNoteAppName',
-        'reopen $kNoteAppName (indexes files, Trust author prompt)',
-        'force close $kNoteAppName again',
       ];
 
   // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker

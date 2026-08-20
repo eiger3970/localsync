@@ -432,10 +432,15 @@ class _RunningView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
+          // 2026-08-20: real feedback, live - "too dark and too small",
+          // same complaint hit repeatedly elsewhere today - kTextDim/
+          // 11px was the dimmest+smallest text anywhere in this app.
+          // kTextMid/13px matches the fix already applied to every
+          // other instance of this same complaint.
           Text(
             ctrl.stepSubtitle,
             style: const TextStyle(
-                color: kTextDim, fontSize: 11, letterSpacing: 0.3, height: 1.6),
+                color: kTextMid, fontSize: 13, letterSpacing: 0.3, height: 1.6),
             textAlign: TextAlign.center,
           ),
         ],
@@ -463,11 +468,14 @@ class _ParkedViewState extends State<_ParkedView> {
   // confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
-  // 2026-08-19: "keep the step to force close, but remove the open and
-  // force close again" - 1.11/1.12 (reopen, force-close-again) are
-  // gone from vaultCreationSteps entirely now, so 1.10 (force close)
-  // is both the sole critical step and the last one in the list.
-  static const _criticalIndices = [9]; // 1.10
+  // 2026-08-20: re-verified against the current vaultCreationSteps list
+  // (linking_controller.dart) after 1.12/1.13 were removed - "force
+  // close Obsidian" is now index 10 (1-indexed 1.11), the sole critical
+  // step and the last one in the list. This index had drifted out of
+  // sync with the actual list once before (found stale mid-session,
+  // 2026-08-20) - if vaultCreationSteps changes length again, re-check
+  // this against it directly rather than trusting the comment alone.
+  static const _criticalIndices = [10]; // 1.11
 
   String? _validateVaultCreationDone() {
     final checked = _vaultCreationChecked;
@@ -475,7 +483,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final allCriticalDone =
         _criticalIndices.every((i) => i < checked.length && checked[i]);
     if (allCriticalDone) return null;
-    return 'Complete and tick 1.10';
+    return 'Complete and tick 1.11';
   }
 
   @override
