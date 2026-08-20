@@ -245,6 +245,33 @@ Future<String> _backupConflictBeforeResolving(
   return 'LocalSync Conflict Backups/$backupFileName';
 }
 
+/// Pure string transform - given the file's current [content] and the
+/// [entry]/[chosen] the user picked, returns the updated content. Split
+/// out from [resolveConflict] so this is unit-testable without file I/O,
+/// same pattern as conflict_repair.dart.
+///
+/// 2026-08-20: real device bug - a Kanban resolution used to always
+/// replace the matched span with a bare [chosen] (no trailing newline),
+/// on the assumption a Kanban conflict's replacement never needs one.
+/// Wrong: `_kanbanPairedPattern`'s trailing `%%\n?` is optional and
+/// matches a real newline when the conflict isn't the last thing in the
+/// file - so the matched span often *did* consume the newline
+/// separating the card from whatever came after it (e.g. a `## Done`
+/// heading), and dropping it merged the two onto one line, breaking the
+/// board's structure. Now preserves whatever trailing newline the
+/// original matched span actually had, for both Kanban and non-Kanban,
+/// instead of a fixed per-type assumption.
+/// Assumes [entry]'s offsets are still valid against [content] - callers
+/// must check that themselves (see resolveConflict's own guard) since a
+/// pure function has no good way to signal "nothing to do" separately
+/// from "here is the unchanged content".
+String applyResolution(String content, ConflictEntry entry, String chosen) {
+  final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
+  final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
+  final replacement = '$chosen$trailingNewline';
+  return content.replaceRange(entry.matchStart, entry.matchEnd, replacement);
+}
+
 /// Rewrites [filePath] (relative to [vaultPath]), replacing exactly the
 /// conflict span [entry] was found at with [chosen] (typically
 /// entry.ours or entry.theirs, picked by the user). Direct substring
@@ -262,9 +289,7 @@ Future<String> resolveConflict(
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
-  final replacement = entry.isKanban ? chosen : '$chosen\n';
-  final updated = content.replaceRange(
-      entry.matchStart, entry.matchEnd, replacement);
+  final updated = applyResolution(content, entry, chosen);
   // 2026-08-19: coordinated (not plain) write - see
   // vault_folder_service.dart's coordinatedWrite for why: a resolution
   // written the plain way was found silently reverted by Obsidian's own
