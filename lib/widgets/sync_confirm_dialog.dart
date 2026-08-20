@@ -117,15 +117,17 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
               // can wrap to vertical when three icon+label buttons don't
               // fit - that's exactly what happened. A plain Row with
               // Expanded on each button forces one horizontal row always.
+              // 2026-08-20: real feedback, live - reordered to Sync /
+              // Don't sync / Details, primary action first instead of
+              // last.
               Row(
                 children: [
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.list,
-                      label: 'Details',
-                      color: kStar,
-                      onPressed: () =>
-                          setState(() => _showDetails = !_showDetails),
+                      icon: Icons.sync,
+                      label: 'Sync',
+                      color: kGreen,
+                      onPressed: () => Navigator.pop(context, true),
                     ),
                   ),
                   Expanded(
@@ -138,10 +140,11 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
                   ),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.sync,
-                      label: 'Sync',
-                      color: kGreen,
-                      onPressed: () => Navigator.pop(context, true),
+                      icon: Icons.list,
+                      label: 'Details',
+                      color: kStar,
+                      onPressed: () =>
+                          setState(() => _showDetails = !_showDetails),
                     ),
                   ),
                 ],
