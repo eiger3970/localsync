@@ -115,27 +115,20 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             // _SafetyStep row, which already uses this exact icon for
             // the same concept.
             //
-            // 2026-08-20: real feedback, live - the tappable link
-            // originally used the folder name itself ("LocalSync
-            // Conflict Backups") as the link text, which reads as a
-            // promise to open that exact folder. It can't - this only
-            // opens Obsidian in general (file-level deep linking was
-            // proven unreliable on real devices, see conflicts_screen.
-            // dart's history), and Obsidian then shows whatever note it
-            // last had open on its own, not any particular folder. A
-            // user tapped this twice in the same session and landed in
-            // two different places, confused why - the wording was
-            // making a claim the mechanism can't back up. "Open
-            // Obsidian" is now the tappable part; the folder name stays
-            // as plain info text (where to look once there), not a
-            // link. widget.repo.name is already the vault folder name
-            // (set at link time), so this needs no extra vault access.
+            // 2026-08-20: tappable link, same as the post-resolve
+            // snackbar (conflicts_screen.dart) - opens the vault in
+            // general (widget.repo.name is already the vault folder
+            // name, set at link time, no extra vault access needed).
+            // A same-session A/B test confirmed which note Obsidian
+            // shows afterward tracks whatever was on-screen in Obsidian
+            // right before switching away, not this button - reverted
+            // an earlier "open Obsidian" rewording that tried to hedge
+            // around that, per direct instruction not to.
             _DialogPoint(
               icon: Icons.backup,
               color: kGreen,
-              text: 'Every version backed up first, in "LocalSync Conflict '
-                  'Backups" - ',
-              linkText: 'open Obsidian',
+              text: 'Every version backed up first, in ',
+              linkText: 'LocalSync Conflict Backups',
               onLinkTap: () =>
                   IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
             ),

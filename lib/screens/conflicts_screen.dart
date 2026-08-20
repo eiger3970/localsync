@@ -309,18 +309,15 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             // destination, not the action, so it moved
                             // onto "LocalSync Conflict Backups" instead.
                             //
-                            // 2026-08-20: real feedback, live - naming
-                            // the folder as the link text reads as a
-                            // promise to open that exact folder, which
-                            // this can't do (see the 2026-08-19 comment
-                            // above - only opens the vault in general,
-                            // Obsidian shows whatever it last had open on
-                            // its own). A user tapped this twice and
-                            // landed in two different places, confused
-                            // why. "open Obsidian" is now the tappable
-                            // part - honest about what the tap actually
-                            // does - with the folder name as plain info
-                            // text for where to look once there.
+                            // 2026-08-20: a same-session A/B test
+                            // confirmed which note Obsidian shows after
+                            // this tap tracks whatever was on-screen in
+                            // Obsidian right before switching away, not
+                            // this button - it never controlled the
+                            // destination either way, by either wording.
+                            // Reverted an "open Obsidian" rewording that
+                            // tried to hedge around that, per direct
+                            // instruction to keep the original text.
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: kSurface,
@@ -331,10 +328,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     children: [
                                       TextSpan(
                                           text: 'Resolved. $versionWord '
-                                              'backed up in "LocalSync '
-                                              'Conflict Backups" - '),
+                                              'backed up in '),
                                       TextSpan(
-                                        text: 'open Obsidian',
+                                        text: 'LocalSync Conflict Backups',
                                         style: const TextStyle(
                                           color: kGreen,
                                           fontWeight: FontWeight.bold,
