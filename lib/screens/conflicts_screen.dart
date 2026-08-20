@@ -47,6 +47,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (path == null) return const [];
     try {
       final entries = await scanForConflicts(path);
+      // 2026-08-20: real device feedback, live - scanForConflicts returns
+      // filesystem order, not recency, so a brand-new conflict can land
+      // behind older accumulated ones in the list. That's exactly what
+      // makes the auto-navigation into this screen feel like an ambush -
+      // "shows a bunch of new data the user doesn't know about." Most
+      // recent first means whatever the user just triggered is always
+      // the first thing they see, not something they have to hunt for
+      // past older, already-known entries. `when` is YYYYMMDDhhmm, so a
+      // plain string compare already sorts chronologically; entries with
+      // no timestamp (shouldn't normally happen - every stacked entry
+      // has at least one non-"yours" version) sort last, not first.
+      entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
       await _checkForReverts(entries);
       return entries;
     } finally {

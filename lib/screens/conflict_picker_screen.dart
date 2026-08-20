@@ -9,12 +9,14 @@
 // it; the file gets rewritten with exactly that span replaced - see
 // conflict_scanner.dart's resolveConflict.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
+import '../services/ios_app_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
@@ -112,11 +114,27 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             // Icons.backup matches conflicts_screen.dart's own
             // _SafetyStep row, which already uses this exact icon for
             // the same concept.
-            const _DialogPoint(
-                icon: Icons.backup,
-                color: kGreen,
-                text: 'Every version backed up first, in '
-                    '"LocalSync Conflict Backups"'),
+            //
+            // 2026-08-20: real feedback, live - the tappable
+            // "LocalSync Conflict Backups" link only existed in the
+            // post-resolve snackbar (conflicts_screen.dart), one step
+            // too late for a user who wants to check it before
+            // committing to a choice. Same link here, before the fact -
+            // it opens the vault in general (not the specific backup
+            // note, which doesn't exist yet at this point), same
+            // fallback conflicts_screen.dart already uses since a
+            // file-level deep link was proven unreliable on real
+            // devices. widget.repo.name is already the vault folder
+            // name (set at link time), so this needs no extra vault
+            // access beyond what's already in memory.
+            _DialogPoint(
+              icon: Icons.backup,
+              color: kGreen,
+              text: 'Every version backed up first, in ',
+              linkText: 'LocalSync Conflict Backups',
+              onLinkTap: () =>
+                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
+            ),
           ],
         ),
         actions: [
@@ -254,8 +272,18 @@ class _DialogPoint extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String text;
-  const _DialogPoint(
-      {required this.icon, required this.color, required this.text});
+  // 2026-08-20: optional tappable suffix - see the backup line's call
+  // site above for why. null for the other two lines (keep/remove),
+  // which have nothing to link to.
+  final String? linkText;
+  final VoidCallback? onLinkTap;
+  const _DialogPoint({
+    required this.icon,
+    required this.color,
+    required this.text,
+    this.linkText,
+    this.onLinkTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -267,8 +295,27 @@ class _DialogPoint extends StatelessWidget {
           Icon(icon, color: color, size: 18),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text,
-                style: const TextStyle(color: kStar, fontSize: 15)),
+            child: linkText == null
+                ? Text(text,
+                    style: const TextStyle(color: kStar, fontSize: 15))
+                : Text.rich(
+                    TextSpan(
+                      style: const TextStyle(color: kStar, fontSize: 15),
+                      children: [
+                        TextSpan(text: text),
+                        TextSpan(
+                          text: linkText,
+                          style: const TextStyle(
+                            color: kGreen,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = onLinkTap,
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
