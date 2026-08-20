@@ -367,16 +367,21 @@ class _EarlierDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
-          const Icon(Icons.history, color: kTextDim, size: 16),
-          const SizedBox(width: 8),
-          const Text('Earlier - from before',
-              style: TextStyle(color: kTextDim, fontSize: 12)),
-          const SizedBox(width: 8),
-          Expanded(child: Divider(color: kTextDim.withValues(alpha: 0.4))),
+          // 2026-08-20: real feedback, live - "too dark and small",
+          // same complaint this app has hit before on other dim/small
+          // labels (see conflicts_screen.dart's own _SafetyStep,
+          // conflict_picker_screen.dart's dialog text) - kTextMid/14px
+          // matches how those were fixed.
+          Icon(Icons.history, color: kTextMid, size: 18),
+          SizedBox(width: 8),
+          Text('Earlier - from before',
+              style: TextStyle(color: kTextMid, fontSize: 14)),
+          SizedBox(width: 8),
+          Expanded(child: Divider(color: kTextDim)),
         ],
       ),
     );
