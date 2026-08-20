@@ -254,8 +254,9 @@ extension LinkingErrorDetails on LinkingError {
               'If you already paired, the key may not have reached the desktop '
               '(interrupted connection) - pairing again is safe to repeat.',
         LinkingError.bareRepoNotFound =>
-          'On desktop, verify the bare repo exists:\n'
-              'ls ~/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git\n\n'
+          'On desktop, verify the bare repo exists at the path configured '
+              'in main.dart\'s bareRepoPath (ls ~/Documents/Git/pi5-obsidian/'
+              'Git_bare_repo/).\n\n'
               'If missing, run Fresh Setup steps 1–10 on your desktop first.',
         LinkingError.workingCopyNotInstalled =>
           'Install Working Copy from the App Store.\n'

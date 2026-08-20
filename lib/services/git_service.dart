@@ -31,7 +31,7 @@ class GitServiceImpl implements GitService {
   static Future<void> _ensurePlatformInitialized() =>
       _platformInit ??= PlatformSpecific.initialize();
 
-  final String bareRepoPath;      // Desktop: /home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git (see main.dart)
+  final String bareRepoPath;      // Desktop: whichever bare repo is configured in main.dart's LinkingController
   final String localVaultPath;    // Phone: Localsync's own Documents dir (see Info.plist notes in STRUCTURE.md)
   final String sshHost;           // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
   final int sshPort;
