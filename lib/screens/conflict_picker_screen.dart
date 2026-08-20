@@ -138,10 +138,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           ],
         ),
         actions: [
+          // 2026-08-20: real feedback, live - kTextDim read as a
+          // disabled/dead button, not a live but de-emphasized one.
+          // kTextMid is still visibly secondary next to "Keep this
+          // version"'s bright kStar, without looking inert.
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Not now',
-                style: TextStyle(color: kTextDim, fontSize: 15)),
+                style: TextStyle(color: kTextMid, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
