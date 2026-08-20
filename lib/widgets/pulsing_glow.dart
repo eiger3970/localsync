@@ -67,7 +67,7 @@ class _PulsingGlowState extends State<PulsingGlow>
               : null,
           boxShadow: [
             BoxShadow(
-              color: kGreen.withOpacity(0.15 + 0.15 * _ctrl.value),
+              color: kGreen.withValues(alpha: 0.15 + 0.15 * _ctrl.value),
               blurRadius: widget.blurRadius,
               spreadRadius: widget.spreadRadius,
             ),

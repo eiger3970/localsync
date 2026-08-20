@@ -231,10 +231,10 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
       final canvasHeight =
           constraints.maxHeight.isFinite ? constraints.maxHeight : _fallbackCanvasHeight;
       final lockLeft = canvasWidth - _lockWidth - _edgePad;
-      final lockTop = _pairRowTop;
+      const lockTop = _pairRowTop;
       final keyRestLeft =
           _edgePad + (widget.leadingBadge != null ? _badgeReserve : 0);
-      final keyRestTop = _pairRowTop + (_lockHeight - _keyHeight) / 2;
+      const keyRestTop = _pairRowTop + (_lockHeight - _keyHeight) / 2;
       final active = _running || _snapped;
 
       return SizedBox(

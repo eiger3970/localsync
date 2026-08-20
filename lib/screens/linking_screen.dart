@@ -16,7 +16,6 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
-import '../widgets/action_gif.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
@@ -322,8 +321,8 @@ class _IdleViewState extends State<_IdleView>
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
                 // 2026-08-18: "Drag to begin text no longer needed" -
@@ -331,7 +330,7 @@ class _IdleViewState extends State<_IdleView>
                 // (above) carries that hint visually, same reasoning as
                 // dropping the swipe-confirm captions elsewhere once
                 // their gif art made the gesture clear.
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 // Heading moved below the pictogram+hint (2026-08-11,
                 // was the page's top line before) - reworded to name
                 // the source explicitly ("desktop Obsidian vault")
@@ -340,12 +339,12 @@ class _IdleViewState extends State<_IdleView>
                 // phone?
                 Text(
                     'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: kStar,
                         fontSize: 16,
                         fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 // Answers "what exactly gets downloaded" directly, in
                 // place of the old vaguer paragraph - fixed 2026-08-09
                 // per real user feedback that START DOWNLOAD gave no
@@ -355,7 +354,7 @@ class _IdleViewState extends State<_IdleView>
                 // item is still named explicitly, so it's less text
                 // without losing the precision a safety/scope guarantee
                 // needs.
-                const SizedBox(
+                SizedBox(
                   width: 220,
                   child: Column(
                     children: [
@@ -365,7 +364,7 @@ class _IdleViewState extends State<_IdleView>
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
                 // per explicit direction. Wording also fixed - "nothing
                 // else on this phone is touched" read as if localsync
@@ -373,14 +372,14 @@ class _IdleViewState extends State<_IdleView>
                 // the real direction is desktop -> phone, write-only.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(Icons.shield_outlined, color: kTextDim, size: 21),
                     SizedBox(width: 6),
                     Text('No other files on this phone are read or changed.',
                         style: TextStyle(color: kTextDim, fontSize: 12)),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 // 2026-08-10: "START DOWNLOAD" alone gave no sense this
                 // is a real, one-time data copy - relabelled to name
                 // the actual action (now the drag gesture), plus a
@@ -391,7 +390,7 @@ class _IdleViewState extends State<_IdleView>
                 // just glanced at.
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
                     SizedBox(width: 6),
                     Text(
@@ -893,117 +892,6 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
 }
 
 
-// 2026-08-15: swipe-right confirm, gif instead of a plain pill button.
-// 2026-08-17: "action the gif at frame 0 and then run for >=2000ms
-// then action the next action" - was using trigger() (races the
-// animation against onConfirm, which for a Navigator.pop()/step-
-// confirm call resolves instantly, so the real transition fired the
-// moment the swipe registered, not after the animation played). Now
-// uses playThenRun(): animation plays the full 2000ms, THEN onConfirm
-// fires - actually sequenced, not raced. label is optional - "remove
-// the text which saves vertical space" once the gif art itself makes
-// the gesture clear.
-class _GifSwipeConfirm extends StatefulWidget {
-  final String assetPath;
-  final String? label;
-  final VoidCallback onConfirm;
-  // 2026-08-16: "important steps that a user might try to skip and
-  // have errors later on" - checked right when the swipe threshold is
-  // reached, before the real confirm fires. Returns an error string to
-  // block and display, or null to proceed normally.
-  final String? Function()? validate;
-  const _GifSwipeConfirm({
-    required this.assetPath,
-    this.label,
-    required this.onConfirm,
-    this.validate,
-  });
-
-  @override
-  State<_GifSwipeConfirm> createState() => _GifSwipeConfirmState();
-}
-
-class _GifSwipeConfirmState extends State<_GifSwipeConfirm> {
-  static const _threshold = 64.0;
-  final _gifKey = GlobalKey<ActionGifState>();
-  String? _error;
-
-  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
-
-  // 2026-08-18: "the svg just slides right, but frame0.svg stays put,
-  // then the gif takes over" - the whole control used to visually
-  // track the drag (Transform.translate), sliding with the finger.
-  // Now stationary: drag distance is still tracked for the threshold
-  // check, just not rendered - it swaps state (static -> animated)
-  // rather than sliding into place.
-  double _drag = 0;
-
-  void _onUpdate(double delta) {
-    if (_playing) return;
-    _drag = (_drag + delta).clamp(0.0, 400.0);
-  }
-
-  void _onEnd() {
-    if (_playing) return;
-    final reached = _drag >= _threshold;
-    _drag = 0;
-    if (!reached) return;
-
-    final error = widget.validate?.call();
-    setState(() => _error = error);
-    if (error != null) return;
-
-    _gifKey.currentState?.playThenRun(widget.onConfirm);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onHorizontalDragUpdate: (d) => _onUpdate(d.delta.dx),
-      onHorizontalDragEnd: (_) => _onEnd(),
-      child: SizedBox(
-        // 2026-08-18: "too small, needed to be more on the left and
-        // right sides" - the sparkle field now spans the full width
-        // available instead of just the gif's own tight bounds, so
-        // there's a wide star field around the control regardless of
-        // how much the art itself carries.
-        width: double.infinity,
-        child: Stack(
-          alignment: Alignment.centerLeft,
-          children: [
-            if (!_playing) const Positioned.fill(child: SparkleBackground()),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ActionGif(
-                    key: _gifKey, assetPath: widget.assetPath, height: 70),
-                if (widget.label != null) ...[
-                  const SizedBox(height: 8),
-                  Text(widget.label!,
-                      style: const TextStyle(
-                          color: kTextMid,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1)),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_error!,
-                      style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700)),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // 2026-08-16: SwapGifSwipeConfirm (formerly private _SwapGifSwipeConfirm
 // here) moved to widgets/swap_gif_swipe_confirm.dart so PairingScreen
 // could reuse it for CONTINUE - SET UP VAULT.
@@ -1154,13 +1042,13 @@ class _CompleteViewState extends State<_CompleteView>
           // for the final swipe control below - decorative, always
           // playing (not gated behind a trigger like the swipe gifs,
           // there's no gesture here to wait for).
-          Row(
+          const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Your notes have arrived!',
+              Text('Your notes have arrived!',
                   style: TextStyle(
                       color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               // 2026-08-20: "the timing leaves the standing dog jumping
               // in the air, the loop would be better if the standing
               // dog was pausing on the ground" - the file's own baked
@@ -1172,7 +1060,7 @@ class _CompleteViewState extends State<_CompleteView>
               // shrinking frame 5 to a brief flash makes the loop read
               // as resting on the ground, not airborne, without
               // touching the actual artwork.
-              const ControllableGif(
+              ControllableGif(
                 assetPath: 'assets/gifs/dog_success_stand.gif',
                 playing: true,
                 height: 40,
@@ -1249,7 +1137,7 @@ class _CompleteViewState extends State<_CompleteView>
             groupNumber: 3,
             startIndex: 0,
             swipeActions: {0: widget.ctrl.openObsidianNow},
-            steps: [
+            steps: const [
               'swipe up to open $kNoteAppName',
               'tap Trust author and enable plugins',
               'wait for Indexing vault... to finish',
@@ -1305,7 +1193,7 @@ class _BurstPainter extends CustomPainter {
         center.dx + math.cos(p.angle) * p.distance * travel,
         center.dy + math.sin(p.angle) * p.distance * travel,
       );
-      final paint = Paint()..color = p.color.withOpacity(opacity);
+      final paint = Paint()..color = p.color.withValues(alpha: opacity);
       canvas.drawCircle(offset, p.size * (1 - progress * 0.4), paint);
     }
   }
@@ -1555,12 +1443,6 @@ class _ScopeRow extends StatelessWidget {
     );
   }
 }
-
-// 2026-08-15: _SwipeToConfirm removed - dead code. Its last two call
-// sites (OPEN OBSIDIAN, I'VE CREATED IT/LOCALSYNC HOME) were replaced
-// this round by _SwipeChecklistRow (embedded in the checklist) and
-// _GifSwipeConfirm respectively. Per explicit direction against
-// leftover bloat: don't keep an unused widget around "in case".
 
 class _DeviceGlyph extends StatelessWidget {
   final IconData? icon;
