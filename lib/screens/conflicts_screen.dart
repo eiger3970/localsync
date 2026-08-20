@@ -18,6 +18,27 @@ import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import 'conflict_picker_screen.dart';
 
+// 2026-08-20: real feedback, live - after sorting most-recent-first, a
+// brand-new conflict and a pile of unrelated older ones still look like
+// one undifferentiated list, "eye bleed and brain stress." [when] is
+// this app's own YYYYMMDDhhmm format everywhere else (see
+// conflict_repair.dart's writer) - parsed by hand rather than pulling
+// in a date-format string for one fixed, already-known shape.
+DateTime? _parseWhen(String? when) {
+  if (when == null || when.length != 12) return null;
+  try {
+    return DateTime(
+      int.parse(when.substring(0, 4)),
+      int.parse(when.substring(4, 6)),
+      int.parse(when.substring(6, 8)),
+      int.parse(when.substring(8, 10)),
+      int.parse(when.substring(10, 12)),
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
 class ConflictsScreen extends StatefulWidget {
   final Repository repo;
   const ConflictsScreen({super.key, required this.repo});
@@ -187,10 +208,25 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         style: TextStyle(color: kTextMid, fontSize: 15)),
                   );
                 }
+                // Entries are already sorted most-recent-first (see
+                // _scan above), so "recent" is always a leading prefix -
+                // splitIndex is where it ends. Only entries less than an
+                // hour old count as "recent"; an all-recent or all-older
+                // list gets no divider at all, since there's nothing to
+                // visually separate.
+                final now = DateTime.now();
+                bool isRecent(ConflictEntry e) {
+                  final t = _parseWhen(e.when);
+                  return t != null && now.difference(t) < const Duration(hours: 1);
+                }
+                final splitIndex = entries.indexWhere((e) => !isRecent(e));
+                final hasSplit = splitIndex > 0 && splitIndex < entries.length;
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: entries.length,
-                  separatorBuilder: (_, __) => const Divider(color: kTextDim),
+                  separatorBuilder: (_, i) => hasSplit && i == splitIndex - 1
+                      ? const _EarlierDivider()
+                      : const Divider(color: kTextDim),
                   itemBuilder: (context, i) {
                     final e = entries[i];
                     // 2026-08-20: this exact conflict was resolved before
@@ -313,6 +349,34 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// 2026-08-20: separates a fresh conflict from older, already-known
+// clutter below it - built-in icon, not a custom SVG. This app already
+// decided against hand-drawn SVG art for exactly this kind of small
+// inline glyph (see key_pairing_trigger.dart's asset history) - real
+// rendering risk (invisible gaps, wrong fills) with no way to preview
+// before a full rebuild+sideload cycle, for something a stock icon
+// already says clearly enough.
+class _EarlierDivider extends StatelessWidget {
+  const _EarlierDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.history, color: kTextDim, size: 16),
+          const SizedBox(width: 8),
+          const Text('Earlier - from before',
+              style: TextStyle(color: kTextDim, fontSize: 12)),
+          const SizedBox(width: 8),
+          Expanded(child: Divider(color: kTextDim.withValues(alpha: 0.4))),
         ],
       ),
     );
