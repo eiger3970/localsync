@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme.dart';
+import 'services/database_service.dart';
 import 'services/repository_provider.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
@@ -34,24 +35,19 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     super.initState();
     _linkingController = LinkingController(
       desktopUser:    'rapi5',
-      // This hardcoded desktopIp drifts every time the phone's hotspot
-      // reassigns DHCP addresses (no settings screen yet to configure
-      // it on-device) - re-check against the desktop's actual
-      // wlan0/eth1 address each session (`ip -4 addr show`) if pairing
-      // fails with a connection error.
-      //
       // localVaultPath removed 2026-08-09: the vault folder is no
       // longer a fixed app-owned path computed once at startup - it's
       // the user's own Obsidian vault folder, selected during setup via
       // VaultFolderService's native picker and tracked per-Repository
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
-      // 2026-08-20: re-verified against `ip -4 addr show` right before
-      // the real-vault cutover - phone switched from USB tethering
-      // (eth1, .11) to hotspot/WiFi (wlan0, .2) mid-session, and the
-      // stale .11 would have failed to connect. This address is only
-      // ever correct for the network mode active when last checked -
-      // re-verify again if pairing fails with a connection error.
+      //
+      // 2026-08-20: this build-time value is now only the fallback for
+      // a first run - RepositoryProvider.getDesktopIp() below overrides
+      // it with whatever the user has saved via the Settings dialog
+      // (home_screen.dart), so a real network drift no longer needs a
+      // code edit and rebuild to fix. Re-verified against `ip -4 addr
+      // show` at time of writing (phone was on hotspot/WiFi, wlan0).
       desktopIp:      '172.20.10.2',
       // 2026-08-20: real production repo, replacing Working Copy - the
       // conflict-resolution concern that held this back earlier today
@@ -66,6 +62,15 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
       sshPort:        22,
     );
+    // Applies a saved desktopIp override, if the user has ever set one
+    // via the Settings dialog - fire-and-forget, there's always some UI
+    // time before a real link attempt could race this. Falls back to
+    // the build-time default above on first run (nothing saved yet).
+    DatabaseService().getDesktopIp().then((saved) {
+      if (saved != null && saved.trim().isNotEmpty) {
+        _linkingController.updateDesktopIp(saved.trim());
+      }
+    });
     _lifecycleObserver = LocalSyncLifecycleObserver(
       linkingController: _linkingController,
     );

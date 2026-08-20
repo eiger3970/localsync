@@ -24,7 +24,16 @@ import 'linking_state.dart';
 
 class LinkingController extends ChangeNotifier {
   final String desktopUser;
-  final String desktopIp;
+  // 2026-08-20: was final - real user feedback, "this is difficult for
+  // users, I need to build this in." The desktop's IP is a real-world
+  // value that drifts (USB tether vs hotspot vs a DHCP reassignment -
+  // all three have actually happened across this project's sessions),
+  // and a build-time constant meant every drift needed a code edit and
+  // a full rebuild+resideload just to reconnect. Now mutable, with a
+  // setter that persists the override (see database_service.dart's
+  // getDesktopIp/setDesktopIp) so a user can fix this themselves
+  // on-device, no rebuild required.
+  String desktopIp;
   final String bareRepoPath;
   final int sshPort;
 
@@ -40,6 +49,17 @@ class LinkingController extends ChangeNotifier {
     VaultFolderService? vaultFolder,
   })  : _iosApps = iosApps ?? IosAppServiceImpl(),
         _vaultFolder = vaultFolder ?? VaultFolderService();
+
+  /// Overwrites [desktopIp] and notifies listeners - used by the
+  /// settings dialog (home_screen.dart) once the user saves a
+  /// corrected value. Persisting the override is the caller's job
+  /// (RepositoryProvider.setDesktopIp) - this only updates the live,
+  /// already-running instance so the change takes effect immediately,
+  /// no app restart needed.
+  void updateDesktopIp(String ip) {
+    desktopIp = ip;
+    notifyListeners();
+  }
 
   LinkingStep _step = LinkingStep.idle;
   StepFailure? _lastFailure;
