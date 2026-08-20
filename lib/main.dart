@@ -34,13 +34,11 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     super.initState();
     _linkingController = LinkingController(
       desktopUser:    'rapi5',
-      // Both values below were wrong until 2026-08-09: this hardcoded
-      // desktopIp drifts every time the phone's hotspot reassigns DHCP
-      // addresses (no settings screen yet to configure it on-device) -
-      // re-check against the desktop's actual wlan0/eth1 address each
-      // session. bareRepoPath was pointing at a path that never
-      // existed; the real bare repo synco.sh and the desktop's actual
-      // Obsidian vault use is at Git/pi5-obsidian/Git_bare_repo/.
+      // This hardcoded desktopIp drifts every time the phone's hotspot
+      // reassigns DHCP addresses (no settings screen yet to configure
+      // it on-device) - re-check against the desktop's actual
+      // wlan0/eth1 address each session (`ip -4 addr show`) if pairing
+      // fails with a connection error.
       //
       // localVaultPath removed 2026-08-09: the vault folder is no
       // longer a fixed app-owned path computed once at startup - it's
@@ -49,11 +47,16 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
       desktopIp:      '172.20.10.11',
-      // Points at an isolated test bare repo (detached clone of
-      // Md_files_bare.git, no remote back to production) so untested
-      // push/reset logic can't touch the real vault sync. Switch back
-      // to Md_files_bare.git only once push has been verified safe.
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/localsync.git',
+      // 2026-08-20: switched from the isolated localsync.git test repo
+      // to the real production bare repo, replacing Working Copy as the
+      // sync client for the actual Obsidian vault. Push/pull/conflict-
+      // repair/automation were confirmed working end to end on real
+      // hardware against the isolated repo first (see
+      // project_synclocal_app memory, commits through d1b0ae9) - a
+      // fresh mirror backup of Md_files_bare.git was taken immediately
+      // before this switch as a recovery point independent of anything
+      // this app does going forward.
+      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
       sshPort:        22,
     );
     _lifecycleObserver = LocalSyncLifecycleObserver(
