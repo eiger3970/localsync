@@ -961,7 +961,21 @@ class _AppBarRepoStatus extends StatelessWidget {
                         ? const _SpinningSync()
                         : _StatusDot(status: repo.status),
                     const SizedBox(width: 6),
-                    Flexible(
+                    // 2026-08-20: real bug, live - "kebab icon is now
+                    // overrun by the AUTO text," a real vault's longer
+                    // name (e.g. "Obsidian_phone_vault") pushed the
+                    // AUTO badge and kebab icon out of the app bar
+                    // entirely. Only ever surfaced with a long name -
+                    // every test vault used so far had a short
+                    // timestamp-style name, so this never showed. The
+                    // Flexible+ellipsis here relies on a bounded max-
+                    // width reaching it through Center/Column/Padding
+                    // above, which apparently isn't reliably happening -
+                    // an explicit ConstrainedBox guarantees it can never
+                    // push its siblings regardless of that ancestor
+                    // chain's behavior.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 130),
                       child: Text(
                         repo.name,
                         style: const TextStyle(
@@ -969,6 +983,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                             fontSize: 13,
                             fontWeight: FontWeight.w600),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                     const SizedBox(width: 6),
