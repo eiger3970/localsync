@@ -46,7 +46,13 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // VaultFolderService's native picker and tracked per-Repository
       // (see models/repository.dart's vaultBookmark field). See
       // lib/STRUCTURE.md for the full architecture correction.
-      desktopIp:      '172.20.10.11',
+      // 2026-08-20: re-verified against `ip -4 addr show` right before
+      // the real-vault cutover - phone switched from USB tethering
+      // (eth1, .11) to hotspot/WiFi (wlan0, .2) mid-session, and the
+      // stale .11 would have failed to connect. This address is only
+      // ever correct for the network mode active when last checked -
+      // re-verify again if pairing fails with a connection error.
+      desktopIp:      '172.20.10.2',
       // 2026-08-20: real production repo, replacing Working Copy - the
       // conflict-resolution concern that held this back earlier today
       // is now closed (3-for-3 real-device revert test, plus the full
