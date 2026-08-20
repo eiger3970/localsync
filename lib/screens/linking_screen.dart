@@ -1337,12 +1337,18 @@ class _FailedView extends StatelessWidget {
       canvas: KeyPairingTrigger(
         runningLabel: 'OPENING PAIRING…',
         onConfirm: () async {},
+        // 2026-08-20: real bug, found live - this used to hardcode
+        // '172.20.10.11' independently of ctrl.desktopIp, so a user
+        // who'd corrected their address via the new Desktop IP setting
+        // (home_screen.dart) would still hit this stale value here on
+        // retry. ctrl is already the live LinkingController - use its
+        // real, current values instead of a second, disconnected copy.
         onSettled: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const PairingScreen(
-              desktopUser: 'rapi5',
-              desktopIp: '172.20.10.11',
+            builder: (_) => PairingScreen(
+              desktopUser: ctrl.desktopUser,
+              desktopIp: ctrl.desktopIp,
             ),
           ),
         ),

@@ -387,15 +387,23 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-  void _openPairing(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const PairingScreen(
-            desktopUser: 'rapi5',
-            desktopIp: '172.20.10.11',
-          ),
+  // 2026-08-20: real bug, found live - this used to hardcode
+  // '172.20.10.11' independently of LinkingController.desktopIp, so a
+  // user who'd corrected their address via the Desktop IP setting
+  // below would still hit this stale value re-pairing. Reads the live
+  // controller instead of a second, disconnected copy.
+  void _openPairing(BuildContext context) {
+    final ctrl = context.read<LinkingController>();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PairingScreen(
+          desktopUser: ctrl.desktopUser,
+          desktopIp: ctrl.desktopIp,
         ),
-      );
+      ),
+    );
+  }
 
   // 2026-08-18: "Add another vault" used to land straight on a stale
   // failure screen from whatever the PREVIOUS linking attempt left
@@ -550,7 +558,7 @@ class HomeScreen extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Your desktop\'s address - not this phone\'s. '
-                      'Changes when its connection does.',
+                      'Changes between Tether and Hotspot.',
                       style: TextStyle(color: kTextMid, fontSize: 13),
                     ),
                   ),
