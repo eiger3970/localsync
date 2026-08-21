@@ -114,9 +114,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 2026-08-21: real feedback, live - a Wi-Fi glyph
+                // implies wireless only, but this address can equally
+                // come from USB tethering (wired) - Icons.lan is
+                // connection-medium-neutral (a small network diagram,
+                // not a radio-wave glyph), correct for either case.
                 const Padding(
                   padding: EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.wifi, color: kTextMid, size: 22),
+                  child: Icon(Icons.lan, color: kTextMid, size: 22),
                 ),
                 Expanded(
                   child: TextField(
@@ -128,12 +133,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: 'IP address - desktop',
                       labelStyle: const TextStyle(
                           color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
-                      // 2026-08-21: real feedback, live - "I don't like
-                      // this text, make it clearer" on "Changes with
-                      // Tether/Hotspot". Spells out what actually
-                      // triggers a change instead of a fragment.
+                      // 2026-08-21: real feedback, live, two rounds.
+                      // First round just reworded "Changes with Tether/
+                      // Hotspot" without fixing the real bug - helperText
+                      // truncates to one line with no wrap unless
+                      // helperMaxLines is set explicitly (Flutter's
+                      // default), which is why it showed "...". Fixed
+                      // with helperMaxLines below. Second round: "why
+                      // say Changes... reads like the app auto-corrects
+                      // this, but it's manually entered" - reworded to
+                      // an imperative ("Update this") instead of a
+                      // passive "Changes", which implied automatic
+                      // behavior that doesn't exist.
                       helperText:
-                          'Changes when you switch between Tether or Hotspot',
+                          'Update this manually after switching Tether or Hotspot',
+                      helperMaxLines: 2,
                       helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
@@ -164,9 +178,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // scope (only future links, not existing ones) -
                       // see RepositoryProvider's own comment on
                       // setBareRepoPath for the same explanation.
-                      helperText: 'Only used the next time you tap "Add '
-                          'another vault" - already-linked vaults keep '
-                          'their own path',
+                      // 2026-08-21: same truncation bug as the field
+                      // above (helperMaxLines fix), plus tightened
+                      // wording since the longer version got cut off.
+                      helperText: 'Applies to the next vault you link - '
+                          'existing links are unaffected',
+                      helperMaxLines: 2,
                       helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                       hintText: '/home/user/Git_bare_repo/name.git',
                       errorText: _pathError,
