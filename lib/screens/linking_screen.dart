@@ -321,8 +321,8 @@ class _IdleViewState extends State<_IdleView>
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
                 // 2026-08-18: "Drag to begin text no longer needed" -
@@ -330,21 +330,21 @@ class _IdleViewState extends State<_IdleView>
                 // (above) carries that hint visually, same reasoning as
                 // dropping the swipe-confirm captions elsewhere once
                 // their gif art made the gesture clear.
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 // Heading moved below the pictogram+hint (2026-08-11,
                 // was the page's top line before) - reworded to name
                 // the source explicitly ("desktop Obsidian vault")
                 // since "Connect your Obsidian vault" read as ambiguous
                 // on real device review - which vault, desktop or
                 // phone?
-                Text(
+                const Text(
                     'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
                     style: TextStyle(
                         color: kStar,
                         fontSize: 16,
                         fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 // Answers "what exactly gets downloaded" directly, in
                 // place of the old vaguer paragraph - fixed 2026-08-09
                 // per real user feedback that START DOWNLOAD gave no
@@ -354,7 +354,7 @@ class _IdleViewState extends State<_IdleView>
                 // item is still named explicitly, so it's less text
                 // without losing the precision a safety/scope guarantee
                 // needs.
-                SizedBox(
+                const SizedBox(
                   width: 220,
                   child: Column(
                     children: [
@@ -364,13 +364,13 @@ class _IdleViewState extends State<_IdleView>
                     ],
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
                 // per explicit direction. Wording also fixed - "nothing
                 // else on this phone is touched" read as if localsync
                 // might be reading/scanning existing phone data, when
                 // the real direction is desktop -> phone, write-only.
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.shield_outlined, color: kTextDim, size: 21),
@@ -379,7 +379,7 @@ class _IdleViewState extends State<_IdleView>
                         style: TextStyle(color: kTextDim, fontSize: 12)),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 // 2026-08-10: "START DOWNLOAD" alone gave no sense this
                 // is a real, one-time data copy - relabelled to name
                 // the actual action (now the drag gesture), plus a
@@ -388,7 +388,7 @@ class _IdleViewState extends State<_IdleView>
                 // than replacing the sentence outright - exact wording
                 // ("once", "a few minutes") still needs to be read, not
                 // just glanced at.
-                Row(
+                const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
@@ -399,6 +399,27 @@ class _IdleViewState extends State<_IdleView>
                           TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
                     ),
                   ],
+                ),
+                // 2026-08-21: real redesign target, flagged this
+                // session - "Add another vault" used to always run the
+                // full from-scratch vault-creation checklist, even for
+                // a folder that's already a set-up Obsidian vault (see
+                // this session's flowchart artifact). This is the
+                // shortcut: skip straight to the folder picker, no
+                // "swipe up Obsidian, tap Create new vault..." steps
+                // that have nothing to offer here.
+                const SizedBox(height: 18),
+                GestureDetector(
+                  onTap: ctrl.startLinkingExistingVault,
+                  child: const Text(
+                    'Already have a vault set up? Link it directly',
+                    style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 13,
+                      decoration: TextDecoration.underline,
+                      decorationColor: kTextMid,
+                    ),
+                  ),
                 ),
               ],
             ),
