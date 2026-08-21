@@ -103,12 +103,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                        indented
-                            ? Icons.remove
-                            : Icons.chevron_right,
-                        color: kTextMid,
-                        size: indented ? 12 : 16),
+                    // 2026-08-21: real feedback, live - "still have
+                    // greater than signs, use bullet point dots."
+                    // Icons.chevron_right renders as a ">" shape - that
+                    // was the actual complaint, not the arrow text
+                    // fixed last round. Plain "•" text for both levels,
+                    // no icon glyph that can be misread as an arrow.
+                    SizedBox(
+                      width: 16,
+                      child: Text('•',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: kTextMid,
+                              fontSize: indented ? 12 : 15,
+                              height: 1.35)),
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(text,
