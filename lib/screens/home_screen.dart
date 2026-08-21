@@ -266,7 +266,9 @@ class HomeScreen extends StatelessWidget {
                       // literal newline after the comma forces the
                       // break to always land there instead, keeping
                       // "IP address - desktop" whole on its own line.
-                      subtitle: 'Git bare repo path,\nIP address - desktop',
+                      // 2026-08-21: real feedback, live - comma removed,
+                      // the line break already separates the two.
+                      subtitle: 'Git bare repo path\nIP address - desktop',
                     ),
                   ),
                   PopupMenuItem(
