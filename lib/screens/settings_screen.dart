@@ -57,10 +57,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // commands that are most optimised to human readable output, so the
   // user can smoothly step through the setup." Neither value can be
   // auto-filled without real auto-discovery (see the card below), so
-  // this is the cheap tier: the exact command to run on the desktop,
-  // shown as SelectableText so it can be copied straight off the
-  // dialog rather than retyped by hand.
-  void _showHelp(String title, String command, String note) {
+  // this is the cheap tier: the exact command to run on the desktop.
+  //
+  // 2026-08-21, same day, round 2 - two real fixes from live feedback:
+  // (1) "the text wrap makes the user wonder if there's a space or no
+  // space after name" - a long shell command soft-wrapping mid-token is
+  // genuinely ambiguous about whitespace. Wrapped in a horizontal-
+  // scrolling SingleChildScrollView with softWrap:false so it always
+  // renders as the exact one-line string, scroll instead of wrap.
+  // (2) "this block is verbose... maybe in point form or with progress
+  // arrows" - the explanatory paragraph became a short bulleted list
+  // (chevron + short phrase per line) instead of one dense sentence.
+  void _showHelp(String title, String command, List<String> points) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -75,13 +83,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                   color: kVoid, border: Border.all(color: kBorder)),
-              child: SelectableText(command,
-                  style: const TextStyle(
-                      color: kGreen, fontFamily: 'monospace', fontSize: 13)),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SelectableText(command,
+                    maxLines: 1,
+                    style: const TextStyle(
+                        color: kGreen, fontFamily: 'monospace', fontSize: 13)),
+              ),
             ),
-            const SizedBox(height: 10),
-            Text(note,
-                style: const TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
+            const SizedBox(height: 12),
+            for (final point in points)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.chevron_right, color: kTextMid, size: 16),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(point,
+                          style: const TextStyle(
+                              color: kTextMid, fontSize: 13, height: 1.35)),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
         actions: [
@@ -202,6 +228,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: 'IP address - desktop',
                       labelStyle: const TextStyle(
                           color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      // 2026-08-21: real feedback, live - "text must be
+                      // larger than 172.20.10.11." labelStyle alone
+                      // only governs the label's un-floated resting
+                      // position (before the field has content); once
+                      // it floats to the top - which it always does
+                      // here, since both fields are pre-filled -
+                      // Material silently applies its own ~0.75x shrink
+                      // on top of labelStyle unless floatingLabelStyle
+                      // is set explicitly. That implicit shrink is why
+                      // the label rendered smaller than the 16px value
+                      // text despite labelStyle already saying 18px.
+                      floatingLabelStyle: const TextStyle(
+                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live, two rounds.
                       // First round just reworded "Changes with Tether/
                       // Hotspot" without fixing the real bug - helperText
@@ -227,11 +266,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () => _showHelp(
                           'Finding the desktop IP address',
                           'ip -4 addr show',
-                          'Run this on the desktop. Look for the address on '
-                              'the interface your phone is actually connected '
-                              'through - eth1 or usb0 for USB tethering, '
-                              'wlan0 for Hotspot Wi-Fi. It changes whenever '
-                              'you switch between the two.',
+                          const [
+                            'Run this on the desktop',
+                            'USB tether → look for eth1 or usb0',
+                            'Hotspot Wi-Fi → look for wlan0',
+                            'Changes every time you switch - re-run then',
+                          ],
                         ),
                       ),
                     ),
@@ -239,7 +279,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            // 2026-08-21: real feedback, live - "add a line space above
+            // to separate more from the above text, as all the
+            // information looks like 1, rather than 2 controls." A
+            // plain SizedBox gap alone wasn't enough separation - added
+            // a visible divider line, same kBorder used for every other
+            // section rule in this app, not just more whitespace.
+            const SizedBox(height: 28),
+            const Divider(color: kBorder, height: 1),
+            const SizedBox(height: 28),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -255,6 +303,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       labelText: 'Git bare repo path',
                       labelStyle: const TextStyle(
                           color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      // 2026-08-21: same floatingLabelStyle fix as the
+                      // IP field above - "text must be larger than
+                      // /home/rapi5/Documents/Git/pi5-obsidia..."
+                      floatingLabelStyle: const TextStyle(
+                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "what does
                       // this even mean, make it clearer" on "For the
                       // next vault you link". Spells out the actual
@@ -277,9 +330,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onPressed: () => _showHelp(
                           'Finding the Git bare repo path',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
-                          'Run this on the desktop to list every git bare '
-                              'repo it knows about. Your real vault normally '
-                              'syncs through the one named Md_files_bare.git.',
+                          const [
+                            'Run this on the desktop',
+                            'Lists every Git bare repo it knows about',
+                            'Your real vault usually syncs through '
+                                'Md_files_bare.git',
+                          ],
                         ),
                       ),
                     ),
