@@ -27,6 +27,17 @@ class AppPalette {
   // applies (no purchase gate wired in yet), this only drives the
   // "PRO" badge so the eventual gate isn't a surprise.
   final bool free;
+  // 2026-08-21: "add real flags around... like a Fortnite skin around
+  // the edges, but so you can still see and operate the functions" -
+  // the actual stripe sequence for flags that are genuinely
+  // stripe-based (Germany's horizontal black/red/gold, France's
+  // vertical blue/white/red, etc.) - drawn as a thin repeating-band
+  // frame around the screen edge by widgets/flag_frame.dart. Null for
+  // palettes with no accurate stripe representation (complex flags
+  // like the UK's Union Jack or the US's stars-and-stripes, or the 3
+  // non-flag skins) - those get no frame at all rather than a
+  // misleading simplified pattern.
+  final List<Color>? flagStripes;
   const AppPalette({
     required this.id,
     required this.label,
@@ -40,6 +51,7 @@ class AppPalette {
     required this.textMid,
     required this.accent,
     this.free = false,
+    this.flagStripes,
   });
 }
 
@@ -116,6 +128,7 @@ const argentinaPalette = AppPalette(
   textDim: Color(0xFF4A5875),
   textMid: Color(0xFF8DA3C4),
   accent: Color(0xFF75AADB),
+  flagStripes: [Color(0xFF75AADB), Color(0xFFFFFFFF), Color(0xFF75AADB)],
 );
 
 const brazilPalette = AppPalette(
@@ -144,6 +157,7 @@ const italyPalette = AppPalette(
   textDim: Color(0xFF3A5480),
   textMid: Color(0xFF7098C8),
   accent: Color(0xFF0066CC),
+  flagStripes: [Color(0xFF009246), Color(0xFFFFFFFF), Color(0xFFCE2B37)],
 );
 
 const englandPalette = AppPalette(
@@ -174,6 +188,7 @@ AppPalette _flagSkin({
   required String id,
   required String label,
   required Color accent,
+  List<Color>? stripes,
 }) {
   const baseVoid = Color(0xFF030307);
   const baseSurface = Color(0xFF0B0B12);
@@ -193,13 +208,22 @@ AppPalette _flagSkin({
     textDim: Color.lerp(baseTextDim, accent, 0.25)!,
     textMid: Color.lerp(baseTextMid, accent, 0.30)!,
     accent: accent,
+    flagStripes: stripes,
   );
 }
 
+// 2026-08-21: flagStripes only set for genuinely stripe-based flags
+// (see the AppPalette field comment) - US (stars+stripes), Australia/
+// NZ/UK (Southern Cross/Union Jack), and Finland/Albania (Nordic
+// cross / eagle) all left without a stripe pattern rather than a
+// misleading simplified one.
 final usPalette = _flagSkin(
     id: 'us', label: 'United States', accent: const Color(0xFFB22234));
-final canadaPalette =
-    _flagSkin(id: 'canada', label: 'Canada', accent: const Color(0xFFFF0000));
+final canadaPalette = _flagSkin(
+    id: 'canada',
+    label: 'Canada',
+    accent: const Color(0xFFFF0000),
+    stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)]);
 final australiaPalette = _flagSkin(
     id: 'australia', label: 'Australia', accent: const Color(0xFF00247D));
 final nzPalette = _flagSkin(
@@ -207,23 +231,47 @@ final nzPalette = _flagSkin(
 final ukPalette =
     _flagSkin(id: 'uk', label: 'United Kingdom', accent: const Color(0xFF012169));
 final irelandPalette = _flagSkin(
-    id: 'ireland', label: 'Ireland', accent: const Color(0xFF169B62));
+    id: 'ireland',
+    label: 'Ireland',
+    accent: const Color(0xFF169B62),
+    stripes: const [Color(0xFF169B62), Color(0xFFFFFFFF), Color(0xFFFF883E)]);
 final germanyPalette = _flagSkin(
-    id: 'germany', label: 'Germany', accent: const Color(0xFFFFCE00));
-final francePalette =
-    _flagSkin(id: 'france', label: 'France', accent: const Color(0xFF002654));
-final spainPalette =
-    _flagSkin(id: 'spain', label: 'Spain', accent: const Color(0xFFC60B1E));
+    id: 'germany',
+    label: 'Germany',
+    accent: const Color(0xFFFFCE00),
+    stripes: const [Color(0xFF000000), Color(0xFFDD0000), Color(0xFFFFCE00)]);
+final francePalette = _flagSkin(
+    id: 'france',
+    label: 'France',
+    accent: const Color(0xFF002654),
+    stripes: const [Color(0xFF0055A4), Color(0xFFFFFFFF), Color(0xFFEF4135)]);
+final spainPalette = _flagSkin(
+    id: 'spain',
+    label: 'Spain',
+    accent: const Color(0xFFC60B1E),
+    stripes: const [Color(0xFFAA151B), Color(0xFFF1BF00), Color(0xFFAA151B)]);
 final netherlandsPalette = _flagSkin(
-    id: 'netherlands', label: 'Netherlands', accent: const Color(0xFFFF9B00));
+    id: 'netherlands',
+    label: 'Netherlands',
+    accent: const Color(0xFFFF9B00),
+    stripes: const [Color(0xFFAE1C28), Color(0xFFFFFFFF), Color(0xFF21468B)]);
 final finlandPalette = _flagSkin(
     id: 'finland', label: 'Finland', accent: const Color(0xFF003580));
 final slovakiaPalette = _flagSkin(
-    id: 'slovakia', label: 'Slovakia', accent: const Color(0xFF0B4EA2));
+    id: 'slovakia',
+    label: 'Slovakia',
+    accent: const Color(0xFF0B4EA2),
+    stripes: const [Color(0xFFFFFFFF), Color(0xFF0B4EA2), Color(0xFFEE1C25)]);
 final sloveniaPalette = _flagSkin(
-    id: 'slovenia', label: 'Slovenia', accent: const Color(0xFFE9424D));
+    id: 'slovenia',
+    label: 'Slovenia',
+    accent: const Color(0xFFE9424D),
+    stripes: const [Color(0xFFFFFFFF), Color(0xFF0000FF), Color(0xFFED1C24)]);
 final estoniaPalette = _flagSkin(
-    id: 'estonia', label: 'Estonia', accent: const Color(0xFF0072CE));
+    id: 'estonia',
+    label: 'Estonia',
+    accent: const Color(0xFF0072CE),
+    stripes: const [Color(0xFF0072CE), Color(0xFF000000), Color(0xFFFFFFFF)]);
 final albaniaPalette = _flagSkin(
     id: 'albania', label: 'Albania', accent: const Color(0xFFE41E20));
 

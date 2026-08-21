@@ -22,6 +22,8 @@ import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
+import '../services/purchase_service.dart';
+import '../widgets/conflict_picker_upsell.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -499,7 +501,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 32),
             _buildSkinsCard(),
-            const SizedBox(height: 40),
+            const SizedBox(height: 28),
+            // 2026-08-21: real dashboard setup finally done (RevenueCat
+            // Test Store: conflict_picker_unlock product, conflict_picker
+            // entitlement, both attached, "default" offering has a real
+            // Custom package wrapping the product) - "can I see a tap
+            // this for a price and it runs?" Placed here in Settings,
+            // not the real Conflicts screen, so testing the actual free
+            // conflict-picker flow stays completely unaffected. This is
+            // the first place in the whole app a real purchase can
+            // genuinely be attempted (Test Store, not a live App Store
+            // charge - no funded Apple Developer account yet).
+            ConflictPickerUpsell(purchases: context.watch<PurchaseService>()),
+            const SizedBox(height: 28),
             _buildAutoDiscoveryCard(),
           ],
         ),

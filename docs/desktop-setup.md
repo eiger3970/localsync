@@ -13,6 +13,12 @@ Logseq and other PKMs are a longer-term direction, not built yet.
 
 This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and similar) and macOS.
 
+**Automated option**: `desktop/setup.yml` is an Ansible playbook that does everything below automatically - git, SSH, the bare repository, and auto-discovery. Real, tested against a live desktop, idempotent (safe to re-run, only changes what's actually missing).
+```
+ansible-playbook desktop/setup.yml
+```
+On macOS it also installs a persistent LaunchDaemon for auto-discovery (survives a reboot, unlike the manual `dns-sd -R` command further down this guide). Windows isn't covered - no native SSH-by-default, no apt/brew equivalent, a genuinely separate problem, not an oversight.
+
 ```mermaid
 graph LR
     A["Phone<br/>Obsidian vault"] -- "LocalSync app,<br/>over SSH" --> B[("Git bare repository,<br/>on the desktop")]
