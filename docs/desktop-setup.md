@@ -1,12 +1,22 @@
 # Desktop setup for LocalSync
 
-LocalSync syncs your phone's Obsidian vault to a folder on a desktop computer over your local network (Wi-Fi hotspot or the same Wi-Fi network) — nothing goes through a third-party server. Before linking a vault in the app, your desktop needs three things: **git**, **SSH access**, and **a bare git repository**. This guide covers Linux Mint and macOS.
+LocalSync syncs a phone's Obsidian vault to a folder on a desktop computer over the local network (Wi-Fi hotspot or the same Wi-Fi network) — nothing goes through a third-party server. Obsidian is the PKM (personal knowledge management app) LocalSync supports today; Logseq and other PKMs are a longer-term direction, not built yet — this guide is accurate to what LocalSync actually does right now.
 
-If you already have all three set up (a bare repo exists, SSH is reachable), skip to [Getting your Settings values](#getting-your-settings-values).
+Before linking a vault in the app, the desktop needs three things: **git**, **SSH access**, and **a bare git repository**. This guide covers Debian-based Linux (Linux Mint, Ubuntu, and similar) and macOS.
 
-## 1. Install git
+```mermaid
+graph LR
+    A["Phone<br/>Obsidian vault"] -- "LocalSync app,<br/>over SSH" --> B[("Bare git repository,<br/>on the desktop")]
+    C["Desktop<br/>Obsidian vault"] -- "git push / pull" --> B
+```
 
-**Linux Mint** — usually already installed. Check and install if missing:
+The bare repository is the thing both sides actually sync through — not a normal folder with files in it, just git history. Neither device talks to the other directly.
+
+If all three are already set up (a bare repo exists, SSH is reachable), skip to [Settings values](#settings-values).
+
+## 1. Git
+
+**Debian-based Linux (Linux Mint, Ubuntu, and similar)** — usually already installed. Check and install if missing:
 ```
 git --version
 sudo apt update && sudo apt install -y git
@@ -16,13 +26,13 @@ sudo apt update && sudo apt install -y git
 ```
 git --version
 ```
-If that prompts you to install developer tools, accept — this installs git along with it. No separate download needed.
+If that prompts an install of developer tools, accept — git comes with it, no separate download needed.
 
-## 2. Enable SSH access
+## 2. SSH access
 
-LocalSync's phone-to-desktop sync runs entirely over SSH. Pairing (the one-time step that authorizes your phone) also connects over SSH, using your desktop login password — so SSH needs to be running before you pair.
+LocalSync's phone-to-desktop sync runs entirely over SSH. Pairing (the one-time step that authorizes a phone) also connects over SSH, using the desktop login password — SSH needs to be running before pairing.
 
-**Linux Mint** — SSH server isn't installed by default:
+**Debian-based Linux** — SSH server isn't installed by default:
 ```
 sudo apt install -y openssh-server
 sudo systemctl enable --now ssh
@@ -30,53 +40,51 @@ sudo systemctl enable --now ssh
 
 **macOS** — the SSH server is built in, just switched off by default:
 - **System Settings → General → Sharing → Remote Login** → turn on.
-- Optionally, restrict it to your own user account rather than "All users."
+- Optionally, restrict it to one user account rather than "All users."
 
-**Either platform** — confirm your desktop login password will work over SSH (needed for pairing specifically, not for ongoing sync):
+**Either platform** — confirm the desktop login password will work over SSH (needed for pairing specifically, not for ongoing sync):
 ```
 grep -i passwordauthentication /etc/ssh/sshd_config
 ```
-If it says `PasswordAuthentication no`, change it to `yes`, then restart SSH (`sudo systemctl restart ssh` on Linux; toggle Remote Login off/on on macOS). You can turn it back to `no` after pairing once, if you prefer — ongoing sync uses the key that pairing installs, not your password.
+If it says `PasswordAuthentication no`, change it to `yes`, then restart SSH (`sudo systemctl restart ssh` on Linux; toggle Remote Login off/on on macOS). This can go back to `no` after pairing once, if preferred — ongoing sync uses the key pairing installs, not the password.
 
-## 3. Create a bare git repository
-
-This is the actual thing your phone and desktop both sync through — not a normal folder with files in it, just the git history.
+## 3. Bare git repository
 
 ```
 mkdir -p ~/Documents/LocalSync_repos
 git init --bare ~/Documents/LocalSync_repos/my_vault.git
 ```
 
-Pick any name and location — `my_vault.git` and the path above are just an example. Remember the **full absolute path** (e.g. `/home/yourname/Documents/LocalSync_repos/my_vault.git`, or on macOS `/Users/yourname/Documents/LocalSync_repos/my_vault.git`) — you'll enter this exact path in LocalSync's Settings.
+Any name and location works — `my_vault.git` and the path above are just an example. Note the **full absolute path** (e.g. `/home/username/Documents/LocalSync_repos/my_vault.git`, or on macOS `/Users/username/Documents/LocalSync_repos/my_vault.git`) — this exact path goes into LocalSync's Settings.
 
-## Getting your Settings values
+## Settings values
 
-LocalSync's kebab menu → **Settings** needs two things, both with a ⓘ help button in the app itself that shows the same commands:
+LocalSync's kebab menu → **Settings** needs two things, both with a ⓘ help button in the app itself showing the same commands:
 
 **IP address - desktop**
 ```
-# Linux Mint
+# Debian-based Linux
 ip -4 addr show
 ```
 ```
 # macOS
 ipconfig getifaddr en0
 ```
-Look for the address on whichever interface your phone actually connects through — USB tethering and Wi-Fi hotspot show up as different interfaces, and the address changes when you switch between them.
+Look for the address on whichever interface the phone actually connects through — USB tethering and Wi-Fi hotspot show up as different interfaces, and the address changes when switching between them.
 
-**Git bare repo path** — the exact absolute path from step 3 above (e.g. `~/Documents/LocalSync_repos/my_vault.git`, written out in full, not with `~`).
+**Git bare repo path** — the exact absolute path from step 3 above (written out in full, not with `~`).
 
-## 4. Pair your phone
+## 4. Phone pairing
 
-In LocalSync: drag the phone icon onto the desktop icon → enter your desktop login password when prompted. This is used once, over the SSH connection, to install your phone's own key into `~/.ssh/authorized_keys` on the desktop — the password itself is never stored anywhere.
+In LocalSync: drag the phone icon onto the desktop icon → enter the desktop login password when prompted. This is used once, over the SSH connection, to install the phone's own key into `~/.ssh/authorized_keys` on the desktop — the password itself is never stored anywhere.
 
-## 5. Link the vault
+## 5. Vault linking
 
-Kebab menu → **Add another vault** (or the first-run setup flow if this is your first vault). If you already have an Obsidian vault folder ready to sync, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
+Kebab menu → **Add another vault** (or the first-run setup flow, for a first vault). For an Obsidian vault folder that already exists, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
 
 ## Troubleshooting
 
-If pairing or syncing fails, LocalSync's own error dialogs (tap the vault name in the app bar, or the failure screen during setup) show a plain-language diagnosis, a fix, and — critically — the raw underlying error, so you don't need to guess. Most connection failures trace back to one of:
-- The desktop is asleep or not on the same network as the phone right now.
-- The IP address changed since it was last entered (see step above).
+LocalSync's own error dialogs (tap the vault name in the app bar, or the failure screen during setup) show a plain-language diagnosis, a fix, and — critically — the raw underlying error, so guessing shouldn't be necessary. Most connection failures trace back to one of:
+- The desktop is asleep, or not on the same network as the phone right now.
+- The IP address changed since it was last entered (see the Settings values section above).
 - SSH isn't actually running (`sudo systemctl status ssh` on Linux; check Remote Login is on, on macOS).
