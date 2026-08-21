@@ -1039,10 +1039,19 @@ class _AppBarRepoStatus extends StatelessWidget {
             ),
           ),
         ),
-        if (allRepos.length > 1)
+        // 2026-08-21: real root cause of the "multi-repo display bug"
+        // open since 2026-08-20, found live - this WAS always building
+        // correctly (allRepos.length > 1 genuinely fired, the repo
+        // really was saved) - the actual problem was purely a tap-
+        // target one. padding: EdgeInsets.zero shrank this button's
+        // hit area down to just its 20px icon, sitting immediately
+        // next to the AppBar's kebab PopupMenuButton (default padding,
+        // a much bigger hit area) with zero gap between them - taps
+        // aimed at the visible arrow were landing on the kebab instead.
+        // Not a data/state bug at all, once actually seen on-device.
+        if (allRepos.length > 1) ...[
           PopupMenuButton<int>(
             color: kSurface,
-            padding: EdgeInsets.zero,
             tooltip: 'Switch $kContainerName',
             icon: const Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
             onSelected: onSelect,
@@ -1068,6 +1077,13 @@ class _AppBarRepoStatus extends StatelessWidget {
                 ),
             ],
           ),
+          // 2026-08-21: real gap from the fix above - the button's own
+          // hit area now covers the icon plus padding, but nothing
+          // separated that hit area from the AppBar's kebab actions
+          // button sitting immediately to its right. This reserves a
+          // real visual and tap gap between the two.
+          const SizedBox(width: 8),
+        ],
       ],
     );
   }
