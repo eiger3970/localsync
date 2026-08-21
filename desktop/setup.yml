@@ -1,0 +1,166 @@
+---
+# Run: ansible-playbook desktop/setup.yml
+# Skip auto-discovery setup: ansible-playbook desktop/setup.yml --skip-tags discovery
+#
+# Ansible playbook automating docs/desktop-setup.md's manual steps -
+# git, SSH access, the bare repo, and (optionally) mDNS auto-discovery
+# so LocalSync can find this desktop without a typed-in IP address.
+#
+# SCOPE: Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi OS) and
+# macOS. Windows is a real, separate problem (no native SSH-by-default,
+# no apt/brew equivalent, Ansible's own Windows story runs over WinRM
+# instead of SSH) - deliberately out of scope here, not an oversight.
+#
+# Every task is idempotent - safe to re-run. Nothing here deletes or
+# overwrites existing data; the bare repo task only runs if the target
+# path doesn't already exist (`creates:` guard).
+
+- name: LocalSync desktop setup
+  hosts: localhost
+  connection: local
+  become: false
+
+  vars:
+    setup_user: "{{ ansible_env.USER | default(lookup('env', 'USER')) }}"
+    bare_repo_dir: "{{ ansible_env.HOME }}/Documents/Git/LocalSync"
+    bare_repo_path: "{{ bare_repo_dir }}/vault.git"
+    ssh_port: 22
+    avahi_service_source: "{{ playbook_dir }}/localsync.service"
+
+  tasks:
+    # ── Git ──────────────────────────────────────────────────────────────────
+    - name: Check if git is already installed
+      command: which git
+      register: git_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install git (Debian-based Linux)
+      apt:
+        name: git
+        state: present
+        update_cache: true
+      become: true
+      when:
+        - ansible_os_family == "Debian"
+        - git_check.rc != 0
+
+    - name: Note - git on macOS
+      debug:
+        msg: >
+          git isn't detected. On macOS, git installs alongside the Xcode
+          Command Line Tools, which need an interactive prompt Ansible
+          can't complete automatically - run 'git --version' once by hand
+          to trigger the install prompt, then re-run this playbook.
+      when:
+        - ansible_os_family == "Darwin"
+        - git_check.rc != 0
+
+    # ── SSH access ───────────────────────────────────────────────────────────
+    - name: Install openssh-server (Debian-based Linux)
+      apt:
+        name: openssh-server
+        state: present
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Enable and start SSH (Debian-based Linux)
+      systemd:
+        name: ssh
+        enabled: true
+        state: started
+      become: true
+      when: ansible_os_family == "Debian"
+
+    - name: Enable Remote Login (macOS)
+      command: systemsetup -setremotelogin on
+      become: true
+      when: ansible_os_family == "Darwin"
+      changed_when: true
+
+    # ── Git bare repository ─────────────────────────────────────────────────
+    - name: Create the LocalSync repo directory
+      file:
+        path: "{{ bare_repo_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Initialize the Git bare repository
+      command: "git init --bare {{ bare_repo_path }}"
+      args:
+        creates: "{{ bare_repo_path }}"
+
+    - name: Show the path to enter into LocalSync's Settings
+      debug:
+        msg: "Git bare repo path: {{ bare_repo_path }}"
+
+    # ── Auto-discovery (optional, tag: discovery) ───────────────────────────
+    - name: Install avahi-daemon (Debian-based Linux)
+      apt:
+        name: avahi-daemon
+        state: present
+      become: true
+      tags: discovery
+      when: ansible_os_family == "Debian"
+
+    - name: Enable and start avahi-daemon (Debian-based Linux)
+      systemd:
+        name: avahi-daemon
+        enabled: true
+        state: started
+      become: true
+      tags: discovery
+      when: ansible_os_family == "Debian"
+
+    - name: Install the LocalSync avahi service file (Debian-based Linux)
+      copy:
+        src: "{{ avahi_service_source }}"
+        dest: /etc/avahi/services/localsync.service
+        mode: "0644"
+      become: true
+      tags: discovery
+      when: ansible_os_family == "Debian"
+      notify: restart avahi-daemon
+
+    - name: Advertise via Bonjour (macOS) - persistent LaunchDaemon
+      copy:
+        dest: /Library/LaunchDaemons/space.kworld.localsync.discovery.plist
+        mode: "0644"
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>Label</key>
+            <string>space.kworld.localsync.discovery</string>
+            <key>ProgramArguments</key>
+            <array>
+              <string>/usr/bin/dns-sd</string>
+              <string>-R</string>
+              <string>LocalSync</string>
+              <string>_localsync._tcp</string>
+              <string>local</string>
+              <string>{{ ssh_port }}</string>
+            </array>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>KeepAlive</key>
+            <true/>
+          </dict>
+          </plist>
+      become: true
+      tags: discovery
+      when: ansible_os_family == "Darwin"
+      notify: load launchdaemon
+
+  handlers:
+    - name: restart avahi-daemon
+      systemd:
+        name: avahi-daemon
+        state: restarted
+      become: true
+
+    - name: load launchdaemon
+      command: launchctl load /Library/LaunchDaemons/space.kworld.localsync.discovery.plist
+      become: true
+      changed_when: true

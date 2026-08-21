@@ -12,6 +12,7 @@ import '../services/device_name.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/flag_frame.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
@@ -305,7 +306,15 @@ class HomeScreen extends StatelessWidget {
       // earlier this session is moot now - the whole row is the tap
       // target), those actions moved to the top-bar kebab above or the
       // gif swipes below.
-      body: Consumer<RepositoryProvider>(
+      // 2026-08-21: "add real flags around, like a Fortnite skin
+      // around the edges, but so you can still see and operate the
+      // functions" - home screen is the real test case, per explicit
+      // scope confirmation, before rolling this out further. Wraps
+      // just the body (not the AppBar/kebab menu, and not the system
+      // status bar above it) - passes through unchanged for any skin
+      // without a real stripe-based flag (theme.dart's flagStripes).
+      body: FlagFrame(
+        child: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
           if (provider.loading) {
             return Center(
@@ -375,6 +384,7 @@ class HomeScreen extends StatelessWidget {
                     provider.pushRepository(repo.id!, confirmed: confirmed)),
           );
         },
+        ),
       ),
     );
   }

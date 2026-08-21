@@ -6,6 +6,7 @@ import 'theme.dart';
 import 'services/database_service.dart';
 import 'services/repository_provider.dart';
 import 'services/theme_service.dart';
+import 'services/purchase_service.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
@@ -35,11 +36,17 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
   // desktopIp/bareRepoPath overrides below - there's always some UI
   // time before the first frame that matters visually.
   final ThemeService _themeService = ThemeService();
+  // 2026-08-21: real RevenueCat key now set (kRevenueCatApiKey in
+  // purchase_service.dart) - init() actually connects for the first
+  // time. Fire-and-forget, same reasoning as everything else in this
+  // method - the SDK config call doesn't need to block the first frame.
+  final PurchaseService _purchaseService = PurchaseService();
 
   @override
   void initState() {
     super.initState();
     _themeService.load();
+    _purchaseService.init();
     _linkingController = LinkingController(
       desktopUser:    'rapi5',
       // localVaultPath removed 2026-08-09: the vault folder is no
@@ -104,6 +111,7 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         ChangeNotifierProvider(create: (_) => RepositoryProvider()),
         ChangeNotifierProvider.value(value: _linkingController),
         ChangeNotifierProvider.value(value: _themeService),
+        Provider.value(value: _purchaseService),
       ],
       // 2026-08-21: "skins" IAP - MaterialApp's theme has to be
       // rebuilt (buildAppTheme() called fresh) every time the
