@@ -16,6 +16,15 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # 2026-08-21: real feedback, live - "stop pushing to build without
+    # my push approval, you're wasting my free build compute." Every
+    # doc-only commit (docs/desktop-setup.md edits) was triggering a
+    # full real build with no code change involved - this had no path
+    # filter at all. Docs/markdown-only pushes no longer trigger a
+    # build.
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
 
 jobs:
   build:
