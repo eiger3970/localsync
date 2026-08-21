@@ -208,7 +208,13 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(
                       value: 'toggle_auto',
                       child: _MenuRow(
-                        icon: Icons.sync,
+                        // 2026-08-21: real feedback, live - a generic
+                        // sync-arrows glyph doesn't say "pull" over
+                        // "push" or "sync in general." A hand mid-swipe-
+                        // down reads as the actual gesture this app
+                        // uses for a manual pull (see the home screen's
+                        // own swipe-down PULL zone), not an abstraction.
+                        icon: Icons.swipe_down_alt,
                         label: provider.selectedRepo!.autoSync
                             ? 'Pull manually'
                             : 'Pull automatically',
@@ -229,7 +235,10 @@ class HomeScreen extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'settings',
                     child: _MenuRow(
-                      icon: Icons.settings_outlined,
+                      // 2026-08-21: real feedback, live - "a wrench is
+                      // smaller and minimal, taking less screen space
+                      // and attention" than a cog.
+                      icon: Icons.build_outlined,
                       label: 'Settings',
                       subtitle: 'IP address - desktop, Git bare repo path',
                     ),
