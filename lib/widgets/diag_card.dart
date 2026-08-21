@@ -20,12 +20,26 @@ class DiagCard extends StatelessWidget {
   // enough to push the rest of the screen (including a drag canvas)
   // mostly off-screen. Left null for those short, hand-written strings.
   final int? maxLength;
+  // 2026-08-21: real feedback, live - "check all text which is
+  // verbose, change to point form" + "add an appropriate small image
+  // to the left." [icon] labels the card's purpose at a glance
+  // (WHAT HAPPENED/RAW ERROR don't need one, HOW TO FIX IT does -
+  // caller's choice, not forced here). [bulleted] renders each of the
+  // resolution strings' existing `\n`-separated lines (already one
+  // point per line, per the 2026-08-19 convention noted where these
+  // strings are written) as a real bulleted list instead of one flat
+  // paragraph - the content was already structured as points, DiagCard
+  // just wasn't presenting it that way.
+  final IconData? icon;
+  final bool bulleted;
   const DiagCard({
     super.key,
     required this.label,
     required this.text,
     required this.accent,
     this.maxLength,
+    this.icon,
+    this.bulleted = false,
   });
 
   @override
@@ -43,15 +57,51 @@ class DiagCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(
-                  color: accent,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5)),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, color: accent, size: 15),
+                const SizedBox(width: 6),
+              ],
+              Text(label,
+                  style: TextStyle(
+                      color: accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5)),
+            ],
+          ),
           const SizedBox(height: 8),
-          Text(displayText,
-              style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
+          if (bulleted)
+            for (final line in displayText.split('\n').where((l) => l.trim().isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // A handful of resolution strings are already
+                    // numbered steps ("1. ...", "2. ..."), which read
+                    // as a list on their own - a "•" in front would
+                    // just double-mark those. Only bullet a line that
+                    // isn't already leading with its own number.
+                    SizedBox(
+                      width: 16,
+                      child: Text(
+                          RegExp(r'^\d+\.\s').hasMatch(line) ? '' : '•',
+                          style: const TextStyle(
+                              color: kStar, fontSize: 15, height: 1.7)),
+                    ),
+                    Expanded(
+                      child: Text(line,
+                          style: const TextStyle(
+                              color: kStar, fontSize: 15, height: 1.7)),
+                    ),
+                  ],
+                ),
+              )
+          else
+            Text(displayText,
+                style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
         ],
       ),
     );

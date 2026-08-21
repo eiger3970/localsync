@@ -124,13 +124,30 @@ class RepositoryProvider extends ChangeNotifier {
   // The result carries the actual commit message used, so a caller can
   // show it (see home_screen.dart's SnackBar) instead of the action
   // being invisible once it's done.
-  Future<SyncResult?> pullRepository(int id, {bool confirmed = false}) =>
-      _run(id, (service) => service.pull(confirmed: confirmed));
+  // 2026-08-21: real bug, live - "HOW TO FIX IT" text tells the user
+  // to "Tap TRY AGAIN," but the sync-error dialog (home_screen.dart's
+  // _showFullError) never had any such button, only Close - "the text
+  // is dead." That copy is accurate in the linking flow (which really
+  // does have a TRY AGAIN button), just wrong when the same
+  // LinkingError.resolution string gets reused for an ordinary push/
+  // pull failure shown through this dialog. Tracked here (in-memory
+  // only, not persisted - purely which action to retry, not real
+  // state) so the dialog can offer a genuine retry of the SAME action
+  // that actually failed, rather than guessing or defaulting to pull.
+  final Map<int, bool> _lastActionWasPush = {};
+  bool lastActionWasPush(int id) => _lastActionWasPush[id] ?? false;
+
+  Future<SyncResult?> pullRepository(int id, {bool confirmed = false}) {
+    _lastActionWasPush[id] = false;
+    return _run(id, (service) => service.pull(confirmed: confirmed));
+  }
 
   Future<SyncResult?> pushRepository(int id,
-          {String? commitMessage, bool confirmed = false}) =>
-      _run(id, (service) =>
-          service.push(commitMessage: commitMessage, confirmed: confirmed));
+      {String? commitMessage, bool confirmed = false}) {
+    _lastActionWasPush[id] = true;
+    return _run(id, (service) =>
+        service.push(commitMessage: commitMessage, confirmed: confirmed));
+  }
 
   // 2026-08-21: real bug found live on the real vault - a manual push
   // right after returning to the app failed with libgit2's "current
