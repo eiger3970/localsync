@@ -848,6 +848,26 @@ void _showAbout(BuildContext context) {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
+            // 2026-08-21: real feedback, live - "where is the manual
+            // on the app? I don't see it" (asked twice) - the desktop
+            // setup guide (docs/desktop-setup.md) only ever lived in
+            // the repo, nothing in the app pointed to it. Same plain-
+            // text-URL pattern as CONTACT above, not a new in-app
+            // markdown renderer - that's real scope (mermaid support,
+            // asset bundling) this doesn't need yet.
+            const Text('SETUP GUIDE',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            const Text(
+              'Desktop-side setup (git, SSH, the bare repo) - '
+              'codeberg.org/kworld/localsync/src/branch/main/docs/desktop-setup.md',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 20),
             const Text('CREDITS',
                 style: TextStyle(
                     color: kTextDim,
