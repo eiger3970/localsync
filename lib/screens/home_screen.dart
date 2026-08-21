@@ -83,6 +83,19 @@ class HomeScreen extends StatelessWidget {
           // dropdown, see _AppBarRepoStatus) instead of always
           // repos.first - real multi-vault support, not just the data
           // model tolerating it.
+          //
+          // 2026-08-21: real bug, live, two rounds - "the drop down
+          // arrow is exactly behind the kebab icon." The earlier fix
+          // (padding on the dropdown itself, plus a SizedBox after it
+          // inside _AppBarRepoStatus's own Row) didn't help, because
+          // that spacing lives inside `title`, and Flutter's AppBar
+          // puts zero native gap between `title` and `actions` - if
+          // the title's content is centered right up against that
+          // boundary, internal trailing padding never creates a real
+          // visual gap from whatever `actions` starts with. Forcing a
+          // real gap from the `actions` side instead is unambiguous
+          // regardless of how the title's own centering math resolves.
+          const SizedBox(width: 14),
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
