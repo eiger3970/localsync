@@ -240,7 +240,10 @@ class HomeScreen extends StatelessWidget {
                       // and attention" than a cog.
                       icon: Icons.build_outlined,
                       label: 'Settings',
-                      subtitle: 'IP address - desktop, Git bare repo path',
+                      // 2026-08-21: real feedback, live - reordered
+                      // alphabetically (Git before IP), same request
+                      // applied to the Settings screen's own field order.
+                      subtitle: 'Git bare repo path, IP address - desktop',
                     ),
                   ),
                   PopupMenuItem(
