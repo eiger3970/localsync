@@ -99,7 +99,7 @@ class HomeScreen extends StatelessWidget {
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
-              icon: const Icon(Icons.more_vert, color: kGreen, size: 22),
+              icon: Icon(Icons.more_vert, color: kGreen, size: 22),
               onSelected: (v) {
                 if (v == 'pair') _openPairing(context);
                 if (v == 'link') _openLinking(context);
@@ -194,10 +194,10 @@ class HomeScreen extends StatelessWidget {
                           'assets/pairing/pairing_phone_key.svg',
                           width: 18,
                           colorFilter:
-                              const ColorFilter.mode(kStar, BlendMode.srcIn),
+                              ColorFilter.mode(kStar, BlendMode.srcIn),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -308,7 +308,7 @@ class HomeScreen extends StatelessWidget {
       body: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
           if (provider.loading) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(color: kGreen, strokeWidth: 1),
             );
           }
@@ -427,18 +427,18 @@ class HomeScreen extends StatelessWidget {
         // without naming what does. Now explicit: this removes the
         // sync connection only, names the actual vault folder by its
         // real name, and says directly that it stays untouched.
-        title: const Text('Remove sync connection',
+        title: Text('Remove sync connection',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: Text(
           'This unlinks "${repo.localPath.split('/').last}" from your desktop '
           '$kGenericAppLabel $kContainerName. The $kContainerName and its '
           'files stay on this phone.',
-          style: const TextStyle(color: kTextMid, fontSize: 15),
+          style: TextStyle(color: kTextMid, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: kTextDim, fontSize: 15)),
           ),
           TextButton(
@@ -476,23 +476,23 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: const Text('Device name',
+        title: Text('Device name',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: kStar),
+          style: TextStyle(color: kStar),
           decoration: const InputDecoration(hintText: "e.g. Ken's phone"),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel',
+            child: Text('Cancel',
                 style: TextStyle(color: kTextDim, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
-            child: const Text('Save',
+            child: Text('Save',
                 style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
@@ -515,15 +515,21 @@ class HomeScreen extends StatelessWidget {
 // instead of repeating the icon+column layout 6 times.
 class _MenuRow extends StatelessWidget {
   final IconData icon;
-  final Color iconColor;
+  final Color? iconColor;
   final String label;
-  final Color labelColor;
+  final Color? labelColor;
   final String? subtitle;
+  // 2026-08-21: "skins" IAP - iconColor/labelColor used to default to
+  // kStar directly in the parameter list, which only worked while
+  // kStar was a compile-time const. Now that it's a getter (reads the
+  // live selected palette), a default parameter value can't reference
+  // it - Dart requires defaults to be constant expressions. Nullable
+  // fields, resolved with `?? kStar` in build() instead, same effect.
   const _MenuRow({
     required this.icon,
-    this.iconColor = kStar,
+    this.iconColor,
     required this.label,
-    this.labelColor = kStar,
+    this.labelColor,
     this.subtitle,
   });
 
@@ -532,17 +538,17 @@ class _MenuRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, color: iconColor, size: 18),
+        Icon(icon, color: iconColor ?? kStar, size: 18),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: TextStyle(color: labelColor, fontSize: 14)),
+              Text(label, style: TextStyle(color: labelColor ?? kStar, fontSize: 14)),
               if (subtitle != null)
                 Text(subtitle!,
-                    style: const TextStyle(color: kTextMid, fontSize: 13)),
+                    style: TextStyle(color: kTextMid, fontSize: 13)),
             ],
           ),
         ),
@@ -635,7 +641,7 @@ class _SpinningSyncState extends State<_SpinningSync>
       // static _StatusDot's 7px - that extra 15px was exactly enough
       // to tip the row over during syncing specifically, even after
       // the vault-name width was capped. Shrunk to stay proportionate.
-      child: const Icon(Icons.sync, color: kGreen, size: 14),
+      child: Icon(Icons.sync, color: kGreen, size: 14),
     );
   }
 }
@@ -686,7 +692,7 @@ Future<void> _runAndShow(
     SnackBar(
       backgroundColor: kSurface,
       content: Text(syncResultMessage(result),
-          style: const TextStyle(color: kStar, fontSize: 16)),
+          style: TextStyle(color: kStar, fontSize: 16)),
       duration: const Duration(seconds: 12),
     ),
   );
@@ -724,7 +730,7 @@ void _showFullError(BuildContext context, Repository repo) {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: const Text('Sync error',
+      title: Text('Sync error',
           style: TextStyle(color: kStar, fontSize: 17)),
       content: SingleChildScrollView(
         child: Column(
@@ -760,7 +766,7 @@ void _showFullError(BuildContext context, Repository repo) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close',
+          child: Text('Close',
               style: TextStyle(color: kTextMid, fontSize: 15)),
         ),
         TextButton(
@@ -774,7 +780,7 @@ void _showFullError(BuildContext context, Repository repo) {
               repo: repo,
             );
           },
-          child: const Text('TRY AGAIN',
+          child: Text('TRY AGAIN',
               style:
                   TextStyle(color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
         ),
@@ -800,34 +806,34 @@ void _showAbout(BuildContext context) {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: const Text('About',
+      title: Text('About',
           style: TextStyle(color: kStar, fontSize: 17)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('LocalSync',
+            Text('LocalSync',
                 style: TextStyle(
                     color: kStar, fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            const Text('v$kAppVersion',
+            Text('v$kAppVersion',
                 style: TextStyle(color: kTextMid, fontSize: 13)),
             const SizedBox(height: 12),
-            const Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
+            Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 4),
-            const Text('Solo-built by kworld - hand-coded, no low-code or app-builder tools.',
+            Text('Solo-built by kworld - hand-coded, no low-code or app-builder tools.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 20),
-            const Text('DISCLAIMER',
+            Text('DISCLAIMER',
                 style: TextStyle(
                     color: kTextDim,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'LocalSync syncs your $kContainerName over your own network - '
               'nothing is stored on any server this app controls. Keep your '
               'own backups regardless; this app is provided as-is, with no '
@@ -835,14 +841,14 @@ void _showAbout(BuildContext context) {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
-            const Text('CONTACT',
+            Text('CONTACT',
                 style: TextStyle(
                     color: kTextDim,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
               'open an issue at codeberg.org/kworld/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
@@ -855,27 +861,27 @@ void _showAbout(BuildContext context) {
             // text-URL pattern as CONTACT above, not a new in-app
             // markdown renderer - that's real scope (mermaid support,
             // asset bundling) this doesn't need yet.
-            const Text('SETUP GUIDE',
+            Text('SETUP GUIDE',
                 style: TextStyle(
                     color: kTextDim,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Desktop-side setup (git, SSH, the bare repo) - '
               'codeberg.org/kworld/localsync/src/branch/main/docs/desktop-setup.md',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
-            const Text('CREDITS',
+            Text('CREDITS',
                 style: TextStyle(
                     color: kTextDim,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Bash, Blender, C, C++, CHUV public library, Claude, Codemagic, '
               'Dart, Eye of MATE, Flameshot, GIMP, iLoader, Inkscape, iPhone, '
               'Kanban plugin, Logseq, Médiathèque Valais Sion Makerspace '
@@ -893,7 +899,7 @@ void _showAbout(BuildContext context) {
                 applicationName: 'LocalSync',
                 applicationVersion: kAppVersion,
               ),
-              child: const Text('Open-source licenses',
+              child: Text('Open-source licenses',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
           ],
@@ -902,7 +908,7 @@ void _showAbout(BuildContext context) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close',
+          child: Text('Close',
               style: TextStyle(color: kGreen, fontSize: 15)),
         ),
       ],
@@ -956,9 +962,9 @@ class _StatusIcon extends StatelessWidget {
       return const Icon(Icons.error_outline, color: Colors.redAccent, size: 22);
     }
     if (allOk) {
-      return const Icon(Icons.check_circle_outline, color: kGreen, size: 22);
+      return Icon(Icons.check_circle_outline, color: kGreen, size: 22);
     }
-    return const Icon(Icons.circle_outlined, color: kTextDim, size: 22);
+    return Icon(Icons.circle_outlined, color: kTextDim, size: 22);
   }
 }
 
@@ -1068,7 +1074,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                       constraints: const BoxConstraints(maxWidth: 110),
                       child: Text(
                         repo.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: kStar,
                             fontSize: 13,
                             fontWeight: FontWeight.w600),
@@ -1092,10 +1098,10 @@ class _AppBarRepoStatus extends StatelessWidget {
                   )
                 else if (isSyncing)
                   Text(repo.syncPhase.label,
-                      style: const TextStyle(color: kTextMid, fontSize: 10))
+                      style: TextStyle(color: kTextMid, fontSize: 10))
                 else if (repo.lastSync != null)
                   Text('synced ${_timeAgo(repo.lastSync!)}',
-                      style: const TextStyle(color: kTextMid, fontSize: 10)),
+                      style: TextStyle(color: kTextMid, fontSize: 10)),
               ],
             ),
           ),
@@ -1114,7 +1120,7 @@ class _AppBarRepoStatus extends StatelessWidget {
           PopupMenuButton<int>(
             color: kSurface,
             tooltip: 'Switch $kContainerName',
-            icon: const Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
+            icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
             onSelected: onSelect,
             itemBuilder: (_) => [
               for (final r in allRepos)
@@ -1132,7 +1138,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                       _StatusDot(status: r.status),
                       const SizedBox(width: 8),
                       Text(r.name,
-                          style: const TextStyle(color: kStar, fontSize: 14)),
+                          style: TextStyle(color: kStar, fontSize: 14)),
                     ],
                   ),
                 ),

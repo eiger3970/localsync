@@ -131,7 +131,7 @@ class _PairingScreenState extends State<PairingScreen> {
               children: [
                 Text(
                   'Connect to ${widget.desktopUser}@${widget.desktopIp}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
@@ -288,7 +288,7 @@ class _PasswordWorkflowStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _step(const Icon(Icons.password_rounded, color: kGreen, size: 26),
+        _step(Icon(Icons.password_rounded, color: kGreen, size: 26),
             'TYPE PASSWORD'),
         _arrow(),
         // 2026-08-16: "change image to pairing_phone_key.svg" - the
@@ -296,11 +296,11 @@ class _PasswordWorkflowStrip extends StatelessWidget {
         // Material key glyph.
         _step(
           SvgPicture.asset('assets/pairing/pairing_phone_key.svg',
-              width: 30, colorFilter: const ColorFilter.mode(kGreen, BlendMode.srcIn)),
+              width: 30, colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
           'INSTALLS KEY',
         ),
         _arrow(),
-        _step(const Icon(Icons.block_rounded, color: kGreen, size: 26),
+        _step(Icon(Icons.block_rounded, color: kGreen, size: 26),
             'PASSWORD NEVER STORED'),
       ],
     );
@@ -317,15 +317,15 @@ class _PasswordWorkflowStrip extends StatelessWidget {
           // readability bar as the DiagCard fix earlier this session.
           Text(label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                   color: kTextMid, fontSize: 11, letterSpacing: 0.6, height: 1.3)),
         ],
       ),
     );
   }
 
-  Widget _arrow() => const Padding(
-        padding: EdgeInsets.only(bottom: 20),
+  Widget _arrow() => Padding(
+        padding: const EdgeInsets.only(bottom: 20),
         child: Icon(Icons.arrow_forward_rounded, color: kTextDim, size: 16),
       );
 }
@@ -351,7 +351,7 @@ class _StepBadge extends StatelessWidget {
         border: Border.all(color: kGreen, width: 1.4),
       ),
       child: Text('$number',
-          style: const TextStyle(
+          style: TextStyle(
               color: kGreen, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
@@ -397,14 +397,14 @@ class _PairedSuccessView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(hasExistingVault ? 'Reconnected!' : 'Paired!',
-              style: const TextStyle(
+              style: TextStyle(
                   color: kStar, fontSize: 28, fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           Text(
             hasExistingVault
                 ? 'Your phone is trusted by your desktop again. Your vault is already set up - nothing else to do.'
                 : 'Your phone is now trusted by your desktop.',
-            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.6),
+            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.6),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),

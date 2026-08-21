@@ -90,7 +90,7 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('This sync will:',
+              Text('This sync will:',
                   style: TextStyle(color: kStar, fontSize: 17)),
               const SizedBox(height: 12),
               // Alphabetical: add, change, remove - per house naming rule.
@@ -201,9 +201,9 @@ class _Bullet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('•  ', style: TextStyle(color: kStar, fontSize: 16)),
+          Text('•  ', style: TextStyle(color: kStar, fontSize: 16)),
           Expanded(
-            child: Text(text, style: const TextStyle(color: kStar, fontSize: 16)),
+            child: Text(text, style: TextStyle(color: kStar, fontSize: 16)),
           ),
         ],
       ),
@@ -242,7 +242,7 @@ class _FileRow extends StatelessWidget {
             text: '$symbol ',
             style: TextStyle(color: color, fontWeight: FontWeight.bold),
           ),
-          TextSpan(text: path, style: const TextStyle(color: kStar)),
+          TextSpan(text: path, style: TextStyle(color: kStar)),
         ]),
         style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
       ),

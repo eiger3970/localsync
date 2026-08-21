@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'theme.dart';
 import 'services/database_service.dart';
 import 'services/repository_provider.dart';
+import 'services/theme_service.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
@@ -29,10 +30,16 @@ class LocalSyncApp extends StatefulWidget {
 class _LocalSyncAppState extends State<LocalSyncApp> {
   late final LinkingController      _linkingController;
   late final LocalSyncLifecycleObserver _lifecycleObserver;
+  // 2026-08-21: "skins" IAP - loads the saved palette (or falls back
+  // to the free default) fire-and-forget, same pattern as the
+  // desktopIp/bareRepoPath overrides below - there's always some UI
+  // time before the first frame that matters visually.
+  final ThemeService _themeService = ThemeService();
 
   @override
   void initState() {
     super.initState();
+    _themeService.load();
     _linkingController = LinkingController(
       desktopUser:    'rapi5',
       // localVaultPath removed 2026-08-09: the vault folder is no
@@ -96,12 +103,21 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       providers: [
         ChangeNotifierProvider(create: (_) => RepositoryProvider()),
         ChangeNotifierProvider.value(value: _linkingController),
+        ChangeNotifierProvider.value(value: _themeService),
       ],
-      child: MaterialApp(
-        title: 'localsync',
-        theme: appTheme,
-        debugShowCheckedModeBanner: false,
-        home: const HomeScreen(),
+      // 2026-08-21: "skins" IAP - MaterialApp's theme has to be
+      // rebuilt (buildAppTheme() called fresh) every time the
+      // selected palette changes, not just read once - this Consumer
+      // is what actually cascades a skin change through the whole
+      // tree, since AppTheme.current is a plain static value with no
+      // notification of its own.
+      child: Consumer<ThemeService>(
+        builder: (_, themeService, __) => MaterialApp(
+          title: 'localsync',
+          theme: buildAppTheme(),
+          debugShowCheckedModeBanner: false,
+          home: const HomeScreen(),
+        ),
       ),
     );
   }

@@ -150,7 +150,7 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Text(widget.caption,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: kTextMid,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,

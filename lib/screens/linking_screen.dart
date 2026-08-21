@@ -125,7 +125,7 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (indeterminate) {
-      return const LinearProgressIndicator(
+      return LinearProgressIndicator(
         minHeight: 2,
         backgroundColor: kBorder,
         valueColor: AlwaysStoppedAnimation<Color>(kGreen),
@@ -139,7 +139,7 @@ class _ProgressBar extends StatelessWidget {
         value: v,
         minHeight: 2,
         backgroundColor: kBorder,
-        valueColor: const AlwaysStoppedAnimation<Color>(kGreen),
+        valueColor: AlwaysStoppedAnimation<Color>(kGreen),
       ),
     );
   }
@@ -296,7 +296,7 @@ class _IdleViewState extends State<_IdleView>
                 ),
                 Padding(
                   padding: EdgeInsets.only(top: arrowTopOffset),
-                  child: const Icon(Icons.arrow_forward_rounded,
+                  child: Icon(Icons.arrow_forward_rounded,
                       color: kGreen, size: 26),
                 ),
                 DragTarget<bool>(
@@ -337,7 +337,7 @@ class _IdleViewState extends State<_IdleView>
                 // since "Connect your Obsidian vault" read as ambiguous
                 // on real device review - which vault, desktop or
                 // phone?
-                const Text(
+                Text(
                     'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
                     style: TextStyle(
                         color: kStar,
@@ -370,11 +370,11 @@ class _IdleViewState extends State<_IdleView>
                 // else on this phone is touched" read as if localsync
                 // might be reading/scanning existing phone data, when
                 // the real direction is desktop -> phone, write-only.
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text('No other files on this phone are read or changed.',
                         style: TextStyle(color: kTextDim, fontSize: 12)),
                   ],
@@ -388,11 +388,11 @@ class _IdleViewState extends State<_IdleView>
                 // than replacing the sentence outright - exact wording
                 // ("once", "a few minutes") still needs to be read, not
                 // just glanced at.
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
                       'This runs once. Larger vaults may take a few minutes.',
                       style:
@@ -411,7 +411,7 @@ class _IdleViewState extends State<_IdleView>
                 const SizedBox(height: 18),
                 GestureDetector(
                   onTap: ctrl.startLinkingExistingVault,
-                  child: const Text(
+                  child: Text(
                     'Already have a vault set up? Link it directly',
                     style: TextStyle(
                       color: kTextMid,
@@ -448,7 +448,7 @@ class _RunningView extends StatelessWidget {
           Text(
             ctrl.stepLabel,
             key: ValueKey(ctrl.step),
-            style: const TextStyle(
+            style: TextStyle(
                 color: kStar, fontSize: 16, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
@@ -460,7 +460,7 @@ class _RunningView extends StatelessWidget {
           // other instance of this same complaint.
           Text(
             ctrl.stepSubtitle,
-            style: const TextStyle(
+            style: TextStyle(
                 color: kTextMid, fontSize: 13, letterSpacing: 0.3, height: 1.6),
             textAlign: TextAlign.center,
           ),
@@ -555,7 +555,7 @@ class _ParkedViewState extends State<_ParkedView> {
                 // Heading
                 Text(
                   heading,
-                  style: const TextStyle(
+                  style: TextStyle(
                       color: kStar, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
@@ -611,7 +611,7 @@ class _ParkedViewState extends State<_ParkedView> {
                     ),
                     child: Text(
                       ctrl.currentInstruction!,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: kStar, fontSize: 16, height: 2.0),
                     ),
                   ),
@@ -650,11 +650,11 @@ class _ParkedViewState extends State<_ParkedView> {
                   // indicator remains, shown once the tap in the
                   // checklist has fired.
                   if (ctrl.pickingFolder)
-                    const Row(
+                    Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _PulsingDots(),
-                        SizedBox(width: 16),
+                        const _PulsingDots(),
+                        const SizedBox(width: 16),
                         // 2026-08-15: "picker" is developer jargon - the
                         // thing that opens is iOS's Files browser (the
                         // exact steps 2.2/2.3 already call "Browse" and
@@ -1002,7 +1002,7 @@ class _CompleteViewState extends State<_CompleteView>
       // repo) is Settings -> Git bare repo path, set before linking.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: kSurface,
             content: Text(
               'A vault is already linked to this exact desktop + bare '
@@ -1011,7 +1011,7 @@ class _CompleteViewState extends State<_CompleteView>
               'Settings first.',
               style: TextStyle(color: kStar, fontSize: 14),
             ),
-            duration: Duration(seconds: 6),
+            duration: const Duration(seconds: 6),
           ),
         );
       }
@@ -1085,7 +1085,7 @@ class _CompleteViewState extends State<_CompleteView>
                     builder: (_, scale, child) =>
                         Transform.scale(scale: scale, child: child),
                     child:
-                        const Icon(Icons.check_circle, color: kGreen, size: 50),
+                        Icon(Icons.check_circle, color: kGreen, size: 50),
                   ),
                 ),
               ),
@@ -1096,13 +1096,13 @@ class _CompleteViewState extends State<_CompleteView>
           // for the final swipe control below - decorative, always
           // playing (not gated behind a trigger like the swipe gifs,
           // there's no gesture here to wait for).
-          const Row(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Your notes have arrived!',
                   style: TextStyle(
                       color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               // 2026-08-20: "the timing leaves the standing dog jumping
               // in the air, the loop would be better if the standing
               // dog was pausing on the ground" - the file's own baked
@@ -1114,7 +1114,7 @@ class _CompleteViewState extends State<_CompleteView>
               // shrinking frame 5 to a brief flash makes the loop read
               // as resting on the ground, not airborne, without
               // touching the actual artwork.
-              ControllableGif(
+              const ControllableGif(
                 assetPath: 'assets/gifs/dog_success_stand.gif',
                 playing: true,
                 height: 40,
@@ -1154,7 +1154,7 @@ class _CompleteViewState extends State<_CompleteView>
             'Your notes have been downloaded into\n'
             '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
             'vault in $kNoteAppName.',
-            style: const TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
+            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -1170,7 +1170,7 @@ class _CompleteViewState extends State<_CompleteView>
           // user's own older sync research - "Trust author and enable
           // plugins" - which flagged this same step in other contexts,
           // just never mapped onto this specific screen before now).
-          const Text('Finish up in Obsidian:',
+          Text('Finish up in Obsidian:',
               style: TextStyle(
                   color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
@@ -1284,7 +1284,7 @@ class _FailedView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
-        const Text('Something stopped',
+        Text('Something stopped',
             style: TextStyle(
                 color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
         const SizedBox(height: 20),
@@ -1319,7 +1319,7 @@ class _FailedView extends StatelessWidget {
           ),
         ] else ...[
           const SizedBox(height: 4),
-          const Center(
+          Center(
             child: Icon(Icons.keyboard_arrow_down_rounded,
                 color: kGreen, size: 32),
           ),
@@ -1341,7 +1341,7 @@ class _FailedView extends StatelessWidget {
     final cancelButton = Center(
       child: TextButton(
         onPressed: () => _leaveSetup(context),
-        child: const Text('CANCEL',
+        child: Text('CANCEL',
             style: TextStyle(color: kTextDim, fontSize: 11, letterSpacing: 1)),
       ),
     );
@@ -1474,7 +1474,7 @@ class _PulsingDotsState extends State<_PulsingDots>
               child: Container(
                 width: 9,
                 height: 9,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: kGreen,
                   shape: BoxShape.circle,
                 ),
@@ -1502,8 +1502,8 @@ class _ScopeRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: kTextMid, fontSize: 15)),
-          const Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
+          Text(label, style: TextStyle(color: kTextMid, fontSize: 15)),
+          Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
         ],
       ),
     );
@@ -1591,12 +1591,12 @@ class _DeviceGlyph extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
           const SizedBox(height: 4),
           Text(caption,
-              style: const TextStyle(color: kTextMid, fontSize: 14),
+              style: TextStyle(color: kTextMid, fontSize: 14),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis),
         ],

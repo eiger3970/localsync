@@ -221,11 +221,17 @@ extension LinkingErrorDetails on LinkingError {
       };
 
   String get resolution => switch (this) {
+        // 2026-08-21: real formatting bug, caught in a self-review
+        // pass, not device feedback - the old 5-line version had a
+        // trailing indented continuation line (no leading number) that
+        // DiagCard's bulleted mode would render as its own top-level
+        // "•" point, same visual weight as items 1-4, when it was
+        // actually meant as a sub-note under item 4. Merged into item
+        // 4 itself so the numbered list stays a clean 4 items.
         LinkingError.connectionRefused => '1. Check your desktop is awake\n'
             '2. Connect phone to hotspot\n'
             '3. On desktop: sudo systemctl status ssh\n'
-            '4. On desktop: ip addr show\n'
-            '   Verify IP matches what is set in this app',
+            '4. On desktop: ip addr show - verify IP matches what is set in this app',
         LinkingError.sshAuthFailed =>
           'Tap PAIR NOW below and enter your desktop login password once - '
               'this installs your phone\'s key in ~/.ssh/authorized_keys on the desktop.\n'

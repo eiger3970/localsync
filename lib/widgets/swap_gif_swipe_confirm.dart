@@ -103,7 +103,7 @@ class SwapGifSwipeConfirmState extends State<SwapGifSwipeConfirm> {
                     if (widget.label != null) ...[
                       const SizedBox(height: 8),
                       Text(widget.label!,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kTextMid,
                               fontSize: 13,
                               fontWeight: FontWeight.w700,

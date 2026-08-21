@@ -23,6 +23,12 @@ dependencies:
   # code of its own to link (unlike git2dart's FFI symbols), so lower
   # risk than that saga, but still a new native platform channel.
   device_info_plus: ^10.1.0
+  # 2026-08-21: StoreKit scaffolding only - no Apple Developer account
+  # is currently active (funds not available to renew), so there are
+  # no real product IDs to test against yet. This dependency and
+  # purchase_service.dart exist so the plumbing is ready the moment
+  # there's something real to wire up, not because IAP ships today.
+  in_app_purchase: ^3.2.0
 
 dev_dependencies:
   flutter_test:

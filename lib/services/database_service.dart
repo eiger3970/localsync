@@ -23,6 +23,7 @@ const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 const _kDesktopIpKey          = 'db_desktop_ip';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
+const _kSelectedSkinKey = 'db_selected_skin';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -190,6 +191,28 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAutoDiscoveryInterestKey, price);
+  }
+
+  // ── Selected skin ───────────────────────────────────────────────────────────
+  // 2026-08-21: "skins" IAP - which palette (theme.dart's AppPalette
+  // id) the user has selected. null/missing means the default free
+  // terminalGreenPalette - same "no override set" convention as every
+  // other nullable setting here.
+  static String? _webSelectedSkin;
+
+  Future<String?> getSelectedSkin() async {
+    if (kIsWeb) return _webSelectedSkin;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kSelectedSkinKey);
+  }
+
+  Future<void> setSelectedSkin(String id) async {
+    if (kIsWeb) {
+      _webSelectedSkin = id;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSelectedSkinKey, id);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────

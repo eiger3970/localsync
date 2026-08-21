@@ -326,7 +326,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 child: Center(
                   child: Text(
                     widget.runningLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: kTextDim, fontSize: 11, letterSpacing: 1.5),
                   ),
                 ),
