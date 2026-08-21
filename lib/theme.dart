@@ -38,6 +38,13 @@ class AppPalette {
   // non-flag skins) - those get no frame at all rather than a
   // misleading simplified pattern.
   final List<Color>? flagStripes;
+  // 2026-08-21: "still just basic blue for Australia... not worth
+  // paying for" - real gap, a solid accent alone doesn't read as a
+  // flag. Small star dots scattered on the border for star-based
+  // flags (Australia's Commonwealth Star + Southern Cross, etc.) -
+  // a quick, real visual improvement, not the full canton/star-field
+  // reproduction this could eventually get.
+  final int? starCount;
   const AppPalette({
     required this.id,
     required this.label,
@@ -52,6 +59,7 @@ class AppPalette {
     required this.accent,
     this.free = false,
     this.flagStripes,
+    this.starCount,
   });
 }
 
@@ -189,6 +197,7 @@ AppPalette _flagSkin({
   required String label,
   required Color accent,
   List<Color>? stripes,
+  int? stars,
 }) {
   const baseVoid = Color(0xFF030307);
   const baseSurface = Color(0xFF0B0B12);
@@ -209,6 +218,7 @@ AppPalette _flagSkin({
     textMid: Color.lerp(baseTextMid, accent, 0.30)!,
     accent: accent,
     flagStripes: stripes,
+    starCount: stars,
   );
 }
 
@@ -216,18 +226,28 @@ AppPalette _flagSkin({
 // (see the AppPalette field comment) - US (stars+stripes), Australia/
 // NZ/UK (Southern Cross/Union Jack), and Finland/Albania (Nordic
 // cross / eagle) all left without a stripe pattern rather than a
-// misleading simplified one.
+// misleading simplified one. Star-based flags get starCount instead -
+// a real, if simplified, visual difference from a plain accent swap.
 final usPalette = _flagSkin(
-    id: 'us', label: 'United States', accent: const Color(0xFFB22234));
+    id: 'us',
+    label: 'United States',
+    accent: const Color(0xFFB22234),
+    stars: 13);
 final canadaPalette = _flagSkin(
     id: 'canada',
     label: 'Canada',
     accent: const Color(0xFFFF0000),
     stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)]);
 final australiaPalette = _flagSkin(
-    id: 'australia', label: 'Australia', accent: const Color(0xFF00247D));
+    id: 'australia',
+    label: 'Australia',
+    accent: const Color(0xFF00247D),
+    stars: 7);
 final nzPalette = _flagSkin(
-    id: 'nz', label: 'New Zealand', accent: const Color(0xFF1C39BB));
+    id: 'nz',
+    label: 'New Zealand',
+    accent: const Color(0xFF1C39BB),
+    stars: 4);
 final ukPalette =
     _flagSkin(id: 'uk', label: 'United Kingdom', accent: const Color(0xFF012169));
 final irelandPalette = _flagSkin(
