@@ -1,18 +1,5 @@
 <?xml version="1.0" standalone='no'?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<!--
-2026-08-21: advertises this desktop as _localsync._tcp so LocalSync's
-phone-side auto-discovery (services/discovery_service.dart) can find
-it without the user typing an IP address by hand. Port matches
-whatever SSH is actually running on - 22 is the default used
-throughout docs/desktop-setup.md, change if the desktop's SSH is on a
-different port.
-
-Install: sudo cp localsync.service /etc/avahi/services/
-Requires avahi-daemon running (sudo systemctl enable --now avahi-daemon
-on Debian-based Linux - often already installed/running by default,
-minimal/server installs may need it explicitly).
--->
 <service-group>
   <name replace-wildcards="yes">LocalSync on %h</name>
   <service>
