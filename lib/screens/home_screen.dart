@@ -856,32 +856,9 @@ void _showAbout(BuildContext context) {
   );
 }
 
-// ── Auto/manual badge ──────────────────────────────────────────────────────────
-
-class _AutoBadge extends StatelessWidget {
-  final bool autoSync;
-  const _AutoBadge({required this.autoSync});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      decoration: BoxDecoration(
-        color: autoSync ? kGreen.withValues(alpha: 0.15) : kBorder,
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Text(
-        autoSync ? 'AUTO' : 'MANUAL',
-        style: TextStyle(
-          color: autoSync ? kGreen : kTextDim,
-          fontSize: 8,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-}
+// 2026-08-21: _AutoBadge removed - see the ConstrainedBox comment above
+// in _AppBarRepoStatus for why (real app-bar overflow bug, user's own
+// fix: drop the redundant badge instead of chasing more spacing).
 
 // ── Status dot ─────────────────────────────────────────────────────────────────
 
@@ -1014,6 +991,25 @@ class _AppBarRepoStatus extends StatelessWidget {
                     // an explicit ConstrainedBox guarantees it can never
                     // push its siblings regardless of that ancestor
                     // chain's behavior.
+                    // 2026-08-21: real feedback, live, two rounds of
+                    // spacing fixes that didn't hold - "the drop down
+                    // arrow is exactly behind the kebab icon" persisted
+                    // even after forcing a real gap on the actions
+                    // side. Same root class of bug as the 2026-08-20
+                    // "AUTO text overran the kebab" fix above: Center
+                    // doesn't clip an overflowing child, so if this
+                    // Row's total natural width (dot + name + AUTO
+                    // badge + dropdown) exceeds the space actually
+                    // available, the surplus paints straight through
+                    // whatever's next to it instead of being contained.
+                    // User's own proposed fix: drop the AUTO badge
+                    // entirely - the same information already exists
+                    // one tap away in the kebab menu's "Pull manually"
+                    // (currently AUTO) / "Pull automatically" (currently
+                    // MANUAL) wording, so nothing is actually lost, and
+                    // removing ~45px of content is a real, direct fix
+                    // for the overflow class of bug, not another
+                    // spacing patch on top of it.
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 110),
                       child: Text(
@@ -1026,8 +1022,6 @@ class _AppBarRepoStatus extends StatelessWidget {
                         maxLines: 1,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    _AutoBadge(autoSync: repo.autoSync),
                   ],
                 ),
                 if (hasError)
