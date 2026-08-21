@@ -22,6 +22,7 @@ const _kDeviceNameKey         = 'db_device_name';
 const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 const _kDesktopIpKey          = 'db_desktop_ip';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
+const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -161,6 +162,34 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kBareRepoPathKey, path);
+  }
+
+  // ── Auto-discovery interest capture ────────────────────────────────────────
+  // 2026-08-21: mDNS/subnet auto-discovery for the desktop IP was
+  // explicitly scoped OUT on 2026-08-20 ("let the user fix it themselves
+  // for this session") - real feature, not started. This is NOT that
+  // feature. It's a cheap local-only signal: which price point (if any)
+  // a user tapped on the "would you pay for this?" prompt in Settings.
+  // Stored on-device only, no backend exists to aggregate this across
+  // real users yet - honest framing matters here, this is scaffolding
+  // for when there IS a user base, not a live pricing experiment today.
+  // null = never tapped, otherwise one of the price strings shown in
+  // settings_screen.dart's interest card.
+  static String? _webAutoDiscoveryInterest;
+
+  Future<String?> getAutoDiscoveryInterest() async {
+    if (kIsWeb) return _webAutoDiscoveryInterest;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kAutoDiscoveryInterestKey);
+  }
+
+  Future<void> setAutoDiscoveryInterest(String price) async {
+    if (kIsWeb) {
+      _webAutoDiscoveryInterest = price;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kAutoDiscoveryInterestKey, price);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────
