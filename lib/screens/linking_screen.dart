@@ -978,7 +978,7 @@ class _CompleteViewState extends State<_CompleteView>
       // dropped) - confusing, looked like a successful new link that
       // quietly did nothing. Now says so explicitly. Real fix for the
       // underlying case (wanting a second vault to sync to a different
-      // repo) is Settings -> Bare repo path, set before linking.
+      // repo) is Settings -> Git bare repo path, set before linking.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -986,7 +986,7 @@ class _CompleteViewState extends State<_CompleteView>
             content: Text(
               'A vault is already linked to this exact desktop + bare '
               'repo - nothing new was added. To link a genuinely '
-              'different vault, set a different Bare repo path in '
+              'different vault, set a different Git bare repo path in '
               'Settings first.',
               style: TextStyle(color: kStar, fontSize: 14),
             ),
