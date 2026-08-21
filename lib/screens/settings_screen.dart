@@ -68,7 +68,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // (2) "this block is verbose... maybe in point form or with progress
   // arrows" - the explanatory paragraph became a short bulleted list
   // (chevron + short phrase per line) instead of one dense sentence.
-  void _showHelp(String title, String command, List<String> points) {
+  //
+  // 2026-08-21, round 3: "note bullet points and indents" - the two
+  // network-interface lines are genuinely sub-items of "run this
+  // command," not siblings of it, so points now carry an indent flag
+  // (record: (text, indented)) rather than one flat list.
+  void _showHelp(String title, String command, List<(String, bool)> points) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -92,16 +97,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            for (final point in points)
+            for (final (text, indented) in points)
               Padding(
-                padding: const EdgeInsets.only(bottom: 6),
+                padding: EdgeInsets.only(bottom: 6, left: indented ? 20 : 0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.chevron_right, color: kTextMid, size: 16),
+                    Icon(
+                        indented
+                            ? Icons.remove
+                            : Icons.chevron_right,
+                        color: kTextMid,
+                        size: indented ? 12 : 16),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text(point,
+                      child: Text(text,
                           style: const TextStyle(
                               color: kTextMid, fontSize: 13, height: 1.35)),
                     ),
@@ -206,6 +216,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // to preview before a sideload) - ask if genuine custom
             // icon art is wanted instead, budget the same iteration
             // cost as the pairing-screen SVGs took.
+            // 2026-08-21: real feedback, live - "alphabetical" ordering
+            // requested for both this screen's field order and the
+            // kebab menu's Settings subtitle (see home_screen.dart) -
+            // Git bare repo path now comes before IP address - desktop.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, right: 10),
+                  child: Icon(Icons.account_tree, color: kTextMid, size: 22),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _pathCtrl,
+                    style: const TextStyle(color: kStar, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Git bare repo path',
+                      labelStyle: const TextStyle(
+                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      // 2026-08-21: floatingLabelStyle fix - "text must
+                      // be larger than /home/rapi5/Documents/Git/pi5-
+                      // obsidia..." - see the field below for why this
+                      // is needed even though labelStyle already says 18.
+                      floatingLabelStyle: const TextStyle(
+                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
+                      // 2026-08-21: real feedback, live - "what does
+                      // this even mean, make it clearer" on "For the
+                      // next vault you link". Spells out the actual
+                      // scope (only future links, not existing ones) -
+                      // see RepositoryProvider's own comment on
+                      // setBareRepoPath for the same explanation.
+                      helperText: 'Applies to the next vault you link - '
+                          'existing links are unaffected',
+                      helperMaxLines: 2,
+                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
+                      hintText: '/home/user/Git_bare_repo/name.git',
+                      errorText: _pathError,
+                      // 2026-08-21: real feedback, live - "circle with
+                      // i" instead of a "?" - Icons.info_outline reads
+                      // as reference info, Icons.help_outline reads as
+                      // "something's wrong, ask for help." This is
+                      // neither - it's a lookup command, not a support
+                      // request.
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.info_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'How do I find this?',
+                        // 2026-08-21: real question, live - "is this
+                        // live if the user has a different git bare
+                        // repo or is this hard coded text?" It WAS
+                        // hardcoded to this developer's own repo name
+                        // (Md_files_bare.git) - wrong for any other
+                        // real vault. Now reads the field's own live
+                        // text at the moment the dialog opens instead.
+                        onPressed: () => _showHelp(
+                          'Finding the Git bare repo path',
+                          "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
+                          [
+                            ('Run this on the desktop terminal', false),
+                            ('Lists every Git bare repo on the desktop', false),
+                            if (_pathCtrl.text.trim().isNotEmpty)
+                              ('Currently set to: ${_pathCtrl.text.trim()}', false)
+                            else
+                              ('Your real vault is usually the one you '
+                                      'set up first',
+                                  false),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // 2026-08-21: real feedback, live - "add a line space above
+            // to separate more from the above text, as all the
+            // information looks like 1, rather than 2 controls." A
+            // plain SizedBox gap alone wasn't enough separation - added
+            // a visible divider line, same kBorder used for every other
+            // section rule in this app, not just more whitespace.
+            const SizedBox(height: 28),
+            const Divider(color: kBorder, height: 1),
+            const SizedBox(height: 28),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -260,81 +353,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.help_outline,
+                        icon: const Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'How do I find this?',
+                        // 2026-08-21: real feedback, live - reordered
+                        // (Hotspot before USB tether, matching how the
+                        // user listed it) and indented as sub-items of
+                        // "run this command," not flat siblings of it.
                         onPressed: () => _showHelp(
                           'Finding the desktop IP address',
                           'ip -4 addr show',
                           const [
-                            'Run this on the desktop',
-                            'USB tether → look for eth1 or usb0',
-                            'Hotspot Wi-Fi → look for wlan0',
-                            'Changes every time you switch - re-run then',
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            // 2026-08-21: real feedback, live - "add a line space above
-            // to separate more from the above text, as all the
-            // information looks like 1, rather than 2 controls." A
-            // plain SizedBox gap alone wasn't enough separation - added
-            // a visible divider line, same kBorder used for every other
-            // section rule in this app, not just more whitespace.
-            const SizedBox(height: 28),
-            const Divider(color: kBorder, height: 1),
-            const SizedBox(height: 28),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.account_tree, color: kTextMid, size: 22),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _pathCtrl,
-                    style: const TextStyle(color: kStar, fontSize: 14),
-                    decoration: InputDecoration(
-                      labelText: 'Git bare repo path',
-                      labelStyle: const TextStyle(
-                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
-                      // 2026-08-21: same floatingLabelStyle fix as the
-                      // IP field above - "text must be larger than
-                      // /home/rapi5/Documents/Git/pi5-obsidia..."
-                      floatingLabelStyle: const TextStyle(
-                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
-                      // 2026-08-21: real feedback, live - "what does
-                      // this even mean, make it clearer" on "For the
-                      // next vault you link". Spells out the actual
-                      // scope (only future links, not existing ones) -
-                      // see RepositoryProvider's own comment on
-                      // setBareRepoPath for the same explanation.
-                      // 2026-08-21: same truncation bug as the field
-                      // above (helperMaxLines fix), plus tightened
-                      // wording since the longer version got cut off.
-                      helperText: 'Applies to the next vault you link - '
-                          'existing links are unaffected',
-                      helperMaxLines: 2,
-                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
-                      hintText: '/home/user/Git_bare_repo/name.git',
-                      errorText: _pathError,
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.help_outline,
-                            color: kTextDim, size: 20),
-                        tooltip: 'How do I find this?',
-                        onPressed: () => _showHelp(
-                          'Finding the Git bare repo path',
-                          "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
-                          const [
-                            'Run this on the desktop',
-                            'Lists every Git bare repo it knows about',
-                            'Your real vault usually syncs through '
-                                'Md_files_bare.git',
+                            ('Run this on the desktop terminal', false),
+                            ('Hotspot Wi-Fi → look for wlan0', true),
+                            ('USB tether → look for eth1 or usb0', true),
+                            ('IP address changes every switch - re-run '
+                                    'the command',
+                                false),
                           ],
                         ),
                       ),
