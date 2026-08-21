@@ -208,18 +208,22 @@ class HomeScreen extends StatelessWidget {
                     PopupMenuItem(
                       value: 'toggle_auto',
                       child: _MenuRow(
-                        // 2026-08-21: real feedback, live - a generic
-                        // sync-arrows glyph doesn't say "pull" over
-                        // "push" or "sync in general." A hand mid-swipe-
-                        // down reads as the actual gesture this app
-                        // uses for a manual pull (see the home screen's
-                        // own swipe-down PULL zone), not an abstraction.
-                        icon: Icons.swipe_down_alt,
+                        // 2026-08-21: real feedback, live - "Pull
+                        // manually is not a hand... I'll create the svg
+                        // for this" - Icons.swipe_down_alt didn't read
+                        // as a hand on-device, user is building a
+                        // custom SVG for this themselves. Reverted to
+                        // the original icon in the meantime rather than
+                        // guessing at another Material substitute.
+                        icon: Icons.sync,
                         label: provider.selectedRepo!.autoSync
                             ? 'Pull manually'
                             : 'Pull automatically',
+                        // 2026-08-21: real feedback, live - "change to:
+                        // stop auto pull on app open" - shorter, same
+                        // meaning.
                         subtitle: provider.selectedRepo!.autoSync
-                            ? 'Stop pulling automatically when the app opens'
+                            ? 'Stop auto pull on app open'
                             : 'Pull automatically every time the app opens',
                       ),
                     ),
@@ -242,8 +246,14 @@ class HomeScreen extends StatelessWidget {
                       label: 'Settings',
                       // 2026-08-21: real feedback, live - reordered
                       // alphabetically (Git before IP), same request
-                      // applied to the Settings screen's own field order.
-                      subtitle: 'Git bare repo path, IP address - desktop',
+                      // applied to the Settings screen's own field
+                      // order. Follow-up, same day: the natural word-
+                      // wrap split "IP address - desktop" itself across
+                      // both lines ("...IP address -" / "desktop"). A
+                      // literal newline after the comma forces the
+                      // break to always land there instead, keeping
+                      // "IP address - desktop" whole on its own line.
+                      subtitle: 'Git bare repo path,\nIP address - desktop',
                     ),
                   ),
                   PopupMenuItem(
