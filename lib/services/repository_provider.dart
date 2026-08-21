@@ -1,5 +1,6 @@
 // services/repository_provider.dart
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
@@ -131,7 +132,37 @@ class RepositoryProvider extends ChangeNotifier {
       _run(id, (service) =>
           service.push(commitMessage: commitMessage, confirmed: confirmed));
 
+  // 2026-08-21: real bug found live on the real vault - a manual push
+  // right after returning to the app failed with libgit2's "current
+  // tip is not the first parent." Root cause: nothing serialized two
+  // sync operations against the same repo - the auto-sync-on-launch
+  // pull (_init() above) and a manual push the user triggered right
+  // after opening the app could both spawn their own compute() isolate
+  // against the exact same local .git directory at once, each reading
+  // HEAD before the other's commit landed, racing the filesystem. Not
+  // data loss (a rejected commit writes nothing), but a real, confusing
+  // failure with no obvious cause from the user's side. Queues a new
+  // call behind whatever's already running for the same repo id
+  // instead of letting them race.
+  final Map<int, Future<void>> _inFlight = {};
+
   Future<SyncResult?> _run(
+    int id,
+    Stream<SyncEvent> Function(SyncService) op,
+  ) async {
+    final prior = _inFlight[id];
+    if (prior != null) await prior.catchError((_) {});
+    final completer = Completer<void>();
+    _inFlight[id] = completer.future;
+    try {
+      return await _runLocked(id, op);
+    } finally {
+      completer.complete();
+      if (identical(_inFlight[id], completer.future)) _inFlight.remove(id);
+    }
+  }
+
+  Future<SyncResult?> _runLocked(
     int id,
     Stream<SyncEvent> Function(SyncService) op,
   ) async {
