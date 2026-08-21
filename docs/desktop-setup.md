@@ -2,12 +2,14 @@
 
 LocalSync syncs a phone's Obsidian vault to a folder on a desktop computer over the local network (Wi-Fi hotspot, the same Wi-Fi network, or USB tether) - nothing goes through a third-party server.
 
-Obsidian is the PKM (personal knowledge management app) LocalSync supports today; Logseq and other PKMs are a longer-term direction, not built yet - this guide is accurate to what LocalSync actually does right now.
+Obsidian is a PKM (personal knowledge management) app LocalSync supports today;
+Logseq and other PKMs are a longer-term direction, not built yet.
+- this guide is accurate to what LocalSync actually does right now.
 
-Before linking a vault in LocalSync, the desktop needs three things:
+3 installs needed before linking a vault in LocalSync:
 - **Git**
+- **Git bare repository**
 - **SSH access**
-- **A Git bare repository**
 
 This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and similar) and macOS.
 
@@ -15,10 +17,10 @@ This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and si
 graph LR
     A["Phone<br/>Obsidian vault"] -- "LocalSync app,<br/>over SSH" --> B[("Git bare repository,<br/>on the desktop")]
     C["Desktop<br/>Obsidian vault"] -- "git push / pull" --> B
-    style B fill:#ffb703,stroke:#333,stroke-width:2px,color:#000
+    style B fill:#00FF41,stroke:#333,stroke-width:2px,color:#000
 ```
 
-The Git bare repository is the thing both sides actually sync through - not a normal folder with files in it, just git history.
+The Git bare repository is the thing both sides (desktop and phone) actually sync through - not a normal folder with files in it, just git history.
 
 Neither device talks to the other directly, and a second synced copy of the vault's text notes is itself a convenient backup - if one device is lost or fails, the other still has everything (binary attachments aren't covered by this - kept out of scope here deliberately).
 
@@ -89,11 +91,19 @@ Look for the address on whichever interface the phone actually connects through 
 
 ## 4. Phone pairing
 
-In LocalSync, follow the walkthrough: drag the phone icon onto the desktop icon → enter the desktop login password when prompted. This is used once, over the SSH connection, to install the phone's own key into `~/.ssh/authorized_keys` on the desktop - the password itself is never stored anywhere.
+In LocalSync, follow the walkthrough: drag the phone icon onto the desktop icon → enter the desktop login password when prompted.
+
+This is used once, over the SSH connection, to install the phone's own key into `~/.ssh/authorized_keys` on the desktop
+
+- the password itself is never stored anywhere.
 
 ## 5. Vault linking
 
-Kebab menu → **Add another vault** (or the first-run setup flow, for a first vault). For an Obsidian vault folder that already exists, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
+Kebab menu → **Add another vault** (or the first-run setup flow upon install, for a first vault). For an Obsidian vault folder that already exists, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
+
+## Before linking a real vault
+
+Test the whole flow once with a throwaway Obsidian vault first - create an empty vault with nothing important in it, link it, edit a note on each side, confirm sync works both ways. Once that's confirmed working, link the real vault. This costs a few minutes and removes any guesswork about whether a first real sync is safe.
 
 ## Troubleshooting
 
