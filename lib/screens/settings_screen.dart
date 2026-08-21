@@ -15,6 +15,7 @@
 // so it survives a relaunch too.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
@@ -83,17 +84,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-08-21: real feedback, live - "an easy copy to the
+            // command, which is confusing to type out... if UX can be
+            // made easier, great." Long-press-to-select already worked
+            // via SelectableText, but that's not discoverable - a
+            // one-tap copy button is the obvious affordance. Doesn't
+            // solve pasting into the desktop terminal itself (no shared
+            // clipboard between phone and desktop), but removes any
+            // need to type the command out by hand somewhere it CAN be
+            // pasted (a notes app, an SSH client, etc).
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
               decoration: BoxDecoration(
                   color: kVoid, border: Border.all(color: kBorder)),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SelectableText(command,
-                    maxLines: 1,
-                    style: const TextStyle(
-                        color: kGreen, fontFamily: 'monospace', fontSize: 13)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SelectableText(command,
+                          maxLines: 1,
+                          style: const TextStyle(
+                              color: kGreen,
+                              fontFamily: 'monospace',
+                              fontSize: 13)),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy, color: kTextMid, size: 18),
+                    tooltip: 'Copy command',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: command));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          backgroundColor: kSurface,
+                          content: Text('Command copied',
+                              style: TextStyle(color: kStar, fontSize: 14)),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
