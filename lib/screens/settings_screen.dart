@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
+import '../services/theme_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -79,7 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text(title, style: const TextStyle(color: kStar, fontSize: 16)),
+        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,23 +106,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       scrollDirection: Axis.horizontal,
                       child: SelectableText(command,
                           maxLines: 1,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kGreen,
                               fontFamily: 'monospace',
                               fontSize: 13)),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, color: kTextMid, size: 18),
+                    icon: Icon(Icons.copy, color: kTextMid, size: 18),
                     tooltip: 'Copy command',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: command));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           backgroundColor: kSurface,
                           content: Text('Command copied',
                               style: TextStyle(color: kStar, fontSize: 14)),
-                          duration: Duration(seconds: 2),
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     },
@@ -154,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(text,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kTextMid, fontSize: 13, height: 1.35)),
                     ),
                   ],
@@ -165,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it', style: TextStyle(color: kGreen)),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
           ),
         ],
       ),
@@ -183,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             price == 'no'
                 ? 'Noted - thanks for the honest answer.'
                 : 'Noted - $price signal saved.',
-            style: const TextStyle(color: kStar, fontSize: 14),
+            style: TextStyle(color: kStar, fontSize: 14),
           ),
           duration: const Duration(seconds: 3),
         ),
@@ -222,7 +223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: kVoid,
       appBar: AppBar(
         backgroundColor: kVoid,
-        title: const Text('Settings', style: TextStyle(color: kStar)),
+        title: Text('Settings', style: TextStyle(color: kStar)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -265,23 +266,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 4, right: 10),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 10),
                   child: Icon(Icons.account_tree, color: kTextMid, size: 22),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _pathCtrl,
-                    style: const TextStyle(color: kStar, fontSize: 14),
+                    style: TextStyle(color: kStar, fontSize: 14),
                     decoration: InputDecoration(
                       labelText: 'Git bare repo path',
-                      labelStyle: const TextStyle(
+                      labelStyle: TextStyle(
                           color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
                       // 2026-08-21: floatingLabelStyle fix - "text must
                       // be larger than /home/rapi5/Documents/Git/pi5-
                       // obsidia..." - see the field below for why this
                       // is needed even though labelStyle already says 18.
-                      floatingLabelStyle: const TextStyle(
+                      floatingLabelStyle: TextStyle(
                           color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "what does
                       // this even mean, make it clearer" on "For the
@@ -292,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       helperText: 'Applies to the next vault you link - '
                           'existing links are unaffected',
                       helperMaxLines: 2,
-                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
+                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
                       hintText: '/home/user/Git_bare_repo/name.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
@@ -302,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // neither - it's a lookup command, not a support
                       // request.
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.info_outline,
+                        icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'How do I find this?',
                         // 2026-08-21: real question, live - "is this
@@ -339,7 +340,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // a visible divider line, same kBorder used for every other
             // section rule in this app, not just more whitespace.
             const SizedBox(height: 28),
-            const Divider(color: kBorder, height: 1),
+            Divider(color: kBorder, height: 1),
             const SizedBox(height: 28),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,8 +350,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // come from USB tethering (wired) - Icons.lan is
                 // connection-medium-neutral (a small network diagram,
                 // not a radio-wave glyph), correct for either case.
-                const Padding(
-                  padding: EdgeInsets.only(top: 4, right: 10),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 10),
                   child: Icon(Icons.lan, color: kTextMid, size: 22),
                 ),
                 Expanded(
@@ -358,10 +359,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _ipCtrl,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: kStar, fontSize: 16),
+                    style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'IP address - desktop',
-                      labelStyle: const TextStyle(
+                      labelStyle: TextStyle(
                           color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "text must be
                       // larger than 172.20.10.11." labelStyle alone
@@ -374,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // is set explicitly. That implicit shrink is why
                       // the label rendered smaller than the 16px value
                       // text despite labelStyle already saying 18px.
-                      floatingLabelStyle: const TextStyle(
+                      floatingLabelStyle: TextStyle(
                           color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live, two rounds.
                       // First round just reworded "Changes with Tether/
@@ -391,11 +392,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       helperText:
                           'Update this manually after switching Tether or Hotspot',
                       helperMaxLines: 2,
-                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
+                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.info_outline,
+                        icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'How do I find this?',
                         // 2026-08-21: real feedback, live - reordered
@@ -434,10 +435,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text('Save'),
               ),
             ),
+            const SizedBox(height: 32),
+            _buildSkinsCard(),
             const SizedBox(height: 40),
             _buildAutoDiscoveryCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  // 2026-08-21: "skins" IAP, build phase - "build, if skins is
+  // easiest, do first, then the rest." Unrestricted selection for
+  // now, deliberately - the monetization gate (only terminalGreenPalette
+  // free, the rest behind a purchase) is the "wire in" step the user
+  // asked for separately, once there's a real product ID to gate
+  // against. Right now every palette is freely selectable, so this is
+  // actually testable today rather than sitting inert like
+  // purchase_service.dart/ConflictPickerUpsell.
+  Widget _buildSkinsCard() {
+    final themeService = context.watch<ThemeService>();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.palette_outlined, color: kTextMid, size: 18),
+              const SizedBox(width: 8),
+              Text('SKINS',
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              for (final palette in allPalettes) ...[
+                Expanded(child: _SkinSwatch(
+                  palette: palette,
+                  selected: themeService.palette.id == palette.id,
+                  onTap: () => themeService.select(palette),
+                )),
+                if (palette != allPalettes.last) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -458,10 +508,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.science_outlined, color: kTextMid, size: 18),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text('IN DEVELOPMENT',
                   style: TextStyle(
                       color: kTextMid,
@@ -471,7 +521,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Real auto-discovery: LocalSync finds your desktop on its own, '
             'no typing an IP or a repo path by hand. Not built yet - would '
             'you pay for it, and how much?',
@@ -493,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () => _setInterest('no'),
               child: Text(
                 _interestSelected == 'no' ? 'Noted - not for you' : 'Not for me',
-                style: const TextStyle(color: kTextDim, fontSize: 12),
+                style: TextStyle(color: kTextDim, fontSize: 12),
               ),
             ),
           ),
@@ -522,10 +572,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       fontWeight: FontWeight.w700)),
               if (selected) ...[
                 const SizedBox(height: 4),
-                const Icon(Icons.check, color: kGreen, size: 14),
+                Icon(Icons.check, color: kGreen, size: 14),
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// 2026-08-21: "skins" IAP - one tappable preview card per palette.
+// Shows the palette's own void/surface/accent colors directly (not a
+// generic swatch style borrowed from the currently-active theme), so
+// a user can see what each skin actually looks like before picking
+// it, not just its name.
+class _SkinSwatch extends StatelessWidget {
+  final AppPalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SkinSwatch({
+    required this.palette,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: palette.void_,
+          border: Border.all(
+              color: selected ? palette.accent : kBorder, width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Container(
+              height: 24,
+              decoration: BoxDecoration(
+                color: palette.surface,
+                border: Border.all(color: palette.border),
+              ),
+              child: Center(
+                child: Icon(Icons.circle, color: palette.accent, size: 10),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(palette.label,
+                style: TextStyle(
+                    color: selected ? palette.accent : palette.star,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+            if (selected) ...[
+              const SizedBox(height: 3),
+              Icon(Icons.check, color: palette.accent, size: 12),
+            ],
+          ],
         ),
       ),
     );

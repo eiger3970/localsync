@@ -110,7 +110,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       backgroundColor: kVoid,
       appBar: AppBar(
         backgroundColor: kVoid,
-        title: const Text('Conflicts', style: TextStyle(color: kStar)),
+        title: Text('Conflicts', style: TextStyle(color: kStar)),
       ),
       body: Column(
         children: [
@@ -130,21 +130,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
             color: kSurface,
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _SafetyStep(
+                      const _SafetyStep(
                         icon: Icons.compare_arrows,
                         label: 'Conflict',
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
-                      _SafetyStep(
+                      const _SafetyStep(
                         icon: Icons.backup,
                         label: 'Both saved',
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
-                      _SafetyStep(
+                      const _SafetyStep(
                         icon: Icons.touch_app,
                         label: 'Pick anytime',
                       ),
@@ -152,13 +152,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.info_outline, color: kTextMid),
+                  icon: Icon(Icons.info_outline, color: kTextMid),
                   tooltip: 'How this works',
                   onPressed: () => showDialog(
                     context: context,
                     builder: (_) => AlertDialog(
                       backgroundColor: kSurface,
-                      title: const Text('How conflicts are kept safe',
+                      title: Text('How conflicts are kept safe',
                           style: TextStyle(color: kStar, fontSize: 17)),
                       // 2026-08-18: "still too small and dark", "need a
                       // clearer location" - bumped to kStar/16px to
@@ -167,7 +167,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       // your vault": a normal top-level folder, visible
                       // in Obsidian's own file list like any other
                       // folder, not hidden or app-only.
-                      content: const Text(
+                      content: Text(
                         'Resolving a conflict always saves both full '
                         'versions first, before anything is changed.\n\n'
                         'Location: open Obsidian, look at your file '
@@ -182,7 +182,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Got it',
+                          child: Text('Got it',
                               style: TextStyle(color: kStar, fontSize: 15)),
                         ),
                       ],
@@ -197,13 +197,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(color: kGreen),
                   );
                 }
                 final entries = snapshot.data ?? const [];
                 if (entries.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text('No unresolved conflicts.',
                         style: TextStyle(color: kTextMid, fontSize: 15)),
                   );
@@ -226,7 +226,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   itemCount: entries.length,
                   separatorBuilder: (_, i) => hasSplit && i == splitIndex - 1
                       ? const _EarlierDivider()
-                      : const Divider(color: kTextDim),
+                      : Divider(color: kTextDim),
                   itemBuilder: (context, i) {
                     final e = entries[i];
                     // 2026-08-20: this exact conflict was resolved before
@@ -244,7 +244,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               color: Colors.amber, size: 22)
                           : null,
                       title: Text(e.filePath,
-                          style: const TextStyle(color: kStar, fontSize: 15)),
+                          style: TextStyle(color: kStar, fontSize: 15)),
                       subtitle: Text(
                         reappeared
                             ? 'Resolved earlier, but this looks like it '
@@ -266,7 +266,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             fontSize: 14),
                       ),
                       trailing:
-                          const Icon(Icons.chevron_right, color: kTextDim),
+                          Icon(Icons.chevron_right, color: kTextDim),
                       onTap: () async {
                         final result =
                             await Navigator.push<ConflictResolvedResult>(
@@ -328,7 +328,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 backgroundColor: kSurface,
                                 content: Text.rich(
                                   TextSpan(
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: kStar, fontSize: 15),
                                     children: [
                                       TextSpan(
@@ -336,7 +336,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               'backed up in '),
                                       TextSpan(
                                         text: 'LocalSync Conflict Backups',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: kGreen,
                                           fontWeight: FontWeight.bold,
                                           decoration:
@@ -382,8 +382,8 @@ class _EarlierDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           // 2026-08-20: real feedback, live - "too dark and small",
@@ -392,10 +392,10 @@ class _EarlierDivider extends StatelessWidget {
           // conflict_picker_screen.dart's dialog text) - kTextMid/14px
           // matches how those were fixed.
           Icon(Icons.history, color: kTextMid, size: 18),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text('Earlier - from before',
               style: TextStyle(color: kTextMid, fontSize: 14)),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Expanded(child: Divider(color: kTextDim)),
         ],
       ),
@@ -419,7 +419,7 @@ class _SafetyStep extends StatelessWidget {
         // to kStar/14px - "too small and dark, make easier to read".
         Text(label,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: kStar, fontSize: 12)),
+            style: TextStyle(color: kStar, fontSize: 12)),
       ],
     );
   }

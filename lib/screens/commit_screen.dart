@@ -63,7 +63,7 @@ class _CommitScreenState extends State<CommitScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'COMMIT MESSAGE',
               style: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
             ),
@@ -71,11 +71,11 @@ class _CommitScreenState extends State<CommitScreen> {
             TextField(
               controller: _msgCtrl,
               autofocus: true,
-              style: const TextStyle(color: kStar, fontSize: 13),
+              style: TextStyle(color: kStar, fontSize: 13),
               decoration: const InputDecoration(hintText: '202502281200 quick sync'),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'TEMPLATES',
               style: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
             ),
@@ -84,7 +84,7 @@ class _CommitScreenState extends State<CommitScreen> {
             Expanded(
               child: ListView.separated(
                 itemCount: templates.length,
-                separatorBuilder: (_, __) => const Divider(height: 1, color: kBorder),
+                separatorBuilder: (_, __) => Divider(height: 1, color: kBorder),
                 itemBuilder: (_, i) {
                   final t = templates[i];
                   return _TemplateTile(
@@ -201,7 +201,7 @@ class _CommitScreenState extends State<CommitScreen> {
       SnackBar(
         backgroundColor: kSurface,
         content: Text(syncResultMessage(result),
-            style: const TextStyle(color: kStar, fontSize: 16)),
+            style: TextStyle(color: kStar, fontSize: 16)),
         duration: const Duration(seconds: 12),
       ),
     );
@@ -238,7 +238,7 @@ class _TemplateTile extends StatelessWidget {
       trailing: template.useCount > 0
         ? Text(
             '${template.useCount}×',
-            style: const TextStyle(color: kTextDim, fontSize: 10),
+            style: TextStyle(color: kTextDim, fontSize: 10),
           )
         : null,
     );

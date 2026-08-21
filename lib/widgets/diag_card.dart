@@ -88,12 +88,12 @@ class DiagCard extends StatelessWidget {
                       width: 16,
                       child: Text(
                           RegExp(r'^\d+\.\s').hasMatch(line) ? '' : '•',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kStar, fontSize: 15, height: 1.7)),
                     ),
                     Expanded(
                       child: Text(line,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: kStar, fontSize: 15, height: 1.7)),
                     ),
                   ],
@@ -101,7 +101,7 @@ class DiagCard extends StatelessWidget {
               )
           else
             Text(displayText,
-                style: const TextStyle(color: kStar, fontSize: 15, height: 1.7)),
+                style: TextStyle(color: kStar, fontSize: 15, height: 1.7)),
         ],
       ),
     );

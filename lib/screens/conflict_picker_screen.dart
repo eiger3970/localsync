@@ -91,7 +91,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: const Text('Keep this version?',
+        title: Text('Keep this version?',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -141,12 +141,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           // version"'s bright kStar, without looking inert.
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not now',
+            child: Text('Not now',
                 style: TextStyle(color: kTextMid, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Keep this version',
+            child: Text('Keep this version',
                 style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
@@ -220,10 +220,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       appBar: AppBar(
         backgroundColor: kVoid,
         title: Text(entry.filePath,
-            style: const TextStyle(color: kStar, fontSize: 16)),
+            style: TextStyle(color: kStar, fontSize: 16)),
       ),
       body: _resolving
-          ? const Center(child: CircularProgressIndicator(color: kGreen))
+          ? Center(child: CircularProgressIndicator(color: kGreen))
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
@@ -236,7 +236,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             '"LocalSync Conflict Backups".'
                         : "Tap a version to review it, then confirm - "
                             'nothing is changed until you confirm.',
-                    style: const TextStyle(color: kStar, fontSize: 15)),
+                    style: TextStyle(color: kStar, fontSize: 15)),
                 const SizedBox(height: 16),
                 for (var i = 0; i < versions.length; i++) ...[
                   if (i > 0) const SizedBox(height: 16),
@@ -298,15 +298,15 @@ class _DialogPoint extends StatelessWidget {
           Expanded(
             child: linkText == null
                 ? Text(text,
-                    style: const TextStyle(color: kStar, fontSize: 15))
+                    style: TextStyle(color: kStar, fontSize: 15))
                 : Text.rich(
                     TextSpan(
-                      style: const TextStyle(color: kStar, fontSize: 15),
+                      style: TextStyle(color: kStar, fontSize: 15),
                       children: [
                         TextSpan(text: text),
                         TextSpan(
                           text: linkText,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: kGreen,
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
@@ -361,14 +361,14 @@ class _ConflictPanel extends StatelessWidget {
             const SizedBox(height: 8),
             tokens == null
                 ? Text(plainText,
-                    style: const TextStyle(color: kStar, fontSize: 17))
+                    style: TextStyle(color: kStar, fontSize: 17))
                 : Text.rich(
                     TextSpan(
                       children: tokens!
                           .map((t) => TextSpan(
                                 text: t.text,
                                 style: t.op == DiffOp.equal
-                                    ? const TextStyle(
+                                    ? TextStyle(
                                         color: kStar, fontSize: 17)
                                     : TextStyle(
                                         color: highlightColor,

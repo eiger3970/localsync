@@ -75,7 +75,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             controller: widget.controller,
             obscureText: _obscure,
             enabled: widget.enabled && !_shredding,
-            style: const TextStyle(color: kStar),
+            style: TextStyle(color: kStar),
             // 2026-08-16: "this is a strong white as though is a solid
             // immutable text... should change to a faded text which is
             // a typical hint" - labelText renders bold and floats above
@@ -91,7 +91,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             // fields' hints weren't flagged and shouldn't shift too.
             decoration: InputDecoration(
               hintText: 'Desktop password…',
-              hintStyle: const TextStyle(color: kTextMid, fontSize: 14),
+              hintStyle: TextStyle(color: kTextMid, fontSize: 14),
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => _obscure = !_obscure),
@@ -116,7 +116,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                           child: Opacity(
                             opacity: 1 - t,
                             child: Text(_obscure ? '•' : _shreddedText[i],
-                                style: const TextStyle(color: kBlue, fontSize: 16)),
+                                style: TextStyle(color: kBlue, fontSize: 16)),
                           ),
                         ),
                       );
