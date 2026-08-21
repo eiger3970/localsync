@@ -92,31 +92,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Explicit styles here match this app's established
             // kStar/kTextMid readability fixes rather than trusting
             // the theme's small defaults for these two roles.
-            TextField(
-              controller: _ipCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: kStar, fontSize: 16),
-              decoration: InputDecoration(
-                labelText: 'Desktop IP',
-                labelStyle: const TextStyle(color: kStar, fontSize: 15),
-                helperText: 'Changes with Tether/Hotspot',
-                helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
-                hintText: 'e.g. 172.20.10.2',
-                errorText: _ipError,
-              ),
+            // 2026-08-21: real feedback, live - labels still read as
+            // body text next to a full-screen field, not as section
+            // headers. Bumped to the 18px/w700 size already used for
+            // section headers elsewhere (see home_screen.dart's
+            // _SectionTitle-equivalent header text). Renamed "Desktop
+            // IP" -> "IP address - desktop" (matches user's own
+            // requested wording, applied everywhere this string
+            // appears - see home_screen.dart's Settings menu subtitle).
+            // "Bare repo path" -> "Git bare repo path" - user's own
+            // notes (Knowledge_base_Raspberry_Pi.md, Knowledge_base_
+            // obsidian.md) consistently say "Git bare repo", never
+            // "bare repository", confirmed by grep before renaming
+            // rather than guessed. Icons are built-in Material glyphs,
+            // not custom SVG - same tradeoff already decided with the
+            // user on 2026-08-18 for the Conflicts screen's icon row
+            // (real risk of an invisible SVG rendering bug with no way
+            // to preview before a sideload) - ask if genuine custom
+            // icon art is wanted instead, budget the same iteration
+            // cost as the pairing-screen SVGs took.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, right: 10),
+                  child: Icon(Icons.wifi, color: kTextMid, size: 22),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _ipCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: kStar, fontSize: 16),
+                    decoration: InputDecoration(
+                      labelText: 'IP address - desktop',
+                      labelStyle: const TextStyle(
+                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      // 2026-08-21: real feedback, live - "I don't like
+                      // this text, make it clearer" on "Changes with
+                      // Tether/Hotspot". Spells out what actually
+                      // triggers a change instead of a fragment.
+                      helperText:
+                          'Changes when you switch between Tether or Hotspot',
+                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
+                      hintText: 'e.g. 172.20.10.2',
+                      errorText: _ipError,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _pathCtrl,
-              style: const TextStyle(color: kStar, fontSize: 14),
-              decoration: InputDecoration(
-                labelText: 'Bare repo path',
-                labelStyle: const TextStyle(color: kStar, fontSize: 15),
-                helperText: 'For the next vault you link',
-                helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
-                hintText: '/home/user/Git_bare_repo/name.git',
-                errorText: _pathError,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 4, right: 10),
+                  child: Icon(Icons.account_tree, color: kTextMid, size: 22),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _pathCtrl,
+                    style: const TextStyle(color: kStar, fontSize: 14),
+                    decoration: InputDecoration(
+                      labelText: 'Git bare repo path',
+                      labelStyle: const TextStyle(
+                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      // 2026-08-21: real feedback, live - "what does
+                      // this even mean, make it clearer" on "For the
+                      // next vault you link". Spells out the actual
+                      // scope (only future links, not existing ones) -
+                      // see RepositoryProvider's own comment on
+                      // setBareRepoPath for the same explanation.
+                      helperText: 'Only used the next time you tap "Add '
+                          'another vault" - already-linked vaults keep '
+                          'their own path',
+                      helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
+                      hintText: '/home/user/Git_bare_repo/name.git',
+                      errorText: _pathError,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 28),
             SizedBox(

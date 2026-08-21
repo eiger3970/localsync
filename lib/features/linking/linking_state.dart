@@ -199,7 +199,7 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
-          'Bare repository not found at the configured path on your desktop.',
+          'Git bare repo not found at the configured path on your desktop.',
         LinkingError.workingCopyNotInstalled =>
           'Working Copy is not installed on this phone.',
         LinkingError.obsidianNotInstalled =>

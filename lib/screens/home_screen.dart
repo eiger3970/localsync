@@ -231,7 +231,7 @@ class HomeScreen extends StatelessWidget {
                     child: _MenuRow(
                       icon: Icons.settings_outlined,
                       label: 'Settings',
-                      subtitle: 'Desktop IP, bare repo path',
+                      subtitle: 'IP address - desktop, Git bare repo path',
                     ),
                   ),
                   PopupMenuItem(
