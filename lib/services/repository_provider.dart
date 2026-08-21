@@ -280,7 +280,17 @@ class RepositoryProvider extends ChangeNotifier {
       );
       notifyListeners();
       await _db.updateRepository(_repos[i]);
-      return SyncFailed(LinkingError.mergeConflict, debugDetail: e.toString());
+      // 2026-08-21: real bug, found while cross-checking the user's own
+      // sync-error research notes against every LinkingError case's
+      // actual reachability - this was hardcoded to mergeConflict,
+      // completely unrelated to whatever [e] actually was. Meant the
+      // SnackBar (syncResultMessage(result), reads this return value)
+      // and the "Sync error" dialog (reads repo.lastError, set just
+      // above) could show two DIFFERENT messages for the exact same
+      // failure. unclassifiedError matches what was actually persisted
+      // above - same honest-fallback pattern sync_service.dart's own
+      // _diagnose() already uses.
+      return SyncFailed(LinkingError.unclassifiedError, debugDetail: e.toString());
     }
   }
 

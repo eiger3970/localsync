@@ -94,9 +94,6 @@ enum LinkingError {
   /// Bare repo path wrong or doesn't exist.
   bareRepoNotFound,
 
-  /// Working Copy not installed.
-  workingCopyNotInstalled,
-
   /// Obsidian not installed.
   obsidianNotInstalled,
 
@@ -110,30 +107,17 @@ enum LinkingError {
   /// "The index is locked — concurrent or crashed process."
   indexLocked,
 
-  /// Working Copy shows "invalid argument 'repo'" after linking.
-  /// Cosmetic only — link worked. Force close WC to clear.
-  invalidArgumentRepo,
-
-  /// Phone changes not appearing in Working Copy front page.
-  commitNotShowing,
-
   /// "Unable to push — could not be fast-forwarded."
   cannotFastForward,
 
-  /// Same line edited on both devices. Git cannot auto-resolve.
+  /// Diverged history on first clone - real merge-conflict resolution
+  /// deferred at initial-link time (git_service.dart's legacy
+  /// pullFromBareRepo(), still used for the very first clone). Ordinary
+  /// day-to-day pull/push conflicts never reach this - they're handled
+  /// automatically by sync_service.dart's own conflict-repair pipeline
+  /// (see the Conflicts screen) and never surface as a LinkingError at
+  /// all. Narrow, but still real.
   mergeConflict,
-
-  /// Git stuck mid-rebase. .git/rebase-merge lock exists.
-  rebaseStuck,
-
-  /// "Untracked files would be overwritten by merge."
-  untrackedFilesOverwritten,
-
-  /// Working Copy has no commit identity set.
-  identityNotSet,
-
-  /// Old vault files not fully removed — phone reboot needed.
-  filesNotDeleting,
 
   /// Vault name field left empty in Settings.
   vaultNameEmpty,
@@ -200,32 +184,26 @@ extension LinkingErrorDetails on LinkingError {
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
           'Git bare repo not found at the configured path on your desktop.',
-        LinkingError.workingCopyNotInstalled =>
-          'Working Copy is not installed on this phone.',
         LinkingError.obsidianNotInstalled =>
           '$kNoteAppName is not installed on this phone.',
         LinkingError.vaultPathConflict =>
           'A vault already exists at that path with data in it.',
+        // 2026-08-21: real feedback, live - "have you included all these
+        // cases... some errors won't be applicable due to better
+        // coding than Working Copy?" Cross-checking the user's own
+        // research notes against this switch found this line still
+        // said "Working Copy cannot find the vault path" - stale from
+        // before the 2026-08-08/09 architecture pivot away from
+        // Working Copy entirely. LocalSync itself resolves this path
+        // now, not a third-party app.
         LinkingError.failedToResolvePath =>
-          'Working Copy cannot find the vault path. The old path reference is stale.',
+          'LocalSync could not resolve the vault path. The old path reference is stale.',
         LinkingError.indexLocked =>
           'Vault index is locked - a previous process crashed or is still running.',
-        LinkingError.invalidArgumentRepo =>
-          'Working Copy shows "invalid argument repo". This is cosmetic - the link worked.',
-        LinkingError.commitNotShowing =>
-          'Phone changes are not appearing in Working Copy. The app needs waking.',
         LinkingError.cannotFastForward =>
           'Cannot push - the remote has commits your phone does not have yet.',
         LinkingError.mergeConflict =>
-          'The same line was edited on both devices. Git cannot auto-resolve.',
-        LinkingError.rebaseStuck =>
-          'Git is stuck mid-rebase. A lock file is blocking all git commands.',
-        LinkingError.untrackedFilesOverwritten =>
-          'A local file would be overwritten by the incoming pull.',
-        LinkingError.identityNotSet =>
-          'Working Copy has no commit identity. A name and email are required.',
-        LinkingError.filesNotDeleting =>
-          'Old vault files are not fully removed. A phone reboot is needed.',
+          'The vault folder you picked already has git history that conflicts with the desktop.',
         LinkingError.vaultNameEmpty => 'Vault name is empty.',
         LinkingError.unexpectedLinkError =>
           'Launching an external app failed unexpectedly.',
@@ -258,9 +236,6 @@ extension LinkingErrorDetails on LinkingError {
               'in main.dart\'s bareRepoPath (ls ~/Documents/Git/pi5-obsidian/'
               'Git_bare_repo/).\n\n'
               'If missing, run Fresh Setup steps 1–10 on your desktop first.',
-        LinkingError.workingCopyNotInstalled =>
-          'Install Working Copy from the App Store.\n'
-              'Then restart setup.',
         LinkingError.obsidianNotInstalled =>
           'Install $kNoteAppName from the App Store.\n'
               'Then restart setup.',
@@ -274,43 +249,23 @@ extension LinkingErrorDetails on LinkingError {
             '3. Tap "Trust author and enable plugins"\n'
             '4. Force close $kNoteAppName again\n'
             '5. Return here and tap Continue',
-        LinkingError.indexLocked => '1. Open $kNoteAppName\n'
-            '2. Tap "Trust author and enable plugins"\n'
-            '3. Working Copy and $kNoteAppName will auto-sync',
-        LinkingError.invalidArgumentRepo =>
-          'Force close Working Copy completely, then reopen it.\n'
-              'The banner will be gone. Everything worked correctly.',
-        LinkingError.commitNotShowing => 'In Working Copy:\n'
-            'Long press the repository → tap Pull\n'
-            'This wakes the app and commits will appear.',
-        LinkingError.cannotFastForward => 'In Working Copy:\n'
-            'Tap the error → tap Merge → resolve → Commit → Push',
-        LinkingError.mergeConflict => 'On desktop:\n'
-            '1. git status\n'
-            '2. Open conflicting file, remove <<<< ==== >>>> markers\n'
-            '3. git add .\n'
-            '4. git commit -m "Resolve conflict"\n'
-            '5. git push origin master\n'
-            'Then pull on phone in Working Copy.',
-        LinkingError.rebaseStuck => 'On desktop:\n'
-            'rm -f .git/index.lock\n'
-            'rm -rf .git/rebase-merge\n'
-            'git rebase --abort\n'
-            'git checkout -f main\n'
-            'git reset --hard origin/main',
-        LinkingError.untrackedFilesOverwritten => 'On desktop:\n'
-            'rm "path/to/conflicting/file.md"\n'
-            'Then run synco again.',
-        LinkingError.identityNotSet => 'In Working Copy, when prompted:\n'
-            '1. Name: Git phone obsidian\n'
-            '2. Email: phone@obsidian.local\n'
-            '3. Tap tick\n'
-            '4. Restart the commit',
-        LinkingError.filesNotDeleting => '1. Delete $kNoteAppName app\n'
-            '2. Delete Working Copy app\n'
-            '3. Reboot phone - required\n'
-            '4. Reinstall both apps\n'
-            '5. Restart setup from the beginning',
+        // 2026-08-21: real feedback, live - three resolution strings
+        // below still told the user to do something inside Working
+        // Copy, an app LocalSync hasn't depended on since the
+        // 2026-08-08/09 git2dart rewrite - dead advice for the app as
+        // it actually exists today. Reworded to what genuinely
+        // resolves each one in LocalSync's own UI.
+        LinkingError.indexLocked =>
+          'Tap TRY AGAIN - a fresh attempt usually clears a stale lock.\n'
+              'If this keeps happening, force-quit and reopen LocalSync.',
+        LinkingError.cannotFastForward =>
+          'Tap PULL first - this downloads the newer commits and merges them in.\n'
+              'Then push again.',
+        LinkingError.mergeConflict =>
+          'This can only happen when linking a vault folder that already has '
+              'separate git history.\n'
+              'Unlink this vault and pick a different, empty folder, or reset '
+              'the desktop bare repo to one clean history first.',
         LinkingError.vaultNameEmpty =>
           'Set a vault name in Settings before running setup.',
         LinkingError.unexpectedLinkError =>
