@@ -377,57 +377,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // 2026-08-16: "Push, is this auto committing an auto timestamp... I
-  // can't see?" - the result (including the actual commit message on
-  // a real push, see sync_service.dart) is otherwise invisible once
-  // the action finishes. A brief SnackBar is enough to confirm it
-  // without adding a permanent status field to Repository for what's
-  // fundamentally a one-off confirmation, not state worth persisting.
-  // 2026-08-18: [op] takes a confirmed flag now instead of being an
-  // already-started Future, so a SyncNeedsConfirmation result can
-  // trigger a plain yes/no dialog and then re-run the exact same
-  // pull/push with confirmed:true - see sync_service.dart.
-  //
-  // 2026-08-19: [repo] is optional and only used for the new
-  // SyncOkWithConflicts case below - "way too convoluted, automate it"
-  // was the real complaint: a successful-looking pull gave no signal a
-  // conflict needed attention, so the only way to discover one was
-  // already knowing to check a menu with no badge on it (mapped out in
-  // this session's own mermaid flowchart). Push never produces this
-  // result (a conflict can only come from a pull's merge), so its call
-  // site below doesn't pass [repo] and this branch is simply
-  // unreachable there.
-  Future<void> _runAndShow(
-    BuildContext context,
-    Future<SyncResult?> Function({bool confirmed}) op, {
-    Repository? repo,
-  }) async {
-    var result = await op();
-    if (!context.mounted || result == null) return;
-    if (result case SyncNeedsConfirmation()) {
-      final proceed = await showSyncConfirmDialog(context, result);
-      if (proceed != true || !context.mounted) return;
-      result = await op(confirmed: true);
-      if (!context.mounted || result == null) return;
-    }
-    // 2026-08-18: "make text size larger... on the main page 0's bottom
-    // of screen message" - was relying on Flutter's default SnackBar
-    // text theme (small, no explicit color), same underlying issue as
-    // every other "too small and dark" fix tonight.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: kSurface,
-        content: Text(syncResultMessage(result),
-            style: const TextStyle(color: kStar, fontSize: 16)),
-        duration: const Duration(seconds: 12),
-      ),
-    );
-    if (result case SyncOkWithConflicts() when repo != null && context.mounted) {
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
-    }
-  }
-
   // 2026-08-20: real bug, found live - this used to hardcode
   // '172.20.10.11' independently of LinkingController.desktopIp, so a
   // user who'd corrected their address via the Desktop IP setting
@@ -689,6 +638,62 @@ class _SpinningSyncState extends State<_SpinningSync>
   }
 }
 
+// 2026-08-16: "Push, is this auto committing an auto timestamp... I
+// can't see?" - the result (including the actual commit message on
+// a real push, see sync_service.dart) is otherwise invisible once
+// the action finishes. A brief SnackBar is enough to confirm it
+// without adding a permanent status field to Repository for what's
+// fundamentally a one-off confirmation, not state worth persisting.
+// 2026-08-18: [op] takes a confirmed flag now instead of being an
+// already-started Future, so a SyncNeedsConfirmation result can
+// trigger a plain yes/no dialog and then re-run the exact same
+// pull/push with confirmed:true - see sync_service.dart.
+//
+// 2026-08-19: [repo] is optional and only used for the new
+// SyncOkWithConflicts case below - "way too convoluted, automate it"
+// was the real complaint: a successful-looking pull gave no signal a
+// conflict needed attention, so the only way to discover one was
+// already knowing to check a menu with no badge on it (mapped out in
+// this session's own mermaid flowchart). Push never produces this
+// result (a conflict can only come from a pull's merge), so its call
+// site below doesn't pass [repo] and this branch is simply
+// unreachable there.
+//
+// 2026-08-21: moved out of HomeScreen (never used `this`/instance
+// state) - _showFullError's new TRY AGAIN button needs to call this
+// too, and it lives in a different private class (_AppBarRepoStatus),
+// which can't reach a HomeScreen instance method.
+Future<void> _runAndShow(
+  BuildContext context,
+  Future<SyncResult?> Function({bool confirmed}) op, {
+  Repository? repo,
+}) async {
+  var result = await op();
+  if (!context.mounted || result == null) return;
+  if (result case SyncNeedsConfirmation()) {
+    final proceed = await showSyncConfirmDialog(context, result);
+    if (proceed != true || !context.mounted) return;
+    result = await op(confirmed: true);
+    if (!context.mounted || result == null) return;
+  }
+  // 2026-08-18: "make text size larger... on the main page 0's bottom
+  // of screen message" - was relying on Flutter's default SnackBar
+  // text theme (small, no explicit color), same underlying issue as
+  // every other "too small and dark" fix tonight.
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: kSurface,
+      content: Text(syncResultMessage(result),
+          style: const TextStyle(color: kStar, fontSize: 16)),
+      duration: const Duration(seconds: 12),
+    ),
+  );
+  if (result case SyncOkWithConflicts() when repo != null && context.mounted) {
+    Navigator.push(context,
+        MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
+  }
+}
+
 // 2026-08-17: relocated from the removed _MetaText - the persistent,
 // tappable full-error view is real functionality, not just tile
 // decoration, so it moved into _AppBarRepoStatus rather than being
@@ -703,6 +708,16 @@ class _SpinningSyncState extends State<_SpinningSync>
 // _FailedView already used (linking_screen.dart) - both places now
 // look identical or a real inconsistency, not just this bug.
 void _showFullError(BuildContext context, Repository repo) {
+  // 2026-08-21: real bug, live - "I tapped TRY AGAIN but the text is
+  // dead." HOW TO FIX IT's resolution strings all say "Tap TRY AGAIN"
+  // (accurate in the linking flow, which really has that button) but
+  // this dialog only ever had Close - no button the text's own
+  // instruction referred to. Reads whichever action (push or pull)
+  // actually failed (RepositoryProvider.lastActionWasPush, tracked at
+  // call time) so TRY AGAIN here retries the SAME thing that failed,
+  // not a guess.
+  final provider = context.read<RepositoryProvider>();
+  final wasPush = provider.lastActionWasPush(repo.id!);
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -725,6 +740,8 @@ void _showFullError(BuildContext context, Repository repo) {
                 label: 'HOW TO FIX IT',
                 text: repo.lastErrorResolution!,
                 accent: kGreen,
+                icon: Icons.lightbulb_outline,
+                bulleted: true,
               ),
             ],
             if (repo.lastErrorDebug != null) ...[
@@ -742,7 +759,22 @@ void _showFullError(BuildContext context, Repository repo) {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Close',
-              style: TextStyle(color: kGreen, fontSize: 15)),
+              style: TextStyle(color: kTextMid, fontSize: 15)),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _runAndShow(
+              context,
+              ({bool confirmed = false}) => wasPush
+                  ? provider.pushRepository(repo.id!, confirmed: confirmed)
+                  : provider.pullRepository(repo.id!, confirmed: confirmed),
+              repo: repo,
+            );
+          },
+          child: const Text('TRY AGAIN',
+              style:
+                  TextStyle(color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
         ),
       ],
     ),

@@ -1306,10 +1306,16 @@ class _FailedView extends StatelessWidget {
         // reading required. Other failure types keep the text card
         // since there's no graphic answering them.
         if (!isPairingFailure) ...[
+          // 2026-08-21: same fix as home_screen.dart's sync-error
+          // dialog - "check all text which is verbose, change to point
+          // form" - these resolution strings are already one point per
+          // line, DiagCard just wasn't presenting them as a list.
           DiagCard(
             label: 'HOW TO FIX IT',
             text: failure.resolution,
             accent: kGreen,
+            icon: Icons.lightbulb_outline,
+            bulleted: true,
           ),
         ] else ...[
           const SizedBox(height: 4),
