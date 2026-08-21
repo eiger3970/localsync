@@ -191,10 +191,15 @@ class _PairingScreenState extends State<PairingScreen> {
                         accent: Colors.redAccent,
                       ),
                       const SizedBox(height: 12),
+                      // 2026-08-21: same fix as every other HOW TO FIX
+                      // IT card in the app - "check all text which is
+                      // verbose, change to point form."
                       DiagCard(
                         label: 'HOW TO FIX IT',
                         text: result.resolution,
                         accent: kGreen,
+                        icon: Icons.lightbulb_outline,
+                        bulleted: true,
                       ),
                       // 2026-08-16: guards against both null AND an
                       // empty/whitespace-only debugDetail - real device
