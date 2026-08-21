@@ -72,6 +72,26 @@ git init --bare ~/Documents/Git/LocalSync/vault.git
 
 This exact path (adjusted for the real username) goes into LocalSync's Settings - note the **full absolute path** (e.g. `/home/username/Documents/Git/LocalSync/vault.git`, or on macOS `/Users/username/Documents/Git/LocalSync/vault.git`).
 
+## 📡 Auto-discovery (optional)
+
+The desktop's IP address is the one setting that genuinely drifts - it changes every time the phone switches between USB tether and Hotspot Wi-Fi. This step lets LocalSync find it automatically instead of typing it in by hand each time. Skip this section entirely and enter the IP manually if preferred - it's optional, not required for the app to work.
+
+**Debian-based Linux**:
+```
+sudo apt install -y avahi-daemon
+sudo systemctl enable --now avahi-daemon
+sudo cp desktop/localsync.service /etc/avahi/services/
+```
+The service file (`desktop/localsync.service` in this repo) advertises the desktop as `_localsync._tcp` on port 22 - change the port inside the file first if SSH runs somewhere else.
+
+**macOS**: Bonjour is built in, no install needed. Advertise the service ad-hoc for testing:
+```
+dns-sd -R "LocalSync" _localsync._tcp local 22
+```
+This only lasts while that terminal command keeps running - a persistent version needs a LaunchDaemon, not covered here yet.
+
+In LocalSync's Settings, tap the 📡 icon next to **IP address - desktop** to search - if the desktop is reachable and advertising, its address fills in automatically.
+
 ## ⚙️ Settings values
 
 LocalSync's kebab menu → **Settings** needs two things, both with a ⓘ help button in the app itself showing the same commands:

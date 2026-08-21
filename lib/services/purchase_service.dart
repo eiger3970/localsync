@@ -1,93 +1,72 @@
 // services/purchase_service.dart
 //
-// 2026-08-21: StoreKit plumbing, scaffolded ahead of having anything
-// real to sell against. No Apple Developer account is active right
-// now (lapsed, renewal blocked on funds - see project memory), so
-// none of these product IDs exist in App Store Connect yet and
-// nothing here has been tested against a real purchase. This exists
-// so the shape is ready the moment there's a funded account and real
-// product IDs - not because IAP ships today.
+// 2026-08-21: switched from raw in_app_purchase (hand-rolled StoreKit
+// calls) to RevenueCat's own SDK - see pubspec.yaml's comment for why.
+// Still no funded Apple Developer account (see project memory), so
+// even with a real RevenueCat key below, there's no actual App Store
+// product to sell yet - init() succeeds and the SDK connects, but
+// getOfferings() will come back empty until products exist on both
+// sides. Never a secret worth protecting hard either way - RevenueCat
+// public SDK keys are meant to ship inside client apps, same category
+// as a Stripe publishable key.
 //
 // First real product, per the 2026-08-18 business-model decision:
-// a one-time, non-consumable unlock for the visual conflict-picker
+// a one-time unlock for the visual word-diff conflict picker
 // (conflicts_screen.dart / conflict_picker_screen.dart). Free tier
 // keeps full manual text-based conflict resolution - that already
-// works today, nothing is held back by this. $10k-$100k "buy
-// everything" ceiling idea from 2026-08-21 is a real open pricing
-// question, not reflected here - one real product, one real price.
+// works today, nothing is held back by this.
 
-import 'dart:async';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
-// 2026-08-21: placeholder, matching the app's own still-placeholder
-// bundle ID (com.example.localsync, deliberately deferred per
-// project memory). Must become a real reverse-domain ID under
-// whichever bundle ID setup happens, and must exactly match the
-// product ID entered in App Store Connect - not guessable in advance.
-const kConflictPickerUnlockId = 'com.example.localsync.conflict_picker_unlock';
+// TODO: paste the real public API key here once RevenueCat's project
+// is set up (Project Settings -> API Keys -> Apple App Store key).
+// Never a secret worth protecting hard - RevenueCat's public SDK keys
+// are meant to ship inside client apps, same as Stripe's publishable
+// keys - but it does need to be the real value before anything here
+// can actually reach RevenueCat.
+const kRevenueCatApiKey = '';
 
-const _kUnlockedProductIdsKey = 'db_unlocked_product_ids';
+// RevenueCat entitlement identifier, configured in the RevenueCat
+// dashboard once the project exists - not an App Store product ID
+// directly (RevenueCat's own abstraction layer sits between the two).
+const kConflictPickerEntitlementId = 'conflict_picker';
 
 class PurchaseService {
-  final InAppPurchase _iap = InAppPurchase.instance;
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
-
-  Set<String> _unlockedProductIds = {};
-
-  bool get hasUnlockedConflictPicker =>
-      _unlockedProductIds.contains(kConflictPickerUnlockId);
+  bool _configured = false;
+  bool get isConfigured => _configured;
 
   Future<void> init() async {
-    _unlockedProductIds = await _loadUnlocked();
-    // 2026-08-21: not started automatically from anywhere yet (no
-    // caller wires this in) - starting an StoreKit purchase-stream
-    // listener with no real product IDs behind it has nothing
-    // meaningful to do, and would just be an untested code path
-    // sitting live in the app for no reason. Call explicitly once
-    // there's a real reason to.
-    _subscription = _iap.purchaseStream.listen(
-      _handlePurchaseUpdates,
-      onDone: () => _subscription?.cancel(),
-      onError: (_) {},
-    );
+    if (kRevenueCatApiKey.isEmpty) return;
+    await Purchases.configure(PurchasesConfiguration(kRevenueCatApiKey));
+    _configured = true;
   }
 
-  void dispose() => _subscription?.cancel();
-
-  Future<bool> get isAvailable => _iap.isAvailable();
-
-  Future<ProductDetailsResponse> queryProducts(Set<String> ids) =>
-      _iap.queryProductDetails(ids);
-
-  Future<void> buy(ProductDetails product) async {
-    final param = PurchaseParam(productDetails: product);
-    await _iap.buyNonConsumable(purchaseParam: param);
-  }
-
-  Future<void> restorePurchases() => _iap.restorePurchases();
-
-  Future<void> _handlePurchaseUpdates(
-      List<PurchaseDetails> purchases) async {
-    for (final purchase in purchases) {
-      if (purchase.status == PurchaseStatus.purchased ||
-          purchase.status == PurchaseStatus.restored) {
-        _unlockedProductIds.add(purchase.productID);
-        await _saveUnlocked(_unlockedProductIds);
-      }
-      if (purchase.pendingCompletePurchase) {
-        await _iap.completePurchase(purchase);
-      }
+  Future<bool> hasEntitlement(String id) async {
+    if (!_configured) return false;
+    try {
+      final info = await Purchases.getCustomerInfo();
+      return info.entitlements.active.containsKey(id);
+    } catch (_) {
+      return false;
     }
   }
 
-  Future<Set<String>> _loadUnlocked() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(_kUnlockedProductIdsKey) ?? []).toSet();
+  Future<Offerings?> getOfferings() async {
+    if (!_configured) return null;
+    try {
+      return await Purchases.getOfferings();
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<void> _saveUnlocked(Set<String> ids) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_kUnlockedProductIdsKey, ids.toList());
+  Future<CustomerInfo?> purchasePackage(Package package) async {
+    if (!_configured) return null;
+    return Purchases.purchasePackage(package);
+  }
+
+  Future<CustomerInfo?> restorePurchases() async {
+    if (!_configured) return null;
+    return Purchases.restorePurchases();
   }
 }

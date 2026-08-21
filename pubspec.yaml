@@ -23,12 +23,33 @@ dependencies:
   # code of its own to link (unlike git2dart's FFI symbols), so lower
   # risk than that saga, but still a new native platform channel.
   device_info_plus: ^10.1.0
-  # 2026-08-21: StoreKit scaffolding only - no Apple Developer account
-  # is currently active (funds not available to renew), so there are
-  # no real product IDs to test against yet. This dependency and
-  # purchase_service.dart exist so the plumbing is ready the moment
-  # there's something real to wire up, not because IAP ships today.
-  in_app_purchase: ^3.2.0
+  # 2026-08-21: switched from raw in_app_purchase (hand-rolled StoreKit
+  # calls) to RevenueCat's own SDK - handles receipt validation and
+  # purchase-restore correctness that would otherwise need hand-
+  # rolling, and lets pricing/paywall config change server-side later
+  # without an app update. Still no Apple Developer account active
+  # (funds not available to renew) and no RevenueCat API key yet
+  # either - purchase_service.dart guards against an empty key so this
+  # compiles and runs clean either way, just does nothing purchase-
+  # related until a real key is set.
+  purchases_flutter: ^8.4.4
+  # 2026-08-21: RevenueCat's prebuilt paywall UI package - added for
+  # availability, not currently used. ConflictPickerUpsell
+  # (widgets/conflict_picker_upsell.dart) is the real upsell UI, built
+  # to a specific non-generic spec (McDonald's-style, deliberately not
+  # a lock-screen paywall) - swapping to this package's own paywall
+  # screen would replace that design, a real UX call the user hasn't
+  # made, not an automatic upgrade.
+  purchases_ui_flutter: ^8.11.0
+  # 2026-08-21: real auto-discovery, item 2 of the IAP build order -
+  # pure-Dart mDNS (raw UDP multicast, not Apple's native
+  # NetServiceBrowser), so no CocoaPods native linking risk beyond the
+  # Info.plist entitlement itself (NSBonjourServices, added alongside
+  # this). Genuinely unverified whether iOS enforces the same
+  # NSBonjourServices requirement for raw-socket multicast as it does
+  # for the native Bonjour API - added the entitlement anyway as the
+  # documented-correct, safe precaution.
+  multicast_dns: ^0.3.2+7
 
 dev_dependencies:
   flutter_test:

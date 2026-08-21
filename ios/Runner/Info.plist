@@ -82,5 +82,16 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Localsync connects to your paired desktop over your local network to sync your Obsidian vault.</string>
+	<!-- 2026-08-21: auto-discovery - lets the app find the desktop's
+	     Git bare repo automatically instead of manual IP entry. Real
+	     scope note: still unverified whether iOS actually requires
+	     this for a pure-Dart raw-socket multicast query (multicast_dns
+	     package) the same way it does for Apple's own NetServiceBrowser
+	     API - added as the documented-correct, safe precaution either
+	     way. -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_localsync._tcp</string>
+	</array>
 </dict>
 </plist>
