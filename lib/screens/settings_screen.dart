@@ -36,12 +36,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _ipError;
   String? _pathError;
 
+  // 2026-08-21: auto-discovery interest capture - see database_service.
+  // dart's getAutoDiscoveryInterest for why this is local-only, not a
+  // live pricing test. Loaded once so the card can show which price (if
+  // any) was already tapped, rather than always looking untapped.
+  String? _interestSelected;
+
   @override
   void initState() {
     super.initState();
     final ctrl = context.read<LinkingController>();
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
+    context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
+      if (mounted) setState(() => _interestSelected = v);
+    });
+  }
+
+  // 2026-08-21: real feedback, live - "there needs to be user help...
+  // commands that are most optimised to human readable output, so the
+  // user can smoothly step through the setup." Neither value can be
+  // auto-filled without real auto-discovery (see the card below), so
+  // this is the cheap tier: the exact command to run on the desktop,
+  // shown as SelectableText so it can be copied straight off the
+  // dialog rather than retyped by hand.
+  void _showHelp(String title, String command, String note) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text(title, style: const TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: kVoid, border: Border.all(color: kBorder)),
+              child: SelectableText(command,
+                  style: const TextStyle(
+                      color: kGreen, fontFamily: 'monospace', fontSize: 13)),
+            ),
+            const SizedBox(height: 10),
+            Text(note,
+                style: const TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setInterest(String price) async {
+    setState(() => _interestSelected = price);
+    await context.read<RepositoryProvider>().setAutoDiscoveryInterest(price);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Text(
+            price == 'no'
+                ? 'Noted - thanks for the honest answer.'
+                : 'Noted - $price signal saved.',
+            style: const TextStyle(color: kStar, fontSize: 14),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -151,6 +220,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.help_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'How do I find this?',
+                        onPressed: () => _showHelp(
+                          'Finding the desktop IP address',
+                          'ip -4 addr show',
+                          'Run this on the desktop. Look for the address on '
+                              'the interface your phone is actually connected '
+                              'through - eth1 or usb0 for USB tethering, '
+                              'wlan0 for Hotspot Wi-Fi. It changes whenever '
+                              'you switch between the two.',
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -187,12 +270,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       helperStyle: const TextStyle(color: kTextMid, fontSize: 13),
                       hintText: '/home/user/Git_bare_repo/name.git',
                       errorText: _pathError,
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.help_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'How do I find this?',
+                        onPressed: () => _showHelp(
+                          'Finding the Git bare repo path',
+                          "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
+                          'Run this on the desktop to list every git bare '
+                              'repo it knows about. Your real vault normally '
+                              'syncs through the one named Md_files_bare.git.',
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -200,7 +295,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: const Text('Save'),
               ),
             ),
+            const SizedBox(height: 40),
+            _buildAutoDiscoveryCard(),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 2026-08-21: real feedback, live - "3 boxes with iap prices... would
+  // love real auto-discovery." NOT the real mDNS/subnet-scan feature
+  // (explicitly scoped out 2026-08-20, still unbuilt) - this is a cheap
+  // local signal-capture placeholder for when there IS a real user base
+  // to read it from. Framed honestly as in-development, not live pricing.
+  Widget _buildAutoDiscoveryCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kSurface,
+        border: Border.all(color: kBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.science_outlined, color: kTextMid, size: 18),
+              SizedBox(width: 8),
+              Text('IN DEVELOPMENT',
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Real auto-discovery: LocalSync finds your desktop on its own, '
+            'no typing an IP or a repo path by hand. Not built yet - would '
+            'you pay for it, and how much?',
+            style: TextStyle(color: kStar, fontSize: 14, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _priceBox('1', r'$1'),
+              const SizedBox(width: 10),
+              _priceBox('19.99', r'$19.99'),
+              const SizedBox(width: 10),
+              _priceBox('99', r'$99'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton(
+              onPressed: () => _setInterest('no'),
+              child: Text(
+                _interestSelected == 'no' ? 'Noted - not for you' : 'Not for me',
+                style: const TextStyle(color: kTextDim, fontSize: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceBox(String value, String label) {
+    final selected = _interestSelected == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _setInterest(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? kGreen.withValues(alpha: 0.12) : kVoid,
+            border: Border.all(color: selected ? kGreen : kBorder, width: 1.5),
+          ),
+          child: Column(
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      color: selected ? kGreen : kStar,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700)),
+              if (selected) ...[
+                const SizedBox(height: 4),
+                const Icon(Icons.check, color: kGreen, size: 14),
+              ],
+            ],
+          ),
         ),
       ),
     );

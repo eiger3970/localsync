@@ -75,6 +75,13 @@ class RepositoryProvider extends ChangeNotifier {
   Future<String?> getBareRepoPath() => _db.getBareRepoPath();
   Future<void> setBareRepoPath(String path) => _db.setBareRepoPath(path);
 
+  // ── Auto-discovery interest capture ────────────────────────────────────────
+  // See database_service.dart's getAutoDiscoveryInterest/
+  // setAutoDiscoveryInterest - same one-place-for-app-state reasoning.
+  Future<String?> getAutoDiscoveryInterest() => _db.getAutoDiscoveryInterest();
+  Future<void> setAutoDiscoveryInterest(String price) =>
+      _db.setAutoDiscoveryInterest(price);
+
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {
