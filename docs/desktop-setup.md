@@ -1,25 +1,30 @@
 # Desktop setup for LocalSync
 
-LocalSync syncs a phone's Obsidian vault to a folder on a desktop computer over the local network (Wi-Fi hotspot, the same Wi-Fi network, or USB tether) - nothing goes through a third-party server. Obsidian is the PKM (personal knowledge management app) LocalSync supports today; Logseq and other PKMs are a longer-term direction, not built yet - this guide is accurate to what LocalSync actually does right now.
+LocalSync syncs a phone's Obsidian vault to a folder on a desktop computer over the local network (Wi-Fi hotspot, the same Wi-Fi network, or USB tether) - nothing goes through a third-party server.
+
+Obsidian is the PKM (personal knowledge management app) LocalSync supports today; Logseq and other PKMs are a longer-term direction, not built yet - this guide is accurate to what LocalSync actually does right now.
 
 Before linking a vault in LocalSync, the desktop needs three things:
 - **Git**
 - **SSH access**
-- **A bare git repository**
+- **A Git bare repository**
 
 This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and similar) and macOS.
 
 ```mermaid
 graph LR
-    A["Phone<br/>Obsidian vault"] -- "LocalSync app,<br/>over SSH" --> B[("Bare git repository,<br/>on the desktop")]
+    A["Phone<br/>Obsidian vault"] -- "LocalSync app,<br/>over SSH" --> B[("Git bare repository,<br/>on the desktop")]
     C["Desktop<br/>Obsidian vault"] -- "git push / pull" --> B
+    style B fill:#ffb703,stroke:#333,stroke-width:2px,color:#000
 ```
 
-The bare repository is the thing both sides actually sync through - not a normal folder with files in it, just git history. Neither device talks to the other directly, and a second synced copy of the vault's text notes is itself a convenient backup - if one device is lost or fails, the other still has everything (binary attachments aren't covered by this - kept out of scope here deliberately).
+The Git bare repository is the thing both sides actually sync through - not a normal folder with files in it, just git history.
+
+Neither device talks to the other directly, and a second synced copy of the vault's text notes is itself a convenient backup - if one device is lost or fails, the other still has everything (binary attachments aren't covered by this - kept out of scope here deliberately).
 
 Today the desktop side of the sync (the `git push / pull` step above) is manual, run by hand. Nothing automated exists for it yet.
 
-If all three are already set up (git is installed, a bare repo exists, SSH is reachable), skip to [Settings values](#settings-values).
+If all three are already set up (git is installed, a Git bare repository exists, SSH is reachable), skip to [Settings values](#settings-values).
 
 ## 1. Git
 
@@ -55,7 +60,7 @@ grep -i passwordauthentication /etc/ssh/sshd_config
 ```
 If it says `PasswordAuthentication no`, change it to `yes`, then restart SSH (`sudo systemctl restart ssh` on Linux; toggle Remote Login off/on on macOS). This can go back to `no` after pairing once, if preferred - ongoing sync uses the key pairing installs, not the password.
 
-## 3. Bare git repository
+## 3. Git bare repository
 
 A single, recommended location - no need to decide this from scratch:
 ```
