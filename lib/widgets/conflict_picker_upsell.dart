@@ -1,16 +1,18 @@
 // widgets/conflict_picker_upsell.dart
 //
 // 2026-08-21: the real first IAP product, per the 2026-08-18 business-
-// model decision - a one-time $19.99 unlock for the visual word-diff
+// model decision - a one-time unlock for the visual word-diff
 // conflict picker. NOT wired into conflicts_screen.dart or
 // conflict_picker_screen.dart yet, and deliberately so: those screens
 // are exactly what's being real-device tested right now, and there is
-// no funded Apple Developer account / no real product ID to actually
-// buy against (see purchase_service.dart's header). Gating the
-// already-working feature behind an unpurchasable button would break
-// testing for no reason. This widget is a complete, ready piece -
-// wiring it into the real screens is a deliberate later step, not
-// forgotten.
+// no funded Apple Developer account / no RevenueCat project set up
+// yet (see purchase_service.dart's header). Gating the already-working
+// feature behind an unpurchasable button would break testing for no
+// reason. This widget is a complete, ready piece - wiring it into the
+// real screens is a deliberate later step, not forgotten.
+//
+// Rewritten same day, switched to RevenueCat (purchases_flutter)
+// instead of raw in_app_purchase - see purchase_service.dart.
 //
 // Spec, user's own words (2026-08-18): "a small, always-visible
 // 'visual fix' button/nag... framed like McDonald's 'would you like
@@ -20,6 +22,7 @@
 // pain, not a lock screen.
 
 import 'package:flutter/material.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../theme.dart';
 import '../services/purchase_service.dart';
 
@@ -33,30 +36,34 @@ class ConflictPickerUpsell extends StatefulWidget {
 
 class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
   bool _busy = false;
+  Package? _package;
   String? _priceLabel;
 
   @override
   void initState() {
     super.initState();
-    _loadPrice();
+    _loadOffering();
   }
 
-  Future<void> _loadPrice() async {
-    if (!await widget.purchases.isAvailable) return;
-    final response =
-        await widget.purchases.queryProducts({kConflictPickerUnlockId});
-    if (!mounted || response.productDetails.isEmpty) return;
-    setState(() => _priceLabel = response.productDetails.first.price);
+  Future<void> _loadOffering() async {
+    final offerings = await widget.purchases.getOfferings();
+    final package = offerings?.current?.availablePackages
+        .where((p) => p.storeProduct.identifier
+            .contains(kConflictPickerEntitlementId))
+        .firstOrNull;
+    if (!mounted || package == null) return;
+    setState(() {
+      _package = package;
+      _priceLabel = package.storeProduct.priceString;
+    });
   }
 
   Future<void> _buy() async {
-    if (!await widget.purchases.isAvailable) return;
-    final response =
-        await widget.purchases.queryProducts({kConflictPickerUnlockId});
-    if (response.productDetails.isEmpty) return;
+    final package = _package;
+    if (package == null) return;
     setState(() => _busy = true);
     try {
-      await widget.purchases.buy(response.productDetails.first);
+      await widget.purchases.purchasePackage(package);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -100,7 +107,7 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
                   child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
                 )
               : OutlinedButton(
-                  onPressed: _buy,
+                  onPressed: _package == null ? null : _buy,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: kGreen),
                     foregroundColor: kGreen,

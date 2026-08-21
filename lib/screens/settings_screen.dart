@@ -21,6 +21,7 @@ import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
 import '../services/theme_service.dart';
+import '../services/discovery_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,6 +44,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // live pricing test. Loaded once so the card can show which price (if
   // any) was already tapped, rather than always looking untapped.
   String? _interestSelected;
+
+  // 2026-08-21: real auto-discovery, item 2 of the IAP build order -
+  // scoped to the IP field only, see discovery_service.dart's header
+  // for why. Unrestricted/free for now, same "build first, wire in
+  // the purchase gate later" split already applied to skins and the
+  // conflict picker.
+  final _discovery = DiscoveryService();
+  bool _discovering = false;
 
   @override
   void initState() {
@@ -197,6 +206,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _ipCtrl.dispose();
     _pathCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _findDesktop() async {
+    setState(() => _discovering = true);
+    final ip = await _discovery.findDesktopIp();
+    if (!mounted) return;
+    setState(() => _discovering = false);
+    if (ip != null) {
+      _ipCtrl.text = ip;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Text('Found desktop at $ip',
+              style: TextStyle(color: kStar, fontSize: 14)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Text(
+          'No desktop found - make sure it\'s advertising (see Settings help) '
+          'and on the same network',
+          style: TextStyle(color: kStar, fontSize: 14),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -395,32 +434,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       helperStyle: TextStyle(color: kTextMid, fontSize: 13),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
-                      suffixIcon: IconButton(
-                        icon: Icon(Icons.info_outline,
-                            color: kTextDim, size: 20),
-                        tooltip: 'How do I find this?',
-                        // 2026-08-21: real feedback, live - reordered
-                        // (Hotspot before USB tether, matching how the
-                        // user listed it) and indented as sub-items of
-                        // "run this command," not flat siblings of it.
-                        onPressed: () => _showHelp(
-                          'Finding the desktop IP address',
-                          'ip -4 addr show',
-                          const [
-                            ('Run this on the desktop terminal', false),
-                            // 2026-08-21: real bug, live - "they have
-                            // greater than signs" - the unicode arrow
-                            // (→) substituted for the plain "->" the
-                            // user originally typed didn't render
-                            // correctly on-device. Reverted to the
-                            // exact ASCII form asked for the first time.
-                            ('Hotspot Wi-Fi -> look for wlan0', true),
-                            ('USB tether -> look for eth1 or usb0', true),
-                            ('IP address changes every switch - re-run '
-                                    'the command',
-                                false),
-                          ],
-                        ),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 2026-08-21: real auto-discovery - see
+                          // discovery_service.dart. Free/unrestricted
+                          // for now, scoped to just this field (the
+                          // Git bare repo path doesn't drift the same
+                          // way an IP does, so it stays manual).
+                          IconButton(
+                            icon: _discovering
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: kGreen),
+                                  )
+                                : Icon(Icons.wifi_find,
+                                    color: kGreen, size: 20),
+                            tooltip: 'Find automatically',
+                            onPressed: _discovering ? null : _findDesktop,
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.info_outline,
+                                color: kTextDim, size: 20),
+                            tooltip: 'How do I find this?',
+                            // 2026-08-21: real feedback, live - reordered
+                            // (Hotspot before USB tether, matching how the
+                            // user listed it) and indented as sub-items of
+                            // "run this command," not flat siblings of it.
+                            onPressed: () => _showHelp(
+                              'Finding the desktop IP address',
+                              'ip -4 addr show',
+                              const [
+                                ('Run this on the desktop terminal', false),
+                                // 2026-08-21: real bug, live - "they have
+                                // greater than signs" - the unicode arrow
+                                // (→) substituted for the plain "->" the
+                                // user originally typed didn't render
+                                // correctly on-device. Reverted to the
+                                // exact ASCII form asked for the first time.
+                                ('Hotspot Wi-Fi -> look for wlan0', true),
+                                ('USB tether -> look for eth1 or usb0', true),
+                                ('IP address changes every switch - re-run '
+                                        'the command',
+                                    false),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
