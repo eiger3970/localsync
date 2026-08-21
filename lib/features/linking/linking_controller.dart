@@ -127,7 +127,23 @@ class LinkingController extends ChangeNotifier {
     _reset();
     _isRunning = true;
     notifyListeners();
-    await _checkPairing();
+    await _checkPairing(newVault: true);
+  }
+
+  // 2026-08-21: real redesign target flagged by the user (see the
+  // "Add another vault" flowchart artifact published this session) -
+  // every link attempt used to run the full 11-step "create a vault
+  // from nothing" checklist (awaitingVaultCreation), even when the
+  // user already has a real, existing Obsidian vault to link - the
+  // checklist has nothing to offer in that case, it's pure friction.
+  // This is the shortcut: skip straight to pickingVaultFolder, same
+  // pairing/Obsidian-installed preconditions still checked first.
+  Future<void> startLinkingExistingVault() async {
+    assert(_step == LinkingStep.idle || _step == LinkingStep.failed);
+    _reset();
+    _isRunning = true;
+    notifyListeners();
+    await _checkPairing(newVault: false);
   }
 
   Future<void> resumeFromBackground() async {
@@ -214,7 +230,7 @@ class LinkingController extends ChangeNotifier {
 
   // ── Steps ──────────────────────────────────────────────────────────────────
 
-  Future<void> _checkPairing() async {
+  Future<void> _checkPairing({required bool newVault}) async {
     _step = LinkingStep.checkingPairing;
     notifyListeners();
 
@@ -230,7 +246,11 @@ class LinkingController extends ChangeNotifier {
 
     _privateKeyPath = privateKeyPath;
     _publicKeyPath = publicKeyPath;
-    await _awaitVaultCreation();
+    if (newVault) {
+      await _awaitVaultCreation();
+    } else {
+      await _skipToPickingFolder();
+    }
   }
 
   Future<void> _awaitVaultCreation() async {
@@ -242,6 +262,22 @@ class LinkingController extends ChangeNotifier {
     }
 
     _step = LinkingStep.awaitingVaultCreation;
+    notifyListeners();
+  }
+
+  // 2026-08-21: existing-vault shortcut's second half - same Obsidian-
+  // installed precondition as _awaitVaultCreation (still genuinely
+  // needed either way), but lands straight on pickingVaultFolder
+  // instead of showing the from-scratch creation checklist.
+  Future<void> _skipToPickingFolder() async {
+    if (!kIsWeb) {
+      final installed = await _iosApps.isObsidianInstalled();
+      if (!installed) {
+        return _fail(const StepFailure(LinkingError.obsidianNotInstalled));
+      }
+    }
+
+    _step = LinkingStep.pickingVaultFolder;
     notifyListeners();
   }
 
