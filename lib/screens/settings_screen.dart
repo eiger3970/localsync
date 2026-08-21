@@ -450,7 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: kGreen),
                                   )
-                                : Icon(Icons.wifi_find,
+                                : Icon(Icons.satellite_alt,
                                     color: kGreen, size: 20),
                             tooltip: 'Find automatically',
                             onPressed: _discovering ? null : _findDesktop,
@@ -537,16 +537,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
+          // 2026-08-21: was a single Expanded-in-a-Row (fine for 3
+          // skins, cramped and overflow-prone once the national-flag
+          // skins brought the count to 7) - Wrap with a fixed swatch
+          // width lets it flow onto multiple lines cleanly instead.
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
-              for (final palette in allPalettes) ...[
-                Expanded(child: _SkinSwatch(
-                  palette: palette,
-                  selected: themeService.palette.id == palette.id,
-                  onTap: () => themeService.select(palette),
-                )),
-                if (palette != allPalettes.last) const SizedBox(width: 10),
-              ],
+              for (final palette in allPalettes)
+                SizedBox(
+                  width: 84,
+                  child: _SkinSwatch(
+                    palette: palette,
+                    selected: themeService.palette.id == palette.id,
+                    onTap: () => themeService.select(palette),
+                  ),
+                ),
             ],
           ),
         ],
@@ -663,37 +670,58 @@ class _SkinSwatch extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: palette.void_,
-          border: Border.all(
-              color: selected ? palette.accent : kBorder, width: 1.5),
-        ),
-        child: Column(
-          children: [
-            Container(
-              height: 24,
-              decoration: BoxDecoration(
-                color: palette.surface,
-                border: Border.all(color: palette.border),
-              ),
-              child: Center(
-                child: Icon(Icons.circle, color: palette.accent, size: 10),
-              ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: palette.void_,
+              border: Border.all(
+                  color: selected ? palette.accent : kBorder, width: 1.5),
             ),
-            const SizedBox(height: 8),
-            Text(palette.label,
-                style: TextStyle(
-                    color: selected ? palette.accent : palette.star,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
-            if (selected) ...[
-              const SizedBox(height: 3),
-              Icon(Icons.check, color: palette.accent, size: 12),
-            ],
-          ],
-        ),
+            child: Column(
+              children: [
+                Container(
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Center(
+                    child: Icon(Icons.circle, color: palette.accent, size: 10),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(palette.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: selected ? palette.accent : palette.star,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600)),
+                if (selected) ...[
+                  const SizedBox(height: 3),
+                  Icon(Icons.check, color: palette.accent, size: 12),
+                ] else if (!palette.free) ...[
+                  const SizedBox(height: 3),
+                  // 2026-08-21: "make the paid skins now" - a visible
+                  // preview of the eventual gate, even though every
+                  // skin is still freely selectable right now (no
+                  // purchase check wired in yet). Same "PRO" wording
+                  // as the fair-value framing already used for the
+                  // conflict-picker upsell - not a lock icon, no price
+                  // guessed here since none is set yet.
+                  Text('PRO',
+                      style: TextStyle(
+                          color: palette.textDim,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1)),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
