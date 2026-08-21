@@ -365,8 +365,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'ip -4 addr show',
                           const [
                             ('Run this on the desktop terminal', false),
-                            ('Hotspot Wi-Fi → look for wlan0', true),
-                            ('USB tether → look for eth1 or usb0', true),
+                            // 2026-08-21: real bug, live - "they have
+                            // greater than signs" - the unicode arrow
+                            // (→) substituted for the plain "->" the
+                            // user originally typed didn't render
+                            // correctly on-device. Reverted to the
+                            // exact ASCII form asked for the first time.
+                            ('Hotspot Wi-Fi -> look for wlan0', true),
+                            ('USB tether -> look for eth1 or usb0', true),
                             ('IP address changes every switch - re-run '
                                     'the command',
                                 false),
