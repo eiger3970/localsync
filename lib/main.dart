@@ -124,7 +124,18 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
           title: 'localsync',
           theme: buildAppTheme(),
           debugShowCheckedModeBanner: false,
-          home: const HomeScreen(),
+          // 2026-08-21: real bug, live - "Red is the main page and
+          // Settings page has the blue." This was `const HomeScreen()`
+          // - Flutter can treat a const widget as identical across
+          // rebuilds and skip rebuilding it entirely, even when this
+          // Consumer's own rebuild changed MaterialApp's theme. Home
+          // (never explicitly rebuilt after the very first time) kept
+          // showing whichever skin was active back then, while
+          // Settings (freshly pushed via Navigator each time, never
+          // const) correctly re-rendered live. Removing const forces
+          // Home to actually rebuild - and re-read the live kGreen/
+          // kVoid/etc getters - every time the skin changes.
+          home: HomeScreen(), // ignore: prefer_const_constructors
         ),
       ),
     );
