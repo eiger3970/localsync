@@ -1,24 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  2026-08-22: coordinates pre-scaled by 840 and the wrapping
+  transform="scale(840)" removed - flutter_svg (vector_graphics
+  package) does not correctly scale stroke-width under an ancestor
+  scale transform, which was rendering the Union Jack's diagonal/
+  upright cross strokes at the wrong width (confirmed with a pixel
+  diff against rsvg-convert, an independent renderer, against the
+  original file: 35,456 differing pixels; against this pre-scaled,
+  algebraically-equivalent version: 8,630, all residual anti-aliasing
+  at edges). Verified this transform is a lossless equivalent of the
+  original (0-pixel diff via rsvg-convert against the untouched
+  source file) before applying it here. Source of truth is still
+  /home/rapi5/Downloads/Flag_of_Australia.svg, sourced by the user -
+  this file is that exact artwork, just restated in a form this app's
+  renderer doesn't mishandle.
+-->
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="640" viewBox="0 0 10080 5040">
 <defs>
-<clipPath id="c1"><path d="M0,0H6V3H0z"/></clipPath>
-<clipPath id="c2"><path d="M0,0V1.5H6V3H6zM6,0H3V3H0V3z"/></clipPath>
+<clipPath id="c1"><path d="M0,0H5040V2520H0z"/></clipPath>
+<clipPath id="c2"><path d="M0,0V1260H5040V2520H5040zM5040,0H2520V2520H0V2520z"/></clipPath>
 <path id="Star7" d="M0,-360 69.421398,-144.155019 281.459334,-224.456329 155.988466,-35.603349 350.974048,80.107536 125.093037,99.758368 156.198146,324.348792 0,160 -156.198146,324.348792 -125.093037,99.758368 -350.974048,80.107536 -155.988466,-35.603349 -281.459334,-224.456329 -69.421398,-144.155019z"/>
 <path id="Star5" d="M0,-210 54.859957,-75.508253 199.721868,-64.893569 88.765275,28.841586 123.434903,169.893569 0,93.333333 -123.434903,169.893569 -88.765275,28.841586 -199.721868,-64.893569 -54.859957,-75.508253z"/>
 </defs>
-<g transform="scale(840)">
-<rect width="12" height="6" fill="#00008b"/>
-<path d="M0,0 6,3M6,0 0,3" stroke="#fff" stroke-width="0.6" clip-path="url(#c1)"/>
-<path d="M0,0 6,3M6,0 0,3" stroke="#f00" stroke-width="0.4" clip-path="url(#c2)"/>
-<path d="M3,0V3M0,1.5H6" stroke="#fff"/>
-<path d="M3,0V3M0,1.5H6" stroke="#f00" stroke-width="0.6"/>
+<g>
+<rect width="10080" height="5040" fill="#00008b"/>
+<path d="M0,0 5040,2520M5040,0 0,2520" stroke="#fff" stroke-width="504" clip-path="url(#c1)"/>
+<path d="M0,0 5040,2520M5040,0 0,2520" stroke="#f00" stroke-width="336" clip-path="url(#c2)"/>
+<path d="M2520,0V2520M0,1260H5040" stroke="#fff" stroke-width="840"/>
+<path d="M2520,0V2520M0,1260H5040" stroke="#f00" stroke-width="504"/>
 </g>
 <g fill="#fff">
 <use id="Comwlth" xlink:href="#Star7" transform="translate(2520, 3780) scale(2.1)"/>
-<use id="αCrucis" xlink:href="#Star7" x="7560" y="4200"/>
-<use id="βCrucis" xlink:href="#Star7" x="6300" y="2205"/>
-<use id="γCrucis" xlink:href="#Star7" x="7560" y="840"/>
-<use id="δCrucis" xlink:href="#Star7" x="8680" y="1869"/>
-<use id="εCrucis" xlink:href="#Star5" x="8064" y="2730"/>
+<use id="alphaCrucis" xlink:href="#Star7" x="7560" y="4200"/>
+<use id="betaCrucis" xlink:href="#Star7" x="6300" y="2205"/>
+<use id="gammaCrucis" xlink:href="#Star7" x="7560" y="840"/>
+<use id="deltaCrucis" xlink:href="#Star7" x="8680" y="1869"/>
+<use id="epsilonCrucis" xlink:href="#Star5" x="8064" y="2730"/>
 </g>
 </svg>

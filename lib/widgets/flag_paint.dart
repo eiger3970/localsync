@@ -7,6 +7,31 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+// 2026-08-22: "Australia and UK union jacks are wrong... use the svgs
+// I provided" - real feedback. The border previously always used
+// drawUnionJack's hand-drawn approximation even for countries with a
+// real sourced SVG, on the reasoning that an 8px clip shows so little
+// that fidelity wouldn't matter - true for simple axis-aligned bands
+// (stripes/crosses), false here: a Union Jack canton concentrates
+// diagonal/cross detail right at the corner the border actually
+// shows, so the hand-drawn approximation's inaccuracy is genuinely
+// visible there. flag_frame.dart now loads and draws this real
+// picture, scaled, for FlagKind.unionJack and southernCross wherever
+// palette.flagAsset is set.
+Future<PictureInfo> loadFlagSvgPicture(String assetPath) => vg.loadPicture(SvgAssetLoader(assetPath), null);
+
+// Draws a loaded SVG picture scaled (not cropped) to exactly fill
+// [rect] - same "resize to fit" approach flag_backdrop.dart's tiles
+// already use, applied here to the border.
+void drawPictureScaled(Canvas canvas, PictureInfo info, Rect rect) {
+  canvas.save();
+  canvas.translate(rect.left, rect.top);
+  canvas.scale(rect.width / info.size.width, rect.height / info.size.height);
+  canvas.drawPicture(info.picture);
+  canvas.restore();
+}
 
 const ujBlue = Color(0xFF00247D);
 const ujRed = Color(0xFFC8102E);
