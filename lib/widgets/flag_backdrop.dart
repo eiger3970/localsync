@@ -64,9 +64,9 @@ class FlagBackdrop extends StatelessWidget {
   }
 }
 
-// Tiles the real sourced SVG directly - same tile size/gap/tilt/opacity
-// geometry as the hand-drawn fallback below, so a country's look stays
-// consistent whether or not its flag has been sourced yet.
+// Tiles the real sourced SVG directly - tilt/opacity are layout of
+// multiple copies (kept, per explicit direction), not alteration of
+// the artwork itself.
 class _SvgTiledBackdrop extends StatelessWidget {
   final String assetPath;
   const _SvgTiledBackdrop({required this.assetPath});
@@ -90,11 +90,6 @@ class _SvgTiledBackdrop extends StatelessWidget {
               top: y,
               width: _tileW,
               height: _tileH,
-              // BoxFit.fill, not contain: every sourced flag's real
-              // aspect ratio (US is 1.9:1, Australia is 2:1) gets
-              // resized to this fixed tile box rather than letterboxed
-              // - "resize to fit skins," a small, uniform stretch, not
-              // a redraw.
               child: Transform.rotate(
                 angle: angle,
                 child: Opacity(

@@ -282,6 +282,7 @@ const italyPalette = AppPalette(
   flagStripes: [Color(0xFF009246), Color(0xFFFFFFFF), Color(0xFFCE2B37)],
   stripesVertical: true,
   flagKind: FlagKind.stripes,
+  flagAsset: 'assets/flags/italy.svg',
 );
 final italyBoldPalette = bold(italyPalette);
 
@@ -415,7 +416,8 @@ final canadaPalette = _flagSkin(
     // edge frame can never reveal it.
     stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)],
     stripesVertical: true,
-    stripeWeights: const [1, 2, 1]);
+    stripeWeights: const [1, 2, 1],
+    flagAsset: 'assets/flags/canada.svg');
 final canadaBoldPalette = bold(canadaPalette);
 final australiaPalette = _flagSkin(
     id: 'australia',
@@ -444,47 +446,60 @@ final nzPalette = _flagSkin(
     accent: const Color(0xFF1C39BB),
     flagKind: FlagKind.southernCross,
     stars: 4,
-    southernCrossRedStars: true);
+    southernCrossRedStars: true,
+    flagAsset: 'assets/flags/nz.svg');
 final nzBoldPalette = bold(nzPalette);
 final ukPalette = _flagSkin(
     id: 'uk',
     label: 'United Kingdom',
     accent: const Color(0xFF012169),
-    flagKind: FlagKind.unionJack);
+    flagKind: FlagKind.unionJack,
+    flagAsset: 'assets/flags/uk.svg');
 final ukBoldPalette = bold(ukPalette);
 final irelandPalette = _flagSkin(
     id: 'ireland',
     label: 'Ireland',
     accent: const Color(0xFF169B62),
     stripes: const [Color(0xFF169B62), Color(0xFFFFFFFF), Color(0xFFFF883E)],
-    stripesVertical: true);
+    stripesVertical: true,
+    flagAsset: 'assets/flags/ireland.svg');
 final irelandBoldPalette = bold(irelandPalette);
 final germanyPalette = _flagSkin(
     id: 'germany',
     label: 'Germany',
     accent: const Color(0xFFFFCE00),
-    stripes: const [Color(0xFF000000), Color(0xFFDD0000), Color(0xFFFFCE00)]);
+    stripes: const [Color(0xFF000000), Color(0xFFDD0000), Color(0xFFFFCE00)],
+    flagAsset: 'assets/flags/germany.svg');
 final germanyBoldPalette = bold(germanyPalette);
 final francePalette = _flagSkin(
     id: 'france',
     label: 'France',
     accent: const Color(0xFF002654),
     stripes: const [Color(0xFF0055A4), Color(0xFFFFFFFF), Color(0xFFEF4135)],
-    stripesVertical: true);
+    stripesVertical: true,
+    flagAsset: 'assets/flags/france.svg');
 final franceBoldPalette = bold(francePalette);
+// 2026-08-22: user-sourced SVG is the full state flag with the coat
+// of arms (155KB, not the plain civil tricolor this palette's border
+// approximates) - real and correctly Spain's colours/crest, just a
+// lot more detail than the 3-band border can ever show. Only affects
+// the Bold backdrop tiles (unclipped, see flag_backdrop.dart); the
+// border keeps the simplified 1:2:1 stripe reading.
 final spainPalette = _flagSkin(
     id: 'spain',
     label: 'Spain',
     accent: const Color(0xFFC60B1E),
     // Real proportions are 1:2:1, not equal thirds.
     stripes: const [Color(0xFFAA151B), Color(0xFFF1BF00), Color(0xFFAA151B)],
-    stripeWeights: const [1, 2, 1]);
+    stripeWeights: const [1, 2, 1],
+    flagAsset: 'assets/flags/spain.svg');
 final spainBoldPalette = bold(spainPalette);
 final netherlandsPalette = _flagSkin(
     id: 'netherlands',
     label: 'Netherlands',
     accent: const Color(0xFFFF9B00),
-    stripes: const [Color(0xFFAE1C28), Color(0xFFFFFFFF), Color(0xFF21468B)]);
+    stripes: const [Color(0xFFAE1C28), Color(0xFFFFFFFF), Color(0xFF21468B)],
+    flagAsset: 'assets/flags/netherlands.svg');
 final netherlandsBoldPalette = bold(netherlandsPalette);
 // 2026-08-22: "top" tier ends here (Argentina/Brazil/Italy/England
 // hand-built above, US through Netherlands generated here - all "top
@@ -497,36 +512,52 @@ final finlandPalette = _flagSkin(
     accent: const Color(0xFF003580),
     // Nordic cross bars run edge to edge, so - unlike a centred
     // emblem - this one genuinely shows in full.
-    flagKind: FlagKind.nordicCross);
+    flagKind: FlagKind.nordicCross,
+    flagAsset: 'assets/flags/finland.svg');
 final finlandBoldPalette = bold(finlandPalette);
+// 2026-08-22: user-sourced SVG includes the real coat of arms (double
+// cross on three hills) - only affects the unclipped Bold backdrop
+// tiles, same reasoning as Spain above; the border stays the plain
+// 3-band tricolor it already was.
 final slovakiaPalette = _flagSkin(
     id: 'slovakia',
     label: 'Slovakia',
     accent: const Color(0xFF0B4EA2),
-    stripes: const [Color(0xFFFFFFFF), Color(0xFF0B4EA2), Color(0xFFEE1C25)]);
+    stripes: const [Color(0xFFFFFFFF), Color(0xFF0B4EA2), Color(0xFFEE1C25)],
+    flagAsset: 'assets/flags/slovakia.svg');
 final slovakiaBoldPalette = bold(slovakiaPalette);
+// 2026-08-22: user-sourced SVG includes the real Triglav coat of arms
+// (mountain peak, stars, waves) - same "border stays simple, Bold
+// backdrop gets the real detail" reasoning as Spain/Slovakia above.
 final sloveniaPalette = _flagSkin(
     id: 'slovenia',
     label: 'Slovenia',
     accent: const Color(0xFFE9424D),
-    stripes: const [Color(0xFFFFFFFF), Color(0xFF0000FF), Color(0xFFED1C24)]);
+    stripes: const [Color(0xFFFFFFFF), Color(0xFF0000FF), Color(0xFFED1C24)],
+    flagAsset: 'assets/flags/slovenia.svg');
 final sloveniaBoldPalette = bold(sloveniaPalette);
 final estoniaPalette = _flagSkin(
     id: 'estonia',
     label: 'Estonia',
     accent: const Color(0xFF0072CE),
-    stripes: const [Color(0xFF0072CE), Color(0xFF000000), Color(0xFFFFFFFF)]);
+    stripes: const [Color(0xFF0072CE), Color(0xFF000000), Color(0xFFFFFFFF)],
+    flagAsset: 'assets/flags/estonia.svg');
 final estoniaBoldPalette = bold(estoniaPalette);
 // 2026-08-22: Albania's flag is a black double-headed eagle on red -
 // no stripe/cross/canton shape to derive at all, and an eagle
 // silhouette is exactly the kind of centred emblem an edge frame can
 // never show. Scrapping the real-flag ambition here per the fallback
-// rule: plain red accent border, no fake pattern.
+// rule: plain red accent border, no fake pattern. The Bold backdrop
+// is different, though - unclipped tiles CAN show the real eagle now
+// that a real SVG has been sourced (assets/flags/albania.svg), so
+// flagAsset is still set here even though the border stays a solid
+// accent field.
 final albaniaPalette = _flagSkin(
     id: 'albania',
     label: 'Albania',
     accent: const Color(0xFFE41E20),
-    stripes: const [Color(0xFFE41E20)]);
+    stripes: const [Color(0xFFE41E20)],
+    flagAsset: 'assets/flags/albania.svg');
 final albaniaBoldPalette = bold(albaniaPalette);
 
 // 2026-08-22: every country now has a "— Bold" companion (see the

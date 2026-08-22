@@ -696,11 +696,20 @@ Future<void> _runAndShow(
   // of screen message" - was relying on Flutter's default SnackBar
   // text theme (small, no explicit color), same underlying issue as
   // every other "too small and dark" fix tonight.
+  // 2026-08-22: real feedback, live - "can that be centered rather
+  // than left aligned on left bottom edge of screen" - SnackBar's
+  // content has no built-in alignment option, it just left-aligns
+  // whatever's given; wrapping in Center is the real fix, not a
+  // textAlign tweak (textAlign alone wouldn't recentre the content
+  // box itself, only text within it).
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
-      content: Text(syncResultMessage(result),
-          style: TextStyle(color: kStar, fontSize: 16)),
+      content: Center(
+        child: Text(syncResultMessage(result),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kStar, fontSize: 16)),
+      ),
       duration: const Duration(seconds: 12),
     ),
   );

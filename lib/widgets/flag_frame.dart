@@ -54,20 +54,77 @@
 //
 // FlagKind (theme.dart) selects the treatment; AppPalette carries the
 // per-flag data each treatment needs.
+//
+// 2026-08-22: "Australia and UK union jacks are wrong... use the svgs
+// I provided" - real feedback, correct. The hand-drawn drawUnionJack
+// approximation was being used for every country regardless of
+// whether a real SVG existed, on the assumption that an 8px clip
+// leaves no room for fidelity to matter. True for stripes/crosses
+// (simple axis-aligned bands - already accurate once colours and
+// proportions match) but false for FlagKind.unionJack and
+// southernCross: the Union Jack canton concentrates diagonal/cross
+// detail right at the corner the border actually reveals, and the
+// hand-drawn version's inaccuracy showed there. Those two kinds now
+// load and draw the real sourced picture (flag_paint.dart's
+// loadFlagSvgPicture/drawPictureScaled) wherever palette.flagAsset is
+// set, falling back to the hand-drawn shapes only when no SVG has
+// been sourced for that country yet.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
 import 'flag_paint.dart';
 
-class FlagFrame extends StatelessWidget {
+// Kinds whose real SVG (where sourced) is worth loading for the
+// border specifically - see flag_paint.dart's loadFlagSvgPicture doc
+// comment for why this is scoped to just these two rather than every
+// sourced country: stripes/crosses are simple axis-aligned bands,
+// already accurate once colour/proportions match by hand, so loading
+// a real picture for those would cost an async load for zero visible
+// difference. unionJack and southernCross have diagonal/canton detail
+// concentrated right at the corner the border actually reveals.
+const _kindsWorthRealSvg = {FlagKind.unionJack, FlagKind.southernCross};
+
+class FlagFrame extends StatefulWidget {
   final Widget child;
   final double thickness;
   const FlagFrame({super.key, required this.child, this.thickness = 8});
 
   @override
+  State<FlagFrame> createState() => _FlagFrameState();
+}
+
+class _FlagFrameState extends State<FlagFrame> {
+  String? _loadedPath;
+  PictureInfo? _pictureInfo;
+
+  void _ensureLoaded(AppPalette palette) {
+    final wantPath = _kindsWorthRealSvg.contains(palette.flagKind) ? palette.flagAsset : null;
+    if (wantPath == _loadedPath) return;
+    _loadedPath = wantPath;
+    _pictureInfo?.picture.dispose();
+    _pictureInfo = null;
+    if (wantPath == null) return;
+    loadFlagSvgPicture(wantPath).then((info) {
+      if (!mounted || _loadedPath != wantPath) {
+        info.picture.dispose();
+        return;
+      }
+      setState(() => _pictureInfo = info);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pictureInfo?.picture.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final palette = AppTheme.current;
-    if (palette.flagKind == FlagKind.none) return child;
+    _ensureLoaded(palette);
+    if (palette.flagKind == FlagKind.none) return widget.child;
     // 2026-08-22: was CustomPaint(child: Padding(...)) - shrank
     // whatever it wrapped by `thickness` on every side to make room
     // for the border. Fine while this only wrapped Home's body, but
@@ -81,10 +138,12 @@ class FlagFrame extends StatelessWidget {
     // though CustomPaint alone wouldn't have hit-tested here anyway.
     return Stack(
       children: [
-        Positioned.fill(child: child),
+        Positioned.fill(child: widget.child),
         Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(painter: _FlagFramePainter(palette: palette, thickness: thickness)),
+            child: CustomPaint(
+              painter: _FlagFramePainter(palette: palette, thickness: widget.thickness, svgPicture: _pictureInfo),
+            ),
           ),
         ),
       ],
@@ -95,7 +154,8 @@ class FlagFrame extends StatelessWidget {
 class _FlagFramePainter extends CustomPainter {
   final AppPalette palette;
   final double thickness;
-  _FlagFramePainter({required this.palette, required this.thickness});
+  final PictureInfo? svgPicture;
+  _FlagFramePainter({required this.palette, required this.thickness, this.svgPicture});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -125,7 +185,11 @@ class _FlagFramePainter extends CustomPainter {
         drawCenteredCross(canvas, full, field: Colors.white, cross: palette.accent);
         break;
       case FlagKind.unionJack:
-        drawUnionJack(canvas, full);
+        if (svgPicture != null) {
+          drawPictureScaled(canvas, svgPicture!, full);
+        } else {
+          drawUnionJack(canvas, full);
+        }
         break;
       case FlagKind.starsAndStripes:
         drawStripes(canvas, full, palette.flagStripes ?? const []);
@@ -133,12 +197,24 @@ class _FlagFramePainter extends CustomPainter {
         _paintCantonStars(canvas, size);
         break;
       case FlagKind.southernCross:
-        canvas.drawRect(full, Paint()..color = palette.accent);
-        // Canton is exactly half the flag's width and height - real
-        // Wikimedia Australia SVG (viewBox 0 0 10080 5040, canton
-        // clip 0,0-6,3 of a 12x6 box), confirmed 2026-08-22. True of
-        // NZ too - same Blue Ensign proportions.
-        drawUnionJack(canvas, Rect.fromLTWH(0, 0, size.width * 0.5, size.height * 0.5));
+        if (svgPicture != null) {
+          // Real picture already contains the correct field + canton
+          // internally - draws the whole real flag at screen scale,
+          // same clip-reveals-the-edge principle as every other kind,
+          // just from real artwork instead of hand-drawn shapes.
+          drawPictureScaled(canvas, svgPicture!, full);
+        } else {
+          canvas.drawRect(full, Paint()..color = palette.accent);
+          // Canton is exactly half the flag's width and height - real
+          // Wikimedia Australia SVG (viewBox 0 0 10080 5040, canton
+          // clip 0,0-6,3 of a 12x6 box), confirmed 2026-08-22. True of
+          // NZ too - same Blue Ensign proportions.
+          drawUnionJack(canvas, Rect.fromLTWH(0, 0, size.width * 0.5, size.height * 0.5));
+        }
+        // Real star positions are interior/non-edge-touching either
+        // way (see file header) - this stays the point-emblem
+        // approach regardless of whether the field/canton above came
+        // from a real picture or hand-drawn shapes.
         _paintSouthernCrossStars(canvas, size);
         break;
       case FlagKind.none:
@@ -216,5 +292,7 @@ class _FlagFramePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FlagFramePainter oldDelegate) =>
-      oldDelegate.palette != palette || oldDelegate.thickness != thickness;
+      oldDelegate.palette != palette ||
+      oldDelegate.thickness != thickness ||
+      oldDelegate.svgPicture != svgPicture;
 }

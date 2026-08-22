@@ -25,6 +25,12 @@ void main() {
         ),
       );
       await tester.pump();
+      // FlagKind.unionJack/southernCross with a sourced flagAsset load
+      // their real SVG picture asynchronously (flag_frame.dart) - one
+      // pump only exercises the hand-drawn fallback path. pumpAndSettle
+      // lets that load's setState actually land, so this also covers
+      // the loaded-picture paint + the widget's dispose-mid-load guard.
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
   }
