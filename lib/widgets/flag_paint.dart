@@ -11,6 +11,60 @@ import 'package:flutter/material.dart';
 const ujBlue = Color(0xFF00247D);
 const ujRed = Color(0xFFC8102E);
 const nzStarRed = Color(0xFFCC142B);
+// 2026-08-22: real official value (#0A3161) per user-sourced Wikimedia
+// SVG (assets/flags/us.svg) - was 0xFF3C3B6E, a real colour error, not
+// a simplification.
+const usCantonBlue = Color(0xFF0A3161);
+
+// 2026-08-22: extracted from flag_frame.dart's border painter so
+// flag_backdrop.dart's mini-flag tiles can draw the exact same
+// stripes/crosses at a small, unclipped scale - same shapes, just
+// invoked against a small Rect instead of the full screen.
+
+void drawStripes(Canvas canvas, Rect rect, List<Color> colors, {bool vertical = false, List<double>? weights}) {
+  if (colors.isEmpty) return;
+  final w = weights ?? List<double>.filled(colors.length, 1);
+  final totalWeight = w.fold<double>(0, (a, b) => a + b);
+  final length = vertical ? rect.width : rect.height;
+  var pos = vertical ? rect.left : rect.top;
+  for (var i = 0; i < colors.length; i++) {
+    final bandLength = length * w[i] / totalWeight;
+    final bandRect = vertical
+        ? Rect.fromLTWH(pos, rect.top, bandLength, rect.height)
+        : Rect.fromLTWH(rect.left, pos, rect.width, bandLength);
+    canvas.drawRect(bandRect, Paint()..color = colors[i]);
+    pos += bandLength;
+  }
+}
+
+// Off-centre cross, bars shifted toward the hoist (left) per Nordic
+// flag proportions - unlike drawCenteredCross's centred bars.
+void drawNordicCross(Canvas canvas, Rect rect, {required Color field, required Color cross}) {
+  canvas.drawRect(rect, Paint()..color = field);
+  final barThickness = rect.shortestSide * 0.16;
+  final vertX = rect.left + rect.width * 0.35;
+  canvas.drawRect(
+    Rect.fromLTWH(vertX - barThickness / 2, rect.top, barThickness, rect.height),
+    Paint()..color = cross,
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(rect.left, rect.center.dy - barThickness / 2, rect.width, barThickness),
+    Paint()..color = cross,
+  );
+}
+
+void drawCenteredCross(Canvas canvas, Rect rect, {required Color field, required Color cross}) {
+  canvas.drawRect(rect, Paint()..color = field);
+  final barThickness = rect.shortestSide * 0.2;
+  canvas.drawRect(
+    Rect.fromLTWH(rect.left, rect.center.dy - barThickness / 2, rect.width, barThickness),
+    Paint()..color = cross,
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(rect.center.dx - barThickness / 2, rect.top, barThickness, rect.height),
+    Paint()..color = cross,
+  );
+}
 
 // Diagonal saltire + upright cross within an arbitrary rect - used for
 // the UK's full-bleed flag, the canton inside Australia/NZ's Southern

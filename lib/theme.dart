@@ -127,6 +127,37 @@ class AppPalette {
   });
 }
 
+// 2026-08-22: derives a "— Bold" companion from any existing palette -
+// same identity/colours/flag data, boldBackdrop: true. One helper
+// instead of hand-duplicating every colour field per country: adding
+// the bold variant for a country that already has a subtle one is one
+// line (`final xBoldPalette = bold(xPalette);`), whether that palette
+// was hand-built (const AppPalette(...)) or generated via _flagSkin -
+// both are just AppPalette values, this doesn't care which.
+AppPalette bold(AppPalette base) => AppPalette(
+      id: '${base.id}_bold',
+      label: '${base.label} — Bold',
+      void_: base.void_,
+      surface: base.surface,
+      border: base.border,
+      purple: base.purple,
+      blue: base.blue,
+      star: base.star,
+      textDim: base.textDim,
+      textMid: base.textMid,
+      accent: base.accent,
+      free: base.free,
+      flagStripes: base.flagStripes,
+      stripesVertical: base.stripesVertical,
+      stripeWeights: base.stripeWeights,
+      starCount: base.starCount,
+      southernCrossRedStars: base.southernCrossRedStars,
+      southernCrossCommonwealthStar: base.southernCrossCommonwealthStar,
+      flagKind: base.flagKind,
+      flagAsset: base.flagAsset,
+      boldBackdrop: true,
+    );
+
 // 2026-08-11: "colour theme, possible like kworld.space with the retro
 // terminal green?" - matched the exact --nebula-teal value from the
 // website's own src/index.css (misnamed there too - it's real terminal
@@ -209,6 +240,7 @@ const argentinaPalette = AppPalette(
   flagStripes: [Color(0xFF75AADB), Color(0xFFFFFFFF), Color(0xFF75AADB)],
   flagKind: FlagKind.stripes,
 );
+final argentinaBoldPalette = bold(argentinaPalette);
 
 // 2026-08-22: Brazil's identity is the yellow diamond and blue circle
 // on the green field - centred, touching none of the flag's own
@@ -233,6 +265,7 @@ const brazilPalette = AppPalette(
   flagStripes: [Color(0xFF009739)],
   flagKind: FlagKind.stripes,
 );
+final brazilBoldPalette = bold(brazilPalette);
 
 const italyPalette = AppPalette(
   id: 'italy',
@@ -250,6 +283,7 @@ const italyPalette = AppPalette(
   stripesVertical: true,
   flagKind: FlagKind.stripes,
 );
+final italyBoldPalette = bold(italyPalette);
 
 // 2026-08-22: had zero border decoration before this pass - St
 // George's Cross is a centred, full-height/full-width red cross on
@@ -270,6 +304,7 @@ const englandPalette = AppPalette(
   accent: Color(0xFFCE1124),
   flagKind: FlagKind.stGeorgesCross,
 );
+final englandBoldPalette = bold(englandPalette);
 
 // 2026-08-21: "top earning countries" batch - 15 more (Italy already
 // exists above, skipped here rather than duplicated). Hand-writing 15
@@ -341,10 +376,17 @@ AppPalette _flagSkin({
 // frame (Albania's double-headed eagle - no edge-spanning shape to
 // derive from it at all), a single-colour flagStripes list as a
 // plain accent border instead of a fake pattern.
+// 2026-08-22: user-sourced real Wikimedia SVG (assets/flags/us.svg,
+// viewBox 0 0 7410 3900) confirmed the canton is exactly 0.4 width x
+// 7/13 height (2964/7410, 2100/3900) - already correct below - but
+// caught two real colour errors: the red was 0xFFB22234 (a plain
+// wrong value, not the official "Old Glory Red") and usCantonBlue in
+// flag_paint.dart was 0xFF3C3B6E, nowhere close to the real 0x0A3161.
+// Both fixed to the SVG's literal fill values.
 final usPalette = _flagSkin(
     id: 'us',
     label: 'United States',
-    accent: const Color(0xFFB22234),
+    accent: const Color(0xFFB31942),
     // 13 horizontal stripes span the full width, so top/bottom edges
     // show the right stripe colour and left/right edges show the
     // whole alternating sequence stacked - all genuinely visible. The
@@ -356,11 +398,13 @@ final usPalette = _flagSkin(
     // flag_frame.dart's _drawStarsAndStripes).
     flagKind: FlagKind.starsAndStripes,
     stripes: const [
-      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
-      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
-      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
-      Color(0xFFB22234),
-    ]);
+      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
+      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
+      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+    ],
+    flagAsset: 'assets/flags/us.svg');
+final usBoldPalette = bold(usPalette);
 final canadaPalette = _flagSkin(
     id: 'canada',
     label: 'Canada',
@@ -372,6 +416,7 @@ final canadaPalette = _flagSkin(
     stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)],
     stripesVertical: true,
     stripeWeights: const [1, 2, 1]);
+final canadaBoldPalette = bold(canadaPalette);
 final australiaPalette = _flagSkin(
     id: 'australia',
     label: 'Australia',
@@ -392,15 +437,7 @@ final australiaPalette = _flagSkin(
 // across every screen's void background. A separate selectable skin,
 // not a toggle on the existing one - so "subtle" stays available
 // exactly as it already was.
-final australiaBoldPalette = _flagSkin(
-    id: 'australia_bold',
-    label: 'Australia — Bold',
-    accent: const Color(0xFF00247D),
-    flagKind: FlagKind.southernCross,
-    stars: 5,
-    southernCrossCommonwealthStar: true,
-    flagAsset: 'assets/flags/australia.svg',
-    boldBackdrop: true);
+final australiaBoldPalette = bold(australiaPalette);
 final nzPalette = _flagSkin(
     id: 'nz',
     label: 'New Zealand',
@@ -408,28 +445,33 @@ final nzPalette = _flagSkin(
     flagKind: FlagKind.southernCross,
     stars: 4,
     southernCrossRedStars: true);
+final nzBoldPalette = bold(nzPalette);
 final ukPalette = _flagSkin(
     id: 'uk',
     label: 'United Kingdom',
     accent: const Color(0xFF012169),
     flagKind: FlagKind.unionJack);
+final ukBoldPalette = bold(ukPalette);
 final irelandPalette = _flagSkin(
     id: 'ireland',
     label: 'Ireland',
     accent: const Color(0xFF169B62),
     stripes: const [Color(0xFF169B62), Color(0xFFFFFFFF), Color(0xFFFF883E)],
     stripesVertical: true);
+final irelandBoldPalette = bold(irelandPalette);
 final germanyPalette = _flagSkin(
     id: 'germany',
     label: 'Germany',
     accent: const Color(0xFFFFCE00),
     stripes: const [Color(0xFF000000), Color(0xFFDD0000), Color(0xFFFFCE00)]);
+final germanyBoldPalette = bold(germanyPalette);
 final francePalette = _flagSkin(
     id: 'france',
     label: 'France',
     accent: const Color(0xFF002654),
     stripes: const [Color(0xFF0055A4), Color(0xFFFFFFFF), Color(0xFFEF4135)],
     stripesVertical: true);
+final franceBoldPalette = bold(francePalette);
 final spainPalette = _flagSkin(
     id: 'spain',
     label: 'Spain',
@@ -437,11 +479,18 @@ final spainPalette = _flagSkin(
     // Real proportions are 1:2:1, not equal thirds.
     stripes: const [Color(0xFFAA151B), Color(0xFFF1BF00), Color(0xFFAA151B)],
     stripeWeights: const [1, 2, 1]);
+final spainBoldPalette = bold(spainPalette);
 final netherlandsPalette = _flagSkin(
     id: 'netherlands',
     label: 'Netherlands',
     accent: const Color(0xFFFF9B00),
     stripes: const [Color(0xFFAE1C28), Color(0xFFFFFFFF), Color(0xFF21468B)]);
+final netherlandsBoldPalette = bold(netherlandsPalette);
+// 2026-08-22: "top" tier ends here (Argentina/Brazil/Italy/England
+// hand-built above, US through Netherlands generated here - all "top
+// earning countries" per the original 2026-08-21 batch). Finland
+// through Albania below are the secondary tier, added to allPalettes
+// after the top tier's Bold companions, per explicit ordering.
 final finlandPalette = _flagSkin(
     id: 'finland',
     label: 'Finland',
@@ -449,21 +498,25 @@ final finlandPalette = _flagSkin(
     // Nordic cross bars run edge to edge, so - unlike a centred
     // emblem - this one genuinely shows in full.
     flagKind: FlagKind.nordicCross);
+final finlandBoldPalette = bold(finlandPalette);
 final slovakiaPalette = _flagSkin(
     id: 'slovakia',
     label: 'Slovakia',
     accent: const Color(0xFF0B4EA2),
     stripes: const [Color(0xFFFFFFFF), Color(0xFF0B4EA2), Color(0xFFEE1C25)]);
+final slovakiaBoldPalette = bold(slovakiaPalette);
 final sloveniaPalette = _flagSkin(
     id: 'slovenia',
     label: 'Slovenia',
     accent: const Color(0xFFE9424D),
     stripes: const [Color(0xFFFFFFFF), Color(0xFF0000FF), Color(0xFFED1C24)]);
+final sloveniaBoldPalette = bold(sloveniaPalette);
 final estoniaPalette = _flagSkin(
     id: 'estonia',
     label: 'Estonia',
     accent: const Color(0xFF0072CE),
     stripes: const [Color(0xFF0072CE), Color(0xFF000000), Color(0xFFFFFFFF)]);
+final estoniaBoldPalette = bold(estoniaPalette);
 // 2026-08-22: Albania's flag is a black double-headed eagle on red -
 // no stripe/cross/canton shape to derive at all, and an eagle
 // silhouette is exactly the kind of centred emblem an edge frame can
@@ -474,31 +527,59 @@ final albaniaPalette = _flagSkin(
     label: 'Albania',
     accent: const Color(0xFFE41E20),
     stripes: const [Color(0xFFE41E20)]);
+final albaniaBoldPalette = bold(albaniaPalette);
 
+// 2026-08-22: every country now has a "— Bold" companion (see the
+// `bold()` helper above), each listed right next to its subtle
+// original. Order: the 3 non-flag base themes, then the top-earning
+// tier (Argentina through Netherlands, matching the original
+// prioritised list), then the secondary tier (Finland through
+// Albania) - same top-then-secondary grouping the palettes were
+// already declared in above.
 final allPalettes = [
   terminalGreenPalette,
   amberTerminalPalette,
   monochromePalette,
+  // ── Top tier ──────────────────────────────────────────────────────
   argentinaPalette,
+  argentinaBoldPalette,
   brazilPalette,
+  brazilBoldPalette,
   italyPalette,
+  italyBoldPalette,
   englandPalette,
+  englandBoldPalette,
   usPalette,
+  usBoldPalette,
   canadaPalette,
+  canadaBoldPalette,
   australiaPalette,
   australiaBoldPalette,
   nzPalette,
+  nzBoldPalette,
   ukPalette,
+  ukBoldPalette,
   irelandPalette,
+  irelandBoldPalette,
   germanyPalette,
+  germanyBoldPalette,
   francePalette,
+  franceBoldPalette,
   spainPalette,
+  spainBoldPalette,
   netherlandsPalette,
+  netherlandsBoldPalette,
+  // ── Secondary tier ────────────────────────────────────────────────
   finlandPalette,
+  finlandBoldPalette,
   slovakiaPalette,
+  slovakiaBoldPalette,
   sloveniaPalette,
+  sloveniaBoldPalette,
   estoniaPalette,
+  estoniaBoldPalette,
   albaniaPalette,
+  albaniaBoldPalette,
 ];
 
 AppPalette paletteById(String id) =>
