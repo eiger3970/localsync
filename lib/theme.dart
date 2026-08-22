@@ -1,5 +1,22 @@
 import 'package:flutter/material.dart';
 
+// 2026-08-22: which CustomPainter treatment flag_frame.dart uses for a
+// palette's border. `stripes` covers every flag that's genuinely a set
+// of parallel colour bands (with correct axis/weights per flag) - that
+// also covers flags that couldn't be made to look real any other way
+// (Brazil, Albania: a single-colour "stripe list" of length 1 paints
+// a plain accent border, no fake pattern pretended). `none` is the 3
+// non-flag base themes only - never used to mean "gave up," see above.
+enum FlagKind {
+  none,
+  stripes,
+  nordicCross,
+  stGeorgesCross,
+  unionJack,
+  southernCross,
+  starsAndStripes,
+}
+
 // ── Palettes ─────────────────────────────────────────────────────────────────
 //
 // 2026-08-21: "skins" IAP - every color in the app used to be a
@@ -29,22 +46,52 @@ class AppPalette {
   final bool free;
   // 2026-08-21: "add real flags around... like a Fortnite skin around
   // the edges, but so you can still see and operate the functions" -
-  // the actual stripe sequence for flags that are genuinely
-  // stripe-based (Germany's horizontal black/red/gold, France's
-  // vertical blue/white/red, etc.) - drawn as a thin repeating-band
-  // frame around the screen edge by widgets/flag_frame.dart. Null for
-  // palettes with no accurate stripe representation (complex flags
-  // like the UK's Union Jack or the US's stars-and-stripes, or the 3
-  // non-flag skins) - those get no frame at all rather than a
-  // misleading simplified pattern.
+  // the ordered band colours for FlagKind.stripes palettes (Germany's
+  // black/red/gold, France's blue/white/red, etc., plus single-colour
+  // lists used as a plain accent border where a real flag pattern
+  // isn't achievable - see FlagKind doc above). Null for every other
+  // FlagKind and for the 3 non-flag base skins.
   final List<Color>? flagStripes;
-  // 2026-08-21: "still just basic blue for Australia... not worth
-  // paying for" - real gap, a solid accent alone doesn't read as a
-  // flag. Small star dots scattered on the border for star-based
-  // flags (Australia's Commonwealth Star + Southern Cross, etc.) -
-  // a quick, real visual improvement, not the full canton/star-field
-  // reproduction this could eventually get.
+  // Band axis for flagStripes: false = horizontal bands stacked top to
+  // bottom (Germany, Spain, Netherlands...), true = vertical bands
+  // left to right (France, Italy, Ireland, Canada). Matters: the old
+  // painter tiled every stripe list as repeating squares round the
+  // frame regardless of the flag's real orientation - looked like
+  // bunting, not a flag. Now the full flag is drawn at screen scale
+  // and only the 8px edge band is left visible (see flag_frame.dart),
+  // so getting the axis right makes each edge show the actual slice
+  // of the real flag that would be there.
+  final bool stripesVertical;
+  // Proportional band widths matching flagStripes order, e.g. Spain's
+  // red/yellow/red is 1:2:1, not equal thirds. Null = equal weights.
+  final List<double>? stripeWeights;
+  // 2026-08-22: repurposed from "border star-dot count" (2026-08-21,
+  // real feedback: dots looked cheap) to "number of Southern Cross
+  // constellation stars" for FlagKind.southernCross (Australia 5, NZ
+  // 4) - drawn as real 5-point star polygons clustered along the
+  // visible right/bottom border, not positioned at their true 2D
+  // flag coordinates (those fall in the middle of the flag, which a
+  // thin edge frame can never reveal - see flag_frame.dart's header
+  // comment for why).
   final int? starCount;
+  // NZ's Southern Cross stars are red with a white edge, not white
+  // like Australia's.
+  final bool southernCrossRedStars;
+  // Australia only: adds the separate 7-point Commonwealth Star near
+  // the canton.
+  final bool southernCrossCommonwealthStar;
+  final FlagKind flagKind;
+  // 2026-08-22: path to a real flag SVG (assets/flags/), user-sourced
+  // per country, for FULL display where nothing is clipped - the skin
+  // picker's swatch in settings_screen.dart. NOT used by
+  // flag_frame.dart's border: that frame only ever reveals an 8px
+  // edge slice regardless of source, so a real SVG there would buy no
+  // extra fidelity over the hand-coded painter while reintroducing
+  // the asset-breaking-invisibly risk this app has real prior history
+  // with. Null until a real SVG has actually been sourced for that
+  // country - the swatch falls back to its plain accent-dot preview
+  // rather than guessing at a flag it hasn't been given.
+  final String? flagAsset;
   const AppPalette({
     required this.id,
     required this.label,
@@ -59,7 +106,13 @@ class AppPalette {
     required this.accent,
     this.free = false,
     this.flagStripes,
+    this.stripesVertical = false,
+    this.stripeWeights,
     this.starCount,
+    this.southernCrossRedStars = false,
+    this.southernCrossCommonwealthStar = false,
+    this.flagKind = FlagKind.none,
+    this.flagAsset,
   });
 }
 
@@ -136,9 +189,24 @@ const argentinaPalette = AppPalette(
   textDim: Color(0xFF4A5875),
   textMid: Color(0xFF8DA3C4),
   accent: Color(0xFF75AADB),
+  // Horizontal celeste/white/celeste. The Sol de Mayo sun sits dead
+  // centre of the white band - centre of the flag is exactly what an
+  // 8px edge frame can never show (see flag_frame.dart), so it's
+  // dropped rather than drawn somewhere it'd never render. The three
+  // correctly-ordered horizontal bands in the right shade of celeste
+  // still read as Argentina on their own.
   flagStripes: [Color(0xFF75AADB), Color(0xFFFFFFFF), Color(0xFF75AADB)],
+  flagKind: FlagKind.stripes,
 );
 
+// 2026-08-22: Brazil's identity is the yellow diamond and blue circle
+// on the green field - centred, touching none of the flag's own
+// edges. A thin edge frame can only ever show what's drawn at the
+// screen's own outer edge (see flag_frame.dart), so that diamond and
+// circle would render nowhere, ever - not "simplified," genuinely
+// invisible. Scrapping the real-flag ambition here per the fallback
+// rule: a plain green accent border (single-colour flagStripes list),
+// no fake pattern pretending to be more than it is.
 const brazilPalette = AppPalette(
   id: 'brazil',
   label: 'Brazil',
@@ -151,6 +219,8 @@ const brazilPalette = AppPalette(
   textDim: Color(0xFF4E6B2E),
   textMid: Color(0xFF8FAE5C),
   accent: Color(0xFFFFDF00),
+  flagStripes: [Color(0xFF009739)],
+  flagKind: FlagKind.stripes,
 );
 
 const italyPalette = AppPalette(
@@ -166,8 +236,15 @@ const italyPalette = AppPalette(
   textMid: Color(0xFF7098C8),
   accent: Color(0xFF0066CC),
   flagStripes: [Color(0xFF009246), Color(0xFFFFFFFF), Color(0xFFCE2B37)],
+  stripesVertical: true,
+  flagKind: FlagKind.stripes,
 );
 
+// 2026-08-22: had zero border decoration before this pass - St
+// George's Cross is a centred, full-height/full-width red cross on
+// white, which is exactly the shape an edge frame CAN show (the bars
+// run edge to edge, unlike a centred emblem) - drawn for real via
+// FlagKind.stGeorgesCross in flag_frame.dart.
 const englandPalette = AppPalette(
   id: 'england',
   label: 'England',
@@ -180,6 +257,7 @@ const englandPalette = AppPalette(
   textDim: Color(0xFF7A3E42),
   textMid: Color(0xFFC47D82),
   accent: Color(0xFFCE1124),
+  flagKind: FlagKind.stGeorgesCross,
 );
 
 // 2026-08-21: "top earning countries" batch - 15 more (Italy already
@@ -197,7 +275,13 @@ AppPalette _flagSkin({
   required String label,
   required Color accent,
   List<Color>? stripes,
+  bool stripesVertical = false,
+  List<double>? stripeWeights,
   int? stars,
+  FlagKind flagKind = FlagKind.none,
+  bool southernCrossRedStars = false,
+  bool southernCrossCommonwealthStar = false,
+  String? flagAsset,
 }) {
   const baseVoid = Color(0xFF030307);
   const baseSurface = Color(0xFF0B0B12);
@@ -218,43 +302,94 @@ AppPalette _flagSkin({
     textMid: Color.lerp(baseTextMid, accent, 0.30)!,
     accent: accent,
     flagStripes: stripes,
+    stripesVertical: stripesVertical,
+    stripeWeights: stripeWeights,
     starCount: stars,
+    southernCrossRedStars: southernCrossRedStars,
+    southernCrossCommonwealthStar: southernCrossCommonwealthStar,
+    flagAsset: flagAsset,
+    // A stripe list implies FlagKind.stripes automatically (covers the
+    // plain tricolours below, and doubles as the "scrap the real-flag
+    // ambition, plain accent border" fallback for a length-1 list) -
+    // unless an explicit special kind was passed (US passes both: its
+    // 13-colour list drives the striping, starsAndStripes adds the
+    // canton on top).
+    flagKind: flagKind != FlagKind.none
+        ? flagKind
+        : (stripes != null ? FlagKind.stripes : FlagKind.none),
   );
 }
 
-// 2026-08-21: flagStripes only set for genuinely stripe-based flags
-// (see the AppPalette field comment) - US (stars+stripes), Australia/
-// NZ/UK (Southern Cross/Union Jack), and Finland/Albania (Nordic
-// cross / eagle) all left without a stripe pattern rather than a
-// misleading simplified one. Star-based flags get starCount instead -
-// a real, if simplified, visual difference from a plain accent swap.
+// 2026-08-22: every one of these 15 now gets SOME real border
+// decoration - either the flag's genuine pattern drawn at screen
+// scale (see flag_frame.dart's header for why that's the only way an
+// 8px edge frame can show a real flag shape), or, where the flag's
+// identity lives in the centre and could never appear in an edge
+// frame (Albania's double-headed eagle - no edge-spanning shape to
+// derive from it at all), a single-colour flagStripes list as a
+// plain accent border instead of a fake pattern.
 final usPalette = _flagSkin(
     id: 'us',
     label: 'United States',
     accent: const Color(0xFFB22234),
-    stars: 13);
+    // 13 horizontal stripes span the full width, so top/bottom edges
+    // show the right stripe colour and left/right edges show the
+    // whole alternating sequence stacked - all genuinely visible. The
+    // canton corner (blue field) touches the top and left edges too,
+    // so it's real and visible; a few star polygons are drawn
+    // directly onto that corner's visible border strip (their true
+    // grid positions inside the canton are mostly interior and would
+    // be invisible - same reasoning as Southern Cross, see
+    // flag_frame.dart's _drawStarsAndStripes).
+    flagKind: FlagKind.starsAndStripes,
+    stripes: const [
+      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
+      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
+      Color(0xFFB22234), Color(0xFFFFFFFF), Color(0xFFB22234), Color(0xFFFFFFFF),
+      Color(0xFFB22234),
+    ]);
 final canadaPalette = _flagSkin(
     id: 'canada',
     label: 'Canada',
     accent: const Color(0xFFFF0000),
-    stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)]);
+    // Vertical red/white/red, correct 1:2:1 pale proportions. The
+    // maple leaf sits dead centre of the white band, so - like
+    // Argentina's sun - it's dropped rather than drawn somewhere an
+    // edge frame can never reveal it.
+    stripes: const [Color(0xFFFF0000), Color(0xFFFFFFFF), Color(0xFFFF0000)],
+    stripesVertical: true,
+    stripeWeights: const [1, 2, 1]);
 final australiaPalette = _flagSkin(
     id: 'australia',
     label: 'Australia',
     accent: const Color(0xFF00247D),
-    stars: 7);
+    flagKind: FlagKind.southernCross,
+    stars: 5,
+    southernCrossCommonwealthStar: true,
+    // 2026-08-22: user-sourced real Wikimedia SVG, used for the full,
+    // unclipped skin-picker thumbnail only (see flagAsset's doc
+    // comment above) - the border frame's canton/star fractions in
+    // flag_frame.dart were also corrected against this file's exact
+    // coordinates.
+    flagAsset: 'assets/flags/australia.svg');
 final nzPalette = _flagSkin(
     id: 'nz',
     label: 'New Zealand',
     accent: const Color(0xFF1C39BB),
-    stars: 4);
-final ukPalette =
-    _flagSkin(id: 'uk', label: 'United Kingdom', accent: const Color(0xFF012169));
+    flagKind: FlagKind.southernCross,
+    stars: 4,
+    southernCrossRedStars: true);
+final ukPalette = _flagSkin(
+    id: 'uk',
+    label: 'United Kingdom',
+    accent: const Color(0xFF012169),
+    flagKind: FlagKind.unionJack);
 final irelandPalette = _flagSkin(
     id: 'ireland',
     label: 'Ireland',
     accent: const Color(0xFF169B62),
-    stripes: const [Color(0xFF169B62), Color(0xFFFFFFFF), Color(0xFFFF883E)]);
+    stripes: const [Color(0xFF169B62), Color(0xFFFFFFFF), Color(0xFFFF883E)],
+    stripesVertical: true);
 final germanyPalette = _flagSkin(
     id: 'germany',
     label: 'Germany',
@@ -264,19 +399,27 @@ final francePalette = _flagSkin(
     id: 'france',
     label: 'France',
     accent: const Color(0xFF002654),
-    stripes: const [Color(0xFF0055A4), Color(0xFFFFFFFF), Color(0xFFEF4135)]);
+    stripes: const [Color(0xFF0055A4), Color(0xFFFFFFFF), Color(0xFFEF4135)],
+    stripesVertical: true);
 final spainPalette = _flagSkin(
     id: 'spain',
     label: 'Spain',
     accent: const Color(0xFFC60B1E),
-    stripes: const [Color(0xFFAA151B), Color(0xFFF1BF00), Color(0xFFAA151B)]);
+    // Real proportions are 1:2:1, not equal thirds.
+    stripes: const [Color(0xFFAA151B), Color(0xFFF1BF00), Color(0xFFAA151B)],
+    stripeWeights: const [1, 2, 1]);
 final netherlandsPalette = _flagSkin(
     id: 'netherlands',
     label: 'Netherlands',
     accent: const Color(0xFFFF9B00),
     stripes: const [Color(0xFFAE1C28), Color(0xFFFFFFFF), Color(0xFF21468B)]);
 final finlandPalette = _flagSkin(
-    id: 'finland', label: 'Finland', accent: const Color(0xFF003580));
+    id: 'finland',
+    label: 'Finland',
+    accent: const Color(0xFF003580),
+    // Nordic cross bars run edge to edge, so - unlike a centred
+    // emblem - this one genuinely shows in full.
+    flagKind: FlagKind.nordicCross);
 final slovakiaPalette = _flagSkin(
     id: 'slovakia',
     label: 'Slovakia',
@@ -292,8 +435,16 @@ final estoniaPalette = _flagSkin(
     label: 'Estonia',
     accent: const Color(0xFF0072CE),
     stripes: const [Color(0xFF0072CE), Color(0xFF000000), Color(0xFFFFFFFF)]);
+// 2026-08-22: Albania's flag is a black double-headed eagle on red -
+// no stripe/cross/canton shape to derive at all, and an eagle
+// silhouette is exactly the kind of centred emblem an edge frame can
+// never show. Scrapping the real-flag ambition here per the fallback
+// rule: plain red accent border, no fake pattern.
 final albaniaPalette = _flagSkin(
-    id: 'albania', label: 'Albania', accent: const Color(0xFFE41E20));
+    id: 'albania',
+    label: 'Albania',
+    accent: const Color(0xFFE41E20),
+    stripes: const [Color(0xFFE41E20)]);
 
 final allPalettes = [
   terminalGreenPalette,

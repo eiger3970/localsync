@@ -70,6 +70,7 @@ flutter:
     - assets/icon/icon.png
     - assets/icon/logo_word_with_circle.png
     - assets/pairing/
+    - assets/flags/
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"

@@ -16,6 +16,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
@@ -702,9 +703,18 @@ class _SkinSwatch extends StatelessWidget {
                     color: palette.surface,
                     border: Border.all(color: palette.border),
                   ),
-                  child: Center(
-                    child: Icon(Icons.circle, color: palette.accent, size: 10),
-                  ),
+                  // 2026-08-22: where a real flag SVG has actually
+                  // been sourced (palette.flagAsset), show it here at
+                  // full size, nothing clipped - the one place in the
+                  // app real flag fidelity genuinely shows (unlike
+                  // the border frame, see AppPalette.flagAsset's doc
+                  // comment). Falls back to the plain accent dot for
+                  // every palette without one yet.
+                  child: palette.flagAsset != null
+                      ? SvgPicture.asset(palette.flagAsset!, fit: BoxFit.cover)
+                      : Center(
+                          child: Icon(Icons.circle, color: palette.accent, size: 10),
+                        ),
                 ),
                 const SizedBox(height: 8),
                 Text(palette.label,
