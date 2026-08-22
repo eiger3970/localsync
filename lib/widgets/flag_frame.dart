@@ -92,8 +92,6 @@ class FlagFrame extends StatelessWidget {
   }
 }
 
-const _usCantonBlue = Color(0xFF3C3B6E);
-
 class _FlagFramePainter extends CustomPainter {
   final AppPalette palette;
   final double thickness;
@@ -117,19 +115,20 @@ class _FlagFramePainter extends CustomPainter {
     final full = Rect.fromLTWH(0, 0, size.width, size.height);
     switch (palette.flagKind) {
       case FlagKind.stripes:
-        _drawStripes(canvas, size);
+        drawStripes(canvas, full, palette.flagStripes ?? const [],
+            vertical: palette.stripesVertical, weights: palette.stripeWeights);
         break;
       case FlagKind.nordicCross:
-        _drawNordicCross(canvas, size);
+        drawNordicCross(canvas, full, field: Colors.white, cross: palette.accent);
         break;
       case FlagKind.stGeorgesCross:
-        _drawCenteredCross(canvas, full, field: Colors.white, cross: palette.accent);
+        drawCenteredCross(canvas, full, field: Colors.white, cross: palette.accent);
         break;
       case FlagKind.unionJack:
         drawUnionJack(canvas, full);
         break;
       case FlagKind.starsAndStripes:
-        _drawStripes(canvas, size);
+        drawStripes(canvas, full, palette.flagStripes ?? const []);
         _drawUsCanton(canvas, size);
         _paintCantonStars(canvas, size);
         break;
@@ -151,56 +150,9 @@ class _FlagFramePainter extends CustomPainter {
   // ── Edge-spanning shapes (drawn at full screen scale, revealed only
   //    through the clip set up in paint()) ──────────────────────────
 
-  void _drawStripes(Canvas canvas, Size size) {
-    final colors = palette.flagStripes;
-    if (colors == null || colors.isEmpty) return;
-    final weights = palette.stripeWeights ?? List<double>.filled(colors.length, 1);
-    final totalWeight = weights.fold<double>(0, (a, b) => a + b);
-    final vertical = palette.stripesVertical;
-    final length = vertical ? size.width : size.height;
-    var pos = 0.0;
-    for (var i = 0; i < colors.length; i++) {
-      final bandLength = length * weights[i] / totalWeight;
-      final rect = vertical
-          ? Rect.fromLTWH(pos, 0, bandLength, size.height)
-          : Rect.fromLTWH(0, pos, size.width, bandLength);
-      canvas.drawRect(rect, Paint()..color = colors[i]);
-      pos += bandLength;
-    }
-  }
-
-  // Off-centre cross, bars shifted toward the hoist (left) per Nordic
-  // flag proportions - unlike England's centred St George's Cross.
-  void _drawNordicCross(Canvas canvas, Size size) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = Colors.white);
-    final barThickness = size.shortestSide * 0.16;
-    final vertX = size.width * 0.35;
-    canvas.drawRect(
-      Rect.fromLTWH(vertX - barThickness / 2, 0, barThickness, size.height),
-      Paint()..color = palette.accent,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, size.height / 2 - barThickness / 2, size.width, barThickness),
-      Paint()..color = palette.accent,
-    );
-  }
-
-  void _drawCenteredCross(Canvas canvas, Rect rect, {required Color field, required Color cross}) {
-    canvas.drawRect(rect, Paint()..color = field);
-    final barThickness = rect.shortestSide * 0.2;
-    canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.center.dy - barThickness / 2, rect.width, barThickness),
-      Paint()..color = cross,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(rect.center.dx - barThickness / 2, rect.top, barThickness, rect.height),
-      Paint()..color = cross,
-    );
-  }
-
   void _drawUsCanton(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 0, size.width * 0.4, size.height * (7 / 13));
-    canvas.drawRect(rect, Paint()..color = _usCantonBlue);
+    canvas.drawRect(rect, Paint()..color = usCantonBlue);
   }
 
   // ── Point emblems - drawn directly onto the visible border strip,

@@ -144,8 +144,22 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
+            // 2026-08-22: real feedback, live - "can this space have
+            // rounded corners?" - this opaque block reads as a clean
+            // window cut into the bold skin's tiled-flag pattern, so a
+            // rounded shape (rather than the app's usual sharp-cornered
+            // cards) makes it read as a deliberate window rather than
+            // a stray rectangle. clipBehavior is required, not
+            // decorative - without it the gif's own opaque rectangle
+            // still paints square corners on top of the rounded
+            // background underneath it.
             Container(
-              color: kVoid,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: kVoid,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
