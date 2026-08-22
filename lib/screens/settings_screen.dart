@@ -262,7 +262,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kVoid,
+      // 2026-08-22: was explicit `kVoid` here, same as the theme
+      // default anyway - but an explicit value on THIS Scaffold
+      // overrides ThemeData.scaffoldBackgroundColor, which is now
+      // transparent so main.dart's global FlagBackdrop (void fill +
+      // bold skins' tiled mini-flags) can show through underneath
+      // every screen. Removed so this screen isn't a hole in that.
       appBar: AppBar(
         backgroundColor: kVoid,
         title: Text('Settings', style: TextStyle(color: kStar)),

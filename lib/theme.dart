@@ -92,6 +92,16 @@ class AppPalette {
   // country - the swatch falls back to its plain accent-dot preview
   // rather than guessing at a flag it hasn't been given.
   final String? flagAsset;
+  // 2026-08-22: "2nd option for crazy patriotic with flags all over
+  // the place where the black space is." The border frame
+  // (flag_frame.dart) only ever decorates the outer 8px edge - this
+  // is a second, separate treatment (widgets/flag_backdrop.dart) that
+  // tiles small complete flag icons across the app's void/background
+  // areas everywhere real content isn't already sitting on an opaque
+  // surface. False for every existing skin (including plain
+  // "Australia") - it's an explicit second, louder option, not the
+  // new default for a country once one variant exists.
+  final bool boldBackdrop;
   const AppPalette({
     required this.id,
     required this.label,
@@ -113,6 +123,7 @@ class AppPalette {
     this.southernCrossCommonwealthStar = false,
     this.flagKind = FlagKind.none,
     this.flagAsset,
+    this.boldBackdrop = false,
   });
 }
 
@@ -282,6 +293,7 @@ AppPalette _flagSkin({
   bool southernCrossRedStars = false,
   bool southernCrossCommonwealthStar = false,
   String? flagAsset,
+  bool boldBackdrop = false,
 }) {
   const baseVoid = Color(0xFF030307);
   const baseSurface = Color(0xFF0B0B12);
@@ -308,6 +320,7 @@ AppPalette _flagSkin({
     southernCrossRedStars: southernCrossRedStars,
     southernCrossCommonwealthStar: southernCrossCommonwealthStar,
     flagAsset: flagAsset,
+    boldBackdrop: boldBackdrop,
     // A stripe list implies FlagKind.stripes automatically (covers the
     // plain tricolours below, and doubles as the "scrap the real-flag
     // ambition, plain accent border" fallback for a length-1 list) -
@@ -372,6 +385,22 @@ final australiaPalette = _flagSkin(
     // flag_frame.dart were also corrected against this file's exact
     // coordinates.
     flagAsset: 'assets/flags/australia.svg');
+// 2026-08-22: "2nd option for crazy patriotic with flags all over the
+// place where the black space is" - same identity/colours as plain
+// Australia above (same accent, same border), plus boldBackdrop:
+// true, which turns on widgets/flag_backdrop.dart's tiled mini-flags
+// across every screen's void background. A separate selectable skin,
+// not a toggle on the existing one - so "subtle" stays available
+// exactly as it already was.
+final australiaBoldPalette = _flagSkin(
+    id: 'australia_bold',
+    label: 'Australia — Bold',
+    accent: const Color(0xFF00247D),
+    flagKind: FlagKind.southernCross,
+    stars: 5,
+    southernCrossCommonwealthStar: true,
+    flagAsset: 'assets/flags/australia.svg',
+    boldBackdrop: true);
 final nzPalette = _flagSkin(
     id: 'nz',
     label: 'New Zealand',
@@ -457,6 +486,7 @@ final allPalettes = [
   usPalette,
   canadaPalette,
   australiaPalette,
+  australiaBoldPalette,
   nzPalette,
   ukPalette,
   irelandPalette,
@@ -507,7 +537,12 @@ Color get kGreen => AppTheme.current.accent;
 // later skin change.
 ThemeData buildAppTheme() => ThemeData(
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: kVoid,
+      // 2026-08-22: transparent, not kVoid - main.dart's
+      // MaterialApp.builder now paints the void fill (and, for bold
+      // skins, tiled mini-flags) via FlagBackdrop, underneath every
+      // Scaffold everywhere in the app. A solid scaffoldBackgroundColor
+      // here would just paint over that on every single screen.
+      scaffoldBackgroundColor: Colors.transparent,
       colorScheme: ColorScheme.dark(
         primary: kGreen,
         secondary: kPurple,
