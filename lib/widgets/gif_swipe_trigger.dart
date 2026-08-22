@@ -120,21 +120,14 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       onVerticalDragStart: _onStart,
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
-      // 2026-08-22: two rounds of real feedback on this. First: a
-      // blanket `color: kVoid` across the whole zone blocked
-      // main.dart's global FlagBackdrop (bold skins' tiled mini-
-      // flags) entirely - "the gifs need to be seen, so flags should
-      // not be over the moving gifs" led to putting it back, but that
-      // made bold Home visually identical to subtle Home again -
-      // "screen_home_bold is wrong and is screen_home_subtle." Real
-      // problem with both: this zone isn't uniformly "gif" or
-      // uniformly "empty" - the gif+caption block (fixed height) sits
-      // inside an Expanded that's taller than it (especially PUSH,
-      // which centers rather than pins to top), leaving genuine empty
-      // margin around it. Opaque fill now wraps ONLY that inner
-      // content block (tight, not double.infinity), not the whole
-      // zone - the gif/caption stay fully protected, the real margin
-      // around them shows the bold pattern same as everywhere else.
+      // 2026-08-22: rounded corners tried twice here (tight box, then
+      // full-zone card) and reverted both times - real feedback: the
+      // full-zone version left "too much black space" (far less of
+      // the bold pattern actually visible), and "just return to 90
+      // degree corners." Back to a plain square opaque box, sized
+      // tightly to just the gif+caption content (not the whole zone),
+      // matching the app's existing sharp-cornered look everywhere
+      // else - real margin around it still shows the bold pattern.
       child: SizedBox(
         width: double.infinity,
         child: Column(
@@ -144,22 +137,8 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
-            // 2026-08-22: real feedback, live - "can this space have
-            // rounded corners?" - this opaque block reads as a clean
-            // window cut into the bold skin's tiled-flag pattern, so a
-            // rounded shape (rather than the app's usual sharp-cornered
-            // cards) makes it read as a deliberate window rather than
-            // a stray rectangle. clipBehavior is required, not
-            // decorative - without it the gif's own opaque rectangle
-            // still paints square corners on top of the rounded
-            // background underneath it.
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: kVoid,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              clipBehavior: Clip.antiAlias,
+              color: kVoid,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
