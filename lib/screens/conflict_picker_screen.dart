@@ -216,7 +216,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     }
 
     return Scaffold(
-      backgroundColor: kVoid,
+      // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
+      // matching comment. ThemeData.scaffoldBackgroundColor is now
+      // transparent so the global FlagBackdrop shows through instead.
       appBar: AppBar(
         backgroundColor: kVoid,
         title: Text(entry.filePath,

@@ -55,9 +55,9 @@
 // FlagKind (theme.dart) selects the treatment; AppPalette carries the
 // per-flag data each treatment needs.
 
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import 'flag_paint.dart';
 
 class FlagFrame extends StatelessWidget {
   final Widget child;
@@ -68,20 +68,31 @@ class FlagFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppTheme.current;
     if (palette.flagKind == FlagKind.none) return child;
-    return CustomPaint(
-      painter: _FlagFramePainter(palette: palette, thickness: thickness),
-      child: Padding(
-        padding: EdgeInsets.all(thickness),
-        child: child,
-      ),
+    // 2026-08-22: was CustomPaint(child: Padding(...)) - shrank
+    // whatever it wrapped by `thickness` on every side to make room
+    // for the border. Fine while this only wrapped Home's body, but
+    // now that it wraps the whole app (main.dart's MaterialApp.builder,
+    // AppBar included) that 16px width loss pushed an already-tight
+    // AppBar row (title + repo status + kebab) into a real overflow -
+    // a regression this change introduced, not a pre-existing bug.
+    // Stack overlay instead: content keeps its full original layout,
+    // the border paints on top of just its outermost `thickness`
+    // band. IgnorePointer so the overlay never swallows a tap even
+    // though CustomPaint alone wouldn't have hit-tested here anyway.
+    return Stack(
+      children: [
+        Positioned.fill(child: child),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(painter: _FlagFramePainter(palette: palette, thickness: thickness)),
+          ),
+        ),
+      ],
     );
   }
 }
 
-const _ujBlue = Color(0xFF00247D);
-const _ujRed = Color(0xFFC8102E);
 const _usCantonBlue = Color(0xFF3C3B6E);
-const _nzStarRed = Color(0xFFCC142B);
 
 class _FlagFramePainter extends CustomPainter {
   final AppPalette palette;
@@ -115,7 +126,7 @@ class _FlagFramePainter extends CustomPainter {
         _drawCenteredCross(canvas, full, field: Colors.white, cross: palette.accent);
         break;
       case FlagKind.unionJack:
-        _drawUnionJack(canvas, full);
+        drawUnionJack(canvas, full);
         break;
       case FlagKind.starsAndStripes:
         _drawStripes(canvas, size);
@@ -128,7 +139,7 @@ class _FlagFramePainter extends CustomPainter {
         // Wikimedia Australia SVG (viewBox 0 0 10080 5040, canton
         // clip 0,0-6,3 of a 12x6 box), confirmed 2026-08-22. True of
         // NZ too - same Blue Ensign proportions.
-        _drawUnionJack(canvas, Rect.fromLTWH(0, 0, size.width * 0.5, size.height * 0.5));
+        drawUnionJack(canvas, Rect.fromLTWH(0, 0, size.width * 0.5, size.height * 0.5));
         _paintSouthernCrossStars(canvas, size);
         break;
       case FlagKind.none:
@@ -187,55 +198,6 @@ class _FlagFramePainter extends CustomPainter {
     );
   }
 
-  // Diagonal saltire + upright cross within an arbitrary rect - reused
-  // both for the UK's full-bleed flag and, at a smaller scale, for the
-  // Union Jack canton inside Australia/NZ's Southern Cross flags. Not
-  // official proportions, but a real diagonal-cross-on-blue pattern,
-  // not a plain solid field.
-  void _drawUnionJack(Canvas canvas, Rect rect) {
-    canvas.drawRect(rect, Paint()..color = _ujBlue);
-    final short = rect.shortestSide;
-
-    final whiteDiag = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = short * 0.22;
-    canvas.drawLine(rect.topLeft, rect.bottomRight, whiteDiag);
-    canvas.drawLine(rect.topRight, rect.bottomLeft, whiteDiag);
-
-    // Thinner, offset red saltire on top - a rough stand-in for the
-    // real flag's counter-changed fimbriation.
-    final redOffset = short * 0.05;
-    final redDiag = Paint()
-      ..color = _ujRed
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = short * 0.09;
-    canvas.drawLine(rect.topLeft.translate(0, redOffset), rect.bottomRight.translate(0, redOffset), redDiag);
-    canvas.drawLine(rect.topRight.translate(0, redOffset), rect.bottomLeft.translate(0, redOffset), redDiag);
-
-    final whiteCrossWidth = short * 0.34;
-    final whiteCross = Paint()..color = Colors.white;
-    canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.center.dy - whiteCrossWidth / 2, rect.width, whiteCrossWidth),
-      whiteCross,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(rect.center.dx - whiteCrossWidth / 2, rect.top, whiteCrossWidth, rect.height),
-      whiteCross,
-    );
-
-    final redCrossWidth = short * 0.16;
-    final redCross = Paint()..color = _ujRed;
-    canvas.drawRect(
-      Rect.fromLTWH(rect.left, rect.center.dy - redCrossWidth / 2, rect.width, redCrossWidth),
-      redCross,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(rect.center.dx - redCrossWidth / 2, rect.top, redCrossWidth, rect.height),
-      redCross,
-    );
-  }
-
   void _drawUsCanton(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(0, 0, size.width * 0.4, size.height * (7 / 13));
     canvas.drawRect(rect, Paint()..color = _usCantonBlue);
@@ -258,12 +220,12 @@ class _FlagFramePainter extends CustomPainter {
       Offset(half, cantonH * 0.70),
     ];
     for (final p in positions) {
-      _drawStar(canvas, p, r, 5, Colors.white);
+      drawStar(canvas, p, r, 5, Colors.white);
     }
   }
 
   void _paintSouthernCrossStars(Canvas canvas, Size size) {
-    final starColor = palette.southernCrossRedStars ? _nzStarRed : Colors.white;
+    final starColor = palette.southernCrossRedStars ? nzStarRed : Colors.white;
     final edgeColor = palette.southernCrossRedStars ? Colors.white : null;
     final r = thickness * 0.38;
     final half = thickness / 2;
@@ -290,40 +252,14 @@ class _FlagFramePainter extends CustomPainter {
     final count = (palette.starCount ?? positions.length).clamp(0, positions.length);
     for (var i = 0; i < count; i++) {
       final small = i == 4;
-      _drawStar(canvas, positions[i], small ? r * 0.6 : r, small ? 5 : 7, starColor, edgeColor: edgeColor);
+      drawStar(canvas, positions[i], small ? r * 0.6 : r, small ? 5 : 7, starColor, edgeColor: edgeColor);
     }
 
     if (palette.southernCrossCommonwealthStar) {
       // Real position (25%, 75%) - x snapped to the left edge since
       // the canton anchors it there; y matches the real fraction.
-      _drawStar(canvas, Offset(half, size.height * 0.75), r * 0.85, 7, starColor, edgeColor: edgeColor);
+      drawStar(canvas, Offset(half, size.height * 0.75), r * 0.85, 7, starColor, edgeColor: edgeColor);
     }
-  }
-
-  void _drawStar(Canvas canvas, Offset center, double outerRadius, int points, Color color, {Color? edgeColor}) {
-    if (edgeColor != null) {
-      canvas.drawPath(_starPath(center, outerRadius * 1.3, points), Paint()..color = edgeColor);
-    }
-    canvas.drawPath(_starPath(center, outerRadius, points), Paint()..color = color);
-  }
-
-  Path _starPath(Offset center, double outerRadius, int points, {double innerRatio = 0.45}) {
-    final innerRadius = outerRadius * innerRatio;
-    final path = Path();
-    final step = pi / points;
-    for (var i = 0; i < points * 2; i++) {
-      final r = i.isEven ? outerRadius : innerRadius;
-      final angle = -pi / 2 + i * step;
-      final x = center.dx + r * cos(angle);
-      final y = center.dy + r * sin(angle);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    return path;
   }
 
   @override

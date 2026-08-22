@@ -120,9 +120,23 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       onVerticalDragStart: _onStart,
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
-      child: Container(
+      // 2026-08-22: two rounds of real feedback on this. First: a
+      // blanket `color: kVoid` across the whole zone blocked
+      // main.dart's global FlagBackdrop (bold skins' tiled mini-
+      // flags) entirely - "the gifs need to be seen, so flags should
+      // not be over the moving gifs" led to putting it back, but that
+      // made bold Home visually identical to subtle Home again -
+      // "screen_home_bold is wrong and is screen_home_subtle." Real
+      // problem with both: this zone isn't uniformly "gif" or
+      // uniformly "empty" - the gif+caption block (fixed height) sits
+      // inside an Expanded that's taller than it (especially PUSH,
+      // which centers rather than pins to top), leaving genuine empty
+      // margin around it. Opaque fill now wraps ONLY that inner
+      // content block (tight, not double.infinity), not the whole
+      // zone - the gif/caption stay fully protected, the real margin
+      // around them shows the bold pattern same as everywhere else.
+      child: SizedBox(
         width: double.infinity,
-        color: kVoid,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: widget.alignTop
@@ -130,33 +144,42 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
-            SizedBox(
-              key: _slotKey,
-              height: widget.gifHeight,
-              child: _overlayEntry == null
-                  ? ActionGif(
-                      key: _gifKey,
-                      assetPath: widget.assetPath,
-                      height: widget.gifHeight,
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                if (!_playing) const Positioned.fill(child: SparkleBackground()),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Text(widget.caption,
-                      style: TextStyle(
-                          color: kTextMid,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2)),
-                ),
-              ],
+            Container(
+              color: kVoid,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    key: _slotKey,
+                    height: widget.gifHeight,
+                    child: _overlayEntry == null
+                        ? ActionGif(
+                            key: _gifKey,
+                            assetPath: widget.assetPath,
+                            height: widget.gifHeight,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (!_playing) const Positioned.fill(child: SparkleBackground()),
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Text(widget.caption,
+                            style: TextStyle(
+                                color: kTextMid,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),

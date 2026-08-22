@@ -107,7 +107,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kVoid,
+      // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
+      // matching comment. ThemeData.scaffoldBackgroundColor is now
+      // transparent so the global FlagBackdrop shows through instead.
       appBar: AppBar(
         backgroundColor: kVoid,
         title: Text('Conflicts', style: TextStyle(color: kStar)),

@@ -10,6 +10,8 @@ import 'services/purchase_service.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
+import 'widgets/flag_backdrop.dart';
+import 'widgets/flag_frame.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -124,6 +126,19 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
           title: 'localsync',
           theme: buildAppTheme(),
           debugShowCheckedModeBanner: false,
+          // 2026-08-22: was `body: FlagFrame(...)` inside just
+          // home_screen.dart's Scaffold - real scope gap, every other
+          // screen (Settings, Commit, Conflicts, Pairing, Linking, the
+          // kebab menu) had no skin decoration at all. `builder` wraps
+          // the Navigator itself, so this now applies to every route
+          // and every dialog/popup drawn above it, with zero
+          // per-screen wiring. FlagBackdrop (void fill + bold skins'
+          // tiled mini-flags) sits behind FlagFrame (the edge border)
+          // - both painted, neither ever drawn over `child`'s actual
+          // content.
+          builder: (context, child) => FlagBackdrop(
+            child: FlagFrame(child: child ?? const SizedBox.shrink()),
+          ),
           // 2026-08-21: real bug, live - "Red is the main page and
           // Settings page has the blue." This was `const HomeScreen()`
           // - Flutter can treat a const widget as identical across
