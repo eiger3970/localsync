@@ -120,14 +120,19 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       onVerticalDragStart: _onStart,
       onVerticalDragUpdate: (d) => _onUpdate(d.delta.dy),
       onVerticalDragEnd: (_) => _onEnd(),
-      // 2026-08-22: rounded corners tried twice here (tight box, then
-      // full-zone card) and reverted both times - real feedback: the
-      // full-zone version left "too much black space" (far less of
-      // the bold pattern actually visible), and "just return to 90
-      // degree corners." Back to a plain square opaque box, sized
-      // tightly to just the gif+caption content (not the whole zone),
-      // matching the app's existing sharp-cornered look everywhere
-      // else - real margin around it still shows the bold pattern.
+      // 2026-08-23: third attempt at rounded corners here. The first
+      // two (tight box w/ 10px padding + 20px radius, then a full-zone
+      // card) both added extra black area beyond the gif+caption
+      // content itself, which read as "too much black space" and got
+      // reverted to square corners. This attempt uses a much smaller
+      // radius (8px) and minimal padding (3px, just enough that the
+      // rounded clip shaves the black background rather than visibly
+      // cropping the gif's own square corner pixels) - far tighter
+      // than the reverted 10px/20px version, not the whole zone.
+      // Real risk, unconfirmed until on-device: 3px may still be too
+      // little to fully clear the gif's corners depending on the
+      // asset's actual edge content - watch for this specifically on
+      // first real-device review.
       child: SizedBox(
         width: double.infinity,
         child: Column(
@@ -138,7 +143,12 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
             Container(
-              color: kVoid,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: kVoid,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,

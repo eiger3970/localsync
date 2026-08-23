@@ -19,6 +19,7 @@ import 'conflicts_screen.dart';
 import 'linking_screen.dart';
 import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
+import 'security_info_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -290,7 +291,18 @@ class HomeScreen extends StatelessWidget {
           Consumer<RepositoryProvider>(
             builder: (_, p, __) => Padding(
               padding: const EdgeInsets.only(right: 16),
-              child: _StatusIcon(repos: p.repos),
+              // 2026-08-23: real feature request, live - was purely
+              // decorative (tapping it did nothing). Now opens the
+              // security explainer screen - same tap target, real
+              // action behind it.
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SecurityInfoScreen()),
+                ),
+                child: _StatusIcon(repos: p.repos),
+              ),
             ),
           ),
         ],
@@ -840,23 +852,25 @@ void _showAbout(BuildContext context) {
             Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 4),
-            Text('Solo-built by kworld - hand-coded, no low-code or app-builder tools.',
-                style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
-            const SizedBox(height: 20),
-            Text('DISCLAIMER',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
-            const SizedBox(height: 6),
+            // 2026-08-23: real feedback, live - specific tool names
+            // (Flutter, Claude) moved out of this sentence entirely -
+            // "these can be listed in the Credits" - so this line
+            // stays generic ("using tools") and doesn't duplicate what
+            // Credits already states. Flutter added to Credits below,
+            // Claude was already there.
             Text(
-              'LocalSync syncs your $kContainerName over your own network - '
-              'nothing is stored on any server this app controls. Keep your '
-              'own backups regardless; this app is provided as-is, with no '
-              'guarantee against data loss.',
-              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+              'Built by kworld with real programming skill, using '
+              'tools - AI is a coding tool here, the same as any '
+              'compiler or IDE. Thanks to public education and the '
+              'global community that made these skills possible.',
+              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6),
             ),
+            // 2026-08-23: reordered alphabetically (CONTACT, CREDITS,
+            // DISCLAIMER, SETUP GUIDE, SUPPORT) - real feedback, live,
+            // "Alphabetise About." "Open-source licenses" stays right
+            // after CREDITS, unlabeled - thematically paired with it
+            // (dependency credits + their licenses), not its own
+            // alphabetized heading.
             const SizedBox(height: 20),
             Text('CONTACT',
                 style: TextStyle(
@@ -870,6 +884,77 @@ void _showAbout(BuildContext context) {
               'open an issue at codeberg.org/kworld/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
+            const SizedBox(height: 20),
+            Text('CREDITS',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            // 2026-08-23: real feedback, live - "reword to public
+            // library CHUV, public library Palais de Rumine, public
+            // library Médiathèque Valais Sion Makerspace" - noun-first
+            // (matches the house naming rule), and re-clusters all
+            // three under "P" instead of being scattered across C/M/P.
+            Text(
+              'Bash, Blender, C, C++, Claude, Codemagic, Dart, Eye of '
+              'MATE, Flameshot, Flutter, GIMP, iLoader, Inkscape, '
+              'iPhone, Kanban plugin, Logseq, Obsidian, Public library '
+              'CHUV, Public library Médiathèque Valais Sion Makerspace '
+              '(3D printing), Public library Palais de Rumine, '
+              'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, '
+              'Vim',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft),
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'LocalSync',
+                applicationVersion: kAppVersion,
+              ),
+              child: Text('Open-source licenses',
+                  style: TextStyle(color: kGreen, fontSize: 13)),
+            ),
+            const SizedBox(height: 20),
+            Text('DISCLAIMER',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            Text(
+              'LocalSync syncs your $kContainerName over your own network - '
+              'nothing is stored on any server this app controls. This '
+              'app is provided as-is, with no guarantee against data loss.',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 10),
+            // 2026-08-23: real feedback, live - the previous single
+            // run-on sentence was vague on what "keep your own backups"
+            // actually means. Real points now, exact wording given,
+            // each tied back to what LocalSync/the user's own setup
+            // actually looks like rather than generic advice. Broader
+            // cybersecurity education (passwords, social media, data
+            // storage) stays out of this app - that belongs on the
+            // separate Website knowledge-base product, not here.
+            Text('Best practice 3-2-1:',
+                style: TextStyle(
+                    color: kTextMid,
+                    fontSize: 13,
+                    height: 1.6,
+                    fontWeight: FontWeight.w700)),
+            Text('3 copies of anything that matters',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            Text('2 different types of storage (like phone-LocalSync-desktop)',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            Text('1 copy kept off-site (SSD USB enclosure FTW)',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
             const SizedBox(height: 20),
             // 2026-08-21: real feedback, live - "where is the manual
             // on the app? I don't see it" (asked twice) - the desktop
@@ -891,7 +976,13 @@ void _showAbout(BuildContext context) {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
-            Text('CREDITS',
+            // 2026-08-23: real feature request, live - "donation link
+            // yes." Bitcoin Lightning donation only, not tied to any
+            // paid feature or unlock - sidesteps App Store IAP review
+            // entirely since nothing in the app is gated by this.
+            // Real address applied 2026-08-23 (was a placeholder
+            // before that).
+            Text('SUPPORT',
                 style: TextStyle(
                     color: kTextDim,
                     fontSize: 11,
@@ -899,24 +990,20 @@ void _showAbout(BuildContext context) {
                     letterSpacing: 1.5)),
             const SizedBox(height: 6),
             Text(
-              'Bash, Blender, C, C++, CHUV public library, Claude, Codemagic, '
-              'Dart, Eye of MATE, Flameshot, GIMP, iLoader, Inkscape, iPhone, '
-              'Kanban plugin, Logseq, Médiathèque Valais Sion Makerspace '
-              '(3D printing), Obsidian, Palais de Rumine public library, '
-              'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, Vim',
+              'If LocalSync saves you money or hassle, Bitcoin Lightning '
+              'donations are welcome - entirely optional, unlocks nothing.',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.centerLeft),
-              onPressed: () => showLicensePage(
-                context: context,
-                applicationName: 'LocalSync',
-                applicationVersion: kAppVersion,
-              ),
-              child: Text('Open-source licenses',
+            const SizedBox(height: 6),
+            InkWell(
+              onTap: () {
+                Clipboard.setData(const ClipboardData(
+                    text: 'steamyice42@walletofsatoshi.com'));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Lightning address copied')),
+                );
+              },
+              child: Text('steamyice42@walletofsatoshi.com',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
           ],
@@ -979,7 +1066,15 @@ class _StatusIcon extends StatelessWidget {
       return const Icon(Icons.error_outline, color: Colors.redAccent, size: 22);
     }
     if (allOk) {
-      return Icon(Icons.check_circle_outline, color: kGreen, size: 22);
+      // 2026-08-23: real feature request, live - "make the circle a
+      // shield hinting at encryption and or cybersecurity." Was
+      // Icons.check_circle_outline (a plain circle+tick) - Material's
+      // built-in verified_user glyph is already a shield with a
+      // checkmark inside, so this keeps the "all good" meaning while
+      // reading as a security badge, not a custom SVG (this app's
+      // established preference - see settings_screen.dart's own note
+      // on the same tradeoff).
+      return Icon(Icons.verified_user, color: kGreen, size: 22);
     }
     return Icon(Icons.circle_outlined, color: kTextDim, size: 22);
   }
