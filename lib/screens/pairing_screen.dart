@@ -286,10 +286,16 @@ class _PasswordWorkflowStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-08-23: real feedback, live - "TYPE PASSWORD" was an
+    // imperative command while the other two labels describe the
+    // process ("INSTALLS KEY" read as bad English either way - a
+    // command missing its final S, or a description missing its
+    // article). Only the first step is a real user action; all three
+    // now consistently describe what happens, past-tense, not commands.
     return Row(
       children: [
         _step(Icon(Icons.password_rounded, color: kGreen, size: 26),
-            'TYPE PASSWORD'),
+            'PASSWORD TYPED'),
         _arrow(),
         // 2026-08-16: "change image to pairing_phone_key.svg" - the
         // actual key asset used in the drag gesture, not a generic
@@ -297,7 +303,7 @@ class _PasswordWorkflowStrip extends StatelessWidget {
         _step(
           SvgPicture.asset('assets/pairing/pairing_phone_key.svg',
               width: 30, colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
-          'INSTALLS KEY',
+          'KEY INSTALLED',
         ),
         _arrow(),
         _step(Icon(Icons.block_rounded, color: kGreen, size: 26),
