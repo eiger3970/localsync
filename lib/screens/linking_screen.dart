@@ -16,11 +16,9 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/repository_provider.dart';
-import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
-import '../widgets/key_pairing_trigger.dart';
 import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import 'home_screen.dart';
@@ -1370,56 +1368,38 @@ class _FailedView extends StatelessWidget {
       );
     }
 
-    // 2026-08-15: "I want to use the images to drag for the pair now" -
-    // PAIR NOW replaced with the same drag-the-key gesture used inside
-    // PairingScreen itself. No real async work here (just a
-    // navigation), so onConfirm is a no-op and the actual push happens
-    // in onSettled, once the drag/glow animation has genuinely finished
-    // playing - same onSettled contract as GifSwipeTrigger/CommitScreen,
-    // so the transition never cuts the animation off mid-flight.
-    //
-    // 2026-08-16: "messed up with images now over the top area with
-    // text" - a Positioned.fill canvas vertically centered in the whole
-    // screen inevitably overlapped the diagnostic text pinned above it,
-    // since nothing reserved that space. ContentAboveDragCanvas measures
-    // the real content (and CANCEL) height and positions the canvas
-    // exactly between them instead of guessing a fixed offset.
-    //
-    // 2026-08-16, follow-up: the SingleChildScrollView here was the real
-    // bug behind "images are way down the bottom of the page... keyboard
-    // appears and now I can't see the phonekey image... unable to
-    // progress" on PairingScreen's identical setup - SingleChildScrollView
-    // fills whatever height it's given rather than shrink-wrapping to its
-    // child, so the measured "content height" was tracking the available
-    // screen height (which shrinks with the keyboard) instead of the
-    // actual short diagnostic text. Plain Padding, no ScrollView.
-    return ContentAboveDragCanvas(
-      canvas: KeyPairingTrigger(
-        runningLabel: 'OPENING PAIRING…',
-        onConfirm: () async {},
-        // 2026-08-20: real bug, found live - this used to hardcode
-        // '172.20.10.11' independently of ctrl.desktopIp, so a user
-        // who'd corrected their address via the new Desktop IP setting
-        // (home_screen.dart) would still hit this stale value here on
-        // retry. ctrl is already the live LinkingController - use its
-        // real, current values instead of a second, disconnected copy.
-        onSettled: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PairingScreen(
-              desktopUser: ctrl.desktopUser,
-              desktopIp: ctrl.desktopIp,
+    // 2026-08-23: real feedback, live - "if phone is not paired, then
+    // don't have user drag phonekey to laptoplock on previous page, as
+    // this wastes the user's actions. Just have the user action the
+    // password entry and phonekey drag to laptoplock [on one screen]."
+    // The drag gesture here (2026-08-15 through 2026-08-20 history
+    // below) never did any real work - onConfirm was always a no-op,
+    // it only ever navigated to PairingScreen once the animation
+    // finished. That's a real second gesture for zero real action -
+    // a plain tap button gets to the same place immediately, same
+    // pattern already used for TRY AGAIN above.
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(child: SingleChildScrollView(child: diagnostics)),
+          const SizedBox(height: 32),
+          _PrimaryButton(
+            label: 'PAIR NOW',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PairingScreen(
+                  desktopUser: ctrl.desktopUser,
+                  desktopIp: ctrl.desktopIp,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      content: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-        child: diagnostics,
-      ),
-      bottomPinned: Padding(
-        padding: const EdgeInsets.all(20),
-        child: cancelButton,
+          const SizedBox(height: 12),
+          cancelButton,
+        ],
       ),
     );
   }
