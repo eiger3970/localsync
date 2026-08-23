@@ -5,6 +5,7 @@
 // instructions, no tech language. Error screen shows plain diagnosis +
 // exact fix steps.
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,10 +16,15 @@ import '../constants.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
+import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
+import '../features/pairing/pairing_controller.dart';
+import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/key_pairing_trigger.dart';
+import '../widgets/shredding_password_field.dart';
 import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import 'home_screen.dart';
@@ -163,6 +169,35 @@ class _IdleViewState extends State<_IdleView>
   bool _dragHover = false;
   late final AnimationController _pulseCtrl;
 
+  // 2026-08-23: real feedback, live - "why not have on the same
+  // swipe/drag setup vault... enter password there too... then swipe
+  // laptop to files?" First-time pairing (checkingPairing, guaranteed
+  // to fail on any fresh install per the storyboard reviewed earlier)
+  // is now collected and completed on this same screen, not a separate
+  // PAIR WITH DESKTOP screen. Real PairingController instance is local
+  // to this screen (real re-pairing via the kebab menu still uses the
+  // standalone PairingScreen, untouched - this is additive, not a
+  // replacement of that).
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+  final _shredKey1 = GlobalKey<ShreddingPasswordFieldState>();
+  final _shredKey2 = GlobalKey<ShreddingPasswordFieldState>();
+  late final PairingController _pairingCtrl;
+  bool _pairing = false;
+  StepFailure? _pairingFailure;
+
+  bool get _passwordsMatch =>
+      _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
+
+  // 2026-08-23: real feedback, live - "the user dragging the phonekey
+  // to laptop lock is unnecessary, but it's a trust and value add for
+  // the user to do it, thinking it's real perhaps. This explains the
+  // pairing." Purely ceremonial - no backend call happens here, it
+  // just unlocks stage 2. The real pairing work (installing the key)
+  // still happens later, in _pairThenLink(), using the password.
+  bool _paired = false;
+  bool _keyDragHover = false;
+
   @override
   void initState() {
     super.initState();
@@ -170,12 +205,47 @@ class _IdleViewState extends State<_IdleView>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
+    _pairingCtrl = PairingController(
+      desktopUser: widget.ctrl.desktopUser,
+      desktopIp: widget.ctrl.desktopIp,
+    );
+    _passwordCtrl.addListener(() => setState(() {}));
+    _confirmCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    _pairingCtrl.dispose();
     super.dispose();
+  }
+
+  // Pairs first (installs this device's key using the typed password),
+  // then continues straight into vault linking on success - one drag,
+  // two real actions, no intermediate screen. On failure, shows the
+  // error inline on this same screen instead of navigating away.
+  Future<void> _pairThenLink() async {
+    setState(() {
+      _pairing = true;
+      _pairingFailure = null;
+    });
+    final password = _passwordCtrl.text;
+    unawaited(_shredKey1.currentState?.shred());
+    unawaited(_shredKey2.currentState?.shred());
+    await _pairingCtrl.pairWithPassword(password);
+    if (!mounted) return;
+    final result = _pairingCtrl.result;
+    if (result is StepFailure) {
+      setState(() {
+        _pairing = false;
+        _pairingFailure = result;
+      });
+      return;
+    }
+    setState(() => _pairing = false);
+    widget.ctrl.startLinking();
   }
 
   @override
@@ -212,217 +282,354 @@ class _IdleViewState extends State<_IdleView>
     // themselves draggable. Sparkles now scope to just the desktop
     // glyph (see the Draggable below), the one thing on this screen a
     // user actually acts on.
-    return Padding(
+    // 2026-08-23: SingleChildScrollView added alongside the new password
+    // fields below - two more text fields plus the keyboard genuinely
+    // don't fit every screen size, same class of "keyboard covers the
+    // content" bug this app has hit before on the standalone pairing
+    // screen. This one shrink-wraps its own content height correctly
+    // (no ContentAboveDragCanvas measuring involved here), so it
+    // doesn't repeat that specific historical bug.
+    return SingleChildScrollView(
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 2026-08-11: real device review - the drag pictogram is "the
-          // top priority for a user, the rest is sub information", so it
-          // now leads the screen instead of the heading. Pictogram
-          // replacing the old wall of text (2026-08-09) - built-in
-          // Material icons only, no flutter_svg: this session already
-          // lost build time twice to native-dependency issues, not worth
-          // repeating for a cosmetic asset. Real branded artwork went to
-          // the app icon instead (assets/icon/icon.png), not here.
-          // 2026-08-11: "page 1 desktop is green but page 2 desktop is
-          // grey and vice versa" - this screen had accent backwards
-          // relative to the home screen: home screen colors the
-          // draggable *source* green (desktop) and leaves the drop
-          // *target* (vault) neutral grey until hovered; this screen
-          // had it flipped (vault green, desktop grey). Now matches
-          // home screen's convention - desktop (source) is accent,
-          // vault (target) is neutral grey with a green border only
-          // while something is being dragged over it.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // 2026-08-23: real feedback, live - "the welcome from the
+          // original to go in the new welcome." Reused verbatim from
+          // the original screen (was lower down, below the vault
+          // drag) - moved to the top as the actual welcome content,
+          // not duplicated in its old spot anymore.
+          Text('Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+              style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 20),
+          const SizedBox(
+            width: 220,
+            child: Column(
               children: [
-                // 2026-08-19: sparkle hint scoped to just this glyph -
-                // see the build()-level comment above for why the
-                // whole-screen wrap was removed.
-                SizedBox(
-                  width: glyphWidth,
-                  child: Stack(
-                    children: [
-                      const Positioned.fill(child: SparkleBackground()),
-                      Draggable<bool>(
-                        data: true,
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Opacity(
-                            opacity: 0.85,
-                            child: _DeviceGlyph(
-                              svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
-                              label: 'Your desktop',
-                              caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                              accent: true,
-                              width: glyphWidth,
-                              iconSize: glyphIcon,
-                            ),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
+                _ScopeRow(label: 'Notes'),
+                _ScopeRow(label: 'Folders'),
+                _ScopeRow(label: 'Attachments'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.shield_outlined, color: kTextDim, size: 21),
+              const SizedBox(width: 6),
+              Text('No other files on this phone are read or changed.',
+                  style: TextStyle(color: kTextDim, fontSize: 12)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+              const SizedBox(width: 6),
+              Text(
+                'This runs once. Larger vaults may take a few minutes.',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // 2026-08-23: real feedback, live - "the user dragging the
+          // phonekey to laptop lock is unnecessary, but it's a trust
+          // and value add for the user to do it, thinking it's real
+          // perhaps. This explains the pairing and after this the
+          // password fields light up for next action." Stage 1 of 3 -
+          // purely ceremonial (no backend call), gates stage 2.
+          Text('1. PAIR YOUR DEVICE',
+              style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+          const SizedBox(height: 14),
+          if (_paired)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, color: kGreen, size: 18),
+                const SizedBox(width: 6),
+                Text('Paired', style: TextStyle(color: kGreen, fontSize: 14, fontWeight: FontWeight.w600)),
+              ],
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: rowPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: glyphWidth,
+                    child: Draggable<bool>(
+                      data: true,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: Opacity(
+                          opacity: 0.85,
                           child: _DeviceGlyph(
-                            svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
-                            label: 'Your desktop',
-                            caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                            svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                            label: 'Your key',
+                            caption: 'drag to pair',
                             accent: true,
                             width: glyphWidth,
                             iconSize: glyphIcon,
                           ),
                         ),
-                        // 2026-08-11: pulse now lives inside _DeviceGlyph
-                        // itself (icon only, not the label/caption text) -
-                        // fixes the pulse fading the desktop label's color
-                        // relative to the vault glyph's solid one.
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
                         child: _DeviceGlyph(
-                          svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
-                          label: 'Your desktop',
-                          caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                          svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                          label: 'Your key',
+                          caption: 'drag to pair',
                           accent: true,
                           width: glyphWidth,
                           iconSize: glyphIcon,
-                          pulse: _pulseCtrl,
                         ),
                       ),
-                    ],
+                      child: _DeviceGlyph(
+                        svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                        label: 'Your key',
+                        caption: 'drag to pair',
+                        accent: true,
+                        width: glyphWidth,
+                        iconSize: glyphIcon,
+                        pulse: _pulseCtrl,
+                      ),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: arrowTopOffset),
-                  child: Icon(Icons.arrow_forward_rounded,
-                      color: kGreen, size: 26),
-                ),
-                DragTarget<bool>(
-                  onWillAcceptWithDetails: (_) {
-                    setState(() => _dragHover = true);
-                    return true;
-                  },
-                  onLeave: (_) => setState(() => _dragHover = false),
-                  onAcceptWithDetails: (_) {
-                    setState(() => _dragHover = false);
-                    ctrl.startLinking();
-                  },
-                  builder: (context, candidate, rejected) => _DeviceGlyph(
-                    icon: Icons.auto_stories_rounded,
-                    label: '$kGenericAppLabel $kContainerName',
-                    caption: 'this phone',
-                    width: glyphWidth,
-                    iconSize: glyphIcon,
-                    hovering: _dragHover,
+                  Padding(
+                    padding: EdgeInsets.only(top: arrowTopOffset),
+                    child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
                   ),
-                ),
-              ],
+                  DragTarget<bool>(
+                    onWillAcceptWithDetails: (_) {
+                      setState(() => _keyDragHover = true);
+                      return true;
+                    },
+                    onLeave: (_) => setState(() => _keyDragHover = false),
+                    onAcceptWithDetails: (_) {
+                      setState(() {
+                        _keyDragHover = false;
+                        _paired = true;
+                      });
+                    },
+                    builder: (context, candidate, rejected) => _DeviceGlyph(
+                      svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
+                      label: 'Your desktop',
+                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                      width: glyphWidth,
+                      iconSize: glyphIcon,
+                      hovering: _keyDragHover,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 32),
+
+          // Stage 2 of 3 - locked until stage 1 is done.
+          IgnorePointer(
+            ignoring: !_paired,
+            child: AnimatedOpacity(
+              opacity: _paired ? 1 : 0.3,
+              duration: const Duration(milliseconds: 200),
+              child: Column(
+                children: [
+                  Text('2. DESKTOP PASSWORD',
+                      style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Your login password installs this phone\'s key over '
+                      'SSH - the same real encryption your bank\'s app '
+                      'uses. Never stored, only used for this connection.',
+                      style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: ShreddingPasswordField(
+                      key: _shredKey1,
+                      controller: _passwordCtrl,
+                      enabled: !_pairing,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _confirmCtrl.text.isEmpty
+                              ? Colors.transparent
+                              : (_passwordsMatch ? kGreen : Colors.redAccent),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ShreddingPasswordField(
+                        key: _shredKey2,
+                        controller: _confirmCtrl,
+                        enabled: !_pairing,
+                      ),
+                    ),
+                  ),
+                  if (_confirmCtrl.text.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_passwordsMatch ? Icons.check_circle : Icons.cancel,
+                            color: _passwordsMatch ? kGreen : Colors.amber, size: 16),
+                        const SizedBox(width: 6),
+                        Text(_passwordsMatch ? 'Passwords match' : 'Passwords should match',
+                            style: TextStyle(
+                                color: _passwordsMatch ? kGreen : Colors.amber, fontSize: 12)),
+                      ],
+                    ),
+                  ],
+                  if (_pairingFailure != null) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: DiagCard(
+                        label: 'WHAT HAPPENED',
+                        text: _pairingFailure!.diagnosis,
+                        accent: Colors.redAccent,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              children: [
-                // 2026-08-18: "Drag to begin text no longer needed" -
-                // the sparkle background on the desktop glyph itself
-                // (above) carries that hint visually, same reasoning as
-                // dropping the swipe-confirm captions elsewhere once
-                // their gif art made the gesture clear.
-                const SizedBox(height: 16),
-                // Heading moved below the pictogram+hint (2026-08-11,
-                // was the page's top line before) - reworded to name
-                // the source explicitly ("desktop Obsidian vault")
-                // since "Connect your Obsidian vault" read as ambiguous
-                // on real device review - which vault, desktop or
-                // phone?
-                Text(
-                    'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-                    style: TextStyle(
-                        color: kStar,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                // Answers "what exactly gets downloaded" directly, in
-                // place of the old vaguer paragraph - fixed 2026-08-09
-                // per real user feedback that START DOWNLOAD gave no
-                // sense of scope before committing to it. 2026-08-11:
-                // user specifically asked for this as a checklist (item
-                // name + green tick) rather than a paragraph - each
-                // item is still named explicitly, so it's less text
-                // without losing the precision a safety/scope guarantee
-                // needs.
-                const SizedBox(
-                  width: 220,
-                  child: Column(
-                    children: [
-                      _ScopeRow(label: 'Notes'),
-                      _ScopeRow(label: 'Folders'),
-                      _ScopeRow(label: 'Attachments'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                // 2026-08-11: shield icon enlarged ~50% (14 -> 21px)
-                // per explicit direction. Wording also fixed - "nothing
-                // else on this phone is touched" read as if localsync
-                // might be reading/scanning existing phone data, when
-                // the real direction is desktop -> phone, write-only.
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-                    const SizedBox(width: 6),
-                    Text('No other files on this phone are read or changed.',
-                        style: TextStyle(color: kTextDim, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // 2026-08-10: "START DOWNLOAD" alone gave no sense this
-                // is a real, one-time data copy - relabelled to name
-                // the actual action (now the drag gesture), plus a
-                // duration expectation. 2026-08-11: added a clock glyph
-                // alongside the text as a lighter-weight visual cue
-                // than replacing the sentence outright - exact wording
-                // ("once", "a few minutes") still needs to be read, not
-                // just glanced at.
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-                    const SizedBox(width: 6),
-                    Text(
-                      'This runs once. Larger vaults may take a few minutes.',
-                      style:
-                          TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                    ),
-                  ],
-                ),
-                // 2026-08-21: real redesign target, flagged this
-                // session - "Add another vault" used to always run the
-                // full from-scratch vault-creation checklist, even for
-                // a folder that's already a set-up Obsidian vault (see
-                // this session's flowchart artifact). This is the
-                // shortcut: skip straight to the folder picker, no
-                // "swipe up Obsidian, tap Create new vault..." steps
-                // that have nothing to offer here.
-                const SizedBox(height: 18),
-                GestureDetector(
-                  onTap: ctrl.startLinkingExistingVault,
-                  child: Text(
-                    'Already have a vault set up? Link it directly',
-                    style: TextStyle(
-                      color: kTextMid,
-                      fontSize: 13,
-                      decoration: TextDecoration.underline,
-                      decorationColor: kTextMid,
+          const SizedBox(height: 32),
+
+          // Stage 3 of 3 - locked until passwords match.
+          IgnorePointer(
+            ignoring: !(_paired && _passwordsMatch),
+            child: AnimatedOpacity(
+              opacity: (_paired && _passwordsMatch) ? 1 : 0.3,
+              duration: const Duration(milliseconds: 200),
+              child: Column(
+                children: [
+                  Text('3. SET UP VAULT',
+                      style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: rowPadding),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: glyphWidth,
+                          child: Stack(
+                            children: [
+                              const Positioned.fill(child: SparkleBackground()),
+                              Draggable<bool>(
+                                data: true,
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: Opacity(
+                                    opacity: 0.85,
+                                    child: _DeviceGlyph(
+                                      svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
+                                      label: 'Your desktop',
+                                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                      accent: true,
+                                      width: glyphWidth,
+                                      iconSize: glyphIcon,
+                                    ),
+                                  ),
+                                ),
+                                childWhenDragging: Opacity(
+                                  opacity: 0.3,
+                                  child: _DeviceGlyph(
+                                    svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
+                                    label: 'Your desktop',
+                                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                    accent: true,
+                                    width: glyphWidth,
+                                    iconSize: glyphIcon,
+                                  ),
+                                ),
+                                child: _DeviceGlyph(
+                                  svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
+                                  label: 'Your desktop',
+                                  caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                  accent: true,
+                                  width: glyphWidth,
+                                  iconSize: glyphIcon,
+                                  pulse: _pulseCtrl,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: arrowTopOffset),
+                          child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
+                        ),
+                        DragTarget<bool>(
+                          onWillAcceptWithDetails: (_) {
+                            if (!(_paired && _passwordsMatch)) return false;
+                            setState(() => _dragHover = true);
+                            return true;
+                          },
+                          onLeave: (_) => setState(() => _dragHover = false),
+                          onAcceptWithDetails: (_) {
+                            setState(() => _dragHover = false);
+                            _pairThenLink();
+                          },
+                          builder: (context, candidate, rejected) => _DeviceGlyph(
+                            icon: Icons.auto_stories_rounded,
+                            label: '$kGenericAppLabel $kContainerName',
+                            caption: 'this phone',
+                            width: glyphWidth,
+                            iconSize: glyphIcon,
+                            hovering: _dragHover,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+          ),
+          if (_pairing) ...[
+            const SizedBox(height: 16),
+            Text('Pairing…',
+                style: TextStyle(color: kTextMid, fontSize: 13),
+                textAlign: TextAlign.center),
+          ],
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: ctrl.startLinkingExistingVault,
+            child: Text(
+              'Already have a vault set up? Link it directly',
+              style: TextStyle(
+                color: kTextMid,
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+                decorationColor: kTextMid,
+              ),
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1257,12 +1464,61 @@ class _BurstPainter extends CustomPainter {
 
 // ── Failed ─────────────────────────────────────────────────────────────────────
 
-class _FailedView extends StatelessWidget {
+class _FailedView extends StatefulWidget {
   final LinkingController ctrl;
   const _FailedView({required this.ctrl});
 
   @override
+  State<_FailedView> createState() => _FailedViewState();
+}
+
+class _FailedViewState extends State<_FailedView> {
+  final _discovery = DiscoveryService();
+  bool _discovering = false;
+
+  // 2026-08-23: real feedback, live - "why should I go setting up IP
+  // addresses... this is way too complicated for new users." Real gap:
+  // auto-discovery (mDNS) already existed, but only in Settings, never
+  // surfaced at the actual point of failure during setup - a user
+  // hitting connectionRefused had no way to know it existed at all.
+  // This runs the same DiscoveryService Settings already uses, and on
+  // success updates the IP AND retries setup automatically - no
+  // terminal command, no manually reading an IP address, ever, for the
+  // common case where the desktop is genuinely reachable and just
+  // advertising via mDNS.
+  Future<void> _findAndRetry() async {
+    setState(() => _discovering = true);
+    final ip = await _discovery.findDesktopIp();
+    if (!mounted) return;
+    setState(() => _discovering = false);
+    if (ip == null) {
+      // 2026-08-23: real feedback, live - "the desktop won't be found
+      // if the hotspot isn't turned on or the USB cable isn't plugged
+      // in - what's the plan for that?" No software fix exists for a
+      // connection that doesn't exist yet - that's a real prerequisite,
+      // not a gap. What was fixable: "check it's on the same network"
+      // was vague. Names the two actual things to check instead.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Text(
+            'No desktop found - check your phone\'s hotspot is on, or a '
+            'USB cable is plugged in between phone and desktop, then '
+            'try again',
+            style: TextStyle(color: kStar, fontSize: 14),
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+    widget.ctrl.updateDesktopIp(ip);
+    widget.ctrl.startLinking();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ctrl = widget.ctrl;
     final failure = ctrl.lastFailure!;
     final isPairingFailure = failure.error == LinkingError.pairingNotComplete ||
         failure.error == LinkingError.sshAuthFailed;
@@ -1315,6 +1571,34 @@ class _FailedView extends StatelessWidget {
             icon: Icons.lightbulb_outline,
             bulleted: true,
           ),
+          // 2026-08-23: real feedback, live - manual IP steps are the
+          // fallback now, not the only option. Auto-discovery does the
+          // whole thing (find + retry) in one tap for the common case
+          // where the desktop is genuinely reachable and advertising.
+          if (failure.error == LinkingError.connectionRefused) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _discovering ? null : _findAndRetry,
+                icon: _discovering
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: kGreen),
+                      )
+                    : Icon(Icons.wifi_find, color: kGreen, size: 18),
+                label: Text(
+                    _discovering ? 'LOOKING FOR DESKTOP…' : 'FIND DESKTOP AUTOMATICALLY',
+                    style: TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: kGreen),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+          ],
         ] else ...[
           const SizedBox(height: 4),
           Center(
@@ -1368,38 +1652,64 @@ class _FailedView extends StatelessWidget {
       );
     }
 
-    // 2026-08-23: real feedback, live - "if phone is not paired, then
-    // don't have user drag phonekey to laptoplock on previous page, as
-    // this wastes the user's actions. Just have the user action the
-    // password entry and phonekey drag to laptoplock [on one screen]."
-    // The drag gesture here (2026-08-15 through 2026-08-20 history
-    // below) never did any real work - onConfirm was always a no-op,
-    // it only ever navigated to PairingScreen once the animation
-    // finished. That's a real second gesture for zero real action -
-    // a plain tap button gets to the same place immediately, same
-    // pattern already used for TRY AGAIN above.
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(child: SingleChildScrollView(child: diagnostics)),
-          const SizedBox(height: 32),
-          _PrimaryButton(
-            label: 'PAIR NOW',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PairingScreen(
-                  desktopUser: ctrl.desktopUser,
-                  desktopIp: ctrl.desktopIp,
-                ),
-              ),
+    // 2026-08-15: "I want to use the images to drag for the pair now" -
+    // PAIR NOW replaced with the same drag-the-key gesture used inside
+    // PairingScreen itself. No real async work here (just a
+    // navigation), so onConfirm is a no-op and the actual push happens
+    // in onSettled, once the drag/glow animation has genuinely finished
+    // playing - same onSettled contract as GifSwipeTrigger/CommitScreen,
+    // so the transition never cuts the animation off mid-flight.
+    //
+    // 2026-08-16: "messed up with images now over the top area with
+    // text" - a Positioned.fill canvas vertically centered in the whole
+    // screen inevitably overlapped the diagnostic text pinned above it,
+    // since nothing reserved that space. ContentAboveDragCanvas measures
+    // the real content (and CANCEL) height and positions the canvas
+    // exactly between them instead of guessing a fixed offset.
+    //
+    // 2026-08-16, follow-up: the SingleChildScrollView here was the real
+    // bug behind "images are way down the bottom of the page... keyboard
+    // appears and now I can't see the phonekey image... unable to
+    // progress" on PairingScreen's identical setup - SingleChildScrollView
+    // fills whatever height it's given rather than shrink-wrapping to its
+    // child, so the measured "content height" was tracking the available
+    // screen height (which shrinks with the keyboard) instead of the
+    // actual short diagnostic text. Plain Padding, no ScrollView.
+    //
+    // 2026-08-23: briefly replaced with a plain tap button, reverted
+    // same day - "stop changing my nice design... return the phonelock
+    // dragging to the laptoplock." Restored verbatim from git history.
+    // autoResumeSetup: true kept in onSettled below - a real, separate
+    // fix (no repeated setup after pairing succeeds) added after this
+    // code was first written, unrelated to drag-vs-button.
+    return ContentAboveDragCanvas(
+      canvas: KeyPairingTrigger(
+        runningLabel: 'OPENING PAIRING…',
+        onConfirm: () async {},
+        // 2026-08-20: real bug, found live - this used to hardcode
+        // '172.20.10.11' independently of ctrl.desktopIp, so a user
+        // who'd corrected their address via the new Desktop IP setting
+        // (home_screen.dart) would still hit this stale value here on
+        // retry. ctrl is already the live LinkingController - use its
+        // real, current values instead of a second, disconnected copy.
+        onSettled: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PairingScreen(
+              desktopUser: ctrl.desktopUser,
+              desktopIp: ctrl.desktopIp,
+              autoResumeSetup: true,
             ),
           ),
-          const SizedBox(height: 12),
-          cancelButton,
-        ],
+        ),
+      ),
+      content: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        child: diagnostics,
+      ),
+      bottomPinned: Padding(
+        padding: const EdgeInsets.all(20),
+        child: cancelButton,
       ),
     );
   }
@@ -1466,6 +1776,8 @@ class _PulsingDotsState extends State<_PulsingDots>
     );
   }
 }
+
+// ── Primary button ─────────────────────────────────────────────────────────────
 
 // ── Device glyph (pictogram for source/destination) ──────────────────────────────
 

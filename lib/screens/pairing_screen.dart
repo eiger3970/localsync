@@ -18,16 +18,30 @@ import '../widgets/diag_card.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
+import '../services/database_service.dart';
+import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import 'linking_screen.dart';
 
 class PairingScreen extends StatefulWidget {
   final String desktopUser;
   final String desktopIp;
+  // 2026-08-23: real feedback, live - "why not just take the user to
+  // the pair page, then back to the setup?" User had already done the
+  // drag-to-set-up gesture once (that's what triggered the "not paired
+  // yet" failure in the first place) - landing back on the idle view
+  // after pairing meant repeating an action already taken, not seeing
+  // it for the first time. True only when reached via LinkingScreen's
+  // "PAIR NOW" button (a setup attempt that failed specifically because
+  // pairing wasn't done yet); false for the kebab menu's standalone
+  // "Pair with desktop" entry, where there's no interrupted setup to
+  // resume and the 2026-08-17 idle-view reasoning below still applies.
+  final bool autoResumeSetup;
   const PairingScreen({
     super.key,
     required this.desktopUser,
     required this.desktopIp,
+    this.autoResumeSetup = false,
   });
 
   @override
@@ -35,9 +49,13 @@ class PairingScreen extends StatefulWidget {
 }
 
 class _PairingScreenState extends State<PairingScreen> {
-  late final PairingController _ctrl;
+  // 2026-08-23: not `final` anymore - _findAndRetry() below needs to
+  // rebuild this against a freshly-discovered IP.
+  late PairingController _ctrl;
   final _passwordCtrl = TextEditingController();
   final _shredKey = GlobalKey<ShreddingPasswordFieldState>();
+  final _discovery = DiscoveryService();
+  bool _discovering = false;
 
   @override
   void initState() {
@@ -130,7 +148,12 @@ class _PairingScreenState extends State<PairingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Connect to ${widget.desktopUser}@${widget.desktopIp}',
+                  // 2026-08-23: reads the live controller's IP, not
+                  // widget.desktopIp - the latter stays frozen at
+                  // whatever was passed in originally, so it would
+                  // keep showing the stale address even after
+                  // _findAndRetry() corrects it.
+                  'Connect to ${widget.desktopUser}@${_ctrl.desktopIp}',
                   style: TextStyle(
                       color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -201,6 +224,39 @@ class _PairingScreenState extends State<PairingScreen> {
                         icon: Icons.lightbulb_outline,
                         bulleted: true,
                       ),
+                      // 2026-08-23: real feedback, live - same auto-
+                      // discovery gap as LinkingScreen's failure view,
+                      // but this is the screen where connectionRefused
+                      // actually happens first for most users (the
+                      // very first line of pairWithPassword is a raw
+                      // socket connect, before password is ever used).
+                      if (result.error == LinkingError.connectionRefused) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _discovering ? null : _findAndRetry,
+                            icon: _discovering
+                                ? SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: kGreen),
+                                  )
+                                : Icon(Icons.wifi_find, color: kGreen, size: 18),
+                            label: Text(
+                                _discovering
+                                    ? 'LOOKING FOR DESKTOP…'
+                                    : 'FIND DESKTOP AUTOMATICALLY',
+                                style: TextStyle(
+                                    color: kGreen, fontSize: 13, fontWeight: FontWeight.w700)),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: kGreen),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
                       // 2026-08-16: guards against both null AND an
                       // empty/whitespace-only debugDetail - real device
                       // feedback showed the "Raw error" label with
@@ -236,6 +292,53 @@ class _PairingScreenState extends State<PairingScreen> {
     await _ctrl.pairWithPassword(password);
   }
 
+  // 2026-08-23: real feedback, live - same gap as LinkingScreen's
+  // failure view, but this is the screen where connectionRefused
+  // actually surfaces first (the very first line of pairWithPassword
+  // is a raw socket connect, before any password is used - see
+  // pairing_controller.dart). Discovers + persists the real IP, then
+  // rebuilds _ctrl against it - does NOT auto-retry pairing itself,
+  // since the password field is shredded (cleared) after every attempt
+  // by design (never cached) - the user still re-enters it themselves,
+  // now against the corrected address.
+  Future<void> _findAndRetry() async {
+    setState(() => _discovering = true);
+    final ip = await _discovery.findDesktopIp();
+    if (!mounted) return;
+    setState(() => _discovering = false);
+    if (ip == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Text(
+            'No desktop found - check your phone\'s hotspot is on, or a '
+            'USB cable is plugged in between phone and desktop, then '
+            'try again',
+            style: TextStyle(color: kStar, fontSize: 14),
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+    await DatabaseService().setDesktopIp(ip);
+    if (!mounted) return;
+    _ctrl.removeListener(_onChange);
+    _ctrl.dispose();
+    setState(() {
+      _ctrl = PairingController(desktopUser: widget.desktopUser, desktopIp: ip);
+      _ctrl.addListener(_onChange);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Text('Found desktop at $ip - re-enter your password to retry',
+            style: TextStyle(color: kStar, fontSize: 14)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   void _continueToVaultSetup(BuildContext context, bool hasExistingVault) {
     if (hasExistingVault) {
       // Re-pairing an already-set-up phone - just return to the vault,
@@ -243,15 +346,14 @@ class _PairingScreenState extends State<PairingScreen> {
       Navigator.popUntil(context, (route) => route.isFirst);
       return;
     }
-    // 2026-08-17: no longer auto-calls startLinking() here. That was
-    // meant to save a second tap, but it skipped straight past
+    // 2026-08-17: no longer auto-calls startLinking() here by default.
+    // That was meant to save a second tap, but it skipped straight past
     // LinkingScreen's idle view - the drag-and-drop-the-desktop-onto-
     // the-vault gesture that's the actual, expected first step of
-    // setup. If checkingPairing then failed fast (a network blip, or
-    // an iOS permission prompt getting dismissed), the user landed
-    // straight on the failure screen having never seen that step at
-    // all. Idle view is the real entry point again; the drag gesture
-    // is what calls startLinking() now.
+    // setup, for a user who has never attempted it. If checkingPairing
+    // then failed fast (a network blip, or an iOS permission prompt
+    // getting dismissed), the user landed straight on the failure
+    // screen having never seen that step at all.
     //
     // 2026-08-17 (second pass): real device bug - LinkingController is a
     // singleton provided at app root (main.dart), not re-created per
@@ -260,7 +362,18 @@ class _PairingScreenState extends State<PairingScreen> {
     // in the controller - landing back on a fresh LinkingScreen showed
     // that STALE failure immediately, before the user ever saw the idle
     // view. reset() clears it so idle view is what actually shows.
-    context.read<LinkingController>().reset();
+    final ctrl = context.read<LinkingController>();
+    ctrl.reset();
+    // 2026-08-23: real feedback, live - "why not just take the user to
+    // the pair page, then back to the setup?" autoResumeSetup is true
+    // specifically when the user already did the idle-view drag once
+    // (that's what surfaced the pairing failure) - resuming the same
+    // attempt here means they never have to repeat that gesture. The
+    // 2026-08-17 concern above (skipping the idle view for someone who
+    // has never seen it) doesn't apply in this path, since they have.
+    if (widget.autoResumeSetup) {
+      unawaited(ctrl.startLinking());
+    }
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const LinkingScreen()),

@@ -178,8 +178,19 @@ enum LinkingError {
 
 extension LinkingErrorDetails on LinkingError {
   String get diagnosis => switch (this) {
+        // 2026-08-23: real bug, live - "is this right, was SSH refused
+        // because I didn't enter the correct password?" No - and the
+        // wording itself was inaccurate, not just confusing. This one
+        // label covers four different raw network conditions
+        // (connection refused, no route to host, timed out, network
+        // unreachable - see _diagnose() in git_service.dart), but only
+        // literally means "refused" for one of them. "No route to
+        // host" is the desktop being unreachable at all (wrong IP,
+        // wrong network), not a rejected connection - a real, different
+        // thing. Reworded to cover all four honestly instead of naming
+        // the one specific condition that doesn't always apply.
         LinkingError.connectionRefused =>
-          'Cannot reach your desktop. SSH connection refused.',
+          'Cannot reach your desktop on the network.',
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
@@ -228,10 +239,26 @@ extension LinkingErrorDetails on LinkingError {
         // "•" point, same visual weight as items 1-4, when it was
         // actually meant as a sub-note under item 4. Merged into item
         // 4 itself so the numbered list stays a clean 4 items.
+        // 2026-08-23: real feedback, live - "Connect phone to hotspot"
+        // assumed one specific connection type; user was on USB tether
+        // at the time, where this line didn't apply. Reworded to cover
+        // both, since the actual point is "phone and desktop reachable
+        // on the same network," not which connection type that is.
+        // Commands wrapped in backticks - DiagCard now renders those
+        // in monospace so they read as commands, not prose (see its
+        // own 2026-08-23 note).
+        // 2026-08-23: "re-enter password" step added then removed same
+        // day - real device test (deliberately wrong password) proved
+        // it doesn't belong here: connectionRefused is a network-layer
+        // failure that happens before SSH ever gets to check a
+        // password at all, so this genuinely isn't the fix for it. The
+        // correct automated wrong-password handling already exists,
+        // correctly, under LinkingError.sshAuthFailed below - a
+        // separate error, separate screen, separate real fix text.
         LinkingError.connectionRefused => '1. Check your desktop is awake\n'
-            '2. Connect phone to hotspot\n'
-            '3. On desktop: sudo systemctl status ssh\n'
-            '4. On desktop: ip addr show - verify IP matches what is set in this app',
+            '2. Connect phone to desktop - hotspot or USB tether\n'
+            '3. On desktop: `sudo systemctl status ssh`\n'
+            '4. On desktop: `ip addr show` - verify IP matches what is set in this app',
         LinkingError.sshAuthFailed =>
           'Tap PAIR NOW below and enter your desktop login password once - '
               'this installs your phone\'s key in ~/.ssh/authorized_keys on the desktop.\n'

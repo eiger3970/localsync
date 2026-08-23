@@ -42,11 +42,45 @@ class DiagCard extends StatelessWidget {
     this.bulleted = false,
   });
 
+  // 2026-08-23: real feedback, live - "can you have this terminal text
+  // in a different font type... this mixes up with the following text."
+  // Backtick-delimited spans (`sudo systemctl status ssh`) render in a
+  // monospace font, everything else stays the normal body style - a
+  // simple inline convention rather than a new field per string, since
+  // several resolution strings already embed real commands.
+  List<InlineSpan> _parseInlineCode(String line, TextStyle base) {
+    final monospace = base.copyWith(fontFamily: 'monospace', color: kGreen);
+    final spans = <InlineSpan>[];
+    final pattern = RegExp(r'`([^`]+)`');
+    var last = 0;
+    for (final match in pattern.allMatches(line)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: line.substring(last, match.start), style: base));
+      }
+      spans.add(TextSpan(text: match.group(1), style: monospace));
+      last = match.end;
+    }
+    if (last < line.length) {
+      spans.add(TextSpan(text: line.substring(last), style: base));
+    }
+    return spans;
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayText = maxLength != null && text.length > maxLength!
         ? '${text.substring(0, maxLength!)}…'
         : text;
+    final bodyStyle = TextStyle(color: kStar, fontSize: 15, height: 1.7);
+    // 2026-08-23: real feedback, live - "should the user work through
+    // all 5 points now or just point 1 and test... this is confusing."
+    // A numbered fix list never said how to use it. Added once here
+    // (not per resolution string) so every numbered fix list in the
+    // app gets this for free - only shown when every line is actually
+    // numbered, not for plain bulleted content with no real sequence.
+    final lines = displayText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final isNumberedList =
+        bulleted && lines.isNotEmpty && lines.every((l) => RegExp(r'^\d+\.\s').hasMatch(l));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -72,8 +106,14 @@ class DiagCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          if (isNumberedList) ...[
+            Text('Try step 1 first, retest, then move to the next only if needed.',
+                style: TextStyle(
+                    color: kTextMid, fontSize: 12, fontStyle: FontStyle.italic)),
+            const SizedBox(height: 8),
+          ],
           if (bulleted)
-            for (final line in displayText.split('\n').where((l) => l.trim().isNotEmpty))
+            for (final line in lines)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(
@@ -92,16 +132,15 @@ class DiagCard extends StatelessWidget {
                               color: kStar, fontSize: 15, height: 1.7)),
                     ),
                     Expanded(
-                      child: Text(line,
-                          style: TextStyle(
-                              color: kStar, fontSize: 15, height: 1.7)),
+                      child: Text.rich(
+                          TextSpan(children: _parseInlineCode(line, bodyStyle))),
                     ),
                   ],
                 ),
               )
           else
-            Text(displayText,
-                style: TextStyle(color: kStar, fontSize: 15, height: 1.7)),
+            Text.rich(
+                TextSpan(children: _parseInlineCode(displayText, bodyStyle))),
         ],
       ),
     );

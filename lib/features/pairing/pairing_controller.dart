@@ -61,7 +61,20 @@ class PairingController extends ChangeNotifier {
       client.close();
 
       if (res.exitCode != 0) {
-        _result = const StepFailure(LinkingError.connectionRefused);
+        // 2026-08-23: real bug, found while investigating a separate
+        // report - this reached connectionRefused for a command that
+        // ran successfully (real TCP connect, real SSH auth, real
+        // command execution) but returned a non-zero exit code -
+        // nothing to do with the network being unreachable. Genuinely
+        // unclassified (a permissions issue on the desktop's ~/.ssh,
+        // a full disk, etc.) - unclassifiedError with the real stderr
+        // attached is honest about that, rather than sending a user
+        // chasing network troubleshooting for a shell command failure.
+        _result = StepFailure(
+          LinkingError.unclassifiedError,
+          debugDetail: 'Remote command exited ${res.exitCode}: '
+              '${String.fromCharCodes(res.stderr)}',
+        );
       } else {
         _result = const StepSuccess(message: 'Paired with desktop');
       }
