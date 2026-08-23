@@ -24,7 +24,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 // are meant to ship inside client apps, same as Stripe's publishable
 // keys - but it does need to be the real value before anything here
 // can actually reach RevenueCat.
-const kRevenueCatApiKey = '';
+const kRevenueCatApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
 
 // RevenueCat entitlement identifier, configured in the RevenueCat
 // dashboard once the project exists - not an App Store product ID

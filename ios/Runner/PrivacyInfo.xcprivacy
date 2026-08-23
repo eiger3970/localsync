@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App-level Privacy Manifest, added 2026-08-23. Apple has required this
+  for new App Store submissions since spring 2024 for apps that use
+  certain "required reason" APIs.
+
+  What's declared here (high confidence, well-established categories):
+  - No tracking (LocalSync has no cross-app/cross-site tracking of any
+    kind - it's local-first by design).
+  - UserDefaults API usage, reason CA92.1 ("access info from the same
+    app, or from an App Group it's a member of") - shared_preferences
+    reads/writes NSUserDefaults directly for device name, selected
+    skin, saved bare-repo path, and IAP unlock state, all first-party,
+    never shared outside the app.
+
+  What's NOT independently verified here, flag before submitting:
+  device_info_plus and shared_preferences_foundation both already bundle
+  their OWN PrivacyInfo.xcprivacy (confirmed present in their pub-cache
+  source, 2026-08-23) - Xcode merges those into the app automatically,
+  nothing to add for them here. purchases_flutter (RevenueCat) v8.11.0
+  did NOT have one found in pub-cache at the same check - if RevenueCat's
+  native SDK uses any other required-reason API category (e.g. File
+  Timestamp, System Boot Time), that would need its own declaration and
+  wasn't checked here. The reliable way to catch anything missed: Xcode
+  15+ generates a real Privacy Report at Product > Archive > Distribute
+  App, which flags any required-reason API used with no matching
+  declaration - run that for real before submitting, don't trust this
+  file's completeness on faith.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

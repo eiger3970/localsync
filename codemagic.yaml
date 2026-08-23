@@ -48,3 +48,57 @@ workflows:
           grep -i "ld: warning\|ld: error\|duplicate symbol\|git2dart\|libgit2" /tmp/build_verbose.log | head -80 || echo "no matching lines found"
     artifacts:
       - build/ios/ipa/*.ipa
+
+  # Real App Store submission workflow — scaffolded 2026-08-23, NOT usable yet.
+  # Blocked entirely on a funded Apple Developer Program account ($99/yr):
+  # without it there is no App Store Connect API key, no distribution
+  # certificate, no provisioning profile, and this workflow cannot run.
+  # Once the account exists, fill in the 4 TODOs below (Codemagic's own
+  # "iOS code signing" docs walk through generating each one) and this
+  # workflow builds, signs, and uploads straight to TestFlight/App Store
+  # Connect in one step — no other change needed.
+  ios-app-store:
+    name: iOS App Store
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        # TODO: create in Codemagic > Team settings > Code signing identities,
+        # after uploading your Apple Distribution certificate (.p12).
+        bundle_identifier: com.kworld.localsync
+      groups:
+        # TODO: create this group in Codemagic > Team settings > Environment
+        # variables, containing APP_STORE_CONNECT_ISSUER_ID,
+        # APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY —
+        # generated from App Store Connect > Users and Access > Integrations
+        # > App Store Connect API, once the account is funded.
+        - app_store_credentials
+    scripts:
+      - name: Disable Swift Package Manager, force CocoaPods
+        script: flutter config --no-enable-swift-package-manager
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Set up code signing
+        script: |
+          # TODO: once app_store_credentials exists, this fetches the
+          # matching provisioning profile/certificate automatically via
+          # Codemagic's App Store Connect integration.
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build and sign IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false  # flip to true only when ready for real review
