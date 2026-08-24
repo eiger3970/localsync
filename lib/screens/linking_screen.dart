@@ -160,7 +160,7 @@ class _IdleView extends StatefulWidget {
 }
 
 class _IdleViewState extends State<_IdleView>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   // 2026-08-10: drag-to-connect, added alongside the COPY VAULT TO THIS
   // PHONE button. 2026-08-11: button removed per explicit user
   // direction ("just keep the drag drop theme") - drag is now the only
@@ -196,24 +196,19 @@ class _IdleViewState extends State<_IdleView>
   // just unlocks stage 2. The real pairing work (installing the key)
   // still happens later, in _pairThenLink(), using the password.
   //
-  // 2026-08-24: real feedback, live (round 3) - "Tick Paired (but it's
-  // not really paired so don't show this, just let the process run and
-  // if pair fails an error will show not paired)." _paired now only
-  // gates stage 2's reveal (its original job) - it no longer swaps this
-  // whole row for a "Paired" checkmark claiming a real result that
-  // hasn't happened yet. The real result still only ever comes from
-  // _pairThenLink()/_pairingFailure below, unchanged.
+  // 2026-08-24: real feedback, live (round 4) - "Dragging the phonekey
+  // into the laptoplock is impossible to position exactly... Stop
+  // reinventing the wheel, just use the existing code for the pairing
+  // page." Round 3's hand-rolled distance-to-target drag (own success
+  // radius, own clamp bounds) was a second, subtly-different
+  // reimplementation of exactly what KeyPairingTrigger already does,
+  // and landed with a tighter/harder-to-hit radius in practice -
+  // "unable to proceed to test password" confirms it was genuinely too
+  // strict, not just a perception issue. All of round 3's custom
+  // drag/snap state and methods are gone; the build() below now uses
+  // KeyPairingTrigger directly, the same widget PairingScreen and this
+  // file's own diagnostics-retry flow already use successfully.
   bool _paired = false;
-  bool _keyDragHover = false;
-  // Free-drag + magnetic-snap state for the key, replacing the
-  // built-in Draggable/DragTarget pair (round 3 rewrite - see the
-  // Stack below for why). Offset is relative to the key's own rest
-  // position, same convention as KeyPairingTrigger's _drag.
-  Offset _keyDrag = Offset.zero;
-  bool _keyDragActive = false;
-  bool _keySnapped = false;
-  bool _pairCeremonyRunning = false;
-  late final AnimationController _snapCtrl;
 
   @override
   void initState() {
@@ -222,10 +217,6 @@ class _IdleViewState extends State<_IdleView>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    _snapCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
     _pairingCtrl = PairingController(
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
@@ -237,111 +228,10 @@ class _IdleViewState extends State<_IdleView>
   @override
   void dispose() {
     _pulseCtrl.dispose();
-    _snapCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _pairingCtrl.dispose();
     super.dispose();
-  }
-
-  // 2026-08-24: real feedback, live (round 3) - "should only pair when
-  // snaps into exact hole... a snappy magnetic like feature (which
-  // already exists in the pre-existing phonekey and laptoplock drag)."
-  // Flutter's built-in Draggable/DragTarget (used in rounds 1-2) can
-  // only ever accept on bounding-box overlap - the feedback always
-  // tracks the raw pointer 1:1, there's no way to make it visually pull
-  // into exact alignment. KeyPairingTrigger (widgets/key_pairing_
-  // trigger.dart) already solves this with real distance-to-target
-  // physics; same approach here, using this row's own responsive sizing
-  // (glyphWidth/keyIconSize/keyTopOffset) instead of KeyPairingTrigger's
-  // fixed constants, so the exact-fit key-to-keyway tuning already done
-  // for this screen (glyphIcon/keyIconSize/keyTopOffset above) doesn't
-  // get thrown away.
-  Offset _clampKeyDrag(Offset o, double targetDx) {
-    return Offset(o.dx.clamp(-60.0, targetDx + 80.0), o.dy.clamp(-80.0, 80.0));
-  }
-
-  // 2026-08-16 (ported from KeyPairingTrigger's own history): absolute
-  // pointer position, not incremental deltas - touching down anywhere in
-  // the play area grabs the key under your finger immediately, instead
-  // of requiring the first touch to land exactly on the key's current
-  // spot.
-  void _onKeyPanStart(Offset localPosition, double keyRestLeft, double keyBoxWidth,
-      double keyBoxHeight) {
-    if (_pairCeremonyRunning) return;
-    setState(() {
-      _keyDragActive = true;
-      _keySnapped = false;
-      _keyDrag = Offset(
-        localPosition.dx - keyRestLeft - keyBoxWidth / 2,
-        localPosition.dy - keyBoxHeight / 2,
-      );
-    });
-  }
-
-  void _onKeyPanUpdate(Offset localPosition, double keyRestLeft, double keyBoxWidth,
-      double keyBoxHeight, double targetDx) {
-    if (!_keyDragActive) return;
-    final raw = Offset(
-      localPosition.dx - keyRestLeft - keyBoxWidth / 2,
-      localPosition.dy - keyBoxHeight / 2,
-    );
-    final clamped = _clampKeyDrag(raw, targetDx);
-    final target = Offset(targetDx, 0);
-    final closeEnough = (clamped - target).distance <= 44.0;
-    setState(() {
-      _keyDrag = clamped;
-      _keyDragHover = (clamped - target).distance <= 88.0;
-    });
-    if (closeEnough) {
-      _keyDragActive = false;
-      _snapAndSettle(target);
-    }
-  }
-
-  void _onKeyPanEnd() {
-    if (!_keyDragActive) return;
-    _keyDragActive = false;
-    setState(() => _keyDragHover = false);
-    _animateKeyTo(Offset.zero);
-  }
-
-  Future<void> _animateKeyTo(Offset target) async {
-    final from = _keyDrag;
-    _snapCtrl
-      ..value = 0
-      ..reset();
-    final anim = Tween<Offset>(begin: from, end: target)
-        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOutCubic));
-    void listener() => setState(() => _keyDrag = anim.value);
-    anim.addListener(listener);
-    await _snapCtrl.forward();
-    anim.removeListener(listener);
-    _keyDrag = target;
-  }
-
-  // Snaps the key exactly onto the lock, then a brief settle beat before
-  // revealing stage 2 - no backend call and no "Paired" claim (see the
-  // 2026-08-24 round-3 note on _paired above). If the real pairing
-  // attempted with the typed password later fails, _pairingFailure
-  // (rendered further down, unchanged) is the only place that ever says
-  // so.
-  Future<void> _snapAndSettle(Offset target) async {
-    setState(() {
-      _keySnapped = true;
-      _keyDragHover = true;
-    });
-    await _animateKeyTo(target);
-    setState(() => _pairCeremonyRunning = true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    setState(() {
-      _pairCeremonyRunning = false;
-      _keySnapped = false;
-      _keyDragHover = false;
-      _paired = true;
-    });
-    await _animateKeyTo(Offset.zero);
   }
 
   // Pairs first (installs this device's key using the typed password),
@@ -390,48 +280,13 @@ class _IdleViewState extends State<_IdleView>
         ((screenWidth - rowPadding * 2 - arrowWidth - iconBoxOverhead * 2) / 2)
             .clamp(70.0, 180.0);
     final glyphWidth = glyphIcon + iconBoxOverhead;
-    // 2026-08-24: "phone key is too large, needs to be an exact fit
-    // into the laptop lock" - the phone-key SVG's own viewBox is much
-    // wider/flatter (145x90) than the laptop-lock's (260x250, near
-    // square), so at the same iconSize the key was reading as visually
-    // bigger, not like a small key fitting a bigger lock. Icon only
-    // shrinks - the slot width (glyphWidth) stays the same so row
-    // spacing/alignment with the laptop glyph doesn't shift.
-    // 2026-08-24: "key bit same size as the hole" - not the whole key
-    // glyph matched to the whole laptop glyph, the actual key-bit
-    // zigzag matched to the actual keyway zigzag. They're the literal
-    // same path (compare pairing_phone_key.svg's <path> to
-    // pairing_laptop_lock.svg's keyway <path> - identical coordinates),
-    // each independently scaled within its own asset:
-    //   key-bit: raw path 126x62, inside <g transform="scale(0.7)">,
-    //     inside viewBox 145x90 (145 is the constraining/wider side)
-    //     -> rendered width = 126*0.7/145 = 0.608 of iconSize
-    //   keyway: raw path 126x62 (same path), inside <g
-    //     transform="...scale(0.779)">, inside viewBox 260x250 (260 is
-    //     constraining) -> rendered width = 126*0.779/260 = 0.3775 of
-    //     glyphIcon
-    // Setting the two equal: keyIconSize = glyphIcon * 0.3775/0.608.
-    // 2026-08-24, follow-up: exact bit-to-hole match (0.621x) still
-    // read as too big - the phone body around the bit adds visual
-    // weight the math doesn't account for. Scaling down further.
-    final keyIconSize = glyphIcon * (0.3775 / 0.608) * 0.6;
-    // Keyway cutout's top edge (from pairing_laptop_lock.svg's <path>:
-    // topmost point "M129,79" inside <g transform="translate(572.91,
-    // 47.8) scale(0.779)">, so viewBox-space y = 47.8+79*0.779=109.34)
-    // sits (109.34-15)/250 = 37.7% down the laptop glyph's rendered
-    // height (viewBox top y=15, height 250; laptop's rendered height
-    // is glyphIcon*(250/260) since 260 is the constraining dimension).
-    //
-    // 2026-08-24, correction: this alone still put the visible key-bit
-    // too low. iconTopPad positions the *icon's* top edge (viewBox top,
-    // y=24 in "50 24 145 90"), but the bit itself doesn't start there -
-    // it's the phone_key.svg's <path>, y=79 raw * the <g scale(0.7)> =
-    // 55.3 in viewBox-space, i.e. (55.3-24)/90 = 34.8% further down
-    // *within* the icon. That extra offset has to be subtracted back
-    // out so the bit itself, not the icon's bounding box, lands on the
-    // keyway's height.
-    final keyTopOffset = (glyphIcon * (250 / 260) * 0.377) -
-        (keyIconSize * (31.3 / 145));
+    // 2026-08-24, round 4: the exact key-bit-to-keyway sizing math that
+    // used to live here (keyIconSize/keyTopOffset) was specific to the
+    // hand-rolled Stage 1 drag rounds 1-3 built - no longer needed now
+    // that Stage 1 uses KeyPairingTrigger directly (see below), which
+    // owns its own icon sizing. Stage 3's vault-linking glyphs further
+    // down don't use this math either (they're plain _DeviceGlyph calls
+    // at glyphIcon size) - removed rather than left dead.
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess
@@ -514,135 +369,28 @@ class _IdleViewState extends State<_IdleView>
           // confirmed as actually new (vs. re-testing a stale install)
           // by eye, without guessing from behavior alone. Remove once
           // the phonekey/pairing fixes are confirmed live.
-          Text('build stamp 20260824-1520', style: TextStyle(color: kTextDim, fontSize: 9)),
+          Text('build stamp 20260824-1600', style: TextStyle(color: kTextDim, fontSize: 9)),
           const SizedBox(height: 14),
-          // 2026-08-24: real feedback, live (round 3) - "should only
-          // pair when snaps into exact hole" + "Tick Paired (but it's
-          // not really paired...)". Rewritten from Draggable/DragTarget
-          // to a real free-drag + distance-to-target snap (see
-          // _onKeyPanStart/_onKeyPanUpdate/_snapAndSettle above) so the
-          // key genuinely has to reach the keyway's exact position, not
-          // just overlap the lock's bounding box - and this row no
-          // longer renders a "Paired" claim at all, ever. Once settled,
-          // _paired flips (silently) to reveal stage 2 below; the only
-          // place a failure is ever shown is _pairingFailure, from the
-          // real password attempt in _pairThenLink().
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
-            child: LayoutBuilder(builder: (context, constraints) {
-              final availableWidth = constraints.maxWidth;
-              final rowContentWidth = 2 * glyphWidth + arrowWidth;
-              final rowCenterOffset =
-                  ((availableWidth - rowContentWidth) / 2).clamp(0.0, double.infinity);
-              final keyRestLeft = rowCenterOffset;
-              final arrowLeft = rowCenterOffset + glyphWidth;
-              final lockLeft = arrowLeft + arrowWidth;
-              final targetDx = glyphWidth + arrowWidth;
-              final keyBoxHeight = glyphIcon + 16;
-              const labelsHeight = 12 + 15 + 4 + 14; // gap + label + gap + caption
-              return SizedBox(
-                width: availableWidth,
-                height: keyBoxHeight + labelsHeight,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanStart: (d) =>
-                      _onKeyPanStart(d.localPosition, keyRestLeft, glyphWidth, keyBoxHeight),
-                  onPanUpdate: (d) => _onKeyPanUpdate(
-                      d.localPosition, keyRestLeft, glyphWidth, keyBoxHeight, targetDx),
-                  onPanEnd: (_) => _onKeyPanEnd(),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Lock side - fully static, the fixed target.
-                      Positioned(
-                        left: lockLeft,
-                        top: 0,
-                        width: glyphWidth,
-                        child: Column(
-                          children: [
-                            _glyphIcon(
-                              svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
-                              boxSize: glyphIcon,
-                              renderSize: glyphIcon,
-                              hovering: _keyDragHover,
-                            ),
-                            const SizedBox(height: 12),
-                            Text('Your desktop',
-                                style: TextStyle(
-                                    color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 4),
-                            Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-                                style: TextStyle(color: kTextMid, fontSize: 14),
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        left: arrowLeft,
-                        top: arrowTopOffset,
-                        child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
-                      ),
-                      // 2026-08-24: real feedback, live - "Test: Your
-                      // key drag to pair, change to: Your phone (has a
-                      // key) drag to pair." Static regardless of drag
-                      // state - see _glyphIcon's own note above for why
-                      // that matters.
-                      Positioned(
-                        left: keyRestLeft,
-                        top: keyBoxHeight + 12,
-                        width: glyphWidth,
-                        child: Column(
-                          children: [
-                            Text('Your phone (has a key)',
-                                style: TextStyle(
-                                    color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 4),
-                            Text('drag to pair',
-                                style: TextStyle(color: kTextMid, fontSize: 14),
-                                textAlign: TextAlign.center,
-                                overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
-                      ),
-                      // Idle affordance - only while there's nothing
-                      // else to look at (same rule KeyPairingTrigger
-                      // uses for its own sparkle hint).
-                      if (!_keyDragActive && !_keySnapped && !_pairCeremonyRunning)
-                        Positioned(
-                          left: keyRestLeft,
-                          top: 0,
-                          width: glyphWidth,
-                          height: keyBoxHeight,
-                          child: const SparkleBackground(),
-                        ),
-                      // The key - the only thing that actually moves.
-                      Positioned(
-                        left: keyRestLeft + _keyDrag.dx,
-                        top: _keyDrag.dy,
-                        width: glyphWidth,
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: _pairCeremonyRunning ? 0.55 : 1,
-                            child: _glyphIcon(
-                              svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                              boxSize: glyphIcon,
-                              renderSize: keyIconSize,
-                              topPad: keyTopOffset,
-                              pulse: (!_keyDragActive && !_keySnapped && !_pairCeremonyRunning)
-                                  ? _pulseCtrl
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+          // 2026-08-24: real feedback, live (round 4) - "Stop
+          // reinventing the wheel, just use the existing code for the
+          // pairing page." Rounds 1-3 each hand-rolled a different,
+          // subtly-imperfect reimplementation of KeyPairingTrigger's own
+          // gesture (built-in Draggable/DragTarget, then a custom
+          // distance-to-target drag with its own radius/clamp tuning).
+          // This is now the same widget PairingScreen and this file's
+          // own diagnostics-retry flow (further down) already use, drag
+          // physics unchanged from there - "exactly like the previous
+          // pair page," literally the same code, not a lookalike.
+          // Ceremonial here too (onConfirm is a no-op, same as the
+          // diagnostics-retry call site) - onSettled just reveals stage
+          // 2, no "Paired" claim of any kind.
+          SizedBox(
+            height: 240,
+            child: KeyPairingTrigger(
+              runningLabel: 'CONNECTING…',
+              onConfirm: () async {},
+              onSettled: () => setState(() => _paired = true),
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -2045,48 +1793,6 @@ class _ScopeRow extends StatelessWidget {
       ),
     );
   }
-}
-
-// 2026-08-24: real feedback, live - "when I drag the phonekey the text
-// should stay put" persisted even after feedback's label/caption were
-// emptied out, because childWhenDragging (the rest-position slot, shown
-// the instant a drag starts) still wrapped the *whole* _DeviceGlyph -
-// icon AND label AND caption - in a single Opacity(0.3), so the text
-// visibly dimmed in lockstep with the icon the moment a drag began, even
-// though its position never moved. That's the actual "connected"
-// feeling. Icon-only render, used by both the key (Draggable) and lock
-// (DragTarget) glyphs on the pairing row, so drag/hover state can be
-// applied to just the icon while the label/caption render separately as
-// plain static Text, never touched by any of it.
-Widget _glyphIcon({
-  required String svgAsset,
-  required double boxSize,
-  required double renderSize,
-  double topPad = 0,
-  bool hovering = false,
-  Animation<double>? pulse,
-}) {
-  Widget icon = SvgPicture.asset(svgAsset, width: renderSize, height: renderSize);
-  if (pulse != null) {
-    icon = AnimatedBuilder(
-      animation: pulse,
-      builder: (_, child) => Opacity(opacity: 0.6 + (pulse.value * 0.4), child: child),
-      child: icon,
-    );
-  }
-  return SizedBox(
-    height: boxSize + 16,
-    child: Align(
-      alignment: Alignment.topCenter,
-      child: Padding(
-        padding: EdgeInsets.only(top: topPad),
-        child: PulsingGlow(
-          active: hovering,
-          child: Padding(padding: const EdgeInsets.all(8), child: icon),
-        ),
-      ),
-    ),
-  );
 }
 
 class _DeviceGlyph extends StatelessWidget {
