@@ -308,109 +308,103 @@ class _IdleViewState extends State<_IdleView>
     // screen. This one shrink-wraps its own content height correctly
     // (no ContentAboveDragCanvas measuring involved here), so it
     // doesn't repeat that specific historical bug.
-    // 2026-08-24, round 10: real feedback, live - "no change, just
-    // return to the original pairing." Rounds 6-9 chased the drag
-    // widget's own behavior deeper and deeper (scroll-arena conflicts,
-    // canvas sizing, drag range, artificial delay) without it ever
-    // reading as fixed - key_pairing_trigger.dart's own 2026-08-16
-    // history notes that both its OTHER call sites use it inside an
-    // Expanded, full-remaining-screen, non-scrolling layout, never a
-    // small fixed box inside a ScrollView - that mismatch was the root
-    // of every round's problem, not any one specific bug. Stage 1's
-    // KeyPairingTrigger call reverted to its original, bare round-4 form
-    // (widgets/key_pairing_trigger.dart itself reverted to match,
-    // unmodified since round 4) - "the phonekey drag is nice into the
-    // laptop lock" is the last unambiguously positive read on this
-    // exact code, before any of the rounds 5-9 customization.
+    // 2026-08-24, round 11: real feedback, live - "fix it," after round
+    // 10's revert still didn't land ("no change" persisted through
+    // rounds 6-9 despite each being a real, verified fix for the
+    // specific symptom reported). Re-reading key_pairing_trigger.dart's
+    // own 2026-08-16 history in round 10 surfaced the actual structural
+    // cause rounds 6-9 were each patching around individually: its other
+    // two working call sites (PairingScreen, this file's own
+    // diagnostics-retry _FailedView further down) both give it a
+    // genuinely bounded, non-scrolling, full-remaining-screen box via
+    // ContentAboveDragCanvas - never a small fixed SizedBox inside a
+    // SingleChildScrollView, which is what Stage 1 has always been
+    // embedded in, every round, including round 10's revert.
+    //
+    // Fixed properly this round: while pairing hasn't happened yet
+    // (!_paired), this view now returns ContentAboveDragCanvas directly
+    // (same widget, same pattern _FailedView already uses successfully)
+    // instead of the scrolling multi-stage Column - the welcome text
+    // becomes the measured `content` above, KeyPairingTrigger becomes
+    // the `canvas` below it, filling all real remaining screen space
+    // exactly like it does at both its other call sites. This is a
+    // structural fix, not another parameter tweak - no scroll ancestor
+    // exists here at all anymore for the drag gesture to lose an arena
+    // fight against.
+    //
+    // Once _paired flips true (via onSettled below), this method
+    // returns the ORIGINAL scrolling Stage 2/3 content instead (further
+    // down) - the welcome text and Stage 1's own header/canvas are
+    // dropped from that branch since they're only relevant before
+    // pairing, already shown once, in the ceremony view above.
+    if (!_paired) {
+      return ContentAboveDragCanvas(
+        content: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+                  style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              const SizedBox(
+                width: 220,
+                child: Column(
+                  children: [
+                    _ScopeRow(label: 'Notes'),
+                    _ScopeRow(label: 'Folders'),
+                    _ScopeRow(label: 'Attachments'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shield_outlined, color: kTextDim, size: 21),
+                  const SizedBox(width: 6),
+                  Text('No other files on this phone are read or changed.',
+                      style: TextStyle(color: kTextDim, fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+                  const SizedBox(width: 6),
+                  Text(
+                    'This runs once. Larger vaults may take a few minutes.',
+                    style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text('1. PAIR YOUR DEVICE',
+                  style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+            ],
+          ),
+        ),
+        canvas: KeyPairingTrigger(
+          runningLabel: 'CONNECTING…',
+          onConfirm: () async {},
+          onSettled: () => setState(() => _paired = true),
+        ),
+      );
+    }
+
+    // 2026-08-24, round 11: reached only once _paired is true (the
+    // ceremony branch above returns before this point otherwise) - the
+    // welcome text and Stage 1's own header/canvas, both now shown once
+    // already in that ceremony view, are dropped here rather than
+    // repeated. Stage 2/3 below are otherwise untouched from round 10.
     return SingleChildScrollView(
       child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // 2026-08-23: real feedback, live - "the welcome from the
-          // original to go in the new welcome." Reused verbatim from
-          // the original screen (was lower down, below the vault
-          // drag) - moved to the top as the actual welcome content,
-          // not duplicated in its old spot anymore.
-          Text('Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-              style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          const SizedBox(
-            width: 220,
-            child: Column(
-              children: [
-                _ScopeRow(label: 'Notes'),
-                _ScopeRow(label: 'Folders'),
-                _ScopeRow(label: 'Attachments'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-              const SizedBox(width: 6),
-              Text('No other files on this phone are read or changed.',
-                  style: TextStyle(color: kTextDim, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-              const SizedBox(width: 6),
-              Text(
-                'This runs once. Larger vaults may take a few minutes.',
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-
-          // 2026-08-23: real feedback, live - "the user dragging the
-          // phonekey to laptop lock is unnecessary, but it's a trust
-          // and value add for the user to do it, thinking it's real
-          // perhaps. This explains the pairing and after this the
-          // password fields light up for next action." Stage 1 of 3 -
-          // purely ceremonial (no backend call), gates stage 2.
-          Text('1. PAIR YOUR DEVICE',
-              style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-          const SizedBox(height: 14),
-          // 2026-08-24: real feedback, live (round 4) - "Stop
-          // reinventing the wheel, just use the existing code for the
-          // pairing page." Rounds 1-3 each hand-rolled a different,
-          // subtly-imperfect reimplementation of KeyPairingTrigger's own
-          // gesture (built-in Draggable/DragTarget, then a custom
-          // distance-to-target drag with its own radius/clamp tuning).
-          // This is now the same widget PairingScreen and this file's
-          // own diagnostics-retry flow (further down) already use, drag
-          // physics unchanged from there - "exactly like the previous
-          // pair page," literally the same code, not a lookalike.
-          // Ceremonial here too (onConfirm is a no-op, same as the
-          // diagnostics-retry call site) - onSettled just reveals stage
-          // 2, no "Paired" claim of any kind.
-          //
-          // 2026-08-24, round 10: real feedback, live - "no change, just
-          // return to the original pairing." Rounds 5-9 (captions,
-          // resetAfterSettle, scroll-arena fixes, canvas sizing, drag
-          // range, artificial-delay removal) are all reverted - back to
-          // exactly this bare call, key_pairing_trigger.dart reverted to
-          // match. See the round-10 note above this Column's
-          // SingleChildScrollView for the full reasoning.
-          SizedBox(
-            height: 240,
-            child: KeyPairingTrigger(
-              runningLabel: 'CONNECTING…',
-              onConfirm: () async {},
-              onSettled: () => setState(() => _paired = true),
-            ),
-          ),
-          const SizedBox(height: 32),
-
           // Stage 2 of 3 - locked until stage 1 is done.
           IgnorePointer(
             ignoring: !_paired,
