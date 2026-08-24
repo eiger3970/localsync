@@ -345,7 +345,7 @@ class _IdleViewState extends State<_IdleView>
           // password fields light up for next action." Stage 1 of 3 -
           // purely ceremonial (no backend call), gates stage 2.
           Text('1. PAIR YOUR DEVICE',
-              style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
           const SizedBox(height: 14),
           if (_paired)
             Row(
@@ -392,14 +392,47 @@ class _IdleViewState extends State<_IdleView>
                           iconSize: glyphIcon,
                         ),
                       ),
-                      child: _DeviceGlyph(
-                        svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                        label: 'Your key',
-                        caption: 'drag to pair',
-                        accent: true,
-                        width: glyphWidth,
-                        iconSize: glyphIcon,
-                        pulse: _pulseCtrl,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _DeviceGlyph(
+                            svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                            label: 'Your key',
+                            caption: 'drag to pair',
+                            accent: true,
+                            width: glyphWidth,
+                            iconSize: glyphIcon,
+                            pulse: _pulseCtrl,
+                          ),
+                          // 2026-08-24: "magic stars to show user this is
+                          // actionable" - sparkle badges signal the key
+                          // glyph is draggable, twinned to the same pulse
+                          // as the icon so they twinkle together.
+                          Positioned(
+                            top: 0,
+                            right: glyphWidth * 0.18,
+                            child: AnimatedBuilder(
+                              animation: _pulseCtrl,
+                              builder: (_, child) => Opacity(
+                                opacity: 0.5 + (_pulseCtrl.value * 0.5),
+                                child: child,
+                              ),
+                              child: Icon(Icons.auto_awesome, color: kGreen, size: 16),
+                            ),
+                          ),
+                          Positioned(
+                            top: 14,
+                            left: glyphWidth * 0.06,
+                            child: AnimatedBuilder(
+                              animation: _pulseCtrl,
+                              builder: (_, child) => Opacity(
+                                opacity: 1.0 - (_pulseCtrl.value * 0.5),
+                                child: child,
+                              ),
+                              child: Icon(Icons.auto_awesome, color: kStar, size: 10),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -441,8 +474,26 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  Text('2. DESKTOP PASSWORD',
-                      style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  // 2026-08-24: same "actionable" sparkle cue as the key
+                  // glyph, now on stage 2's header once it activates
+                  // (_paired) so the twinkle language is consistent
+                  // across every stage that just unlocked.
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('2. DESKTOP PASSWORD',
+                          style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                      const SizedBox(width: 6),
+                      AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (_, child) => Opacity(
+                          opacity: 0.5 + (_pulseCtrl.value * 0.5),
+                          child: child,
+                        ),
+                        child: Icon(Icons.auto_awesome, color: kGreen, size: 13),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -461,6 +512,19 @@ class _IdleViewState extends State<_IdleView>
                       key: _shredKey1,
                       controller: _passwordCtrl,
                       enabled: !_pairing,
+                      // 2026-08-24: "where the user needs to look and
+                      // action" - moved from a top-right overlay to
+                      // sitting right next to the "Desktop password…"
+                      // hint text itself, same twinkle as the key glyph
+                      // and stage 2 header.
+                      prefixIcon: AnimatedBuilder(
+                        animation: _pulseCtrl,
+                        builder: (_, child) => Opacity(
+                          opacity: 0.5 + (_pulseCtrl.value * 0.5),
+                          child: child,
+                        ),
+                        child: Icon(Icons.auto_awesome, color: kGreen, size: 16),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -525,7 +589,7 @@ class _IdleViewState extends State<_IdleView>
               child: Column(
                 children: [
                   Text('3. SET UP VAULT',
-                      style: TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                      style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: rowPadding),

@@ -14,10 +14,12 @@ import '../theme.dart';
 class ShreddingPasswordField extends StatefulWidget {
   final TextEditingController controller;
   final bool enabled;
+  final Widget? prefixIcon;
   const ShreddingPasswordField({
     super.key,
     required this.controller,
     this.enabled = true,
+    this.prefixIcon,
   });
 
   @override
@@ -92,6 +94,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             decoration: InputDecoration(
               hintText: 'Desktop password…',
               hintStyle: TextStyle(color: kTextMid, fontSize: 14),
+              prefixIcon: widget.prefixIcon,
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => _obscure = !_obscure),

@@ -16,6 +16,9 @@
 // keeps full manual text-based conflict resolution - that already
 // works today, nothing is held back by this.
 
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 // TODO: paste the real public API key here once RevenueCat's project
@@ -37,6 +40,10 @@ class PurchaseService {
 
   Future<void> init() async {
     if (kRevenueCatApiKey.isEmpty) return;
+    // purchases_flutter only has iOS/Android platform implementations -
+    // calling configure() anywhere else throws MissingPluginException
+    // and crashes app startup (hit running the desktop preview build).
+    if (kIsWeb || !(Platform.isIOS || Platform.isAndroid)) return;
     await Purchases.configure(PurchasesConfiguration(kRevenueCatApiKey));
     _configured = true;
   }
