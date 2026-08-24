@@ -160,7 +160,7 @@ class _IdleView extends StatefulWidget {
 }
 
 class _IdleViewState extends State<_IdleView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // 2026-08-10: drag-to-connect, added alongside the COPY VAULT TO THIS
   // PHONE button. 2026-08-11: button removed per explicit user
   // direction ("just keep the drag drop theme") - drag is now the only
@@ -195,8 +195,25 @@ class _IdleViewState extends State<_IdleView>
   // pairing." Purely ceremonial - no backend call happens here, it
   // just unlocks stage 2. The real pairing work (installing the key)
   // still happens later, in _pairThenLink(), using the password.
+  //
+  // 2026-08-24: real feedback, live (round 3) - "Tick Paired (but it's
+  // not really paired so don't show this, just let the process run and
+  // if pair fails an error will show not paired)." _paired now only
+  // gates stage 2's reveal (its original job) - it no longer swaps this
+  // whole row for a "Paired" checkmark claiming a real result that
+  // hasn't happened yet. The real result still only ever comes from
+  // _pairThenLink()/_pairingFailure below, unchanged.
   bool _paired = false;
   bool _keyDragHover = false;
+  // Free-drag + magnetic-snap state for the key, replacing the
+  // built-in Draggable/DragTarget pair (round 3 rewrite - see the
+  // Stack below for why). Offset is relative to the key's own rest
+  // position, same convention as KeyPairingTrigger's _drag.
+  Offset _keyDrag = Offset.zero;
+  bool _keyDragActive = false;
+  bool _keySnapped = false;
+  bool _pairCeremonyRunning = false;
+  late final AnimationController _snapCtrl;
 
   @override
   void initState() {
@@ -205,6 +222,10 @@ class _IdleViewState extends State<_IdleView>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
+    _snapCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
     _pairingCtrl = PairingController(
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
@@ -216,10 +237,111 @@ class _IdleViewState extends State<_IdleView>
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _snapCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _pairingCtrl.dispose();
     super.dispose();
+  }
+
+  // 2026-08-24: real feedback, live (round 3) - "should only pair when
+  // snaps into exact hole... a snappy magnetic like feature (which
+  // already exists in the pre-existing phonekey and laptoplock drag)."
+  // Flutter's built-in Draggable/DragTarget (used in rounds 1-2) can
+  // only ever accept on bounding-box overlap - the feedback always
+  // tracks the raw pointer 1:1, there's no way to make it visually pull
+  // into exact alignment. KeyPairingTrigger (widgets/key_pairing_
+  // trigger.dart) already solves this with real distance-to-target
+  // physics; same approach here, using this row's own responsive sizing
+  // (glyphWidth/keyIconSize/keyTopOffset) instead of KeyPairingTrigger's
+  // fixed constants, so the exact-fit key-to-keyway tuning already done
+  // for this screen (glyphIcon/keyIconSize/keyTopOffset above) doesn't
+  // get thrown away.
+  Offset _clampKeyDrag(Offset o, double targetDx) {
+    return Offset(o.dx.clamp(-60.0, targetDx + 80.0), o.dy.clamp(-80.0, 80.0));
+  }
+
+  // 2026-08-16 (ported from KeyPairingTrigger's own history): absolute
+  // pointer position, not incremental deltas - touching down anywhere in
+  // the play area grabs the key under your finger immediately, instead
+  // of requiring the first touch to land exactly on the key's current
+  // spot.
+  void _onKeyPanStart(Offset localPosition, double keyRestLeft, double keyBoxWidth,
+      double keyBoxHeight) {
+    if (_pairCeremonyRunning) return;
+    setState(() {
+      _keyDragActive = true;
+      _keySnapped = false;
+      _keyDrag = Offset(
+        localPosition.dx - keyRestLeft - keyBoxWidth / 2,
+        localPosition.dy - keyBoxHeight / 2,
+      );
+    });
+  }
+
+  void _onKeyPanUpdate(Offset localPosition, double keyRestLeft, double keyBoxWidth,
+      double keyBoxHeight, double targetDx) {
+    if (!_keyDragActive) return;
+    final raw = Offset(
+      localPosition.dx - keyRestLeft - keyBoxWidth / 2,
+      localPosition.dy - keyBoxHeight / 2,
+    );
+    final clamped = _clampKeyDrag(raw, targetDx);
+    final target = Offset(targetDx, 0);
+    final closeEnough = (clamped - target).distance <= 44.0;
+    setState(() {
+      _keyDrag = clamped;
+      _keyDragHover = (clamped - target).distance <= 88.0;
+    });
+    if (closeEnough) {
+      _keyDragActive = false;
+      _snapAndSettle(target);
+    }
+  }
+
+  void _onKeyPanEnd() {
+    if (!_keyDragActive) return;
+    _keyDragActive = false;
+    setState(() => _keyDragHover = false);
+    _animateKeyTo(Offset.zero);
+  }
+
+  Future<void> _animateKeyTo(Offset target) async {
+    final from = _keyDrag;
+    _snapCtrl
+      ..value = 0
+      ..reset();
+    final anim = Tween<Offset>(begin: from, end: target)
+        .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOutCubic));
+    void listener() => setState(() => _keyDrag = anim.value);
+    anim.addListener(listener);
+    await _snapCtrl.forward();
+    anim.removeListener(listener);
+    _keyDrag = target;
+  }
+
+  // Snaps the key exactly onto the lock, then a brief settle beat before
+  // revealing stage 2 - no backend call and no "Paired" claim (see the
+  // 2026-08-24 round-3 note on _paired above). If the real pairing
+  // attempted with the typed password later fails, _pairingFailure
+  // (rendered further down, unchanged) is the only place that ever says
+  // so.
+  Future<void> _snapAndSettle(Offset target) async {
+    setState(() {
+      _keySnapped = true;
+      _keyDragHover = true;
+    });
+    await _animateKeyTo(target);
+    setState(() => _pairCeremonyRunning = true);
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+    setState(() {
+      _pairCeremonyRunning = false;
+      _keySnapped = false;
+      _keyDragHover = false;
+      _paired = true;
+    });
+    await _animateKeyTo(Offset.zero);
   }
 
   // Pairs first (installs this device's key using the typed password),
@@ -392,154 +514,136 @@ class _IdleViewState extends State<_IdleView>
           // confirmed as actually new (vs. re-testing a stale install)
           // by eye, without guessing from behavior alone. Remove once
           // the phonekey/pairing fixes are confirmed live.
-          Text('build stamp 20260824-1445', style: TextStyle(color: kTextDim, fontSize: 9)),
+          Text('build stamp 20260824-1520', style: TextStyle(color: kTextDim, fontSize: 9)),
           const SizedBox(height: 14),
-          if (_paired)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.check_circle, color: kGreen, size: 18),
-                const SizedBox(width: 6),
-                Text('Paired', style: TextStyle(color: kGreen, fontSize: 14, fontWeight: FontWeight.w600)),
-              ],
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: rowPadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: glyphWidth,
-                    child: Column(
-                      children: [
-                        Draggable<bool>(
-                          data: true,
-                          // 2026-08-24: real feedback, live (round 2) -
-                          // "when I drag the phonekey the text should
-                          // stay put" persisted even after feedback's
-                          // text was emptied, because childWhenDragging
-                          // still wrapped the *whole* glyph (icon+label+
-                          // caption) in one Opacity(0.3) - the label
-                          // visibly dimmed in lockstep with the icon the
-                          // instant a drag started, which read as
-                          // "connected" even though position never
-                          // changed. Icon-only in all three
-                          // (feedback/childWhenDragging/child) now - the
-                          // label/caption below are a separate static
-                          // Text, untouched by drag state entirely.
-                          feedback: Material(
-                            color: Colors.transparent,
-                            child: Opacity(
-                              opacity: 0.85,
-                              child: _glyphIcon(
-                                svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                                boxSize: glyphIcon,
-                                renderSize: keyIconSize,
-                                topPad: keyTopOffset,
-                              ),
+          // 2026-08-24: real feedback, live (round 3) - "should only
+          // pair when snaps into exact hole" + "Tick Paired (but it's
+          // not really paired...)". Rewritten from Draggable/DragTarget
+          // to a real free-drag + distance-to-target snap (see
+          // _onKeyPanStart/_onKeyPanUpdate/_snapAndSettle above) so the
+          // key genuinely has to reach the keyway's exact position, not
+          // just overlap the lock's bounding box - and this row no
+          // longer renders a "Paired" claim at all, ever. Once settled,
+          // _paired flips (silently) to reveal stage 2 below; the only
+          // place a failure is ever shown is _pairingFailure, from the
+          // real password attempt in _pairThenLink().
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: rowPadding),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final availableWidth = constraints.maxWidth;
+              final rowContentWidth = 2 * glyphWidth + arrowWidth;
+              final rowCenterOffset =
+                  ((availableWidth - rowContentWidth) / 2).clamp(0.0, double.infinity);
+              final keyRestLeft = rowCenterOffset;
+              final arrowLeft = rowCenterOffset + glyphWidth;
+              final lockLeft = arrowLeft + arrowWidth;
+              final targetDx = glyphWidth + arrowWidth;
+              final keyBoxHeight = glyphIcon + 16;
+              const labelsHeight = 12 + 15 + 4 + 14; // gap + label + gap + caption
+              return SizedBox(
+                width: availableWidth,
+                height: keyBoxHeight + labelsHeight,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanStart: (d) =>
+                      _onKeyPanStart(d.localPosition, keyRestLeft, glyphWidth, keyBoxHeight),
+                  onPanUpdate: (d) => _onKeyPanUpdate(
+                      d.localPosition, keyRestLeft, glyphWidth, keyBoxHeight, targetDx),
+                  onPanEnd: (_) => _onKeyPanEnd(),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Lock side - fully static, the fixed target.
+                      Positioned(
+                        left: lockLeft,
+                        top: 0,
+                        width: glyphWidth,
+                        child: Column(
+                          children: [
+                            _glyphIcon(
+                              svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
+                              boxSize: glyphIcon,
+                              renderSize: glyphIcon,
+                              hovering: _keyDragHover,
                             ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
+                            const SizedBox(height: 12),
+                            Text('Your desktop',
+                                style: TextStyle(
+                                    color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 4),
+                            Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                style: TextStyle(color: kTextMid, fontSize: 14),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        left: arrowLeft,
+                        top: arrowTopOffset,
+                        child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
+                      ),
+                      // 2026-08-24: real feedback, live - "Test: Your
+                      // key drag to pair, change to: Your phone (has a
+                      // key) drag to pair." Static regardless of drag
+                      // state - see _glyphIcon's own note above for why
+                      // that matters.
+                      Positioned(
+                        left: keyRestLeft,
+                        top: keyBoxHeight + 12,
+                        width: glyphWidth,
+                        child: Column(
+                          children: [
+                            Text('Your phone (has a key)',
+                                style: TextStyle(
+                                    color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 4),
+                            Text('drag to pair',
+                                style: TextStyle(color: kTextMid, fontSize: 14),
+                                textAlign: TextAlign.center,
+                                overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                      // Idle affordance - only while there's nothing
+                      // else to look at (same rule KeyPairingTrigger
+                      // uses for its own sparkle hint).
+                      if (!_keyDragActive && !_keySnapped && !_pairCeremonyRunning)
+                        Positioned(
+                          left: keyRestLeft,
+                          top: 0,
+                          width: glyphWidth,
+                          height: keyBoxHeight,
+                          child: const SparkleBackground(),
+                        ),
+                      // The key - the only thing that actually moves.
+                      Positioned(
+                        left: keyRestLeft + _keyDrag.dx,
+                        top: _keyDrag.dy,
+                        width: glyphWidth,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: _pairCeremonyRunning ? 0.55 : 1,
                             child: _glyphIcon(
                               svgAsset: 'assets/pairing/pairing_phone_key.svg',
                               boxSize: glyphIcon,
                               renderSize: keyIconSize,
                               topPad: keyTopOffset,
+                              pulse: (!_keyDragActive && !_keySnapped && !_pairCeremonyRunning)
+                                  ? _pulseCtrl
+                                  : null,
                             ),
                           ),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              // 2026-08-24: "not enough sparkles... needs
-                              // to be all around" - swapped the two
-                              // hand-placed corner icons for the app's
-                              // own established SparkleBackground (same
-                              // widget stage 3's laptop glyph already
-                              // uses), scattered stars instead of two
-                              // fixed points.
-                              const Positioned.fill(child: SparkleBackground()),
-                              _glyphIcon(
-                                svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                                boxSize: glyphIcon,
-                                renderSize: keyIconSize,
-                                topPad: keyTopOffset,
-                                pulse: _pulseCtrl,
-                              ),
-                            ],
-                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Text('Your key',
-                            style: TextStyle(
-                                color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 4),
-                        Text('drag to pair',
-                            style: TextStyle(color: kTextMid, fontSize: 14),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Padding(
-                    padding: EdgeInsets.only(top: arrowTopOffset),
-                    child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
-                  ),
-                  // 2026-08-24: real feedback, live - "the key needs to
-                  // be in the hole, not just over parts of the laptop."
-                  // DragTarget used to wrap the full _DeviceGlyph
-                  // (icon+label+caption), so dropping anywhere over the
-                  // "Your desktop / user@ip" text below the icon counted
-                  // as a successful pair too. Hit-test area now covers
-                  // only the icon+glow slot (same box _DeviceGlyph
-                  // reserves internally, reproduced here); the label and
-                  // caption render as plain static text beneath it,
-                  // outside the target - same visual layout as before,
-                  // just no longer part of the drop zone. The hover glow
-                  // (PulsingGlow, already wired to _keyDragHover) is the
-                  // "getting close" magnetic-style cue.
-                  SizedBox(
-                    width: glyphWidth,
-                    child: Column(
-                      children: [
-                        DragTarget<bool>(
-                          onWillAcceptWithDetails: (_) {
-                            setState(() => _keyDragHover = true);
-                            return true;
-                          },
-                          onLeave: (_) => setState(() => _keyDragHover = false),
-                          onAcceptWithDetails: (_) {
-                            setState(() {
-                              _keyDragHover = false;
-                              _paired = true;
-                            });
-                          },
-                          builder: (context, candidate, rejected) => _glyphIcon(
-                            svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
-                            boxSize: glyphIcon,
-                            renderSize: glyphIcon,
-                            hovering: _keyDragHover,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text('Your desktop',
-                            style: TextStyle(
-                                color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 4),
-                        Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-                            style: TextStyle(color: kTextMid, fontSize: 14),
-                            textAlign: TextAlign.center,
-                            overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            }),
+          ),
           const SizedBox(height: 32),
 
           // Stage 2 of 3 - locked until stage 1 is done.
