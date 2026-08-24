@@ -195,10 +195,20 @@ extension LinkingErrorDetails on LinkingError {
         // pairingPasswordRejected - the SSH server's behavior on a
         // failed auth attempt isn't uniform (some close the connection
         // in a way dartssh2 reports identically to a real network
-        // failure, some don't), so this diagnosis can genuinely mean
-        // either. Worded to cover both instead of asserting only one.
+        // failure, some don't).
+        // 2026-08-24, follow-up: first wording named both possible
+        // causes in one hedged sentence ("X, or Y") - "inconsistent with
+        // the app's error handling," correctly, since every other
+        // diagnosis in this switch states one specific observed fact,
+        // never an either/or guess. Back to a single factual statement
+        // of what was actually observed (the connection didn't
+        // complete) - the *cause* being ambiguous is what the numbered
+        // resolution list below is for (already leads with re-entering
+        // the password), same as every other multi-step resolution in
+        // this switch already covers more than one possible fix without
+        // the diagnosis line itself hedging.
         LinkingError.connectionRefused =>
-          'Cannot reach your desktop on the network, or your desktop is refusing the connection.',
+          'Could not complete the connection to your desktop.',
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
