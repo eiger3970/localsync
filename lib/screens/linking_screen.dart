@@ -275,12 +275,41 @@ class _IdleViewState extends State<_IdleView>
     // bigger, not like a small key fitting a bigger lock. Icon only
     // shrinks - the slot width (glyphWidth) stays the same so row
     // spacing/alignment with the laptop glyph doesn't shift.
-    // 2026-08-24, reverted: "phonekey is too small, should be the same
-    // size as the laptop lock" - the fit-inside-the-keyway sizing was
-    // wrong direction. Same size, same top alignment as the laptop
-    // glyph - no shrink, no offset.
-    final keyIconSize = glyphIcon;
-    const keyTopOffset = 0.0;
+    // 2026-08-24: "key bit same size as the hole" - not the whole key
+    // glyph matched to the whole laptop glyph, the actual key-bit
+    // zigzag matched to the actual keyway zigzag. They're the literal
+    // same path (compare pairing_phone_key.svg's <path> to
+    // pairing_laptop_lock.svg's keyway <path> - identical coordinates),
+    // each independently scaled within its own asset:
+    //   key-bit: raw path 126x62, inside <g transform="scale(0.7)">,
+    //     inside viewBox 145x90 (145 is the constraining/wider side)
+    //     -> rendered width = 126*0.7/145 = 0.608 of iconSize
+    //   keyway: raw path 126x62 (same path), inside <g
+    //     transform="...scale(0.779)">, inside viewBox 260x250 (260 is
+    //     constraining) -> rendered width = 126*0.779/260 = 0.3775 of
+    //     glyphIcon
+    // Setting the two equal: keyIconSize = glyphIcon * 0.3775/0.608.
+    // 2026-08-24, follow-up: exact bit-to-hole match (0.621x) still
+    // read as too big - the phone body around the bit adds visual
+    // weight the math doesn't account for. Scaling down further.
+    final keyIconSize = glyphIcon * (0.3775 / 0.608) * 0.6;
+    // Keyway cutout's top edge (from pairing_laptop_lock.svg's <path>:
+    // topmost point "M129,79" inside <g transform="translate(572.91,
+    // 47.8) scale(0.779)">, so viewBox-space y = 47.8+79*0.779=109.34)
+    // sits (109.34-15)/250 = 37.7% down the laptop glyph's rendered
+    // height (viewBox top y=15, height 250; laptop's rendered height
+    // is glyphIcon*(250/260) since 260 is the constraining dimension).
+    //
+    // 2026-08-24, correction: this alone still put the visible key-bit
+    // too low. iconTopPad positions the *icon's* top edge (viewBox top,
+    // y=24 in "50 24 145 90"), but the bit itself doesn't start there -
+    // it's the phone_key.svg's <path>, y=79 raw * the <g scale(0.7)> =
+    // 55.3 in viewBox-space, i.e. (55.3-24)/90 = 34.8% further down
+    // *within* the icon. That extra offset has to be subtracted back
+    // out so the bit itself, not the icon's bounding box, lands on the
+    // keyway's height.
+    final keyTopOffset = (glyphIcon * (250 / 260) * 0.377) -
+        (keyIconSize * (31.3 / 145));
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess

@@ -6,6 +6,13 @@
 
   <g transform="scale(0.7)" stroke="#00FF41" stroke-width="4.3" fill="none" stroke-linejoin="round" stroke-linecap="round">
     <rect x="93" y="55" width="36" height="86" rx="10"/>
+    <!-- 2026-08-24: "make the phone part look more like a phone" - the
+         plain rounded rect read as a generic pill/capsule shape. A
+         speaker slit and home button are the two details that read as
+         "phone" at a glance even this small, without cluttering the
+         icon or needing a filled screen area. -->
+    <line x1="104" y1="66" x2="118" y2="66"/>
+    <circle cx="111" cy="130" r="4"/>
     <path d="M129,79 L255,79 L255,141 L237,141 L237,93 L219,93 L219,117 L201,117 L183,117 L183,99 L165,99 L165,111 L147,111 L147,117 L129,117 Z"/>
   </g>
 </svg>
