@@ -365,12 +365,21 @@ class _IdleViewState extends State<_IdleView>
           // purely ceremonial (no backend call), gates stage 2.
           Text('1. PAIR YOUR DEVICE',
               style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-          // 2026-08-24 TEMP: build-identity stamp so a sideload can be
-          // confirmed as actually new (vs. re-testing a stale install)
-          // by eye, without guessing from behavior alone. Remove once
-          // the phonekey/pairing fixes are confirmed live.
-          Text('build stamp 20260824-1600', style: TextStyle(color: kTextDim, fontSize: 9)),
           const SizedBox(height: 14),
+          // 2026-08-24: real feedback, live (round 5) - "all the other
+          // text and workflow is messed up" after the round-4 swap to
+          // KeyPairingTrigger. Real regression: KeyPairingTrigger
+          // doesn't render any captions at all (by design - see its own
+          // file), so the "Your desktop / user@ip" identification this
+          // stage used to show was silently dropped along with the
+          // custom row it came from. Restored as a static line above
+          // the canvas, matching PairingScreen's own established
+          // pattern for the exact same widget ("Connect to user@ip",
+          // screens/pairing_screen.dart) instead of reinventing a third
+          // caption style.
+          Text('Connect to ${ctrl.desktopUser}@${ctrl.desktopIp}',
+              style: TextStyle(color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
           // 2026-08-24: real feedback, live (round 4) - "Stop
           // reinventing the wheel, just use the existing code for the
           // pairing page." Rounds 1-3 each hand-rolled a different,
