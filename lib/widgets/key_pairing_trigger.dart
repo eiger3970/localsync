@@ -32,6 +32,22 @@ class KeyPairingTrigger extends StatefulWidget {
   // so it can be pixel-aligned against the key/lock's actual rest row
   // instead of a guessed offset from outside.
   final Widget? leadingBadge;
+  // 2026-08-24, round 12: real feedback, live - "same errors, keep
+  // fixing." Rounds 6/9 added these three (keyCaption/lockCaption,
+  // resetAfterSettle, minRun) for real, distinct complaints - missing
+  // text below the icons, the key visually leaving the lock once
+  // settled, an unjustified artificial delay before a no-op ceremony
+  // proceeds - all separate from the scroll-arena/canvas-sizing issue
+  // round 10 reverted them alongside. Re-added now that round 11 gave
+  // this widget the genuinely bounded, non-scrolling canvas it actually
+  // needs (via ContentAboveDragCanvas) - these three never touched the
+  // gesture/scroll mechanics at all, only visual/timing polish, so they
+  // should behave correctly now that the structural conflict they were
+  // previously layered on top of is gone.
+  final bool resetAfterSettle;
+  final Widget? keyCaption;
+  final Widget? lockCaption;
+  final Duration minRun;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -39,7 +55,13 @@ class KeyPairingTrigger extends StatefulWidget {
     this.enabled = true,
     this.runningLabel = 'REGISTERING KEY…',
     this.leadingBadge,
+    this.resetAfterSettle = true,
+    this.keyCaption,
+    this.lockCaption,
+    this.minRun = _defaultMinRun,
   });
+
+  static const _defaultMinRun = Duration(milliseconds: 2000);
 
   @override
   State<KeyPairingTrigger> createState() => _KeyPairingTriggerState();
@@ -94,7 +116,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   static const _verticalNudge = -10.5;
 
   static const _successRadius = 44.0; // generous - "not too difficult"
-  static const _minRun = Duration(milliseconds: 2000);
 
   late final AnimationController _snapCtrl;
   Offset _drag = Offset.zero; // offset from rest position
@@ -141,6 +162,9 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onStart(DragStartDetails d, double canvasWidth, double canvasHeight,
       double keyRestLeft, double keyRestTop) {
     if (_running || !widget.enabled) return;
+    // Already settled and staying put (resetAfterSettle: false) -
+    // gesture stays locked out permanently, same as while _running.
+    if (!widget.resetAfterSettle && _snapped) return;
     // 2026-08-16: "keyboard appears and now I can't see the phonekey
     // image at the bottom of the screen... unable to progress" -
     // dismiss the keyboard the moment a drag starts so the canvas always
@@ -214,13 +238,15 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   Future<void> _startPairing() async {
     setState(() => _running = true);
-    await Future.wait([Future.delayed(_minRun), widget.onConfirm()]);
+    await Future.wait([Future.delayed(widget.minRun), widget.onConfirm()]);
     if (!mounted) return;
     setState(() {
       _running = false;
-      _snapped = false;
+      if (widget.resetAfterSettle) _snapped = false;
     });
-    await _animateTo(Offset.zero);
+    if (widget.resetAfterSettle) {
+      await _animateTo(Offset.zero);
+    }
     widget.onSettled?.call();
   }
 
@@ -317,6 +343,22 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 ),
               ),
             ),
+            if (widget.keyCaption != null)
+              Positioned(
+                key: const ValueKey('keyCaption'),
+                left: keyRestLeft,
+                top: keyRestTop + _keyHeight + 8,
+                width: _keyWidth,
+                child: widget.keyCaption!,
+              ),
+            if (widget.lockCaption != null)
+              Positioned(
+                key: const ValueKey('lockCaption'),
+                left: lockLeft,
+                top: lockTop + _lockHeight + 8,
+                width: _lockWidth,
+                child: widget.lockCaption!,
+              ),
             if (_running)
               Positioned(
                 key: const ValueKey('runningLabel'),

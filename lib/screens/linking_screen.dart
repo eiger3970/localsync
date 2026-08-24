@@ -388,6 +388,23 @@ class _IdleViewState extends State<_IdleView>
         ),
         canvas: KeyPairingTrigger(
           runningLabel: 'CONNECTING…',
+          // 2026-08-24, round 12: real feedback, live - "same errors,
+          // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
+          // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
+          // in round 10's revert alongside the scroll-arena workarounds
+          // they were never actually the cause of. Now built on round
+          // 11's fixed foundation (a real full-screen canvas, no
+          // competing ScrollView) instead of layered on top of the
+          // broken one.
+          resetAfterSettle: false,
+          minRun: Duration.zero,
+          keyCaption: Text('Your phone (has a key)',
+              style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
+          lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis),
           onConfirm: () async {},
           onSettled: () => setState(() => _paired = true),
         ),
