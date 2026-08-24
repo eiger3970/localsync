@@ -32,60 +32,6 @@ class KeyPairingTrigger extends StatefulWidget {
   // so it can be pixel-aligned against the key/lock's actual rest row
   // instead of a guessed offset from outside.
   final Widget? leadingBadge;
-  // 2026-08-24: real feedback, live - LinkingScreen's ceremonial Stage 1
-  // (widgets/../screens/linking_screen.dart) keeps this widget on
-  // screen after settling instead of navigating away like every other
-  // caller does, so the existing "animate back to rest position" made
-  // it look like the key un-paired itself. Both existing call sites
-  // (PairingScreen, LinkingScreen's own diagnostics-retry flow) navigate
-  // away immediately in onSettled, so the reset was never visible there
-  // - default stays true for them; pass false to keep the key seated in
-  // the lock (and gesture locked out) once it settles.
-  final bool resetAfterSettle;
-  // 2026-08-24: real feedback, live - "the text below the phonekey and
-  // laptoplock are missing." Optional static captions, anchored to each
-  // glyph's own rest position (not the key's dragged position) so they
-  // never move or fade with drag/settle state - same reasoning as
-  // linking_screen.dart's own _glyphIcon split (text must stay put).
-  // Null by default - existing callers don't pass these and render
-  // unchanged.
-  final Widget? keyCaption;
-  final Widget? lockCaption;
-  // 2026-08-24: real feedback, live - a caller embedding this inside a
-  // scrollable ancestor (linking_screen.dart's Stage 1) needs to know
-  // when a drag is actually in progress, so it can defer its own scroll
-  // gesture for just that window instead of either fighting this
-  // widget's pan detector in the gesture arena, or disabling scrolling
-  // permanently (which caps how much vertical room the canvas can be
-  // given, defeating "drag anywhere"). Fires true on drag start, false
-  // once the drag ends (either settled or released without reaching the
-  // lock). Null by default - existing callers don't need it.
-  final ValueChanged<bool>? onDragActiveChanged;
-  // 2026-08-24: real feedback, live - "still not dragging all over the
-  // screen like the other coded version." The rest position
-  // (keyRestTop/lockTop) stays fixed near the canvas's own top always -
-  // that's deliberate (see the 2026-08-16 note on _pairRowTop: it used
-  // to be vertically centered, which put the pair "down near the
-  // bottom" of a tall canvas, a real bug fixed by anchoring near the
-  // top instead - centering again would bring that back). What can
-  // safely change without touching the rest position at all is how FAR
-  // the key is allowed to travel away from it - dragMargin extends
-  // _clamp's bounds by this many px in every direction, independent of
-  // the widget's own box size, so a caller can offer generous play room
-  // without the widget's box (and the space it reserves in the caller's
-  // layout) needing to grow to match. Requires Clip.none below since
-  // Stack defaults to clipping at its own bounds. 0 by default -
-  // existing callers get identical clamp behavior to before.
-  final double dragMargin;
-  // 2026-08-24: real feedback, live - "takes maybe 10 seconds for
-  // stage 2 to activate, should happen as soon as the laptop glows."
-  // _minRun exists to stop a genuinely fast real onConfirm from
-  // flashing past too quickly to register (see this file's own top
-  // comment) - it has no purpose when onConfirm is a real no-op, like
-  // linking_screen.dart's ceremonial Stage 1, since there's no real
-  // result being protected from flashing. Configurable now; default
-  // unchanged (2s) for callers with real async work.
-  final Duration minRun;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -93,15 +39,7 @@ class KeyPairingTrigger extends StatefulWidget {
     this.enabled = true,
     this.runningLabel = 'REGISTERING KEY…',
     this.leadingBadge,
-    this.resetAfterSettle = true,
-    this.keyCaption,
-    this.lockCaption,
-    this.onDragActiveChanged,
-    this.dragMargin = 0,
-    this.minRun = _defaultMinRun,
   });
-
-  static const _defaultMinRun = Duration(milliseconds: 2000);
 
   @override
   State<KeyPairingTrigger> createState() => _KeyPairingTriggerState();
@@ -156,6 +94,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   static const _verticalNudge = -10.5;
 
   static const _successRadius = 44.0; // generous - "not too difficult"
+  static const _minRun = Duration(milliseconds: 2000);
 
   late final AnimationController _snapCtrl;
   Offset _drag = Offset.zero; // offset from rest position
@@ -202,16 +141,12 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onStart(DragStartDetails d, double canvasWidth, double canvasHeight,
       double keyRestLeft, double keyRestTop) {
     if (_running || !widget.enabled) return;
-    // Already settled and staying put (resetAfterSettle: false) -
-    // gesture stays locked out permanently, same as while _running.
-    if (!widget.resetAfterSettle && _snapped) return;
     // 2026-08-16: "keyboard appears and now I can't see the phonekey
     // image at the bottom of the screen... unable to progress" -
     // dismiss the keyboard the moment a drag starts so the canvas always
     // has the full screen to work with, not just whatever's left above
     // the keyboard.
     FocusScope.of(context).unfocus();
-    widget.onDragActiveChanged?.call(true);
     setState(() {
       _dragging = true;
       _snapped = false;
@@ -231,7 +166,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // lock, no need to lift a finger precisely on target.
     if ((_drag - _target(canvasWidth, keyRestLeft)).distance <= _successRadius) {
       _dragging = false;
-      widget.onDragActiveChanged?.call(false);
       _snap(canvasWidth, keyRestLeft);
     }
   }
@@ -239,14 +173,13 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onEnd(DragEndDetails d) {
     if (!_dragging) return;
     _dragging = false;
-    widget.onDragActiveChanged?.call(false);
     _animateTo(Offset.zero);
   }
 
   Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft,
       double keyRestTop) {
-    final minDx = _edgePad - keyRestLeft - widget.dragMargin;
-    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft + widget.dragMargin;
+    final minDx = _edgePad - keyRestLeft;
+    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft;
     // 2026-08-16: "phonekey drag cannot go up" - real bug, not the same
     // one as before: this used -_pairRowTop (~20) instead of -keyRestTop
     // (~70, since the key's own rest row sits partway down the taller
@@ -254,11 +187,8 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // clamped after only ~20px of travel instead of reaching the actual
     // top of the canvas. Bounds are relative to the key's own rest
     // position, so they need the key's own rest top, not the pair row's.
-    // 2026-08-24: dragMargin extends these bounds further in every
-    // direction without moving keyRestTop itself - see the field's own
-    // doc comment for why the rest position can't just move instead.
-    final minDy = -keyRestTop - widget.dragMargin;
-    final maxDy = canvasHeight - _keyHeight - keyRestTop + widget.dragMargin;
+    final minDy = -keyRestTop;
+    final maxDy = canvasHeight - _keyHeight - keyRestTop;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
@@ -284,15 +214,13 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   Future<void> _startPairing() async {
     setState(() => _running = true);
-    await Future.wait([Future.delayed(widget.minRun), widget.onConfirm()]);
+    await Future.wait([Future.delayed(_minRun), widget.onConfirm()]);
     if (!mounted) return;
     setState(() {
       _running = false;
-      if (widget.resetAfterSettle) _snapped = false;
+      _snapped = false;
     });
-    if (widget.resetAfterSettle) {
-      await _animateTo(Offset.zero);
-    }
+    await _animateTo(Offset.zero);
     widget.onSettled?.call();
   }
 
@@ -313,11 +241,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
         height: canvasHeight,
         width: canvasWidth,
         child: Stack(
-          // 2026-08-24: Stack defaults to Clip.hardEdge - with
-          // dragMargin allowing the key to travel beyond this SizedBox's
-          // own bounds, hardEdge would just invisibly clip it there.
-          // Clip.none lets it actually paint past the box.
-          clipBehavior: Clip.none,
           // 2026-08-16: real device bug - "only moves a millimetre and
           // stops, only drags properly on 2nd attempt." Root cause: the
           // sparkle hint below is conditionally present/absent (gated on
@@ -394,22 +317,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 ),
               ),
             ),
-            if (widget.keyCaption != null)
-              Positioned(
-                key: const ValueKey('keyCaption'),
-                left: keyRestLeft,
-                top: keyRestTop + _keyHeight + 8,
-                width: _keyWidth,
-                child: widget.keyCaption!,
-              ),
-            if (widget.lockCaption != null)
-              Positioned(
-                key: const ValueKey('lockCaption'),
-                left: lockLeft,
-                top: lockTop + _lockHeight + 8,
-                width: _lockWidth,
-                child: widget.lockCaption!,
-              ),
             if (_running)
               Positioned(
                 key: const ValueKey('runningLabel'),
