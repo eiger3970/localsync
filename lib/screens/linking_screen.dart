@@ -250,6 +250,11 @@ class _IdleViewState extends State<_IdleView>
 
   @override
   Widget build(BuildContext context) {
+    // TEMP DIAGNOSTIC 2026-08-24 - remove once the stage-2-not-
+    // activating report is resolved. Confirms whether this exact
+    // State instance persists across rebuilds and what _paired
+    // actually is at build time.
+    debugPrint('[LS_DIAG] _IdleViewState#$hashCode build, _paired=$_paired');
     final ctrl = widget.ctrl;
     // 2026-08-11: "page 2 images are smaller than page 1, why?" - real
     // gap, not perception: page 1's icon size *is* the real content
@@ -447,10 +452,12 @@ class _IdleViewState extends State<_IdleView>
                     },
                     onLeave: (_) => setState(() => _keyDragHover = false),
                     onAcceptWithDetails: (_) {
+                      debugPrint('[LS_DIAG] _IdleViewState#$hashCode onAcceptWithDetails firing, setting _paired=true');
                       setState(() {
                         _keyDragHover = false;
                         _paired = true;
                       });
+                      debugPrint('[LS_DIAG] _IdleViewState#$hashCode after setState, _paired=$_paired');
                     },
                     builder: (context, candidate, rejected) => _DeviceGlyph(
                       svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
