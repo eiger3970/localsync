@@ -40,7 +40,19 @@ class PairingController extends ChangeNotifier {
     try {
       final publicKeyLine = await KeypairService().ensureKeypair();
 
-      final socket = await SSHSocket.connect(desktopIp, sshPort);
+      // 2026-08-24: real feedback, live - a genuinely unreachable
+      // desktop left "Pairing..." on screen for ~5 minutes before
+      // finally showing the connection-failed message. No timeout was
+      // passed here, so the wait was bounded only by the OS's own TCP
+      // connect timeout, not by anything this app controls. 15s is
+      // generous for a local-network connection (this only ever talks
+      // to a device on the same LAN, never over the open internet) while
+      // still failing fast enough to be usable.
+      final socket = await SSHSocket.connect(
+        desktopIp,
+        sshPort,
+        timeout: const Duration(seconds: 15),
+      );
       final client = SSHClient(
         socket,
         username: desktopUser,

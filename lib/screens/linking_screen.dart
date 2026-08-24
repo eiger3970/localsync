@@ -409,14 +409,25 @@ class _IdleViewState extends State<_IdleView>
                     width: glyphWidth,
                     child: Draggable<bool>(
                       data: true,
+                      // 2026-08-24: real feedback, live - "when I drag
+                      // the phonekey the text should stay put." The
+                      // static child/childWhenDragging below never move
+                      // (Draggable keeps its layout slot fixed - only
+                      // feedback tracks the pointer), so the label and
+                      // caption were only ever moving here, duplicated
+                      // into the floating feedback widget. Empty
+                      // label/caption keeps this the same _DeviceGlyph
+                      // (so icon sizing/padding/alignment math doesn't
+                      // drift from the static copy) with no visible text
+                      // riding along with the icon.
                       feedback: Material(
                         color: Colors.transparent,
                         child: Opacity(
                           opacity: 0.85,
                           child: _DeviceGlyph(
                             svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                            label: 'Your key',
-                            caption: 'drag to pair',
+                            label: '',
+                            caption: '',
                             accent: true,
                             width: glyphWidth,
                             iconSize: glyphIcon,
@@ -467,25 +478,64 @@ class _IdleViewState extends State<_IdleView>
                     padding: EdgeInsets.only(top: arrowTopOffset),
                     child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
                   ),
-                  DragTarget<bool>(
-                    onWillAcceptWithDetails: (_) {
-                      setState(() => _keyDragHover = true);
-                      return true;
-                    },
-                    onLeave: (_) => setState(() => _keyDragHover = false),
-                    onAcceptWithDetails: (_) {
-                      setState(() {
-                        _keyDragHover = false;
-                        _paired = true;
-                      });
-                    },
-                    builder: (context, candidate, rejected) => _DeviceGlyph(
-                      svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
-                      label: 'Your desktop',
-                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                      width: glyphWidth,
-                      iconSize: glyphIcon,
-                      hovering: _keyDragHover,
+                  // 2026-08-24: real feedback, live - "the key needs to
+                  // be in the hole, not just over parts of the laptop."
+                  // DragTarget used to wrap the full _DeviceGlyph
+                  // (icon+label+caption), so dropping anywhere over the
+                  // "Your desktop / user@ip" text below the icon counted
+                  // as a successful pair too. Hit-test area now covers
+                  // only the icon+glow slot (same box _DeviceGlyph
+                  // reserves internally, reproduced here); the label and
+                  // caption render as plain static text beneath it,
+                  // outside the target - same visual layout as before,
+                  // just no longer part of the drop zone. The hover glow
+                  // (PulsingGlow, already wired to _keyDragHover) is the
+                  // "getting close" magnetic-style cue.
+                  SizedBox(
+                    width: glyphWidth,
+                    child: Column(
+                      children: [
+                        DragTarget<bool>(
+                          onWillAcceptWithDetails: (_) {
+                            setState(() => _keyDragHover = true);
+                            return true;
+                          },
+                          onLeave: (_) => setState(() => _keyDragHover = false),
+                          onAcceptWithDetails: (_) {
+                            setState(() {
+                              _keyDragHover = false;
+                              _paired = true;
+                            });
+                          },
+                          builder: (context, candidate, rejected) => SizedBox(
+                            height: glyphIcon + 16,
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: PulsingGlow(
+                                active: _keyDragHover,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    'assets/pairing/pairing_laptop_lock.svg',
+                                    width: glyphIcon,
+                                    height: glyphIcon,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text('Your desktop',
+                            style: TextStyle(
+                                color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 4),
+                        Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                            style: TextStyle(color: kTextMid, fontSize: 14),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis),
+                      ],
                     ),
                   ),
                 ],
