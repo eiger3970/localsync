@@ -48,6 +48,24 @@ class KeyPairingTrigger extends StatefulWidget {
   final Widget? keyCaption;
   final Widget? lockCaption;
   final Duration minRun;
+  // 2026-08-24, round 13: real feedback, live - "doesn't drag up or
+  // over the whole screen. The previous version did until you reverted
+  // back to its previous version." Round 9 added this same dragMargin
+  // (dropped in round 10's full revert, not re-added in round 12 on the
+  // theory that a genuinely tall canvas would be enough on its own) -
+  // it wasn't: keyRestTop/lockTop anchor near a small FIXED offset from
+  // the canvas's own top regardless of the canvas's height (see
+  // _pairRowTop above), so a taller canvas only ever added more DOWNWARD
+  // room, never more upward room. dragMargin extends _clamp's bounds by
+  // this many px in every direction without moving the rest position
+  // itself. Re-added now on top of round 11's real fix (a genuinely
+  // bounded, non-scrolling canvas, not a small box inside a ScrollView)
+  // instead of the broken one round 9's copy was layered on - should
+  // actually deliver "drag anywhere" now instead of fighting a scroll
+  // gesture arena for it. Needs Clip.none below since Stack defaults to
+  // clipping at its own bounds. 0 by default - existing callers
+  // unaffected.
+  final double dragMargin;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -59,6 +77,7 @@ class KeyPairingTrigger extends StatefulWidget {
     this.keyCaption,
     this.lockCaption,
     this.minRun = _defaultMinRun,
+    this.dragMargin = 0,
   });
 
   static const _defaultMinRun = Duration(milliseconds: 2000);
@@ -202,8 +221,8 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft,
       double keyRestTop) {
-    final minDx = _edgePad - keyRestLeft;
-    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft;
+    final minDx = _edgePad - keyRestLeft - widget.dragMargin;
+    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft + widget.dragMargin;
     // 2026-08-16: "phonekey drag cannot go up" - real bug, not the same
     // one as before: this used -_pairRowTop (~20) instead of -keyRestTop
     // (~70, since the key's own rest row sits partway down the taller
@@ -211,8 +230,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // clamped after only ~20px of travel instead of reaching the actual
     // top of the canvas. Bounds are relative to the key's own rest
     // position, so they need the key's own rest top, not the pair row's.
-    final minDy = -keyRestTop;
-    final maxDy = canvasHeight - _keyHeight - keyRestTop;
+    // 2026-08-24: dragMargin extends these bounds further in every
+    // direction without moving keyRestTop itself - see the field's own
+    // doc comment for why the rest position can't just move instead.
+    final minDy = -keyRestTop - widget.dragMargin;
+    final maxDy = canvasHeight - _keyHeight - keyRestTop + widget.dragMargin;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
@@ -267,6 +289,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
         height: canvasHeight,
         width: canvasWidth,
         child: Stack(
+          // 2026-08-24: Stack defaults to Clip.hardEdge - with
+          // dragMargin allowing the key to travel beyond this SizedBox's
+          // own bounds, hardEdge would just invisibly clip it there.
+          // Clip.none lets it actually paint past the box.
+          clipBehavior: Clip.none,
           // 2026-08-16: real device bug - "only moves a millimetre and
           // stops, only drags properly on 2nd attempt." Root cause: the
           // sparkle hint below is conditionally present/absent (gated on

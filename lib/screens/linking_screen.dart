@@ -398,6 +398,14 @@ class _IdleViewState extends State<_IdleView>
           // broken one.
           resetAfterSettle: false,
           minRun: Duration.zero,
+          // 2026-08-24, round 13: real feedback, live - "doesn't drag up
+          // or over the whole screen. The previous version did until
+          // you reverted back to its previous version." Round 9's
+          // dragMargin, dropped in round 10's revert and not re-added in
+          // round 12 - re-added now on top of round 11's real full-
+          // screen-canvas fix instead of the broken small-box-in-
+          // ScrollView it was layered on before.
+          dragMargin: 200,
           keyCaption: Text('Your phone (has a key)',
               style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
