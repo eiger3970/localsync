@@ -32,6 +32,25 @@ class KeyPairingTrigger extends StatefulWidget {
   // so it can be pixel-aligned against the key/lock's actual rest row
   // instead of a guessed offset from outside.
   final Widget? leadingBadge;
+  // 2026-08-24: real feedback, live - LinkingScreen's ceremonial Stage 1
+  // (widgets/../screens/linking_screen.dart) keeps this widget on
+  // screen after settling instead of navigating away like every other
+  // caller does, so the existing "animate back to rest position" made
+  // it look like the key un-paired itself. Both existing call sites
+  // (PairingScreen, LinkingScreen's own diagnostics-retry flow) navigate
+  // away immediately in onSettled, so the reset was never visible there
+  // - default stays true for them; pass false to keep the key seated in
+  // the lock (and gesture locked out) once it settles.
+  final bool resetAfterSettle;
+  // 2026-08-24: real feedback, live - "the text below the phonekey and
+  // laptoplock are missing." Optional static captions, anchored to each
+  // glyph's own rest position (not the key's dragged position) so they
+  // never move or fade with drag/settle state - same reasoning as
+  // linking_screen.dart's own _glyphIcon split (text must stay put).
+  // Null by default - existing callers don't pass these and render
+  // unchanged.
+  final Widget? keyCaption;
+  final Widget? lockCaption;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -39,6 +58,9 @@ class KeyPairingTrigger extends StatefulWidget {
     this.enabled = true,
     this.runningLabel = 'REGISTERING KEY…',
     this.leadingBadge,
+    this.resetAfterSettle = true,
+    this.keyCaption,
+    this.lockCaption,
   });
 
   @override
@@ -141,6 +163,9 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onStart(DragStartDetails d, double canvasWidth, double canvasHeight,
       double keyRestLeft, double keyRestTop) {
     if (_running || !widget.enabled) return;
+    // Already settled and staying put (resetAfterSettle: false) -
+    // gesture stays locked out permanently, same as while _running.
+    if (!widget.resetAfterSettle && _snapped) return;
     // 2026-08-16: "keyboard appears and now I can't see the phonekey
     // image at the bottom of the screen... unable to progress" -
     // dismiss the keyboard the moment a drag starts so the canvas always
@@ -218,9 +243,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     if (!mounted) return;
     setState(() {
       _running = false;
-      _snapped = false;
+      if (widget.resetAfterSettle) _snapped = false;
     });
-    await _animateTo(Offset.zero);
+    if (widget.resetAfterSettle) {
+      await _animateTo(Offset.zero);
+    }
     widget.onSettled?.call();
   }
 
@@ -317,6 +344,22 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 ),
               ),
             ),
+            if (widget.keyCaption != null)
+              Positioned(
+                key: const ValueKey('keyCaption'),
+                left: keyRestLeft,
+                top: keyRestTop + _keyHeight + 8,
+                width: _keyWidth,
+                child: widget.keyCaption!,
+              ),
+            if (widget.lockCaption != null)
+              Positioned(
+                key: const ValueKey('lockCaption'),
+                left: lockLeft,
+                top: lockTop + _lockHeight + 8,
+                width: _lockWidth,
+                child: widget.lockCaption!,
+              ),
             if (_running)
               Positioned(
                 key: const ValueKey('runningLabel'),
