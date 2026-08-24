@@ -51,6 +51,16 @@ class KeyPairingTrigger extends StatefulWidget {
   // unchanged.
   final Widget? keyCaption;
   final Widget? lockCaption;
+  // 2026-08-24: real feedback, live - a caller embedding this inside a
+  // scrollable ancestor (linking_screen.dart's Stage 1) needs to know
+  // when a drag is actually in progress, so it can defer its own scroll
+  // gesture for just that window instead of either fighting this
+  // widget's pan detector in the gesture arena, or disabling scrolling
+  // permanently (which caps how much vertical room the canvas can be
+  // given, defeating "drag anywhere"). Fires true on drag start, false
+  // once the drag ends (either settled or released without reaching the
+  // lock). Null by default - existing callers don't need it.
+  final ValueChanged<bool>? onDragActiveChanged;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -61,6 +71,7 @@ class KeyPairingTrigger extends StatefulWidget {
     this.resetAfterSettle = true,
     this.keyCaption,
     this.lockCaption,
+    this.onDragActiveChanged,
   });
 
   @override
@@ -172,6 +183,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // has the full screen to work with, not just whatever's left above
     // the keyboard.
     FocusScope.of(context).unfocus();
+    widget.onDragActiveChanged?.call(true);
     setState(() {
       _dragging = true;
       _snapped = false;
@@ -191,6 +203,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // lock, no need to lift a finger precisely on target.
     if ((_drag - _target(canvasWidth, keyRestLeft)).distance <= _successRadius) {
       _dragging = false;
+      widget.onDragActiveChanged?.call(false);
       _snap(canvasWidth, keyRestLeft);
     }
   }
@@ -198,6 +211,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   void _onEnd(DragEndDetails d) {
     if (!_dragging) return;
     _dragging = false;
+    widget.onDragActiveChanged?.call(false);
     _animateTo(Offset.zero);
   }
 
