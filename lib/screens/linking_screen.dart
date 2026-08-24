@@ -392,7 +392,7 @@ class _IdleViewState extends State<_IdleView>
           // confirmed as actually new (vs. re-testing a stale install)
           // by eye, without guessing from behavior alone. Remove once
           // the phonekey/pairing fixes are confirmed live.
-          Text('build stamp 20260824-1430', style: TextStyle(color: kTextDim, fontSize: 9)),
+          Text('build stamp 20260824-1445', style: TextStyle(color: kTextDim, fontSize: 9)),
           const SizedBox(height: 14),
           if (_paired)
             Row(
@@ -412,71 +412,76 @@ class _IdleViewState extends State<_IdleView>
                 children: [
                   SizedBox(
                     width: glyphWidth,
-                    child: Draggable<bool>(
-                      data: true,
-                      // 2026-08-24: real feedback, live - "when I drag
-                      // the phonekey the text should stay put." The
-                      // static child/childWhenDragging below never move
-                      // (Draggable keeps its layout slot fixed - only
-                      // feedback tracks the pointer), so the label and
-                      // caption were only ever moving here, duplicated
-                      // into the floating feedback widget. Empty
-                      // label/caption keeps this the same _DeviceGlyph
-                      // (so icon sizing/padding/alignment math doesn't
-                      // drift from the static copy) with no visible text
-                      // riding along with the icon.
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: Opacity(
-                          opacity: 0.85,
-                          child: _DeviceGlyph(
-                            svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                            label: '',
-                            caption: '',
-                            accent: true,
-                            width: glyphWidth,
-                            iconSize: glyphIcon,
-                            svgSize: keyIconSize,
-                            iconTopPad: keyTopOffset,
+                    child: Column(
+                      children: [
+                        Draggable<bool>(
+                          data: true,
+                          // 2026-08-24: real feedback, live (round 2) -
+                          // "when I drag the phonekey the text should
+                          // stay put" persisted even after feedback's
+                          // text was emptied, because childWhenDragging
+                          // still wrapped the *whole* glyph (icon+label+
+                          // caption) in one Opacity(0.3) - the label
+                          // visibly dimmed in lockstep with the icon the
+                          // instant a drag started, which read as
+                          // "connected" even though position never
+                          // changed. Icon-only in all three
+                          // (feedback/childWhenDragging/child) now - the
+                          // label/caption below are a separate static
+                          // Text, untouched by drag state entirely.
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: Opacity(
+                              opacity: 0.85,
+                              child: _glyphIcon(
+                                svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                                boxSize: glyphIcon,
+                                renderSize: keyIconSize,
+                                topPad: keyTopOffset,
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: _glyphIcon(
+                              svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                              boxSize: glyphIcon,
+                              renderSize: keyIconSize,
+                              topPad: keyTopOffset,
+                            ),
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // 2026-08-24: "not enough sparkles... needs
+                              // to be all around" - swapped the two
+                              // hand-placed corner icons for the app's
+                              // own established SparkleBackground (same
+                              // widget stage 3's laptop glyph already
+                              // uses), scattered stars instead of two
+                              // fixed points.
+                              const Positioned.fill(child: SparkleBackground()),
+                              _glyphIcon(
+                                svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                                boxSize: glyphIcon,
+                                renderSize: keyIconSize,
+                                topPad: keyTopOffset,
+                                pulse: _pulseCtrl,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: _DeviceGlyph(
-                          svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                          label: 'Your key',
-                          caption: 'drag to pair',
-                          accent: true,
-                          width: glyphWidth,
-                          iconSize: glyphIcon,
-                          svgSize: keyIconSize,
-                          iconTopPad: keyTopOffset,
-                        ),
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // 2026-08-24: "not enough sparkles... needs to
-                          // be all around" - swapped the two hand-placed
-                          // corner icons for the app's own established
-                          // SparkleBackground (same widget stage 3's
-                          // laptop glyph already uses), scattered stars
-                          // instead of two fixed points.
-                          const Positioned.fill(child: SparkleBackground()),
-                          _DeviceGlyph(
-                            svgAsset: 'assets/pairing/pairing_phone_key.svg',
-                            label: 'Your key',
-                            caption: 'drag to pair',
-                            accent: true,
-                            width: glyphWidth,
-                            iconSize: glyphIcon,
-                            svgSize: keyIconSize,
-                            iconTopPad: keyTopOffset,
-                            pulse: _pulseCtrl,
-                          ),
-                        ],
-                      ),
+                        const SizedBox(height: 12),
+                        Text('Your key',
+                            style: TextStyle(
+                                color: kTextMid, fontSize: 15, fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center),
+                        const SizedBox(height: 4),
+                        Text('drag to pair',
+                            style: TextStyle(color: kTextMid, fontSize: 14),
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis),
+                      ],
                     ),
                   ),
                   Padding(
@@ -512,22 +517,11 @@ class _IdleViewState extends State<_IdleView>
                               _paired = true;
                             });
                           },
-                          builder: (context, candidate, rejected) => SizedBox(
-                            height: glyphIcon + 16,
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: PulsingGlow(
-                                active: _keyDragHover,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    'assets/pairing/pairing_laptop_lock.svg',
-                                    width: glyphIcon,
-                                    height: glyphIcon,
-                                  ),
-                                ),
-                              ),
-                            ),
+                          builder: (context, candidate, rejected) => _glyphIcon(
+                            svgAsset: 'assets/pairing/pairing_laptop_lock.svg',
+                            boxSize: glyphIcon,
+                            renderSize: glyphIcon,
+                            hovering: _keyDragHover,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -1947,6 +1941,48 @@ class _ScopeRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// 2026-08-24: real feedback, live - "when I drag the phonekey the text
+// should stay put" persisted even after feedback's label/caption were
+// emptied out, because childWhenDragging (the rest-position slot, shown
+// the instant a drag starts) still wrapped the *whole* _DeviceGlyph -
+// icon AND label AND caption - in a single Opacity(0.3), so the text
+// visibly dimmed in lockstep with the icon the moment a drag began, even
+// though its position never moved. That's the actual "connected"
+// feeling. Icon-only render, used by both the key (Draggable) and lock
+// (DragTarget) glyphs on the pairing row, so drag/hover state can be
+// applied to just the icon while the label/caption render separately as
+// plain static Text, never touched by any of it.
+Widget _glyphIcon({
+  required String svgAsset,
+  required double boxSize,
+  required double renderSize,
+  double topPad = 0,
+  bool hovering = false,
+  Animation<double>? pulse,
+}) {
+  Widget icon = SvgPicture.asset(svgAsset, width: renderSize, height: renderSize);
+  if (pulse != null) {
+    icon = AnimatedBuilder(
+      animation: pulse,
+      builder: (_, child) => Opacity(opacity: 0.6 + (pulse.value * 0.4), child: child),
+      child: icon,
+    );
+  }
+  return SizedBox(
+    height: boxSize + 16,
+    child: Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: EdgeInsets.only(top: topPad),
+        child: PulsingGlow(
+          active: hovering,
+          child: Padding(padding: const EdgeInsets.all(8), child: icon),
+        ),
+      ),
+    ),
+  );
 }
 
 class _DeviceGlyph extends StatelessWidget {
