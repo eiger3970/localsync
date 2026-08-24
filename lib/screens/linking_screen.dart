@@ -424,11 +424,22 @@ class _IdleViewState extends State<_IdleView>
     // welcome text and Stage 1's own header/canvas, both now shown once
     // already in that ceremony view, are dropped here rather than
     // repeated. Stage 2/3 below are otherwise untouched from round 10.
+    // 2026-08-24, round 14: real feedback, live - "2. DESKTOP PASSWORD
+    // is way too far below." mainAxisAlignment.center was tuned for
+    // this Column back when it also held the welcome text and Stage 1's
+    // own header/canvas (removed in round 11) - with only Stage 2/3
+    // left, centering the now-much-shorter content vertically within
+    // this SingleChildScrollView's viewport pushed "2. DESKTOP
+    // PASSWORD" well down from the top instead of starting there.
+    // MainAxisAlignment.start, and top padding trimmed from 32 to 16 to
+    // match - this is the first thing on screen now, it doesn't need as
+    // much breathing room above it as it did when other content came
+    // first.
     return SingleChildScrollView(
       child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           // Stage 2 of 3 - locked until stage 1 is done.
           IgnorePointer(

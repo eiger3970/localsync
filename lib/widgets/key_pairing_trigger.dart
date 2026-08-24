@@ -15,6 +15,8 @@
 // human users like to play and learn, and when the user drags over the
 // computer lock, success."
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
@@ -370,11 +372,24 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
                 ),
               ),
             ),
+            // 2026-08-24, round 14: real feedback, live - "Your phone
+            // (has a key) is not fixed at [the same] height [as]
+            // desktop's rapi5@172.20.10.2." Real bug: each caption used
+            // to sit right below its OWN icon's bottom edge, but the key
+            // (~68px tall, vertically centered against the taller lock)
+            // and the lock (~169px tall, flush to the canvas top) don't
+            // share a bottom edge at all - about 50px apart - so the two
+            // captions landed at very different heights. Both now anchor
+            // to the lower of the two (the lock's, since it's the taller
+            // one), same fix _DeviceGlyph itself already applied
+            // elsewhere in this app for the identical class of problem
+            // (see linking_screen.dart's own svgSize/iconTopPad, 2026-
+            // 08-24: "text needs to stay level between glyphs").
             if (widget.keyCaption != null)
               Positioned(
                 key: const ValueKey('keyCaption'),
                 left: keyRestLeft,
-                top: keyRestTop + _keyHeight + 8,
+                top: math.max(keyRestTop + _keyHeight, lockTop + _lockHeight) + 8,
                 width: _keyWidth,
                 child: widget.keyCaption!,
               ),
@@ -382,7 +397,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
               Positioned(
                 key: const ValueKey('lockCaption'),
                 left: lockLeft,
-                top: lockTop + _lockHeight + 8,
+                top: math.max(keyRestTop + _keyHeight, lockTop + _lockHeight) + 8,
                 width: _lockWidth,
                 child: widget.lockCaption!,
               ),
