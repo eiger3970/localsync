@@ -308,7 +308,24 @@ class _IdleViewState extends State<_IdleView>
     // screen. This one shrink-wraps its own content height correctly
     // (no ContentAboveDragCanvas measuring involved here), so it
     // doesn't repeat that specific historical bug.
+    // 2026-08-24: real feedback, live (round 6) - "Phonekey dragging
+    // won't drag up, just down or right and then up. The previous
+    // phonekey had much better drag anywhere movement." Root cause:
+    // KeyPairingTrigger's own pan gesture, nested inside this
+    // SingleChildScrollView, loses the gesture arena to the ScrollView's
+    // own vertical drag recognizer specifically when the very first
+    // movement is straight up - a well-known Flutter conflict for a raw
+    // pan detector under a scrollable ancestor (PairingScreen's
+    // KeyPairingTrigger, the "previous phonekey" being compared against,
+    // isn't wrapped in any ScrollView - see its own 2026-08-16 note
+    // about using a plain Column). Stage 1's own content (this welcome
+    // text/warnings + the canvas) never needs scrolling on any real
+    // screen size - only stage 2/3's password fields do, once the
+    // keyboard is involved - so scrolling is simply off while stage 1 is
+    // still active, removing the arena conflict entirely rather than
+    // fighting it.
     return SingleChildScrollView(
+      physics: _paired ? null : const NeverScrollableScrollPhysics(),
       child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
@@ -366,20 +383,6 @@ class _IdleViewState extends State<_IdleView>
           Text('1. PAIR YOUR DEVICE',
               style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
           const SizedBox(height: 14),
-          // 2026-08-24: real feedback, live (round 5) - "all the other
-          // text and workflow is messed up" after the round-4 swap to
-          // KeyPairingTrigger. Real regression: KeyPairingTrigger
-          // doesn't render any captions at all (by design - see its own
-          // file), so the "Your desktop / user@ip" identification this
-          // stage used to show was silently dropped along with the
-          // custom row it came from. Restored as a static line above
-          // the canvas, matching PairingScreen's own established
-          // pattern for the exact same widget ("Connect to user@ip",
-          // screens/pairing_screen.dart) instead of reinventing a third
-          // caption style.
-          Text('Connect to ${ctrl.desktopUser}@${ctrl.desktopIp}',
-              style: TextStyle(color: kStar, fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
           // 2026-08-24: real feedback, live (round 4) - "Stop
           // reinventing the wheel, just use the existing code for the
           // pairing page." Rounds 1-3 each hand-rolled a different,
@@ -393,10 +396,31 @@ class _IdleViewState extends State<_IdleView>
           // Ceremonial here too (onConfirm is a no-op, same as the
           // diagnostics-retry call site) - onSettled just reveals stage
           // 2, no "Paired" claim of any kind.
+          //
+          // 2026-08-24, round 6: "the text below the phonekey and
+          // laptoplock are missing" - restored via KeyPairingTrigger's
+          // new optional keyCaption/lockCaption (widgets/key_pairing_
+          // trigger.dart), which replaces round 5's single "Connect to
+          // user@ip" line above the canvas - that line is now redundant
+          // with the lock's own caption below it. "The phonekey dragged
+          // into the laptoplock leaves the laptop once 2. DESKTOP
+          // PASSWORD activates" - resetAfterSettle: false keeps the key
+          // seated in the lock (and un-draggable again) once it settles,
+          // instead of animating back out to its rest spot the instant
+          // stage 2 reveals. Canvas height bumped 240->300 to fit the
+          // captions below the lock without clipping.
           SizedBox(
-            height: 240,
+            height: 300,
             child: KeyPairingTrigger(
               runningLabel: 'CONNECTING…',
+              resetAfterSettle: false,
+              keyCaption: Text('Your phone (has a key)',
+                  style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
+              lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                  style: TextStyle(color: kTextMid, fontSize: 13),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis),
               onConfirm: () async {},
               onSettled: () => setState(() => _paired = true),
             ),
@@ -411,8 +435,25 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  Text('2. DESKTOP PASSWORD',
-                      style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  // 2026-08-24: real feedback, live (round 6) -
+                  // "Desktop password too many stars, just have on left
+                  // of Desktop password... text, inside and outside of
+                  // text field 1." SparkleBackground removed from inside
+                  // field 1 entirely (was two rounds of "more stars" /
+                  // "fewer stars" tuning that never actually satisfied
+                  // this) - a single static sparkle glyph to the left of
+                  // the heading text instead, not scattered decoration
+                  // on the field itself.
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, color: kGreen, size: 12),
+                      const SizedBox(width: 6),
+                      Text('2. DESKTOP PASSWORD',
+                          style: TextStyle(
+                              color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                    ],
+                  ),
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -427,39 +468,10 @@ class _IdleViewState extends State<_IdleView>
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-24: "all around so it's clear to attract
-                    // the user's eye" - SparkleBackground scattered
-                    // around the whole field, not one fixed icon. The
-                    // field itself is filled:true (opaque).
-                    // 2026-08-24, reverted: "remove the stars above and
-                    // below, just keep in the field" - dropped both
-                    // outside bands, keeping only the on-top inside
-                    // layer below.
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        ShreddingPasswordField(
-                          key: _shredKey1,
-                          controller: _passwordCtrl,
-                          enabled: !_pairing,
-                        ),
-                        // 2026-08-24: "stars inside and around field 1" -
-                        // a second layer painted *after* (on top of) the
-                        // field itself, since the field is filled:true
-                        // (opaque) and the outside-inset layer above
-                        // can't show through it. IgnorePointer so this
-                        // decorative layer doesn't block typing/taps.
-                        // Same left-only bias as the outside layer.
-                        const Positioned.fill(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.4,
-                              child: IgnorePointer(child: SparkleBackground()),
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: ShreddingPasswordField(
+                      key: _shredKey1,
+                      controller: _passwordCtrl,
+                      enabled: !_pairing,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -487,20 +499,35 @@ class _IdleViewState extends State<_IdleView>
                       ),
                     ),
                   ),
-                  if (_confirmCtrl.text.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_passwordsMatch ? Icons.check_circle : Icons.cancel,
-                            color: _passwordsMatch ? kGreen : Colors.amber, size: 16),
-                        const SizedBox(width: 6),
-                        Text(_passwordsMatch ? 'Passwords match' : 'Passwords should match',
-                            style: TextStyle(
-                                color: _passwordsMatch ? kGreen : Colors.amber, fontSize: 12)),
-                      ],
-                    ),
-                  ],
+                  // 2026-08-24: real feedback, live (round 6) -
+                  // "Passwords match/should match text is too jump
+                  // scare, have the text smooth transition into
+                  // appearance." This block used to only exist in the
+                  // tree at all once the confirm field was non-empty (a
+                  // hard insert, not a fade) - AnimatedSwitcher cross-
+                  // fades between nothing and the real row instead of
+                  // popping it in instantly.
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _confirmCtrl.text.isEmpty
+                        ? const SizedBox.shrink(key: ValueKey('matchEmpty'))
+                        : Padding(
+                            key: const ValueKey('matchRow'),
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(_passwordsMatch ? Icons.check_circle : Icons.cancel,
+                                    color: _passwordsMatch ? kGreen : Colors.amber, size: 16),
+                                const SizedBox(width: 6),
+                                Text(_passwordsMatch ? 'Passwords match' : 'Passwords should match',
+                                    style: TextStyle(
+                                        color: _passwordsMatch ? kGreen : Colors.amber,
+                                        fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                  ),
                   if (_pairingFailure != null) ...[
                     const SizedBox(height: 16),
                     Padding(
