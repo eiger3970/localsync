@@ -273,6 +273,31 @@ class _IdleViewState extends State<_IdleView>
         ((screenWidth - rowPadding * 2 - arrowWidth - iconBoxOverhead * 2) / 2)
             .clamp(70.0, 180.0);
     final glyphWidth = glyphIcon + iconBoxOverhead;
+    // 2026-08-24: "phone key is too large, needs to be an exact fit
+    // into the laptop lock" - the phone-key SVG's own viewBox is much
+    // wider/flatter (145x90) than the laptop-lock's (260x250, near
+    // square), so at the same iconSize the key was reading as visually
+    // bigger, not like a small key fitting a bigger lock. Icon only
+    // shrinks - the slot width (glyphWidth) stays the same so row
+    // spacing/alignment with the laptop glyph doesn't shift.
+    // Measured against the laptop-lock SVG's actual keyway cutout path
+    // (the <g> at the bottom of pairing_laptop_lock.svg): its bounding
+    // box is ~98x48 SVG units inside a 260x250 viewBox, i.e. roughly
+    // 0.38 x 0.18 of the rendered glyph box. Sized a bit under that so
+    // the key visibly fits inside the keyway rather than matching it
+    // edge-to-edge.
+    final keyIconSize = glyphIcon * 0.25;
+    // 2026-08-24, revised: "top right of the key at the same height as
+    // the laptop lock's top left hole" - top-edge alignment, not
+    // centre alignment. The keyway cutout's own top edge (read directly
+    // from pairing_laptop_lock.svg's <path> - topmost point is
+    // "M129,79" inside a <g transform="translate(572.91,47.8)
+    // scale(0.779)">, so viewBox-space y = 47.8 + 79*0.779 = 109.34)
+    // sits (109.34-15)/250 = 37.7% down the laptop glyph's rendered
+    // height (viewBox top is y=15, height 250). Laptop's rendered
+    // height is glyphIcon*(250/260) since 260 (width) is the
+    // constraining dimension under BoxFit.contain in a square box.
+    final keyTopOffset = glyphIcon * (250 / 260) * 0.377;
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess
@@ -383,6 +408,8 @@ class _IdleViewState extends State<_IdleView>
                             accent: true,
                             width: glyphWidth,
                             iconSize: glyphIcon,
+                            svgSize: keyIconSize,
+                            iconTopPad: keyTopOffset,
                           ),
                         ),
                       ),
@@ -395,11 +422,20 @@ class _IdleViewState extends State<_IdleView>
                           accent: true,
                           width: glyphWidth,
                           iconSize: glyphIcon,
+                          svgSize: keyIconSize,
+                          iconTopPad: keyTopOffset,
                         ),
                       ),
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
+                          // 2026-08-24: "not enough sparkles... needs to
+                          // be all around" - swapped the two hand-placed
+                          // corner icons for the app's own established
+                          // SparkleBackground (same widget stage 3's
+                          // laptop glyph already uses), scattered stars
+                          // instead of two fixed points.
+                          const Positioned.fill(child: SparkleBackground()),
                           _DeviceGlyph(
                             svgAsset: 'assets/pairing/pairing_phone_key.svg',
                             label: 'Your key',
@@ -407,35 +443,9 @@ class _IdleViewState extends State<_IdleView>
                             accent: true,
                             width: glyphWidth,
                             iconSize: glyphIcon,
+                            svgSize: keyIconSize,
+                            iconTopPad: keyTopOffset,
                             pulse: _pulseCtrl,
-                          ),
-                          // 2026-08-24: "magic stars to show user this is
-                          // actionable" - sparkle badges signal the key
-                          // glyph is draggable, twinned to the same pulse
-                          // as the icon so they twinkle together.
-                          Positioned(
-                            top: 0,
-                            right: glyphWidth * 0.18,
-                            child: AnimatedBuilder(
-                              animation: _pulseCtrl,
-                              builder: (_, child) => Opacity(
-                                opacity: 0.5 + (_pulseCtrl.value * 0.5),
-                                child: child,
-                              ),
-                              child: Icon(Icons.auto_awesome, color: kGreen, size: 16),
-                            ),
-                          ),
-                          Positioned(
-                            top: 14,
-                            left: glyphWidth * 0.06,
-                            child: AnimatedBuilder(
-                              animation: _pulseCtrl,
-                              builder: (_, child) => Opacity(
-                                opacity: 1.0 - (_pulseCtrl.value * 0.5),
-                                child: child,
-                              ),
-                              child: Icon(Icons.auto_awesome, color: kStar, size: 10),
-                            ),
                           ),
                         ],
                       ),
@@ -481,26 +491,8 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  // 2026-08-24: same "actionable" sparkle cue as the key
-                  // glyph, now on stage 2's header once it activates
-                  // (_paired) so the twinkle language is consistent
-                  // across every stage that just unlocked.
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('2. DESKTOP PASSWORD',
-                          style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                      const SizedBox(width: 6),
-                      AnimatedBuilder(
-                        animation: _pulseCtrl,
-                        builder: (_, child) => Opacity(
-                          opacity: 0.5 + (_pulseCtrl.value * 0.5),
-                          child: child,
-                        ),
-                        child: Icon(Icons.auto_awesome, color: kGreen, size: 13),
-                      ),
-                    ],
-                  ),
+                  Text('2. DESKTOP PASSWORD',
+                      style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -515,28 +507,88 @@ class _IdleViewState extends State<_IdleView>
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: ShreddingPasswordField(
-                      key: _shredKey1,
-                      controller: _passwordCtrl,
-                      enabled: !_pairing,
-                      // 2026-08-24: "where the user needs to look and
-                      // action" - moved from a top-right overlay to
-                      // sitting right next to the "Desktop password…"
-                      // hint text itself, same twinkle as the key glyph
-                      // and stage 2 header.
-                      prefixIcon: AnimatedBuilder(
-                        animation: _pulseCtrl,
-                        builder: (_, child) => Opacity(
-                          opacity: 0.5 + (_pulseCtrl.value * 0.5),
-                          child: child,
+                    // 2026-08-24: "all around so it's clear to attract
+                    // the user's eye" - SparkleBackground scattered
+                    // around the whole field, not one fixed icon. The
+                    // field itself is filled:true (opaque), so the
+                    // sparkle layer is inset *outward* past the field's
+                    // edges - directly behind it would just be hidden.
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 2026-08-24, follow-up: 14px wasn't enough -
+                        // SparkleBackground spreads its 12 points evenly
+                        // across the whole given box, so on a short/wide
+                        // field most Y-positions still land behind the
+                        // opaque field itself. 30px clears enough margin
+                        // for the top/bottom points to actually show.
+                        //
+                        // 2026-08-24, second follow-up: "more stars to
+                        // left where user will type, less to the right"
+                        // - SparkleBackground always spreads its fixed
+                        // 12 points across whatever box it's given, so
+                        // biasing means constraining that box to the
+                        // left portion only, not the full field width.
+                        //
+                        // 2026-08-24, third follow-up: "only at height
+                        // of text, need more higher and lower" - a
+                        // single tall box straddling the field still put
+                        // most of its 12 fixed Y-points inside the
+                        // field's own opaque span, not the exposed
+                        // margin. Two separate bands, sized to exactly
+                        // the margin height and never overlapping the
+                        // field, guarantee every point lands above or
+                        // below - none at text height.
+                        const Positioned(
+                          top: -40, left: -14, right: -14, height: 40,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.4,
+                              child: SparkleBackground(),
+                            ),
+                          ),
                         ),
-                        child: Icon(Icons.auto_awesome, color: kGreen, size: 16),
-                      ),
+                        const Positioned(
+                          bottom: -40, left: -14, right: -14, height: 40,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.4,
+                              child: SparkleBackground(),
+                            ),
+                          ),
+                        ),
+                        ShreddingPasswordField(
+                          key: _shredKey1,
+                          controller: _passwordCtrl,
+                          enabled: !_pairing,
+                        ),
+                        // 2026-08-24: "stars inside and around field 1" -
+                        // a second layer painted *after* (on top of) the
+                        // field itself, since the field is filled:true
+                        // (opaque) and the outside-inset layer above
+                        // can't show through it. IgnorePointer so this
+                        // decorative layer doesn't block typing/taps.
+                        // Same left-only bias as the outside layer.
+                        const Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.4,
+                              child: IgnorePointer(child: SparkleBackground()),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
+                    // 2026-08-24: sparkles are field 1 only, not the
+                    // confirm field - reverted here per explicit
+                    // clarification after briefly adding it to both.
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
@@ -1891,6 +1943,16 @@ class _DeviceGlyph extends StatelessWidget {
   final double iconSize;
   final Animation<double>? pulse;
   final bool hovering;
+  // 2026-08-24: "text needs to stay level between glyphs" - iconSize
+  // used to drive both the actual rendered SVG size AND the reserved
+  // slot height above the label, so shrinking one glyph's icon (the
+  // phone-key, to fit its lock) also pulled its label up out of line
+  // with the other glyph's label. svgSize/iconTopPad let the *rendered*
+  // icon be smaller and offset within a slot that's still iconSize
+  // tall, so label position stays identical across differently-sized
+  // icons.
+  final double? svgSize;
+  final double iconTopPad;
   const _DeviceGlyph({
     this.icon,
     this.svgAsset,
@@ -1901,6 +1963,8 @@ class _DeviceGlyph extends StatelessWidget {
     this.iconSize = 56,
     this.pulse,
     this.hovering = false,
+    this.svgSize,
+    this.iconTopPad = 0,
   }) : assert(icon != null || svgAsset != null,
             'must provide either icon or svgAsset');
 
@@ -1928,9 +1992,10 @@ class _DeviceGlyph extends StatelessWidget {
     // the key seats, so the two "something just connected" moments in
     // the app read as the same effect.
     final color = accent ? kGreen : kTextDim;
+    final renderSize = svgSize ?? iconSize;
     Widget iconWidget = svgAsset != null
-        ? SvgPicture.asset(svgAsset!, width: iconSize, height: iconSize)
-        : Icon(icon, size: iconSize, color: color);
+        ? SvgPicture.asset(svgAsset!, width: renderSize, height: renderSize)
+        : Icon(icon, size: renderSize, color: color);
     if (pulse != null) {
       iconWidget = AnimatedBuilder(
         animation: pulse!,
@@ -1945,11 +2010,20 @@ class _DeviceGlyph extends StatelessWidget {
       width: width,
       child: Column(
         children: [
-          PulsingGlow(
-            active: hovering,
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: iconWidget,
+          SizedBox(
+            height: iconSize + 16,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: EdgeInsets.only(top: iconTopPad),
+                child: PulsingGlow(
+                  active: hovering,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: iconWidget,
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
