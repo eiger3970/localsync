@@ -471,6 +471,18 @@ class _IdleViewState extends State<_IdleView>
               child: KeyPairingTrigger(
                 runningLabel: 'CONNECTING…',
                 resetAfterSettle: false,
+                // 2026-08-24, round 9: real feedback, live - "still not
+                // dragging all over the screen" + "takes maybe 10
+                // seconds for stage 2 to activate, should happen as
+                // soon as the laptop glows." dragMargin extends how far
+                // the key can travel in every direction (see its own
+                // doc comment on KeyPairingTrigger) without moving the
+                // rest position or growing this box - generous, not
+                // literally infinite. minRun: zero because onConfirm
+                // below is a genuine no-op - the 2s floor that widget
+                // uses for real async work has nothing to protect here.
+                dragMargin: 160,
+                minRun: Duration.zero,
                 keyCaption: Text('Your phone (has a key)',
                     style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center),
