@@ -209,15 +209,13 @@ class _IdleViewState extends State<_IdleView>
   // KeyPairingTrigger directly, the same widget PairingScreen and this
   // file's own diagnostics-retry flow already use successfully.
   bool _paired = false;
-  // 2026-08-24: real feedback, live (round 7) - "the previous phonekey
-  // drag would drag all over the screen which is perfect for humans
-  // that like to play." Round 6's fix for the drag-up bug (disabling
-  // scroll for the whole of stage 1) traded that off against a small,
-  // fixed-height canvas - fine for the bug, wrong for "drag anywhere."
-  // KeyPairingTrigger's new onDragActiveChanged (widgets/key_pairing_
-  // trigger.dart) narrows the fix to just the moment a drag is actually
-  // happening, so the canvas below can be much bigger without needing
-  // scroll disabled the rest of the time.
+  // 2026-08-24, round 8: real feedback, live - true while a finger is
+  // down anywhere on the pairing canvas below, driven by a Listener's
+  // raw onPointerDown/Up (not KeyPairingTrigger's onDragActiveChanged -
+  // see the round-8 note at the canvas itself for why that wasn't
+  // enough on its own). Disables this screen's own ScrollView for just
+  // that window so it can't win the gesture arena against the canvas's
+  // pan detector in any drag direction, including straight up.
   bool _keyDragActive = false;
 
   @override
@@ -421,28 +419,68 @@ class _IdleViewState extends State<_IdleView>
           // instead of animating back out to its rest spot the instant
           // stage 2 reveals.
           //
-          // 2026-08-24, round 7: "the previous phonekey drag would drag
-          // all over the screen" - canvas height is now most of the
-          // screen's own height (55%, clamped to a sane range) instead
-          // of a small fixed box, matching that "drag anywhere" feel;
-          // onDragActiveChanged drives _keyDragActive above so the
-          // ScrollView only steps aside for the actual drag window, not
-          // permanently.
-          SizedBox(
-            height: (MediaQuery.of(context).size.height * 0.55).clamp(340.0, 560.0),
-            child: KeyPairingTrigger(
-              runningLabel: 'CONNECTING…',
-              resetAfterSettle: false,
-              onDragActiveChanged: (active) => setState(() => _keyDragActive = active),
-              keyCaption: Text('Your phone (has a key)',
-                  style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center),
-              lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-                  style: TextStyle(color: kTextMid, fontSize: 13),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis),
-              onConfirm: () async {},
-              onSettled: () => setState(() => _paired = true),
+          // 2026-08-24, round 7 (superseded by round 8 below): tried
+          // driving the scroll lock from KeyPairingTrigger's
+          // onDragActiveChanged, fired from its own onPanStart. Real bug
+          // found this round: onPanStart only fires once the pan
+          // recognizer has already WON the gesture arena against the
+          // ScrollView's own vertical drag recognizer - for a drag that
+          // starts by moving straight up, the ScrollView can win that
+          // arena BEFORE onPanStart ever fires, so onDragActiveChanged
+          // never fires either and scroll was never actually disabled in
+          // time. That's exactly "won't drag up, just down or right and
+          // then up" - down/right-first movements are unambiguous enough
+          // that the pan recognizer wins immediately, up-first movements
+          // are exactly the ambiguous case a ScrollView can win instead.
+          //
+          // 2026-08-24, round 8: real feedback, live - "drag doesn't go
+          // up" persisted, plus round 7's taller canvas (55% of screen
+          // height) created "a large black space below the laptop area"
+          // and forced scrolling ~half a screen to reach stage 2. Two
+          // separate fixes:
+          //
+          // 1. Scroll lock now driven by a Listener's onPointerDown/Up,
+          // not KeyPairingTrigger's gesture callback - Listener sees raw
+          // pointer events before gesture arena resolution happens at
+          // all, so scrolling is off the instant a finger touches this
+          // area, regardless of which direction it then moves in. This
+          // is the actual fix for the up-drag bug; onDragActiveChanged
+          // is kept on KeyPairingTrigger itself (still useful, just not
+          // sufficient alone) but no longer what drives _keyDragActive.
+          //
+          // 2. Canvas height reverted close to round 6's 300 (not
+          // touched apart from a small bump for the restored captions).
+          // KeyPairingTrigger anchors its icon pair near a small FIXED
+          // offset from the canvas's own top (_pairRowTop, independent
+          // of canvasHeight) in every one of its call sites, including
+          // PairingScreen - a taller canvas only ever added unused space
+          // below, not more usable drag room in the direction that was
+          // actually capped (up, ~70px, same fixed limit PairingScreen
+          // has always had - untested there since nobody dragged it that
+          // hard). True symmetric "drag anywhere" would need
+          // KeyPairingTrigger's own vertical anchoring changed to center
+          // in the given height instead - not done here since that
+          // affects its other two call sites' established layout too;
+          // flagged to the user rather than changed blind.
+          Listener(
+            onPointerDown: (_) => setState(() => _keyDragActive = true),
+            onPointerUp: (_) => setState(() => _keyDragActive = false),
+            onPointerCancel: (_) => setState(() => _keyDragActive = false),
+            child: SizedBox(
+              height: 320,
+              child: KeyPairingTrigger(
+                runningLabel: 'CONNECTING…',
+                resetAfterSettle: false,
+                keyCaption: Text('Your phone (has a key)',
+                    style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center),
+                lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                    style: TextStyle(color: kTextMid, fontSize: 13),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis),
+                onConfirm: () async {},
+                onSettled: () => setState(() => _paired = true),
+              ),
             ),
           ),
           const SizedBox(height: 32),
