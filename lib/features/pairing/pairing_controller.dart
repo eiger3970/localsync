@@ -89,17 +89,34 @@ class PairingController extends ChangeNotifier {
   // 2026-08-19: was defaulting anything unmatched to connectionRefused -
   // same misdiagnosis class fixed in git_service.dart's _diagnose() the
   // same day. See LinkingError.unclassifiedError.
+  //
+  // 2026-08-24: real bug, live - a deliberately wrong (but matching)
+  // password showed "Cannot reach your desktop on the network" instead
+  // of the correct "retype your password" message. Root cause traced
+  // into dartssh2's own source (ssh_client.dart): a server that closes
+  // the connection immediately after one failed password attempt
+  // (common real-world SSH behavior, not a misconfiguration) throws
+  // SSHAuthAbortError('Connection closed before authentication', ...)
+  // - a message this function never checked for at all. It also
+  // wouldn't have matched the old 'Authentication' check even if it
+  // had, since that word appears lowercase there ("before
+  // authentication"), not capitalized. Auth-related checks now run
+  // first (a "connection closed" message is still fundamentally an
+  // auth problem, not a network-reachability one) and match
+  // case-insensitively.
   LinkingError _diagnose(Object e) {
     final msg = e.toString();
+    final lower = msg.toLowerCase();
+    if (msg.contains('SSHAuthFailError') ||
+        msg.contains('SSHAuthAbortError') ||
+        lower.contains('authentication') ||
+        lower.contains('password')) {
+      return LinkingError.pairingPasswordRejected;
+    }
     if (msg.contains('Connection refused') ||
         msg.contains('No route to host') ||
         msg.contains('timed out')) {
       return LinkingError.connectionRefused;
-    }
-    if (msg.contains('Authentication') ||
-        msg.contains('SSHAuthFailError') ||
-        msg.contains('password')) {
-      return LinkingError.pairingPasswordRejected;
     }
     return LinkingError.unclassifiedError;
   }

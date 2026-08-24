@@ -275,24 +275,12 @@ class _IdleViewState extends State<_IdleView>
     // bigger, not like a small key fitting a bigger lock. Icon only
     // shrinks - the slot width (glyphWidth) stays the same so row
     // spacing/alignment with the laptop glyph doesn't shift.
-    // Measured against the laptop-lock SVG's actual keyway cutout path
-    // (the <g> at the bottom of pairing_laptop_lock.svg): its bounding
-    // box is ~98x48 SVG units inside a 260x250 viewBox, i.e. roughly
-    // 0.38 x 0.18 of the rendered glyph box. Sized a bit under that so
-    // the key visibly fits inside the keyway rather than matching it
-    // edge-to-edge.
-    final keyIconSize = glyphIcon * 0.25;
-    // 2026-08-24, revised: "top right of the key at the same height as
-    // the laptop lock's top left hole" - top-edge alignment, not
-    // centre alignment. The keyway cutout's own top edge (read directly
-    // from pairing_laptop_lock.svg's <path> - topmost point is
-    // "M129,79" inside a <g transform="translate(572.91,47.8)
-    // scale(0.779)">, so viewBox-space y = 47.8 + 79*0.779 = 109.34)
-    // sits (109.34-15)/250 = 37.7% down the laptop glyph's rendered
-    // height (viewBox top is y=15, height 250). Laptop's rendered
-    // height is glyphIcon*(250/260) since 260 (width) is the
-    // constraining dimension under BoxFit.contain in a square box.
-    final keyTopOffset = glyphIcon * (250 / 260) * 0.377;
+    // 2026-08-24, reverted: "phonekey is too small, should be the same
+    // size as the laptop lock" - the fit-inside-the-keyway sizing was
+    // wrong direction. Same size, same top alignment as the laptop
+    // glyph - no shrink, no offset.
+    final keyIconSize = glyphIcon;
+    const keyTopOffset = 0.0;
     // Arrow's own icon (26px) centred against the glyph's icon box
     // (iconSize + 6px padding + 2px border on each side), not the
     // glyph's full height (icon+label+caption) - a fixed 14px guess
@@ -503,55 +491,14 @@ class _IdleViewState extends State<_IdleView>
                     // 2026-08-24: "all around so it's clear to attract
                     // the user's eye" - SparkleBackground scattered
                     // around the whole field, not one fixed icon. The
-                    // field itself is filled:true (opaque), so the
-                    // sparkle layer is inset *outward* past the field's
-                    // edges - directly behind it would just be hidden.
+                    // field itself is filled:true (opaque).
+                    // 2026-08-24, reverted: "remove the stars above and
+                    // below, just keep in the field" - dropped both
+                    // outside bands, keeping only the on-top inside
+                    // layer below.
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // 2026-08-24, follow-up: 14px wasn't enough -
-                        // SparkleBackground spreads its 12 points evenly
-                        // across the whole given box, so on a short/wide
-                        // field most Y-positions still land behind the
-                        // opaque field itself. 30px clears enough margin
-                        // for the top/bottom points to actually show.
-                        //
-                        // 2026-08-24, second follow-up: "more stars to
-                        // left where user will type, less to the right"
-                        // - SparkleBackground always spreads its fixed
-                        // 12 points across whatever box it's given, so
-                        // biasing means constraining that box to the
-                        // left portion only, not the full field width.
-                        //
-                        // 2026-08-24, third follow-up: "only at height
-                        // of text, need more higher and lower" - a
-                        // single tall box straddling the field still put
-                        // most of its 12 fixed Y-points inside the
-                        // field's own opaque span, not the exposed
-                        // margin. Two separate bands, sized to exactly
-                        // the margin height and never overlapping the
-                        // field, guarantee every point lands above or
-                        // below - none at text height.
-                        const Positioned(
-                          top: -40, left: -14, right: -14, height: 40,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.4,
-                              child: SparkleBackground(),
-                            ),
-                          ),
-                        ),
-                        const Positioned(
-                          bottom: -40, left: -14, right: -14, height: 40,
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: 0.4,
-                              child: SparkleBackground(),
-                            ),
-                          ),
-                        ),
                         ShreddingPasswordField(
                           key: _shredKey1,
                           controller: _passwordCtrl,
