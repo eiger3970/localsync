@@ -209,6 +209,16 @@ class _IdleViewState extends State<_IdleView>
   // KeyPairingTrigger directly, the same widget PairingScreen and this
   // file's own diagnostics-retry flow already use successfully.
   bool _paired = false;
+  // 2026-08-24: real feedback, live (round 7) - "the previous phonekey
+  // drag would drag all over the screen which is perfect for humans
+  // that like to play." Round 6's fix for the drag-up bug (disabling
+  // scroll for the whole of stage 1) traded that off against a small,
+  // fixed-height canvas - fine for the bug, wrong for "drag anywhere."
+  // KeyPairingTrigger's new onDragActiveChanged (widgets/key_pairing_
+  // trigger.dart) narrows the fix to just the moment a drag is actually
+  // happening, so the canvas below can be much bigger without needing
+  // scroll disabled the rest of the time.
+  bool _keyDragActive = false;
 
   @override
   void initState() {
@@ -309,23 +319,25 @@ class _IdleViewState extends State<_IdleView>
     // (no ContentAboveDragCanvas measuring involved here), so it
     // doesn't repeat that specific historical bug.
     // 2026-08-24: real feedback, live (round 6) - "Phonekey dragging
-    // won't drag up, just down or right and then up. The previous
-    // phonekey had much better drag anywhere movement." Root cause:
+    // won't drag up, just down or right and then up." Root cause:
     // KeyPairingTrigger's own pan gesture, nested inside this
     // SingleChildScrollView, loses the gesture arena to the ScrollView's
     // own vertical drag recognizer specifically when the very first
     // movement is straight up - a well-known Flutter conflict for a raw
     // pan detector under a scrollable ancestor (PairingScreen's
-    // KeyPairingTrigger, the "previous phonekey" being compared against,
-    // isn't wrapped in any ScrollView - see its own 2026-08-16 note
-    // about using a plain Column). Stage 1's own content (this welcome
-    // text/warnings + the canvas) never needs scrolling on any real
-    // screen size - only stage 2/3's password fields do, once the
-    // keyboard is involved - so scrolling is simply off while stage 1 is
-    // still active, removing the arena conflict entirely rather than
-    // fighting it.
+    // KeyPairingTrigger isn't wrapped in any ScrollView - see its own
+    // 2026-08-16 note about using a plain Column).
+    // 2026-08-24, round 7: round 6 disabled scrolling for the whole of
+    // stage 1 to fix this, which also capped the canvas to a small fixed
+    // height - "the previous phonekey drag would drag all over the
+    // screen which is perfect for humans that like to play." Narrowed
+    // to only the moment a drag is actually in progress
+    // (_keyDragActive, driven by KeyPairingTrigger's new
+    // onDragActiveChanged below) - scroll is only off for that window,
+    // not all of stage 1, so the canvas can be much bigger the rest of
+    // the time without reintroducing the arena conflict.
     return SingleChildScrollView(
-      physics: _paired ? null : const NeverScrollableScrollPhysics(),
+      physics: _keyDragActive ? const NeverScrollableScrollPhysics() : null,
       child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
@@ -407,13 +419,21 @@ class _IdleViewState extends State<_IdleView>
           // PASSWORD activates" - resetAfterSettle: false keeps the key
           // seated in the lock (and un-draggable again) once it settles,
           // instead of animating back out to its rest spot the instant
-          // stage 2 reveals. Canvas height bumped 240->300 to fit the
-          // captions below the lock without clipping.
+          // stage 2 reveals.
+          //
+          // 2026-08-24, round 7: "the previous phonekey drag would drag
+          // all over the screen" - canvas height is now most of the
+          // screen's own height (55%, clamped to a sane range) instead
+          // of a small fixed box, matching that "drag anywhere" feel;
+          // onDragActiveChanged drives _keyDragActive above so the
+          // ScrollView only steps aside for the actual drag window, not
+          // permanently.
           SizedBox(
-            height: 300,
+            height: (MediaQuery.of(context).size.height * 0.55).clamp(340.0, 560.0),
             child: KeyPairingTrigger(
               runningLabel: 'CONNECTING…',
               resetAfterSettle: false,
+              onDragActiveChanged: (active) => setState(() => _keyDragActive = active),
               keyCaption: Text('Your phone (has a key)',
                   style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center),

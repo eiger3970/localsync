@@ -189,8 +189,16 @@ extension LinkingErrorDetails on LinkingError {
         // wrong network), not a rejected connection - a real, different
         // thing. Reworded to cover all four honestly instead of naming
         // the one specific condition that doesn't always apply.
+        // 2026-08-24: real feedback, live - explicit direction to
+        // reverse the 2026-08-23 removal below: on this user's real
+        // desktop, a wrong password attempt surfaces here, not as
+        // pairingPasswordRejected - the SSH server's behavior on a
+        // failed auth attempt isn't uniform (some close the connection
+        // in a way dartssh2 reports identically to a real network
+        // failure, some don't), so this diagnosis can genuinely mean
+        // either. Worded to cover both instead of asserting only one.
         LinkingError.connectionRefused =>
-          'Cannot reach your desktop on the network.',
+          'Cannot reach your desktop on the network, or your desktop is refusing the connection.',
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
@@ -248,17 +256,23 @@ extension LinkingErrorDetails on LinkingError {
         // in monospace so they read as commands, not prose (see its
         // own 2026-08-23 note).
         // 2026-08-23: "re-enter password" step added then removed same
-        // day - real device test (deliberately wrong password) proved
-        // it doesn't belong here: connectionRefused is a network-layer
-        // failure that happens before SSH ever gets to check a
-        // password at all, so this genuinely isn't the fix for it. The
-        // correct automated wrong-password handling already exists,
-        // correctly, under LinkingError.sshAuthFailed below - a
-        // separate error, separate screen, separate real fix text.
-        LinkingError.connectionRefused => '1. Check your desktop is awake\n'
-            '2. Connect phone to desktop - hotspot or USB tether\n'
-            '3. On desktop: `sudo systemctl status ssh`\n'
-            '4. On desktop: `ip addr show` - verify IP matches what is set in this app',
+        // day - a real device test that day showed a deliberately wrong
+        // password surfacing as pairingPasswordRejected instead, so it
+        // seemed to genuinely not apply here.
+        // 2026-08-24: reversed on explicit, direct instruction - real
+        // testing this time showed the exact opposite: a wrong password
+        // landing on THIS error, not pairingPasswordRejected. SSH
+        // servers don't all behave identically on a failed auth attempt
+        // (see the diagnosis text above) - re-entering the password is
+        // back as step 1, ahead of the pure network checks, since that's
+        // what actually resolved it in practice.
+        LinkingError.connectionRefused =>
+          '1. Re-enter your desktop password - a mistyped password can '
+              'surface as this error on some networks\n'
+              '2. Check your desktop is awake\n'
+              '3. Connect phone to desktop - hotspot or USB tether\n'
+              '4. On desktop: `sudo systemctl status ssh`\n'
+              '5. On desktop: `ip addr show` - verify IP matches what is set in this app',
         LinkingError.sshAuthFailed =>
           'Tap PAIR NOW below and enter your desktop login password once - '
               'this installs your phone\'s key in ~/.ssh/authorized_keys on the desktop.\n'
