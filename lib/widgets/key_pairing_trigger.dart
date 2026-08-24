@@ -61,6 +61,31 @@ class KeyPairingTrigger extends StatefulWidget {
   // once the drag ends (either settled or released without reaching the
   // lock). Null by default - existing callers don't need it.
   final ValueChanged<bool>? onDragActiveChanged;
+  // 2026-08-24: real feedback, live - "still not dragging all over the
+  // screen like the other coded version." The rest position
+  // (keyRestTop/lockTop) stays fixed near the canvas's own top always -
+  // that's deliberate (see the 2026-08-16 note on _pairRowTop: it used
+  // to be vertically centered, which put the pair "down near the
+  // bottom" of a tall canvas, a real bug fixed by anchoring near the
+  // top instead - centering again would bring that back). What can
+  // safely change without touching the rest position at all is how FAR
+  // the key is allowed to travel away from it - dragMargin extends
+  // _clamp's bounds by this many px in every direction, independent of
+  // the widget's own box size, so a caller can offer generous play room
+  // without the widget's box (and the space it reserves in the caller's
+  // layout) needing to grow to match. Requires Clip.none below since
+  // Stack defaults to clipping at its own bounds. 0 by default -
+  // existing callers get identical clamp behavior to before.
+  final double dragMargin;
+  // 2026-08-24: real feedback, live - "takes maybe 10 seconds for
+  // stage 2 to activate, should happen as soon as the laptop glows."
+  // _minRun exists to stop a genuinely fast real onConfirm from
+  // flashing past too quickly to register (see this file's own top
+  // comment) - it has no purpose when onConfirm is a real no-op, like
+  // linking_screen.dart's ceremonial Stage 1, since there's no real
+  // result being protected from flashing. Configurable now; default
+  // unchanged (2s) for callers with real async work.
+  final Duration minRun;
   const KeyPairingTrigger({
     super.key,
     required this.onConfirm,
@@ -72,7 +97,11 @@ class KeyPairingTrigger extends StatefulWidget {
     this.keyCaption,
     this.lockCaption,
     this.onDragActiveChanged,
+    this.dragMargin = 0,
+    this.minRun = _defaultMinRun,
   });
+
+  static const _defaultMinRun = Duration(milliseconds: 2000);
 
   @override
   State<KeyPairingTrigger> createState() => _KeyPairingTriggerState();
@@ -127,7 +156,6 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
   static const _verticalNudge = -10.5;
 
   static const _successRadius = 44.0; // generous - "not too difficult"
-  static const _minRun = Duration(milliseconds: 2000);
 
   late final AnimationController _snapCtrl;
   Offset _drag = Offset.zero; // offset from rest position
@@ -217,8 +245,8 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   Offset _clamp(Offset o, double canvasWidth, double canvasHeight, double keyRestLeft,
       double keyRestTop) {
-    final minDx = _edgePad - keyRestLeft;
-    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft;
+    final minDx = _edgePad - keyRestLeft - widget.dragMargin;
+    final maxDx = canvasWidth - _keyWidth - _edgePad - keyRestLeft + widget.dragMargin;
     // 2026-08-16: "phonekey drag cannot go up" - real bug, not the same
     // one as before: this used -_pairRowTop (~20) instead of -keyRestTop
     // (~70, since the key's own rest row sits partway down the taller
@@ -226,8 +254,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
     // clamped after only ~20px of travel instead of reaching the actual
     // top of the canvas. Bounds are relative to the key's own rest
     // position, so they need the key's own rest top, not the pair row's.
-    final minDy = -keyRestTop;
-    final maxDy = canvasHeight - _keyHeight - keyRestTop;
+    // 2026-08-24: dragMargin extends these bounds further in every
+    // direction without moving keyRestTop itself - see the field's own
+    // doc comment for why the rest position can't just move instead.
+    final minDy = -keyRestTop - widget.dragMargin;
+    final maxDy = canvasHeight - _keyHeight - keyRestTop + widget.dragMargin;
     return Offset(o.dx.clamp(minDx, maxDx), o.dy.clamp(minDy, maxDy));
   }
 
@@ -253,7 +284,7 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
 
   Future<void> _startPairing() async {
     setState(() => _running = true);
-    await Future.wait([Future.delayed(_minRun), widget.onConfirm()]);
+    await Future.wait([Future.delayed(widget.minRun), widget.onConfirm()]);
     if (!mounted) return;
     setState(() {
       _running = false;
@@ -282,6 +313,11 @@ class _KeyPairingTriggerState extends State<KeyPairingTrigger>
         height: canvasHeight,
         width: canvasWidth,
         child: Stack(
+          // 2026-08-24: Stack defaults to Clip.hardEdge - with
+          // dragMargin allowing the key to travel beyond this SizedBox's
+          // own bounds, hardEdge would just invisibly clip it there.
+          // Clip.none lets it actually paint past the box.
+          clipBehavior: Clip.none,
           // 2026-08-16: real device bug - "only moves a millimetre and
           // stops, only drags properly on 2nd attempt." Root cause: the
           // sparkle hint below is conditionally present/absent (gated on
