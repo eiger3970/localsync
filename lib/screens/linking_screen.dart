@@ -388,6 +388,11 @@ class _IdleViewState extends State<_IdleView>
           // purely ceremonial (no backend call), gates stage 2.
           Text('1. PAIR YOUR DEVICE',
               style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+          // 2026-08-24 TEMP: build-identity stamp so a sideload can be
+          // confirmed as actually new (vs. re-testing a stale install)
+          // by eye, without guessing from behavior alone. Remove once
+          // the phonekey/pairing fixes are confirmed live.
+          Text('build stamp 20260824-1430', style: TextStyle(color: kTextDim, fontSize: 9)),
           const SizedBox(height: 14),
           if (_paired)
             Row(
