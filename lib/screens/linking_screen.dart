@@ -431,11 +431,31 @@ class _IdleViewState extends State<_IdleView>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('2. DESKTOP PASSWORD',
-                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                // 2026-08-25: real feedback, live - "sections 2 and 3
+                // missing the images." The real Step 2 heading (further
+                // down, once paired) leads with Icons.auto_awesome; this
+                // dimmed preview was bare text only. Matched here, and
+                // gave Step 3 a matching folder icon for the same
+                // consistency even though its own real heading has none.
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, color: kGreen, size: 12),
+                    const SizedBox(width: 6),
+                    Text('2. DESKTOP PASSWORD',
+                        style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                Text('3. SET UP VAULT',
-                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.folder_outlined, color: kGreen, size: 12),
+                    const SizedBox(width: 6),
+                    Text('3. SET UP VAULT',
+                        style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                  ],
+                ),
               ],
             ),
           ),
