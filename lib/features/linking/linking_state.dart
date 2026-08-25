@@ -207,8 +207,10 @@ extension LinkingErrorDetails on LinkingError {
         // the password), same as every other multi-step resolution in
         // this switch already covers more than one possible fix without
         // the diagnosis line itself hedging.
+        // 2026-08-25: real feedback, live - reworded per direct
+        // request, same underlying meaning.
         LinkingError.connectionRefused =>
-          'Could not complete the connection to your desktop.',
+          'Connection to desktop cannot complete.',
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
@@ -283,7 +285,7 @@ extension LinkingErrorDetails on LinkingError {
         // issue might land here is redundant - the raw error answers
         // that directly instead of asserting it in prose.
         LinkingError.connectionRefused =>
-          '1. Re-enter your desktop password\n'
+          '1. Re-enter your desktop password and test\n'
               '2. Check your desktop is awake\n'
               '3. Connect phone to desktop - hotspot or USB tether\n'
               '4. On desktop: `sudo systemctl status ssh`\n'
@@ -361,9 +363,8 @@ extension LinkingErrorDetails on LinkingError {
           'This can happen if the folder was moved, renamed, or deleted after you picked it.\n'
               'Tap TRY AGAIN and tap the vault folder again.\n'
               'Nothing on your desktop or in the folder itself is affected.',
-        LinkingError.vaultPickerFailed =>
-          'Tap TRY AGAIN.\n'
-              'If this keeps happening, force-closing and reopening Localsync may help.',
+        LinkingError.vaultPickerFailed => 'Tap TRY AGAIN.\n'
+            'If this keeps happening, force-closing and reopening Localsync may help.',
         LinkingError.unclassifiedError =>
           'Check the RAW ERROR section below for what actually happened.\n'
               'Tap TRY AGAIN - most causes here are one-off, not a real network or pairing problem.',

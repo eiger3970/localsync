@@ -185,6 +185,14 @@ class _IdleViewState extends State<_IdleView>
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
+  // 2026-08-25: real feedback, live - "can phone detect password
+  // re-entered? If yes, then just show this 1 step and other steps
+  // appear on 2nd password failure." Counts consecutive failed
+  // attempts, not resolved on this screen alone - _pairThenLink() below
+  // increments it on every failure. Only step 1 ("re-enter your
+  // password") shows on the first failure; the rest of the resolution
+  // list only appears once a retry has also failed.
+  int _pairAttempts = 0;
 
   bool get _passwordsMatch =>
       _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
@@ -253,6 +261,7 @@ class _IdleViewState extends State<_IdleView>
       setState(() {
         _pairing = false;
         _pairingFailure = result;
+        _pairAttempts++;
       });
       return;
     }
@@ -546,9 +555,15 @@ class _IdleViewState extends State<_IdleView>
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-25: real feedback, live - "verbose, kiss."
+                    // 2026-08-25: real feedback, live - "verbose, kiss"
+                    // led to this being too ambiguous - "never stored"
+                    // read as if it meant the key itself, when it's
+                    // specifically the password that's never stored (the
+                    // public key IS stored, on the desktop, by design -
+                    // that's how the SSH pairing works at all).
                     child: Text(
-                      'Installs your phone\'s key over SSH. Never stored.',
+                      'Your phone\'s public key is stored on the desktop. '
+                      'Your password never is.',
                       style:
                           TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
                       textAlign: TextAlign.center,
@@ -658,7 +673,18 @@ class _IdleViewState extends State<_IdleView>
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: DiagCard(
                         label: 'HOW TO FIX IT',
-                        text: _pairingFailure!.resolution,
+                        // 2026-08-25: real feedback, live - "can phone
+                        // detect password re-entered? If yes, then just
+                        // show this 1 step and other steps appear on 2nd
+                        // password failure." It can (_pairAttempts,
+                        // incremented in _pairThenLink() on every
+                        // failure) - first failure shows only step 1;
+                        // the rest of the list only appears once a retry
+                        // has also failed, instead of dumping all 5
+                        // steps on a simple mistyped password.
+                        text: _pairAttempts <= 1
+                            ? _pairingFailure!.resolution.split('\n').first
+                            : _pairingFailure!.resolution,
                         accent: kGreen,
                         icon: Icons.lightbulb_outline,
                         bulleted: true,
