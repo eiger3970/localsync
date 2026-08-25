@@ -350,9 +350,17 @@ class _IdleViewState extends State<_IdleView>
       // bottom via ContentAboveDragCanvas's own bottomPinned slot. Still
       // no ScrollView anywhere in this branch - the drag gesture keeps
       // the same non-scrolling ancestor round 11 fixed it with.
+      //
+      // 2026-08-25, real bug found live - "they're now above section 1."
+      // Flexible gives loose constraints; ContentAboveDragCanvas is a
+      // Stack with only Positioned children, which collapses to zero
+      // height (and clips its content away) under loose constraints.
+      // Expanded keeps it tight instead - still clamped to 420 by the
+      // ConstrainedBox below, still shrinks safely on short screens, but
+      // never collapses.
       return Column(
         children: [
-          Flexible(
+          Expanded(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 420),
               child: ContentAboveDragCanvas(
