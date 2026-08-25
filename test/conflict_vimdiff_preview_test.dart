@@ -67,6 +67,19 @@ void main() {
         matchesGoldenFile('goldens/conflict_vimdiff_$label.png'),
       );
     }
+    // 2026-08-25: also capture the confirm dialog, for the visual guide
+    // - triggered by tapping a panel. Doesn't touch vault access at all
+    // (that's _choose(), only called after confirming), so it's safe to
+    // actually tap in this stubbed-repo test.
+    tester.view.physicalSize = const Size(1170, 2532);
+    await tester.pump();
+    await tester.tap(find.byType(InkWell).at(1));
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/conflict_vimdiff_confirm_dialog.png'),
+    );
+
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
