@@ -14,10 +14,20 @@ import '../theme.dart';
 class ShreddingPasswordField extends StatefulWidget {
   final TextEditingController controller;
   final bool enabled;
+  // 2026-08-25: real feedback, live - "stars should only be on the left
+  // of the text... left of the D." A prefixIcon is the real Flutter
+  // mechanism for "icon to the left of the field's text" - Positioned
+  // hacks with SparkleBackground (built for open backgrounds, scatters
+  // 12 fixed positions across whatever width it's given) were fighting
+  // the field's own layout instead of using it. Caller-controlled, not
+  // always-on - "field 2 have stars once field1 has typing started" -
+  // field 1 passes true always, field 2 passes a reactive condition.
+  final bool showSparkle;
   const ShreddingPasswordField({
     super.key,
     required this.controller,
     this.enabled = true,
+    this.showSparkle = false,
   });
 
   @override
@@ -55,8 +65,11 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     if (text.isEmpty || _shredding) return;
     _shreddedText = text;
     _drift = List.generate(
-        text.length, (_) => Offset(_rand.nextDouble() * 50 - 25, 30 + _rand.nextDouble() * 26));
-    _rotation = List.generate(text.length, (_) => (_rand.nextDouble() * 140 - 70) * pi / 180);
+        text.length,
+        (_) =>
+            Offset(_rand.nextDouble() * 50 - 25, 30 + _rand.nextDouble() * 26));
+    _rotation = List.generate(
+        text.length, (_) => (_rand.nextDouble() * 140 - 70) * pi / 180);
     _delay = List.generate(text.length, (i) => i / text.length * 0.35);
     setState(() => _shredding = true);
     await _ctrl.forward(from: 0);
@@ -92,6 +105,9 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             decoration: InputDecoration(
               hintText: 'Desktop password…',
               hintStyle: TextStyle(color: kTextMid, fontSize: 14),
+              prefixIcon: widget.showSparkle
+                  ? Icon(Icons.auto_awesome, color: kGreen, size: 16)
+                  : null,
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => _obscure = !_obscure),
@@ -105,10 +121,12 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
               child: AnimatedBuilder(
                 animation: _ctrl,
                 builder: (_, __) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   child: Wrap(
                     children: List.generate(_shreddedText.length, (i) {
-                      final t = ((_ctrl.value - _delay[i]) / (1 - _delay[i])).clamp(0.0, 1.0);
+                      final t = ((_ctrl.value - _delay[i]) / (1 - _delay[i]))
+                          .clamp(0.0, 1.0);
                       return Transform.translate(
                         offset: _drift[i] * t,
                         child: Transform.rotate(
