@@ -46,30 +46,30 @@ jobs:
       - name: Get Flutter packages
         run: flutter pub get
 
-      - name: Install CocoaPods (retry on CDN trunk rate-limit)
-        # 2026-08-25: pod install has no committed Podfile.lock to pin
-        # against, so every run does a full dependency resolution -
-        # jsdelivr's CocoaPods CDN falls back to raw.githubusercontent.com
-        # on a cache miss, and that fallback gets 429 rate-limited under
-        # GitHub Actions' shared runner IP pool almost every run (real
-        # failure seen 3 runs straight, same exact podspec URL each time).
-        # Retrying the whole job doesn't reliably help since the burst of
-        # requests re-triggers the same limit - retrying just this step
-        # with a real delay gives jsdelivr's cache a chance to have
-        # populated the missing spec in the meantime.
+      - name: Build iOS archive
+        # 2026-08-25: no committed Podfile.lock means pod install (run
+        # internally by flutter build ipa, after it generates the local
+        # Flutter.podspec/Generated.xcconfig - a standalone `pod install`
+        # pre-step run before that setup breaks on "could not find
+        # compatible versions for pod Flutter", tried and reverted) does
+        # a full dependency resolution every run. jsdelivr's CocoaPods
+        # CDN falls back to raw.githubusercontent.com on a cache miss,
+        # and that fallback gets 429 rate-limited under GitHub Actions'
+        # shared runner IP pool almost every run (real failure seen 3
+        # runs straight, same exact podspec URL each time). Retrying the
+        # whole build command with a real delay between attempts gives
+        # jsdelivr's cache a chance to have populated the missing spec.
         run: |
-          cd ios
+          set -o pipefail
           for i in 1 2 3 4 5; do
-            pod install && exit 0
-            echo "pod install failed (attempt $i/5), waiting 45s before retry..."
+            flutter build ipa --release --no-codesign --verbose 2>&1 | tee /tmp/build_verbose.log && break
+            if [ $i -eq 5 ]; then
+              echo "flutter build ipa failed after 5 attempts"
+              exit 1
+            fi
+            echo "flutter build ipa failed (attempt $i/5), waiting 45s before retry..."
             sleep 45
           done
-          echo "pod install failed after 5 attempts"
-          exit 1
-
-      - name: Build iOS archive
-        run: |
-          flutter build ipa --release --no-codesign --verbose 2>&1 | tee /tmp/build_verbose.log
           mkdir -p build/ios/ipa
           cd build/ios/archive
           mkdir -p Payload
