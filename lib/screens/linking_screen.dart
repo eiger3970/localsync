@@ -580,11 +580,33 @@ class _IdleViewState extends State<_IdleView>
                     // ShreddingPasswordField's own prefixIcon, the real
                     // Flutter way to put an icon to the left of a field's
                     // text - no manual positioning needed.
-                    child: ShreddingPasswordField(
-                      key: _shredKey1,
-                      controller: _passwordCtrl,
-                      enabled: !_pairing,
-                      showSparkle: true,
+                    //
+                    // 2026-08-25, follow-up: "more stars ... inside and
+                    // outside the password field" - the inside cluster
+                    // lives in ShreddingPasswordField's own prefixIcon
+                    // now (see its 2026-08-25 history); this outer Stack
+                    // adds a second small star spilling past the field's
+                    // own left border, field 1 only, same clipBehavior:
+                    // Clip.none precedent as _SkinSwatch's badge overflow
+                    // in settings_screen.dart.
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        ShreddingPasswordField(
+                          key: _shredKey1,
+                          controller: _passwordCtrl,
+                          enabled: !_pairing,
+                          showSparkle: true,
+                        ),
+                        Positioned(
+                          left: -10,
+                          top: 14,
+                          child: IgnorePointer(
+                            child: Icon(Icons.auto_awesome,
+                                color: kGreen, size: 12),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -684,12 +706,10 @@ class _IdleViewState extends State<_IdleView>
                     // this screen. Added here to match the same pattern
                     // both other failure displays already use.
                     const SizedBox(height: 12),
-                    // 2026-08-25, real feedback, live - two real, distinct
-                    // messages this time, not a progressive reveal of the
-                    // same list: "Password wrong 1st attempt: Re-enter
-                    // your desktop password - used once, never stored.
-                    // Password wrong 2nd attempt: Re-enter your desktop
-                    // password with care and use the eye to read it."
+                    // 2026-08-25, real feedback, live, full 10-attempt
+                    // list provided directly (was 2 messages before this
+                    // pass): each attempt gets its own distinct line, not
+                    // a repeated/progressive reveal of the same text.
                     // Scoped to connectionRefused specifically - this is
                     // the ambiguous "could be a mistyped password, could
                     // be network" error this whole exchange has been
@@ -698,6 +718,8 @@ class _IdleViewState extends State<_IdleView>
                     // own resolution text unconditionally, unaffected -
                     // those already have their own specific, correct
                     // guidance and were never part of this complaint.
+                    // Attempt 11+ repeats message 10 (list clamped) -
+                    // there's nowhere further to escalate to.
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Builder(builder: (context) {
@@ -711,13 +733,28 @@ class _IdleViewState extends State<_IdleView>
                             bulleted: true,
                           );
                         }
+                        const messages = [
+                          'Re-enter your desktop password - used once, '
+                              'never stored.',
+                          'Re-enter your desktop password with care and '
+                              'use the eye to read it.',
+                          'Uninstall and reinstall the app.',
+                          'Seriously? Re-enter your password.',
+                          'Are you even trying?',
+                          'Nope, What the?????',
+                          'Yo mama!!!!!',
+                          "I'm not even kidding, take yo time, you are "
+                              'loved :-)',
+                          'Contact us or your psychiatrist and send your '
+                              'Bitcoin to steamyice42@walletofsatoshi.com.',
+                          "We'll send you Bitcoin, provide your Wallet "
+                              'of Satoshi address.',
+                        ];
+                        final index =
+                            (_pairAttempts - 1).clamp(0, messages.length - 1);
                         return DiagCard(
                           label: 'HOW TO FIX IT',
-                          text: _pairAttempts <= 1
-                              ? 'Re-enter your desktop password - used '
-                                  'once, never stored.'
-                              : 'Re-enter your desktop password with '
-                                  'care and use the eye to read it.',
+                          text: messages[index],
                           accent: kGreen,
                           icon: Icons.lightbulb_outline,
                         );

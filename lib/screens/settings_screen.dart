@@ -722,12 +722,20 @@ class _SkinSwatch extends StatelessWidget {
                         ),
                 ),
                 const SizedBox(height: 8),
-                Text(palette.label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: selected ? palette.accent : palette.star,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600)),
+                // 2026-08-25: real bug - "Monochrome" showed as
+                // "Monochrom", the longest label in a fixed 84px-wide
+                // swatch (see the Wrap below) clipping by a hair rather
+                // than wrapping or shrinking. FittedBox scales the text
+                // down to fit instead of letting it clip.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(palette.label,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: selected ? palette.accent : palette.star,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                ),
                 if (selected) ...[
                   const SizedBox(height: 3),
                   Icon(Icons.check, color: palette.accent, size: 12),

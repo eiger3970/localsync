@@ -105,8 +105,27 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             decoration: InputDecoration(
               hintText: 'Desktop password…',
               hintStyle: TextStyle(color: kTextMid, fontSize: 14),
+              // 2026-08-25: "stars need more stars" - a single icon read
+              // as too sparse. A small cluster (2 sizes, slight offset)
+              // reads as sparkle rather than one static glyph, still via
+              // prefixIcon so it stays left-of-text with no manual
+              // positioning.
               prefixIcon: widget.showSparkle
-                  ? Icon(Icons.auto_awesome, color: kGreen, size: 16)
+                  ? SizedBox(
+                      width: 28,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(Icons.auto_awesome, color: kGreen, size: 16),
+                          Positioned(
+                            left: 14,
+                            top: -2,
+                            child:
+                                Icon(Icons.auto_awesome, color: kGreen, size: 10),
+                          ),
+                        ],
+                      ),
+                    )
                   : null,
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
