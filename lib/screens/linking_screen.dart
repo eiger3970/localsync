@@ -545,7 +545,36 @@ class _IdleViewState extends State<_IdleView>
                       enabled: !_pairing,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 6),
+                  // 2026-08-25: real feedback, live - "quick copy to
+                  // paste the password into field 2, easier than
+                  // highlight/copy/long-press/paste." Only shown once
+                  // field 1 has something to copy and field 2 doesn't
+                  // already match it - no point cluttering the row once
+                  // it's done.
+                  if (_passwordCtrl.text.isNotEmpty && !_passwordsMatch)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: GestureDetector(
+                          onTap: () => _confirmCtrl.text = _passwordCtrl.text,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.copy_rounded, color: kGreen, size: 14),
+                              const SizedBox(width: 4),
+                              Text('Copy to confirm',
+                                  style: TextStyle(
+                                      color: kGreen,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 6),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     // 2026-08-24: sparkles are field 1 only, not the
