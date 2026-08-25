@@ -435,9 +435,14 @@ class _IdleViewState extends State<_IdleView>
     // match - this is the first thing on screen now, it doesn't need as
     // much breathing room above it as it did when other content came
     // first.
+    //
+    // 2026-08-25: real feedback, live - still an unnecessary gap above
+    // "2. DESKTOP PASSWORD" at 16. Trimmed to 0 - the AppBar and
+    // progress bar above already give this enough separation from the
+    // top of the screen.
     return SingleChildScrollView(
       child: Padding(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 32),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
