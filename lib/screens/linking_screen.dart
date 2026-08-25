@@ -504,7 +504,39 @@ class _IdleViewState extends State<_IdleView>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Stage 2 of 3 - locked until stage 1 is done.
+          // 2026-08-25: real feedback, live - "2. DESKTOP PASSWORD and
+          // 3. SET UP VAULT not to be dimmed, to always show normal
+          // text. The other features of sections 2 and 3 will activate
+          // as the previous section is completed successfully." Heading
+          // pulled out of the IgnorePointer/AnimatedOpacity wrapper -
+          // always full color/opacity now, a fixed step marker rather
+          // than something that itself looks locked. Everything below
+          // it (description, fields) keeps the existing dim-until-
+          // unlocked treatment unchanged.
+          // 2026-08-24: real feedback, live (round 6) -
+          // "Desktop password too many stars, just have on left
+          // of Desktop password... text, inside and outside of
+          // text field 1." SparkleBackground removed from inside
+          // field 1 entirely (was two rounds of "more stars" /
+          // "fewer stars" tuning that never actually satisfied
+          // this) - a single static sparkle glyph to the left of
+          // the heading text instead, not scattered decoration
+          // on the field itself.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.auto_awesome, color: kGreen, size: 12),
+              const SizedBox(width: 6),
+              Text('2. DESKTOP PASSWORD',
+                  style: TextStyle(
+                      color: kGreen,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Stage 2 body - locked until stage 1 is done.
           IgnorePointer(
             ignoring: !_paired,
             child: AnimatedOpacity(
@@ -512,29 +544,6 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  // 2026-08-24: real feedback, live (round 6) -
-                  // "Desktop password too many stars, just have on left
-                  // of Desktop password... text, inside and outside of
-                  // text field 1." SparkleBackground removed from inside
-                  // field 1 entirely (was two rounds of "more stars" /
-                  // "fewer stars" tuning that never actually satisfied
-                  // this) - a single static sparkle glyph to the left of
-                  // the heading text instead, not scattered decoration
-                  // on the field itself.
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome, color: kGreen, size: 12),
-                      const SizedBox(width: 6),
-                      Text('2. DESKTOP PASSWORD',
-                          style: TextStyle(
-                              color: kGreen,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5)),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     // 2026-08-25: real feedback, live - "verbose, kiss."
@@ -662,7 +671,16 @@ class _IdleViewState extends State<_IdleView>
           ),
           const SizedBox(height: 32),
 
-          // Stage 3 of 3 - locked until passwords match.
+          // Heading always full color/opacity - same fix as Stage 2's
+          // heading above.
+          Text('3. SET UP VAULT',
+              style: TextStyle(
+                  color: kGreen,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 14),
+          // Stage 3 body - locked until passwords match.
           IgnorePointer(
             ignoring: !(_paired && _passwordsMatch),
             child: AnimatedOpacity(
@@ -670,13 +688,6 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  Text('3. SET UP VAULT',
-                      style: TextStyle(
-                          color: kGreen,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5)),
-                  const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: rowPadding),
                     child: Row(
