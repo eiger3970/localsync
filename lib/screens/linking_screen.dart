@@ -362,7 +362,7 @@ class _IdleViewState extends State<_IdleView>
         children: [
           Expanded(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 420),
+              constraints: const BoxConstraints(maxHeight: 300),
               child: ContentAboveDragCanvas(
                 content: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
