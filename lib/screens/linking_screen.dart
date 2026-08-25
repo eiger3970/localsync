@@ -416,6 +416,12 @@ class _IdleViewState extends State<_IdleView>
           onConfirm: () async {},
           onSettled: () => setState(() => _paired = true),
         ),
+        // 2026-08-25: dimmed Step 2/3 headers (bottomPinned) tried and
+        // reverted same day - "no, before was better." Shrinking the
+        // canvas to make room for them cut into the full drag range
+        // ("dragging was all over the screen and there was no gap"
+        // before), which is worse than not showing the headers at all.
+        // Back to full-screen canvas, nothing pinned below it.
       );
     }
 
