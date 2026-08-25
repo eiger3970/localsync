@@ -64,7 +64,14 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // (home_screen.dart), so a real network drift no longer needs a
       // code edit and rebuild to fix. Re-verified against `ip -4 addr
       // show` at time of writing (phone was on hotspot/WiFi, wlan0).
-      desktopIp:      '172.20.10.2',
+      //
+      // 2026-08-25: real bug, live - Settings is only reachable from
+      // home_screen.dart, which requires pairing to succeed first, so a
+      // fresh sideload with nothing saved yet has no way to correct this
+      // fallback if it's stale. It was stale (172.20.10.2), desktop's
+      // real IP is 172.20.10.11 (eth1, hotspot-tethered) - re-verified
+      // via `ip -4 addr show eth1` at time of writing.
+      desktopIp:      '172.20.10.11',
       // 2026-08-20: real production repo, replacing Working Copy - the
       // conflict-resolution concern that held this back earlier today
       // is now closed (3-for-3 real-device revert test, plus the full
