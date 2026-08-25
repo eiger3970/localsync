@@ -21,7 +21,7 @@ workflows:
         script: |
           cd ios
           for i in 1 2 3 4 5; do
-            pod install --repo-update=false && exit 0
+            pod install && exit 0
             echo "pod install failed (attempt $i/5), waiting 45s before retry..."
             sleep 45
           done
