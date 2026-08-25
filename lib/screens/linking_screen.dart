@@ -356,105 +356,111 @@ class _IdleViewState extends State<_IdleView>
     // keyboard. Verified via test/stage1_preview_test.dart (layout, no
     // overflow) and a simulated drag (tester.drag + onSettled firing)
     // before pushing - not just asserted safe by reasoning.
-    final stage1Widgets = !_paired
-        ? <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+    //
+    // 2026-08-25, follow-up - "it changes page to 2 and 3. I want the
+    // user to simply flow down the same screen." Dropping stage1Widgets
+    // entirely once _paired (round 11's original behavior, kept above)
+    // is exactly what read as a page swap - Stage 1's content vanishing
+    // the instant Steps 2/3 take over the full Expanded region. No
+    // longer conditional: Stage 1 stays on screen permanently. The key
+    // stays visually snapped in the lock once paired (resetAfterSettle:
+    // false already does this), which reads as "step 1, done" rather
+    // than empty space - Steps 2/3 just grow the page below it instead
+    // of replacing it. The gesture layer becoming a no-op once _snapped
+    // (key_pairing_trigger.dart's own _onStart guard) means leaving the
+    // canvas mounted post-pairing doesn't let it be re-dragged.
+    final stage1Widgets = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+                'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+                style: TextStyle(
+                    color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center),
+            const SizedBox(height: 20),
+            const SizedBox(
+              width: 220,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                      'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-                      style: TextStyle(
-                          color: kStar,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 20),
-                  const SizedBox(
-                    width: 220,
-                    child: Column(
-                      children: [
-                        _ScopeRow(label: 'Notes'),
-                        _ScopeRow(label: 'Folders'),
-                        _ScopeRow(label: 'Attachments'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-                      const SizedBox(width: 6),
-                      Text('No other files on this phone are read or changed.',
-                          style: TextStyle(color: kTextDim, fontSize: 12)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-                      const SizedBox(width: 6),
-                      Text(
-                        'This runs once. Larger vaults may take a few minutes.',
-                        style: TextStyle(
-                            color: kTextMid, fontSize: 13, height: 1.6),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text('1. PAIR YOUR DEVICE',
-                      style: TextStyle(
-                          color: kGreen,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.5)),
+                  _ScopeRow(label: 'Notes'),
+                  _ScopeRow(label: 'Folders'),
+                  _ScopeRow(label: 'Attachments'),
                 ],
               ),
             ),
-            SizedBox(
-              height: 222,
-              width: double.infinity,
-              child: KeyPairingTrigger(
-                runningLabel: 'CONNECTING…',
-                // 2026-08-24, round 12: real feedback, live - "same errors,
-                // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
-                // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
-                // in round 10's revert alongside the scroll-arena workarounds
-                // they were never actually the cause of. Now built on round
-                // 11's fixed foundation (a real full-screen canvas, no
-                // competing ScrollView) instead of layered on top of the
-                // broken one.
-                resetAfterSettle: false,
-                minRun: Duration.zero,
-                // 2026-08-24, round 13: real feedback, live - "doesn't drag up
-                // or over the whole screen. The previous version did until
-                // you reverted back to its previous version." Round 9's
-                // dragMargin, dropped in round 10's revert and not re-added in
-                // round 12 - re-added now on top of round 11's real full-
-                // screen-canvas fix instead of the broken small-box-in-
-                // ScrollView it was layered on before. Still 200 here - the
-                // 2026-08-25 fix above is about which widget the height cap
-                // is applied to, not this value.
-                dragMargin: 200,
-                keyCaption: Text('Your phone (has a key)',
-                    style: TextStyle(
-                        color: kTextMid,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center),
-                lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-                    style: TextStyle(color: kTextMid, fontSize: 13),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis),
-                onConfirm: () async {},
-                onSettled: () => setState(() => _paired = true),
-              ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield_outlined, color: kTextDim, size: 21),
+                const SizedBox(width: 6),
+                Text('No other files on this phone are read or changed.',
+                    style: TextStyle(color: kTextDim, fontSize: 12)),
+              ],
             ),
-          ]
-        : <Widget>[];
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  'This runs once. Larger vaults may take a few minutes.',
+                  style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('1. PAIR YOUR DEVICE',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+          ],
+        ),
+      ),
+      SizedBox(
+        height: 222,
+        width: double.infinity,
+        child: KeyPairingTrigger(
+          runningLabel: 'CONNECTING…',
+          // 2026-08-24, round 12: real feedback, live - "same errors,
+          // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
+          // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
+          // in round 10's revert alongside the scroll-arena workarounds
+          // they were never actually the cause of. Now built on round
+          // 11's fixed foundation (a real full-screen canvas, no
+          // competing ScrollView) instead of layered on top of the
+          // broken one.
+          resetAfterSettle: false,
+          minRun: Duration.zero,
+          // 2026-08-24, round 13: real feedback, live - "doesn't drag up
+          // or over the whole screen. The previous version did until
+          // you reverted back to its previous version." Round 9's
+          // dragMargin, dropped in round 10's revert and not re-added in
+          // round 12 - re-added now on top of round 11's real full-
+          // screen-canvas fix instead of the broken small-box-in-
+          // ScrollView it was layered on before. Still 200 here - the
+          // 2026-08-25 fix above is about which widget the height cap
+          // is applied to, not this value.
+          dragMargin: 200,
+          keyCaption: Text('Your phone (has a key)',
+              style: TextStyle(
+                  color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
+          lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis),
+          onConfirm: () async {},
+          onSettled: () => setState(() => _paired = true),
+        ),
+      ),
+    ];
 
     // 2026-08-24, round 14: real feedback, live - "2. DESKTOP PASSWORD
     // is way too far below." mainAxisAlignment.center was tuned for

@@ -121,10 +121,19 @@ void main() {
     }
     tester.takeException();
 
-    // Real assertion: onSettled -> setState(_paired = true) -> Stage 1's
-    // content (stage1Widgets) drops out of the tree entirely. If the
-    // gesture got eaten by a scroll ancestor (the exact bug round 11
-    // fixed), this stays present forever instead.
-    expect(find.text('1. PAIR YOUR DEVICE'), findsNothing);
+    // 2026-08-25, follow-up - "it changes page to 2 and 3. I want the
+    // user to simply flow down the same screen." Stage 1's content used
+    // to drop out of the tree once paired (checked here as findsNothing)
+    // - that vanishing was itself what read as a page swap. Now it
+    // should stay mounted (the key visually snapped in the lock reads
+    // as "done"), with Steps 2/3 appearing below it instead of
+    // replacing it.
+    expect(find.text('1. PAIR YOUR DEVICE'), findsOneWidget);
+    expect(find.text('2. DESKTOP PASSWORD'), findsOneWidget);
+    expect(find.text('3. SET UP VAULT'), findsOneWidget);
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/stage2_after_pairing.png'),
+    );
   });
 }
