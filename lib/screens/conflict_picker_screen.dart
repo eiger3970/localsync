@@ -240,22 +240,62 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             'nothing is changed until you confirm.',
                     style: TextStyle(color: kStar, fontSize: 15)),
                 const SizedBox(height: 16),
-                for (var i = 0; i < versions.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 16),
-                  _ConflictPanel(
-                    title: titleFor(i),
-                    tokens: !useDiff
-                        ? null
-                        : (i == 0
-                            ? wordDiffOurs(versions[0].body, versions[1].body)
-                            : wordDiffTheirs(
-                                versions[0].body, versions[1].body)),
-                    plainText: versions[i].body,
-                    highlightColor: i == 0 ? _kBrightRed : kGreen,
-                    onTap: () =>
-                        _confirmAndChoose(titleFor(i), versions[i].body),
-                  ),
-                ],
+                // 2026-08-25: real feedback, live - "picking the top red
+                // version or the bottom green version is too much eye
+                // bleed. What I need is the 2 versions in a vimdiff
+                // screen, which is very easy to spot the differences
+                // visually... the phone might need to be held from
+                // portrait to landscape." Stacked full-width panels with
+                // bold colored underlined text replaced with genuine
+                // side-by-side columns (same word-diff algorithm - only
+                // the layout changed) and a soft background tint instead
+                // of loud colored/underlined text for what differs -
+                // matches how vimdiff itself reads (highlighted region,
+                // not shouting text). Landscape gives each column real
+                // width; portrait still works, just narrower.
+                if (useDiff && versions.length == 2)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _ConflictPanel(
+                            title: titleFor(0),
+                            tokens: wordDiffOurs(
+                                versions[0].body, versions[1].body),
+                            plainText: versions[0].body,
+                            highlightColor: _kBrightRed,
+                            onTap: () => _confirmAndChoose(
+                                titleFor(0), versions[0].body),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ConflictPanel(
+                            title: titleFor(1),
+                            tokens: wordDiffTheirs(
+                                versions[0].body, versions[1].body),
+                            plainText: versions[1].body,
+                            highlightColor: kGreen,
+                            onTap: () => _confirmAndChoose(
+                                titleFor(1), versions[1].body),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  for (var i = 0; i < versions.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    _ConflictPanel(
+                      title: titleFor(i),
+                      tokens: null,
+                      plainText: versions[i].body,
+                      highlightColor: i == 0 ? _kBrightRed : kGreen,
+                      onTap: () =>
+                          _confirmAndChoose(titleFor(i), versions[i].body),
+                    ),
+                  ],
               ],
             ),
     );
@@ -346,7 +386,8 @@ class _ConflictPanel extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        height: double.infinity,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: kSurface,
           border: Border.all(color: kTextDim),
@@ -358,27 +399,32 @@ class _ConflictPanel extends StatelessWidget {
             Text(title,
                 style: TextStyle(
                     color: highlightColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 6),
+            // 2026-08-25: real feedback, live - "too much eye bleed."
+            // Bold + underline + saturated color on the changed text
+            // itself read as shouting. A soft background wash (like a
+            // highlighter marker, ~20% opacity) behind just the
+            // differing words instead - equal text stays plain, so the
+            // eye still jumps straight to what changed, without every
+            // difference looking like an alarm.
             tokens == null
                 ? Text(plainText,
-                    style: TextStyle(color: kStar, fontSize: 17))
+                    style: TextStyle(color: kStar, fontSize: 14))
                 : Text.rich(
                     TextSpan(
                       children: tokens!
                           .map((t) => TextSpan(
                                 text: t.text,
                                 style: t.op == DiffOp.equal
-                                    ? TextStyle(
-                                        color: kStar, fontSize: 17)
+                                    ? TextStyle(color: kStar, fontSize: 14)
                                     : TextStyle(
-                                        color: highlightColor,
-                                        fontSize: 17,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: highlightColor,
-                                        decorationThickness: 2,
-                                        fontWeight: FontWeight.bold,
+                                        color: kStar,
+                                        fontSize: 14,
+                                        backgroundColor:
+                                            highlightColor.withValues(alpha: 0.28),
                                       ),
                               ))
                           .toList(),
