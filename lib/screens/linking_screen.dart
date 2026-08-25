@@ -664,6 +664,35 @@ class _IdleViewState extends State<_IdleView>
                         bulleted: true,
                       ),
                     ),
+                    // 2026-08-25: real feedback, live - "this is not
+                    // showing what the real error is and needs to
+                    // include the real error." Same RAW ERROR card
+                    // _FailedView already shows when debugDetail is
+                    // present - missing here for the same reason HOW TO
+                    // FIX IT was: this inline display never got it.
+                    // Matters concretely here: _diagnose() in
+                    // pairing_controller.dart already has specific
+                    // detection for SSHAuthFailError/SSHAuthAbortError/
+                    // "authentication"/"password" that should map a
+                    // wrong password to a distinct message, not this
+                    // generic one - seeing the real exception text is
+                    // what actually confirms whether that detection
+                    // missed this specific error, or whether this really
+                    // was a network failure coinciding with the
+                    // mistyped password.
+                    if (_pairingFailure!.debugDetail != null &&
+                        _pairingFailure!.debugDetail!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: DiagCard(
+                          label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                          text: _pairingFailure!.debugDetail!,
+                          accent: Colors.redAccent,
+                          maxLength: 300,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),
