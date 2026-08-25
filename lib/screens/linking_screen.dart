@@ -362,7 +362,16 @@ class _IdleViewState extends State<_IdleView>
         children: [
           Expanded(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
+              // 2026-08-25: real bug, live - "the line below Your phone
+              // (has a key) and Desktop rapi5@... is where 2. DESKTOP
+              // PASSWORD is [meant to be]." 300 (an earlier guess) still
+              // left visible dead space below the captions. Computed
+              // from key_pairing_trigger.dart's own layout math instead
+              // of guessing: pair starts at y=20, the lock (taller icon)
+              // is ~169px, captions sit 8px below that and are ~20px of
+              // text - real content bottom lands at ~217. 220 hugs that
+              // closely without clipping the caption text.
+              constraints: const BoxConstraints(maxHeight: 220),
               child: ContentAboveDragCanvas(
                 content: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
