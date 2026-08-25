@@ -210,63 +210,6 @@ const monochromePalette = AppPalette(
   accent: Color(0xFFE0E0E0),
 );
 
-// 2026-08-21: "national colours of countries for football teams or
-// popular stuff that sells" - flag/team colors only, no crest, no
-// club name. Colors alone aren't trademarked; a specific football
-// CLUB's branding (crest, name) would be - deliberately stayed at the
-// national-team level, not "Real Madrid" etc. Void/surface/border
-// kept close to the same dark-neutral baseline as the other skins
-// (this app has no light theme at all - buildAppTheme() is hardcoded
-// Brightness.dark) - each flag's own color is the accent, not a full
-// palette redesign.
-const argentinaPalette = AppPalette(
-  id: 'argentina',
-  label: 'Argentina',
-  void_: Color(0xFF050810),
-  surface: Color(0xFF0D1420),
-  border: Color(0xFF1B2A40),
-  purple: Color(0xFF6B21D6),
-  blue: Color(0xFF4488FF),
-  star: Color(0xFFF0F4FF),
-  textDim: Color(0xFF4A5875),
-  textMid: Color(0xFF8DA3C4),
-  accent: Color(0xFF75AADB),
-  // Horizontal celeste/white/celeste. The Sol de Mayo sun sits dead
-  // centre of the white band - centre of the flag is exactly what an
-  // 8px edge frame can never show (see flag_frame.dart), so it's
-  // dropped rather than drawn somewhere it'd never render. The three
-  // correctly-ordered horizontal bands in the right shade of celeste
-  // still read as Argentina on their own.
-  flagStripes: [Color(0xFF75AADB), Color(0xFFFFFFFF), Color(0xFF75AADB)],
-  flagKind: FlagKind.stripes,
-);
-final argentinaBoldPalette = bold(argentinaPalette);
-
-// 2026-08-22: Brazil's identity is the yellow diamond and blue circle
-// on the green field - centred, touching none of the flag's own
-// edges. A thin edge frame can only ever show what's drawn at the
-// screen's own outer edge (see flag_frame.dart), so that diamond and
-// circle would render nowhere, ever - not "simplified," genuinely
-// invisible. Scrapping the real-flag ambition here per the fallback
-// rule: a plain green accent border (single-colour flagStripes list),
-// no fake pattern pretending to be more than it is.
-const brazilPalette = AppPalette(
-  id: 'brazil',
-  label: 'Brazil',
-  void_: Color(0xFF060A03),
-  surface: Color(0xFF0E1607),
-  border: Color(0xFF223815),
-  purple: Color(0xFF6B21D6),
-  blue: Color(0xFF4488FF),
-  star: Color(0xFFF5F9E8),
-  textDim: Color(0xFF4E6B2E),
-  textMid: Color(0xFF8FAE5C),
-  accent: Color(0xFFFFDF00),
-  flagStripes: [Color(0xFF009739)],
-  flagKind: FlagKind.stripes,
-);
-final brazilBoldPalette = bold(brazilPalette);
-
 const italyPalette = AppPalette(
   id: 'italy',
   label: 'Italy (Azzurri)',
@@ -285,27 +228,6 @@ const italyPalette = AppPalette(
   flagAsset: 'assets/flags/italy.svg',
 );
 final italyBoldPalette = bold(italyPalette);
-
-// 2026-08-22: had zero border decoration before this pass - St
-// George's Cross is a centred, full-height/full-width red cross on
-// white, which is exactly the shape an edge frame CAN show (the bars
-// run edge to edge, unlike a centred emblem) - drawn for real via
-// FlagKind.stGeorgesCross in flag_frame.dart.
-const englandPalette = AppPalette(
-  id: 'england',
-  label: 'England',
-  void_: Color(0xFF0A0304),
-  surface: Color(0xFF160709),
-  border: Color(0xFF3A1418),
-  purple: Color(0xFF6B21D6),
-  blue: Color(0xFF4488FF),
-  star: Color(0xFFFFF0F0),
-  textDim: Color(0xFF7A3E42),
-  textMid: Color(0xFFC47D82),
-  accent: Color(0xFFCE1124),
-  flagKind: FlagKind.stGeorgesCross,
-);
-final englandBoldPalette = bold(englandPalette);
 
 // 2026-08-21: "top earning countries" batch - 15 more (Italy already
 // exists above, skipped here rather than duplicated). Hand-writing 15
@@ -399,9 +321,18 @@ final usPalette = _flagSkin(
     // flag_frame.dart's _drawStarsAndStripes).
     flagKind: FlagKind.starsAndStripes,
     stripes: const [
-      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
-      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
-      Color(0xFFB31942), Color(0xFFFFFFFF), Color(0xFFB31942), Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
+      Color(0xFFB31942),
+      Color(0xFFFFFFFF),
       Color(0xFFB31942),
     ],
     flagAsset: 'assets/flags/us.svg');
@@ -572,14 +503,9 @@ final allPalettes = [
   amberTerminalPalette,
   monochromePalette,
   // ── Top tier ──────────────────────────────────────────────────────
-  argentinaPalette,
-  argentinaBoldPalette,
-  brazilPalette,
-  brazilBoldPalette,
+  // 2026-08-25: Argentina, Brazil, England removed per direct request.
   italyPalette,
   italyBoldPalette,
-  englandPalette,
-  englandBoldPalette,
   usPalette,
   usBoldPalette,
   canadaPalette,
@@ -613,8 +539,8 @@ final allPalettes = [
   albaniaBoldPalette,
 ];
 
-AppPalette paletteById(String id) =>
-    allPalettes.firstWhere((p) => p.id == id, orElse: () => terminalGreenPalette);
+AppPalette paletteById(String id) => allPalettes.firstWhere((p) => p.id == id,
+    orElse: () => terminalGreenPalette);
 
 // ── Live selection ───────────────────────────────────────────────────────────
 //
@@ -678,7 +604,8 @@ ThemeData buildAppTheme() => ThemeData(
         bodyLarge: TextStyle(color: kStar, fontSize: 14),
         bodyMedium: TextStyle(color: kTextMid, fontSize: 12),
         bodySmall: TextStyle(color: kTextDim, fontSize: 11),
-        labelSmall: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+        labelSmall:
+            TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
       ),
       dividerColor: kBorder,
       inputDecorationTheme: InputDecorationTheme(
@@ -697,7 +624,8 @@ ThemeData buildAppTheme() => ThemeData(
           borderSide: BorderSide(color: kGreen),
         ),
         hintStyle: TextStyle(color: kTextDim, fontSize: 12),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
