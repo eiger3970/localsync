@@ -265,11 +265,44 @@ Future<String> _backupConflictBeforeResolving(
 /// must check that themselves (see resolveConflict's own guard) since a
 /// pure function has no good way to signal "nothing to do" separately
 /// from "here is the unchanged content".
+///
+/// 2026-08-25: real feedback, live - "I don't want 1 version kept and
+/// the other version... moved to LocalSync Conflict Backups. I need all
+/// or part of that data onto this device, merged as in gitmerge...
+/// similar to a git merge." Picking used to fully replace the span with
+/// just [chosen] - the other version(s)' data left this file entirely,
+/// recoverable only from a separate backup file. Now (non-Kanban only -
+/// a Kanban card is one line, and this callout is several) every
+/// version NOT chosen is appended right after [chosen] as a collapsed
+/// callout, in the same file, using the same
+/// "> [!kind] LABEL - detail\n> body" shape _repairConflictMarkers
+/// already writes for SYNC CONFLICT - [!question]- instead of
+/// [!warning]+ so it reads as "kept for reference," not "still
+/// unresolved," and so this scanner's own SYNC-CONFLICT-only pattern
+/// doesn't pick it back up as a fresh conflict. This is the free tier's
+/// merge - full-text, not a fine-grained content union (that's the
+/// paid put/yank tier) - but nothing is left only in a backup file
+/// anymore; the user edits it down right here, same as resolving a real
+/// git merge conflict block.
 String applyResolution(String content, ConflictEntry entry, String chosen) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
-  final replacement = '$chosen$trailingNewline';
+  final notChosen =
+      entry.versions.where((v) => v.body != chosen).toList();
+  final merged = entry.isKanban || notChosen.isEmpty
+      ? chosen
+      : '$chosen\n\n${notChosen.map(_mergeCallout).join('\n')}';
+  final replacement = '$merged$trailingNewline';
   return content.replaceRange(entry.matchStart, entry.matchEnd, replacement);
+}
+
+/// One collapsed "kept for reference" callout for a version that wasn't
+/// picked - see applyResolution's 2026-08-25 comment.
+String _mergeCallout(ConflictVersion v) {
+  final label = v.when != null ? '${v.who} - ${v.when}' : v.who;
+  final quoted = v.body.split('\n').map((l) => '> $l').join('\n');
+  return '> [!question]- Also in $label\'s version (edit in, or delete)\n'
+      '$quoted';
 }
 
 /// Rewrites [filePath] (relative to [vaultPath]), replacing exactly the
