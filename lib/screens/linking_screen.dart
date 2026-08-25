@@ -392,20 +392,29 @@ class _IdleViewState extends State<_IdleView>
               ),
             ),
             const SizedBox(height: 10),
+            // 2026-08-25: real feedback, live - "about 5 shades of grey,
+            // too much. Kiss so the user experiences only a few shades
+            // and colours." This row was kTextDim/12px/21px icon while
+            // the row below was kTextMid/13px/15px icon - three
+            // different greys and two different sizes across six lines
+            // of intro text. Both rows now match each other exactly
+            // (kTextMid, 13px, 16px icon); kTextDim dropped from this
+            // block entirely. Only kStar (the one heading) and kTextMid
+            // (everything else) remain.
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.shield_outlined, color: kTextDim, size: 21),
+                Icon(Icons.shield_outlined, color: kTextMid, size: 16),
                 const SizedBox(width: 6),
                 Text('No other files on this phone are read or changed.',
-                    style: TextStyle(color: kTextDim, fontSize: 12)),
+                    style: TextStyle(color: kTextMid, fontSize: 13)),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
+                Icon(Icons.schedule_outlined, color: kTextMid, size: 16),
                 const SizedBox(width: 6),
                 Text(
                   'This runs once. Larger vaults may take a few minutes.',
@@ -1933,7 +1942,9 @@ class _ScopeRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: kTextMid, fontSize: 15)),
+          // 2026-08-25: 15 -> 13, matching the shield/clock rows below -
+          // same "only a few shades and colours, for consistency" pass.
+          Text(label, style: TextStyle(color: kTextMid, fontSize: 13)),
           Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
         ],
       ),
