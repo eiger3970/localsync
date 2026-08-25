@@ -55,7 +55,8 @@ class DiagCard extends StatelessWidget {
     var last = 0;
     for (final match in pattern.allMatches(line)) {
       if (match.start > last) {
-        spans.add(TextSpan(text: line.substring(last, match.start), style: base));
+        spans.add(
+            TextSpan(text: line.substring(last, match.start), style: base));
       }
       spans.add(TextSpan(text: match.group(1), style: monospace));
       last = match.end;
@@ -78,9 +79,11 @@ class DiagCard extends StatelessWidget {
     // (not per resolution string) so every numbered fix list in the
     // app gets this for free - only shown when every line is actually
     // numbered, not for plain bulleted content with no real sequence.
-    final lines = displayText.split('\n').where((l) => l.trim().isNotEmpty).toList();
-    final isNumberedList =
-        bulleted && lines.isNotEmpty && lines.every((l) => RegExp(r'^\d+\.\s').hasMatch(l));
+    final lines =
+        displayText.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    final isNumberedList = bulleted &&
+        lines.isNotEmpty &&
+        lines.every((l) => RegExp(r'^\d+\.\s').hasMatch(l));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -107,9 +110,16 @@ class DiagCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (isNumberedList) ...[
-            Text('Try step 1 first, retest, then move to the next only if needed.',
+            // 2026-08-25: real feedback, live - "text too dark and
+            // small." kTextMid/12px -> kStar/13px, matching this app's
+            // other secondary-text consolidation pass
+            // (linking_screen.dart's Stage 1 intro block, same day) -
+            // italic alone is enough to read as a meta-note without
+            // also being harder to read than the content it's next to.
+            Text(
+                'Try step 1 first, retest, then move to the next only if needed.',
                 style: TextStyle(
-                    color: kTextMid, fontSize: 12, fontStyle: FontStyle.italic)),
+                    color: kStar, fontSize: 13, fontStyle: FontStyle.italic)),
             const SizedBox(height: 8),
           ],
           if (bulleted)
@@ -126,14 +136,13 @@ class DiagCard extends StatelessWidget {
                     // isn't already leading with its own number.
                     SizedBox(
                       width: 16,
-                      child: Text(
-                          RegExp(r'^\d+\.\s').hasMatch(line) ? '' : '•',
+                      child: Text(RegExp(r'^\d+\.\s').hasMatch(line) ? '' : '•',
                           style: TextStyle(
                               color: kStar, fontSize: 15, height: 1.7)),
                     ),
                     Expanded(
-                      child: Text.rich(
-                          TextSpan(children: _parseInlineCode(line, bodyStyle))),
+                      child: Text.rich(TextSpan(
+                          children: _parseInlineCode(line, bodyStyle))),
                     ),
                   ],
                 ),
