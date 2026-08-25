@@ -416,6 +416,30 @@ class _IdleViewState extends State<_IdleView>
           onConfirm: () async {},
           onSettled: () => setState(() => _paired = true),
         ),
+        // 2026-08-25: real feedback, live - "3 steps are all on the 1
+        // page, 2 and 3 activate sequentially." Dimmed step headers via
+        // bottomPinned (measured the same non-scrolling way `content`
+        // above already is - no new scroll ancestor, no risk to the drag
+        // fix). This does shrink the canvas's usable drag range to make
+        // room for them - tried removing them over that trade-off,
+        // explicitly rejected ("no, they're meant to be dimmed") -
+        // gap/reduced range is the accepted cost, not a bug.
+        bottomPinned: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          child: Opacity(
+            opacity: 0.3,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('2. DESKTOP PASSWORD',
+                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                const SizedBox(height: 8),
+                Text('3. SET UP VAULT',
+                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
