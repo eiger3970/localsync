@@ -337,186 +337,125 @@ class _IdleViewState extends State<_IdleView>
     // down) - the welcome text and Stage 1's own header/canvas are
     // dropped from that branch since they're only relevant before
     // pairing, already shown once, in the ceremony view above.
-    if (!_paired) {
-      // 2026-08-25: real feedback, live - "massive black space... remove
-      // the gap, it's simple like a document." Every earlier attempt
-      // this session (bottomPinned, then Flexible/Expanded +
-      // ConstrainedBox at 220/280/300) capped the WRONG thing: the
-      // ConstrainedBox wrapped the whole ContentAboveDragCanvas
-      // (content + canvas together, both children of its internal
-      // Stack), and content alone is already ~360px tall on a real
-      // screen - bigger than any cap tried. So content itself got
-      // clipped and canvas (positioned even further down via
-      // ContentAboveDragCanvas's own top:_contentHeight math) landed
-      // partly or wholly outside the box. Confirmed locally via
-      // test/stage1_preview_test.dart before touching this again - exact
-      // measurements, not a guess: with a 280 cap on the whole Stack,
-      // content's own last line ("1. PAIR YOUR DEVICE") bottomed out at
-      // y=362 while the dimmed "2. DESKTOP PASSWORD" header (meant to
-      // come after it) rendered at y=350 - twelve pixels *above* it.
-      //
-      // ContentAboveDragCanvas's Stack/postFrameCallback measurement
-      // exists to let canvas reactively fill whatever's left after a
-      // variable-height content - not needed here, since both content
-      // and canvas now get their own independent fixed treatment. Plain
-      // Column instead: content in normal flow at its real natural
-      // height, a SizedBox around canvas ALONE (only this part is
-      // capped, at 280 - same margin reasoning as before, just applied
-      // to the right widget this time), then the headers right after -
-      // genuine document flow. No ScrollView anywhere in this branch
-      // still - the drag gesture keeps the same non-scrolling ancestor
-      // round 11 fixed it with; SizedBox is just as non-scrolling as
-      // ContentAboveDragCanvas was.
-      return Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                    'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-                    style: TextStyle(
-                        color: kStar,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                const SizedBox(
-                  width: 220,
-                  child: Column(
-                    children: [
-                      _ScopeRow(label: 'Notes'),
-                      _ScopeRow(label: 'Folders'),
-                      _ScopeRow(label: 'Attachments'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-                    const SizedBox(width: 6),
-                    Text('No other files on this phone are read or changed.',
-                        style: TextStyle(color: kTextDim, fontSize: 12)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-                    const SizedBox(width: 6),
-                    Text(
-                      'This runs once. Larger vaults may take a few minutes.',
-                      style:
-                          TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Text('1. PAIR YOUR DEVICE',
-                    style: TextStyle(
-                        color: kGreen,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 222,
-            width: double.infinity,
-            child: KeyPairingTrigger(
-              runningLabel: 'CONNECTING…',
-              // 2026-08-24, round 12: real feedback, live - "same errors,
-              // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
-              // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
-              // in round 10's revert alongside the scroll-arena workarounds
-              // they were never actually the cause of. Now built on round
-              // 11's fixed foundation (a real full-screen canvas, no
-              // competing ScrollView) instead of layered on top of the
-              // broken one.
-              resetAfterSettle: false,
-              minRun: Duration.zero,
-              // 2026-08-24, round 13: real feedback, live - "doesn't drag up
-              // or over the whole screen. The previous version did until
-              // you reverted back to its previous version." Round 9's
-              // dragMargin, dropped in round 10's revert and not re-added in
-              // round 12 - re-added now on top of round 11's real full-
-              // screen-canvas fix instead of the broken small-box-in-
-              // ScrollView it was layered on before. Still 200 here - the
-              // 2026-08-25 fix above is about which widget the height cap
-              // is applied to, not this value.
-              dragMargin: 200,
-              keyCaption: Text('Your phone (has a key)',
-                  style: TextStyle(
-                      color: kTextMid,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center),
-              lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-                  style: TextStyle(color: kTextMid, fontSize: 13),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis),
-              onConfirm: () async {},
-              onSettled: () => setState(() => _paired = true),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
-            child: Opacity(
-              opacity: 0.3,
+    // 2026-08-25: real feedback, live - "2 and 3 are missing their
+    // sections, they just show the headers... make another solution, it
+    // worked before on previous code versions." Pre-round-11 showed
+    // Steps 2/3's real content (fields, description text) dimmed
+    // underneath Stage 1, all in one SingleChildScrollView - the exact
+    // scroll-ancestor-around-the-drag-canvas combination round 11's
+    // whole fix was about removing. The real risk isn't "more content
+    // below the canvas" (that's just layout, checked locally below) -
+    // it's specifically a Scrollable becoming an ANCESTOR of the drag
+    // gesture. So: Stage 1 (content + bounded canvas) stays a sibling in
+    // this outer, non-scrolling Column exactly as before; Stage 2/3's
+    // real widgets (unchanged from the paired-only branch - same
+    // IgnorePointer/AnimatedOpacity dimming they already had) move into
+    // their OWN Expanded+SingleChildScrollView, a sibling of Stage 1,
+    // never an ancestor of it. The canvas never gains a scroll ancestor;
+    // Stage 2/3 keeps the scroll room its real TextFields need for the
+    // keyboard. Verified via test/stage1_preview_test.dart (layout, no
+    // overflow) and a simulated drag (tester.drag + onSettled firing)
+    // before pushing - not just asserted safe by reasoning.
+    final stage1Widgets = !_paired
+        ? <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 2026-08-25: real feedback, live - "sections 2 and 3
-                  // missing the images." The real Step 2 heading (further
-                  // down, once paired) leads with Icons.auto_awesome; this
-                  // dimmed preview was bare text only. Matched here, and
-                  // gave Step 3 a matching folder icon for the same
-                  // consistency even though its own real heading has none.
+                  Text(
+                      'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+                      style: TextStyle(
+                          color: kStar,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 20),
+                  const SizedBox(
+                    width: 220,
+                    child: Column(
+                      children: [
+                        _ScopeRow(label: 'Notes'),
+                        _ScopeRow(label: 'Folders'),
+                        _ScopeRow(label: 'Attachments'),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.auto_awesome, color: kGreen, size: 12),
+                      Icon(Icons.shield_outlined, color: kTextDim, size: 21),
                       const SizedBox(width: 6),
-                      Text('2. DESKTOP PASSWORD',
-                          style: TextStyle(
-                              color: kGreen,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5)),
+                      Text('No other files on this phone are read or changed.',
+                          style: TextStyle(color: kTextDim, fontSize: 12)),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.folder_outlined, color: kGreen, size: 12),
+                      Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
                       const SizedBox(width: 6),
-                      Text('3. SET UP VAULT',
-                          style: TextStyle(
-                              color: kGreen,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5)),
+                      Text(
+                        'This runs once. Larger vaults may take a few minutes.',
+                        style: TextStyle(
+                            color: kTextMid, fontSize: 13, height: 1.6),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 24),
+                  Text('1. PAIR YOUR DEVICE',
+                      style: TextStyle(
+                          color: kGreen,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
                 ],
               ),
             ),
-          ),
-        ],
-      );
-    }
+            SizedBox(
+              height: 222,
+              width: double.infinity,
+              child: KeyPairingTrigger(
+                runningLabel: 'CONNECTING…',
+                // 2026-08-24, round 12: real feedback, live - "same errors,
+                // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
+                // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
+                // in round 10's revert alongside the scroll-arena workarounds
+                // they were never actually the cause of. Now built on round
+                // 11's fixed foundation (a real full-screen canvas, no
+                // competing ScrollView) instead of layered on top of the
+                // broken one.
+                resetAfterSettle: false,
+                minRun: Duration.zero,
+                // 2026-08-24, round 13: real feedback, live - "doesn't drag up
+                // or over the whole screen. The previous version did until
+                // you reverted back to its previous version." Round 9's
+                // dragMargin, dropped in round 10's revert and not re-added in
+                // round 12 - re-added now on top of round 11's real full-
+                // screen-canvas fix instead of the broken small-box-in-
+                // ScrollView it was layered on before. Still 200 here - the
+                // 2026-08-25 fix above is about which widget the height cap
+                // is applied to, not this value.
+                dragMargin: 200,
+                keyCaption: Text('Your phone (has a key)',
+                    style: TextStyle(
+                        color: kTextMid,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center),
+                lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                    style: TextStyle(color: kTextMid, fontSize: 13),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis),
+                onConfirm: () async {},
+                onSettled: () => setState(() => _paired = true),
+              ),
+            ),
+          ]
+        : <Widget>[];
 
-    // 2026-08-24, round 11: reached only once _paired is true (the
-    // ceremony branch above returns before this point otherwise) - the
-    // welcome text and Stage 1's own header/canvas, both now shown once
-    // already in that ceremony view, are dropped here rather than
-    // repeated. Stage 2/3 below are otherwise untouched from round 10.
     // 2026-08-24, round 14: real feedback, live - "2. DESKTOP PASSWORD
     // is way too far below." mainAxisAlignment.center was tuned for
     // this Column back when it also held the welcome text and Stage 1's
@@ -533,7 +472,13 @@ class _IdleViewState extends State<_IdleView>
     // "2. DESKTOP PASSWORD" at 16. Trimmed to 0 - the AppBar and
     // progress bar above already give this enough separation from the
     // top of the screen.
-    return SingleChildScrollView(
+    //
+    // 2026-08-25: this SingleChildScrollView is now a sibling of Stage
+    // 1's canvas (stage1Widgets, above) in the outer Column below,
+    // wrapped in Expanded for its own bounded scroll region - never an
+    // ancestor of the drag gesture, which is the property round 11
+    // actually needed. Stage 2/3 content itself is untouched.
+    final stage23 = SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
         child: Column(
@@ -801,6 +746,13 @@ class _IdleViewState extends State<_IdleView>
           ],
         ),
       ),
+    );
+
+    return Column(
+      children: [
+        ...stage1Widgets,
+        Expanded(child: stage23),
+      ],
     );
   }
 }
