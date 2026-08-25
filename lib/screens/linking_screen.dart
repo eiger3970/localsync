@@ -185,14 +185,10 @@ class _IdleViewState extends State<_IdleView>
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
-  // 2026-08-25: real feedback, live - "can phone detect password
-  // re-entered? If yes, then just show this 1 step and other steps
-  // appear on 2nd password failure." Counts consecutive failed
-  // attempts, not resolved on this screen alone - _pairThenLink() below
-  // increments it on every failure. Only step 1 ("re-enter your
-  // password") shows on the first failure; the rest of the resolution
-  // list only appears once a retry has also failed.
-  int _pairAttempts = 0;
+  // 2026-08-25: _pairAttempts (progressive-disclosure attempt counter)
+  // tried and reverted same day - "Just use this same solution" on both
+  // the 1st and 2nd wrong password. Resolution text is now always shown
+  // in full, consistently, regardless of attempt count.
 
   bool get _passwordsMatch =>
       _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
@@ -261,7 +257,6 @@ class _IdleViewState extends State<_IdleView>
       setState(() {
         _pairing = false;
         _pairingFailure = result;
-        _pairAttempts++;
       });
       return;
     }
@@ -571,13 +566,28 @@ class _IdleViewState extends State<_IdleView>
                     // from the heading (see above) onto this field
                     // instead - same SparkleBackground pattern already
                     // used at this screen's other two glyph call sites.
+                    //
+                    // 2026-08-25, follow-up: "Magic stars not put here as
+                    // per last instructions" - real bug, not missing.
+                    // Behind the field (this screen's other two call
+                    // sites are glyphs/buttons with no opaque fill), it
+                    // was being fully painted over: theme.dart's global
+                    // InputDecorationTheme sets filled:true/fillColor:
+                    // kSurface on every TextField, an opaque background
+                    // that covers anything painted behind it in a Stack.
+                    // On top instead (last child paints last = on top),
+                    // wrapped in IgnorePointer so it doesn't block typing
+                    // or the field's own tap targets (the visibility
+                    // toggle).
                     child: Stack(
                       children: [
-                        const Positioned.fill(child: SparkleBackground()),
                         ShreddingPasswordField(
                           key: _shredKey1,
                           controller: _passwordCtrl,
                           enabled: !_pairing,
+                        ),
+                        const Positioned.fill(
+                          child: IgnorePointer(child: SparkleBackground()),
                         ),
                       ],
                     ),
@@ -673,38 +683,24 @@ class _IdleViewState extends State<_IdleView>
                     // this screen. Added here to match the same pattern
                     // both other failure displays already use.
                     const SizedBox(height: 12),
+                    // 2026-08-25, real feedback, live - "Just use this
+                    // same solution" on both the 1st and 2nd wrong
+                    // password, and "why is number 1 there, as there's
+                    // no more numbers?" on the truncated single-step
+                    // version. The attempt-counted truncation (show step
+                    // 1 only, expand on retry) is reverted - always show
+                    // the same resolution text now, matching what the
+                    // user actually wants: consistent guidance, not
+                    // something that changes shape between attempts.
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      // 2026-08-25: real feedback, live - "why is number
-                      // 1 there, as there's no more numbers?" and the
-                      // "Try step 1, retest..." hint made no sense next
-                      // to a single, unnumbered instruction either.
-                      // Truncating to one line used to keep the bulleted:
-                      // true treatment (DiagCard's numbering + hint),
-                      // which only makes sense for a real multi-item
-                      // list. Only truncate/strip numbering when the
-                      // resolution genuinely IS a multi-line list in the
-                      // first place - most resolutions (e.g.
-                      // pairingPasswordRejected's) are a single sentence
-                      // already and pass through unchanged either way.
-                      child: Builder(builder: (context) {
-                        final full = _pairingFailure!.resolution;
-                        final isMultiStep = full.contains('\n');
-                        final showFull = !isMultiStep || _pairAttempts > 1;
-                        final text = showFull
-                            ? full
-                            : full
-                                .split('\n')
-                                .first
-                                .replaceFirst(RegExp(r'^\d+\.\s*'), '');
-                        return DiagCard(
-                          label: 'HOW TO FIX IT',
-                          text: text,
-                          accent: kGreen,
-                          icon: Icons.lightbulb_outline,
-                          bulleted: showFull,
-                        );
-                      }),
+                      child: DiagCard(
+                        label: 'HOW TO FIX IT',
+                        text: _pairingFailure!.resolution,
+                        accent: kGreen,
+                        icon: Icons.lightbulb_outline,
+                        bulleted: true,
+                      ),
                     ),
                     // 2026-08-25: real feedback, live - "this is not
                     // showing what the real error is and needs to

@@ -284,8 +284,12 @@ extension LinkingErrorDetails on LinkingError {
         // 2 failure card), the hedge clause explaining *why* a password
         // issue might land here is redundant - the raw error answers
         // that directly instead of asserting it in prose.
+        // 2026-08-25: step 1 reworded per direct request - the network
+        // steps below (2-5) stay as-is, confirmed still wanted ("do you
+        // still have the other HOW TO FIX IT solutions for other
+        // network errors?").
         LinkingError.connectionRefused =>
-          '1. Re-enter your desktop password and test\n'
+          '1. Re-enter your desktop password - used once, never stored\n'
               '2. Check your desktop is awake\n'
               '3. Connect phone to desktop - hotspot or USB tether\n'
               '4. On desktop: `sudo systemctl status ssh`\n'
