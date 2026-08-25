@@ -498,14 +498,14 @@ final albaniaBoldPalette = bold(albaniaPalette);
 // prioritised list), then the secondary tier (Finland through
 // Albania) - same top-then-secondary grouping the palettes were
 // already declared in above.
+// 2026-08-25: reordered per direct request - US through Netherlands,
+// then Finland folded into the same flat run (was split into a
+// separate "secondary tier" below Netherlands before), Italy moved
+// out of first-in-line to sit between France and Spain.
 final allPalettes = [
   terminalGreenPalette,
   amberTerminalPalette,
   monochromePalette,
-  // ── Top tier ──────────────────────────────────────────────────────
-  // 2026-08-25: Argentina, Brazil, England removed per direct request.
-  italyPalette,
-  italyBoldPalette,
   usPalette,
   usBoldPalette,
   canadaPalette,
@@ -522,11 +522,12 @@ final allPalettes = [
   germanyBoldPalette,
   francePalette,
   franceBoldPalette,
+  italyPalette,
+  italyBoldPalette,
   spainPalette,
   spainBoldPalette,
   netherlandsPalette,
   netherlandsBoldPalette,
-  // ── Secondary tier ────────────────────────────────────────────────
   finlandPalette,
   finlandBoldPalette,
   slovakiaPalette,
