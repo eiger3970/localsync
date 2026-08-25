@@ -185,10 +185,16 @@ class _IdleViewState extends State<_IdleView>
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
-  // 2026-08-25: _pairAttempts (progressive-disclosure attempt counter)
-  // tried and reverted same day - "Just use this same solution" on both
-  // the 1st and 2nd wrong password. Resolution text is now always shown
-  // in full, consistently, regardless of attempt count.
+  // 2026-08-25: _pairAttempts tried, reverted ("just use this same
+  // solution"), then re-added with real different wording per attempt:
+  // 1st wrong password - "Re-enter your desktop password - used once,
+  // never stored." 2nd+ - "Re-enter your desktop password with care and
+  // use the eye to read it" (a genuinely different, more specific
+  // suggestion - check what you typed via the field's own reveal
+  // toggle, not just retry blind). Scoped to connectionRefused only
+  // (see the DiagCard call site below) - other error types keep
+  // showing their own resolution text unconditionally, unaffected.
+  int _pairAttempts = 0;
 
   bool get _passwordsMatch =>
       _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
@@ -257,6 +263,7 @@ class _IdleViewState extends State<_IdleView>
       setState(() {
         _pairing = false;
         _pairingFailure = result;
+        _pairAttempts++;
       });
       return;
     }
@@ -561,35 +568,23 @@ class _IdleViewState extends State<_IdleView>
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-25: real feedback, live - "Magic stars
-                    // needed here: Desktop password..." Sparkle moved
-                    // from the heading (see above) onto this field
-                    // instead - same SparkleBackground pattern already
-                    // used at this screen's other two glyph call sites.
-                    //
-                    // 2026-08-25, follow-up: "Magic stars not put here as
-                    // per last instructions" - real bug, not missing.
-                    // Behind the field (this screen's other two call
-                    // sites are glyphs/buttons with no opaque fill), it
-                    // was being fully painted over: theme.dart's global
-                    // InputDecorationTheme sets filled:true/fillColor:
-                    // kSurface on every TextField, an opaque background
-                    // that covers anything painted behind it in a Stack.
-                    // On top instead (last child paints last = on top),
-                    // wrapped in IgnorePointer so it doesn't block typing
-                    // or the field's own tap targets (the visibility
-                    // toggle).
-                    child: Stack(
-                      children: [
-                        ShreddingPasswordField(
-                          key: _shredKey1,
-                          controller: _passwordCtrl,
-                          enabled: !_pairing,
-                        ),
-                        const Positioned.fill(
-                          child: IgnorePointer(child: SparkleBackground()),
-                        ),
-                      ],
+                    // 2026-08-25: real feedback, live, several rounds -
+                    // "Magic stars needed here" -> "not put here" (a real
+                    // bug: painted behind the field's own opaque fill,
+                    // see shredding_password_field.dart's 2026-08-25
+                    // history) -> "should only be on the left of the
+                    // text... left of the D." SparkleBackground (built
+                    // for scattering across open backgrounds) was fought
+                    // into a Stack+Positioned hack three different ways
+                    // before landing on the actually-correct mechanism:
+                    // ShreddingPasswordField's own prefixIcon, the real
+                    // Flutter way to put an icon to the left of a field's
+                    // text - no manual positioning needed.
+                    child: ShreddingPasswordField(
+                      key: _shredKey1,
+                      controller: _passwordCtrl,
+                      enabled: !_pairing,
+                      showSparkle: true,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -604,6 +599,11 @@ class _IdleViewState extends State<_IdleView>
                     // 2026-08-24: sparkles are field 1 only, not the
                     // confirm field - reverted here per explicit
                     // clarification after briefly adding it to both.
+                    // 2026-08-25, refined: "Can Desktop password... field
+                    // 2 have stars once field1 has typing started."
+                    // Conditional this time, not blanket - reactive to
+                    // _passwordCtrl (already has a listener triggering
+                    // rebuilds, see initState).
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
@@ -620,6 +620,7 @@ class _IdleViewState extends State<_IdleView>
                         key: _shredKey2,
                         controller: _confirmCtrl,
                         enabled: !_pairing,
+                        showSparkle: _passwordCtrl.text.isNotEmpty,
                       ),
                     ),
                   ),
@@ -683,24 +684,44 @@ class _IdleViewState extends State<_IdleView>
                     // this screen. Added here to match the same pattern
                     // both other failure displays already use.
                     const SizedBox(height: 12),
-                    // 2026-08-25, real feedback, live - "Just use this
-                    // same solution" on both the 1st and 2nd wrong
-                    // password, and "why is number 1 there, as there's
-                    // no more numbers?" on the truncated single-step
-                    // version. The attempt-counted truncation (show step
-                    // 1 only, expand on retry) is reverted - always show
-                    // the same resolution text now, matching what the
-                    // user actually wants: consistent guidance, not
-                    // something that changes shape between attempts.
+                    // 2026-08-25, real feedback, live - two real, distinct
+                    // messages this time, not a progressive reveal of the
+                    // same list: "Password wrong 1st attempt: Re-enter
+                    // your desktop password - used once, never stored.
+                    // Password wrong 2nd attempt: Re-enter your desktop
+                    // password with care and use the eye to read it."
+                    // Scoped to connectionRefused specifically - this is
+                    // the ambiguous "could be a mistyped password, could
+                    // be network" error this whole exchange has been
+                    // about (see linking_state.dart's diagnosis text and
+                    // history). Any other error type keeps showing its
+                    // own resolution text unconditionally, unaffected -
+                    // those already have their own specific, correct
+                    // guidance and were never part of this complaint.
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: DiagCard(
-                        label: 'HOW TO FIX IT',
-                        text: _pairingFailure!.resolution,
-                        accent: kGreen,
-                        icon: Icons.lightbulb_outline,
-                        bulleted: true,
-                      ),
+                      child: Builder(builder: (context) {
+                        if (_pairingFailure!.error !=
+                            LinkingError.connectionRefused) {
+                          return DiagCard(
+                            label: 'HOW TO FIX IT',
+                            text: _pairingFailure!.resolution,
+                            accent: kGreen,
+                            icon: Icons.lightbulb_outline,
+                            bulleted: true,
+                          );
+                        }
+                        return DiagCard(
+                          label: 'HOW TO FIX IT',
+                          text: _pairAttempts <= 1
+                              ? 'Re-enter your desktop password - used '
+                                  'once, never stored.'
+                              : 'Re-enter your desktop password with '
+                                  'care and use the eye to read it.',
+                          accent: kGreen,
+                          icon: Icons.lightbulb_outline,
+                        );
+                      }),
                     ),
                     // 2026-08-25: real feedback, live - "this is not
                     // showing what the real error is and needs to
