@@ -355,23 +355,32 @@ class _IdleViewState extends State<_IdleView>
       // Flexible gives loose constraints; ContentAboveDragCanvas is a
       // Stack with only Positioned children, which collapses to zero
       // height (and clips its content away) under loose constraints.
-      // Expanded keeps it tight instead - still clamped to 420 by the
-      // ConstrainedBox below, still shrinks safely on short screens, but
-      // never collapses.
+      //
+      // 2026-08-25, follow-up - "no change" after tightening 300 -> 220.
+      // Switching to Expanded "fixed" the collapse, but Expanded imposes
+      // TIGHT constraints (min==max==all available space) on its child,
+      // and BoxConstraints.enforce() clamps an additional constraint's
+      // bounds to fall *within* the incoming constraints - a max-only
+      // constraint smaller than a tight incoming min gets clamped back
+      // UP to that min. So ConstrainedBox(maxHeight: 220) was silently a
+      // no-op the whole time; the canvas kept rendering at full Expanded
+      // size, hence no visible change. Real fix: Flexible (loose
+      // incoming, so a smaller value isn't clamped away) combined with
+      // BoxConstraints.tightFor (sets min==max==220 itself, so the Stack
+      // still gets a tight constraint and can't collapse to zero either).
       return Column(
         children: [
-          Expanded(
+          Flexible(
             child: ConstrainedBox(
               // 2026-08-25: real bug, live - "the line below Your phone
               // (has a key) and Desktop rapi5@... is where 2. DESKTOP
-              // PASSWORD is [meant to be]." 300 (an earlier guess) still
-              // left visible dead space below the captions. Computed
-              // from key_pairing_trigger.dart's own layout math instead
-              // of guessing: pair starts at y=20, the lock (taller icon)
-              // is ~169px, captions sit 8px below that and are ~20px of
+              // PASSWORD is [meant to be]." Computed from
+              // key_pairing_trigger.dart's own layout math instead of
+              // guessing: pair starts at y=20, the lock (taller icon) is
+              // ~169px, captions sit 8px below that and are ~20px of
               // text - real content bottom lands at ~217. 220 hugs that
               // closely without clipping the caption text.
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: BoxConstraints.tightFor(height: 220),
               child: ContentAboveDragCanvas(
                 content: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
