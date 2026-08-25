@@ -522,28 +522,21 @@ class _IdleViewState extends State<_IdleView>
           // than something that itself looks locked. Everything below
           // it (description, fields) keeps the existing dim-until-
           // unlocked treatment unchanged.
-          // 2026-08-24: real feedback, live (round 6) -
-          // "Desktop password too many stars, just have on left
-          // of Desktop password... text, inside and outside of
-          // text field 1." SparkleBackground removed from inside
-          // field 1 entirely (was two rounds of "more stars" /
-          // "fewer stars" tuning that never actually satisfied
-          // this) - a single static sparkle glyph to the left of
-          // the heading text instead, not scattered decoration
-          // on the field itself.
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.auto_awesome, color: kGreen, size: 12),
-              const SizedBox(width: 6),
-              Text('2. DESKTOP PASSWORD',
-                  style: TextStyle(
-                      color: kGreen,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5)),
-            ],
-          ),
+          // 2026-08-24, round 6: "Desktop password too many stars, just
+          // have on left of Desktop password... text, inside and
+          // outside of text field 1." Moved the sparkle from inside
+          // field 1 to the heading instead.
+          // 2026-08-25, real feedback, live: reversed - "Magic stars
+          // here, remove them. 2. DESKTOP PASSWORD... Magic stars needed
+          // here: Desktop password..." Sparkle belongs on the field
+          // itself, not the heading - back to a plain heading, sparkle
+          // moved onto field 1 below.
+          Text('2. DESKTOP PASSWORD',
+              style: TextStyle(
+                  color: kGreen,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
           const SizedBox(height: 14),
           // Stage 2 body - locked until stage 1 is done.
           IgnorePointer(
@@ -555,14 +548,15 @@ class _IdleViewState extends State<_IdleView>
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-25: real feedback, live - "verbose, kiss"
-                    // led to this being too ambiguous - "never stored"
-                    // read as if it meant the key itself, when it's
-                    // specifically the password that's never stored (the
-                    // public key IS stored, on the desktop, by design -
-                    // that's how the SSH pairing works at all).
+                    // 2026-08-25: real feedback, live - first pass ("the
+                    // public key IS stored, on the desktop") was still
+                    // incomplete - it's also stored on the phone itself
+                    // (that's where it was generated, and it stays there
+                    // for future use), not just the desktop. Also asked
+                    // to be less verbose - two short lines instead of
+                    // one long sentence.
                     child: Text(
-                      'Your phone\'s public key is stored on the desktop. '
+                      'Your key is stored on both devices.\n'
                       'Your password never is.',
                       style:
                           TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
@@ -572,10 +566,20 @@ class _IdleViewState extends State<_IdleView>
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: ShreddingPasswordField(
-                      key: _shredKey1,
-                      controller: _passwordCtrl,
-                      enabled: !_pairing,
+                    // 2026-08-25: real feedback, live - "Magic stars
+                    // needed here: Desktop password..." Sparkle moved
+                    // from the heading (see above) onto this field
+                    // instead - same SparkleBackground pattern already
+                    // used at this screen's other two glyph call sites.
+                    child: Stack(
+                      children: [
+                        const Positioned.fill(child: SparkleBackground()),
+                        ShreddingPasswordField(
+                          key: _shredKey1,
+                          controller: _passwordCtrl,
+                          enabled: !_pairing,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -671,24 +675,36 @@ class _IdleViewState extends State<_IdleView>
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: DiagCard(
-                        label: 'HOW TO FIX IT',
-                        // 2026-08-25: real feedback, live - "can phone
-                        // detect password re-entered? If yes, then just
-                        // show this 1 step and other steps appear on 2nd
-                        // password failure." It can (_pairAttempts,
-                        // incremented in _pairThenLink() on every
-                        // failure) - first failure shows only step 1;
-                        // the rest of the list only appears once a retry
-                        // has also failed, instead of dumping all 5
-                        // steps on a simple mistyped password.
-                        text: _pairAttempts <= 1
-                            ? _pairingFailure!.resolution.split('\n').first
-                            : _pairingFailure!.resolution,
-                        accent: kGreen,
-                        icon: Icons.lightbulb_outline,
-                        bulleted: true,
-                      ),
+                      // 2026-08-25: real feedback, live - "why is number
+                      // 1 there, as there's no more numbers?" and the
+                      // "Try step 1, retest..." hint made no sense next
+                      // to a single, unnumbered instruction either.
+                      // Truncating to one line used to keep the bulleted:
+                      // true treatment (DiagCard's numbering + hint),
+                      // which only makes sense for a real multi-item
+                      // list. Only truncate/strip numbering when the
+                      // resolution genuinely IS a multi-line list in the
+                      // first place - most resolutions (e.g.
+                      // pairingPasswordRejected's) are a single sentence
+                      // already and pass through unchanged either way.
+                      child: Builder(builder: (context) {
+                        final full = _pairingFailure!.resolution;
+                        final isMultiStep = full.contains('\n');
+                        final showFull = !isMultiStep || _pairAttempts > 1;
+                        final text = showFull
+                            ? full
+                            : full
+                                .split('\n')
+                                .first
+                                .replaceFirst(RegExp(r'^\d+\.\s*'), '');
+                        return DiagCard(
+                          label: 'HOW TO FIX IT',
+                          text: text,
+                          accent: kGreen,
+                          icon: Icons.lightbulb_outline,
+                          bulleted: showFull,
+                        );
+                      }),
                     ),
                     // 2026-08-25: real feedback, live - "this is not
                     // showing what the real error is and needs to
