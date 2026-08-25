@@ -276,9 +276,14 @@ extension LinkingErrorDetails on LinkingError {
         // (see the diagnosis text above) - re-entering the password is
         // back as step 1, ahead of the pure network checks, since that's
         // what actually resolved it in practice.
+        // 2026-08-25: real feedback, live - "remove: a mistyped password
+        // can surface as this error on some networks." Now that the raw
+        // error is shown alongside this (see linking_screen.dart's Stage
+        // 2 failure card), the hedge clause explaining *why* a password
+        // issue might land here is redundant - the raw error answers
+        // that directly instead of asserting it in prose.
         LinkingError.connectionRefused =>
-          '1. Re-enter your desktop password - a mistyped password can '
-              'surface as this error on some networks\n'
+          '1. Re-enter your desktop password\n'
               '2. Check your desktop is awake\n'
               '3. Connect phone to desktop - hotspot or USB tether\n'
               '4. On desktop: `sudo systemctl status ssh`\n'

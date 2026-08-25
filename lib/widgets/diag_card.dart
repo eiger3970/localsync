@@ -116,8 +116,9 @@ class DiagCard extends StatelessWidget {
             // (linking_screen.dart's Stage 1 intro block, same day) -
             // italic alone is enough to read as a meta-note without
             // also being harder to read than the content it's next to.
-            Text(
-                'Try step 1 first, retest, then move to the next only if needed.',
+            // 2026-08-25: real feedback, live - shortened per the
+            // user's own suggested wording.
+            Text('Try step 1, retest, then next steps.',
                 style: TextStyle(
                     color: kStar, fontSize: 13, fontStyle: FontStyle.italic)),
             const SizedBox(height: 8),
