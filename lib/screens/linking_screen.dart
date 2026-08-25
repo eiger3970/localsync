@@ -634,6 +634,27 @@ class _IdleViewState extends State<_IdleView>
                         accent: Colors.redAccent,
                       ),
                     ),
+                    // 2026-08-25: real bug, live - "I see no list, what
+                    // list are you referring to?" This inline failure
+                    // display (Stage 2's password entry, _pairThenLink())
+                    // is a separate code path from _FailedView/
+                    // PairingScreen's own failure screens - it only ever
+                    // rendered WHAT HAPPENED, never HOW TO FIX IT, so the
+                    // numbered resolution steps (leading with "re-enter
+                    // your desktop password") genuinely never reached
+                    // this screen. Added here to match the same pattern
+                    // both other failure displays already use.
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: DiagCard(
+                        label: 'HOW TO FIX IT',
+                        text: _pairingFailure!.resolution,
+                        accent: kGreen,
+                        icon: Icons.lightbulb_outline,
+                        bulleted: true,
+                      ),
+                    ),
                   ],
                 ],
               ),
