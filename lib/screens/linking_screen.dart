@@ -338,108 +338,147 @@ class _IdleViewState extends State<_IdleView>
     // dropped from that branch since they're only relevant before
     // pairing, already shown once, in the ceremony view above.
     if (!_paired) {
-      return ContentAboveDragCanvas(
-        content: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Bring your desktop $kGenericAppLabel $kContainerName to this phone',
-                  style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-              const SizedBox(
-                width: 220,
-                child: Column(
-                  children: [
-                    _ScopeRow(label: 'Notes'),
-                    _ScopeRow(label: 'Folders'),
-                    _ScopeRow(label: 'Attachments'),
-                  ],
+      // 2026-08-25: real feedback, live - "too low down. Just lay them
+      // out like a normal document with 2 below end of 1's sections."
+      // bottomPinned pins to the literal bottom of the screen, with the
+      // canvas eating all the space in between - that's what pushed the
+      // headers far below Stage 1's actual content instead of sitting
+      // right after it. Fix: cap the canvas+content block to a bounded
+      // height (Flexible+ConstrainedBox, so it still shrinks instead of
+      // overflowing on short screens) and put the headers as a normal
+      // Column sibling right after it, instead of pinning them to the
+      // bottom via ContentAboveDragCanvas's own bottomPinned slot. Still
+      // no ScrollView anywhere in this branch - the drag gesture keeps
+      // the same non-scrolling ancestor round 11 fixed it with.
+      return Column(
+        children: [
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 420),
+              child: ContentAboveDragCanvas(
+                content: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                          'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+                          style: TextStyle(
+                              color: kStar,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 20),
+                      const SizedBox(
+                        width: 220,
+                        child: Column(
+                          children: [
+                            _ScopeRow(label: 'Notes'),
+                            _ScopeRow(label: 'Folders'),
+                            _ScopeRow(label: 'Attachments'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shield_outlined,
+                              color: kTextDim, size: 21),
+                          const SizedBox(width: 6),
+                          Text(
+                              'No other files on this phone are read or changed.',
+                              style: TextStyle(color: kTextDim, fontSize: 12)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.schedule_outlined,
+                              color: kTextMid, size: 15),
+                          const SizedBox(width: 6),
+                          Text(
+                            'This runs once. Larger vaults may take a few minutes.',
+                            style: TextStyle(
+                                color: kTextMid, fontSize: 13, height: 1.6),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Text('1. PAIR YOUR DEVICE',
+                          style: TextStyle(
+                              color: kGreen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5)),
+                    ],
+                  ),
+                ),
+                canvas: KeyPairingTrigger(
+                  runningLabel: 'CONNECTING…',
+                  // 2026-08-24, round 12: real feedback, live - "same errors,
+                  // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
+                  // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
+                  // in round 10's revert alongside the scroll-arena workarounds
+                  // they were never actually the cause of. Now built on round
+                  // 11's fixed foundation (a real full-screen canvas, no
+                  // competing ScrollView) instead of layered on top of the
+                  // broken one.
+                  resetAfterSettle: false,
+                  minRun: Duration.zero,
+                  // 2026-08-24, round 13: real feedback, live - "doesn't drag up
+                  // or over the whole screen. The previous version did until
+                  // you reverted back to its previous version." Round 9's
+                  // dragMargin, dropped in round 10's revert and not re-added in
+                  // round 12 - re-added now on top of round 11's real full-
+                  // screen-canvas fix instead of the broken small-box-in-
+                  // ScrollView it was layered on before.
+                  dragMargin: 200,
+                  keyCaption: Text('Your phone (has a key)',
+                      style: TextStyle(
+                          color: kTextMid,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center),
+                  lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
+                      style: TextStyle(color: kTextMid, fontSize: 13),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis),
+                  onConfirm: () async {},
+                  onSettled: () => setState(() => _paired = true),
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shield_outlined, color: kTextDim, size: 21),
-                  const SizedBox(width: 6),
-                  Text('No other files on this phone are read or changed.',
-                      style: TextStyle(color: kTextDim, fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.schedule_outlined, color: kTextMid, size: 15),
-                  const SizedBox(width: 6),
-                  Text(
-                    'This runs once. Larger vaults may take a few minutes.',
-                    style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text('1. PAIR YOUR DEVICE',
-                  style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-            ],
-          ),
-        ),
-        canvas: KeyPairingTrigger(
-          runningLabel: 'CONNECTING…',
-          // 2026-08-24, round 12: real feedback, live - "same errors,
-          // keep fixing." Re-adds round 6/9's captions, resetAfterSettle,
-          // and zero minRun (widgets/key_pairing_trigger.dart) - dropped
-          // in round 10's revert alongside the scroll-arena workarounds
-          // they were never actually the cause of. Now built on round
-          // 11's fixed foundation (a real full-screen canvas, no
-          // competing ScrollView) instead of layered on top of the
-          // broken one.
-          resetAfterSettle: false,
-          minRun: Duration.zero,
-          // 2026-08-24, round 13: real feedback, live - "doesn't drag up
-          // or over the whole screen. The previous version did until
-          // you reverted back to its previous version." Round 9's
-          // dragMargin, dropped in round 10's revert and not re-added in
-          // round 12 - re-added now on top of round 11's real full-
-          // screen-canvas fix instead of the broken small-box-in-
-          // ScrollView it was layered on before.
-          dragMargin: 200,
-          keyCaption: Text('Your phone (has a key)',
-              style: TextStyle(color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center),
-          lockCaption: Text('${ctrl.desktopUser}@${ctrl.desktopIp}',
-              style: TextStyle(color: kTextMid, fontSize: 13),
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis),
-          onConfirm: () async {},
-          onSettled: () => setState(() => _paired = true),
-        ),
-        // 2026-08-25: real feedback, live - "3 steps are all on the 1
-        // page, 2 and 3 activate sequentially." Dimmed step headers via
-        // bottomPinned (measured the same non-scrolling way `content`
-        // above already is - no new scroll ancestor, no risk to the drag
-        // fix). This does shrink the canvas's usable drag range to make
-        // room for them - tried removing them over that trade-off,
-        // explicitly rejected ("no, they're meant to be dimmed") -
-        // gap/reduced range is the accepted cost, not a bug.
-        bottomPinned: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          child: Opacity(
-            opacity: 0.3,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('2. DESKTOP PASSWORD',
-                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                const SizedBox(height: 8),
-                Text('3. SET UP VAULT',
-                    style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-              ],
             ),
           ),
-        ),
+          // Normal Column flow, not bottomPinned - sits right after the
+          // capped canvas above instead of pinned to the screen's actual
+          // bottom edge.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+            child: Opacity(
+              opacity: 0.3,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('2. DESKTOP PASSWORD',
+                      style: TextStyle(
+                          color: kGreen,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
+                  const SizedBox(height: 8),
+                  Text('3. SET UP VAULT',
+                      style: TextStyle(
+                          color: kGreen,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -466,242 +505,271 @@ class _IdleViewState extends State<_IdleView>
     // top of the screen.
     return SingleChildScrollView(
       child: Padding(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          // Stage 2 of 3 - locked until stage 1 is done.
-          IgnorePointer(
-            ignoring: !_paired,
-            child: AnimatedOpacity(
-              opacity: _paired ? 1 : 0.3,
-              duration: const Duration(milliseconds: 200),
-              child: Column(
-                children: [
-                  // 2026-08-24: real feedback, live (round 6) -
-                  // "Desktop password too many stars, just have on left
-                  // of Desktop password... text, inside and outside of
-                  // text field 1." SparkleBackground removed from inside
-                  // field 1 entirely (was two rounds of "more stars" /
-                  // "fewer stars" tuning that never actually satisfied
-                  // this) - a single static sparkle glyph to the left of
-                  // the heading text instead, not scattered decoration
-                  // on the field itself.
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome, color: kGreen, size: 12),
-                      const SizedBox(width: 6),
-                      Text('2. DESKTOP PASSWORD',
-                          style: TextStyle(
-                              color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      'Your login password installs this phone\'s key over '
-                      'SSH - the same real encryption your bank\'s app '
-                      'uses. Never stored, only used for this connection.',
-                      style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                      textAlign: TextAlign.center,
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            // Stage 2 of 3 - locked until stage 1 is done.
+            IgnorePointer(
+              ignoring: !_paired,
+              child: AnimatedOpacity(
+                opacity: _paired ? 1 : 0.3,
+                duration: const Duration(milliseconds: 200),
+                child: Column(
+                  children: [
+                    // 2026-08-24: real feedback, live (round 6) -
+                    // "Desktop password too many stars, just have on left
+                    // of Desktop password... text, inside and outside of
+                    // text field 1." SparkleBackground removed from inside
+                    // field 1 entirely (was two rounds of "more stars" /
+                    // "fewer stars" tuning that never actually satisfied
+                    // this) - a single static sparkle glyph to the left of
+                    // the heading text instead, not scattered decoration
+                    // on the field itself.
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, color: kGreen, size: 12),
+                        const SizedBox(width: 6),
+                        Text('2. DESKTOP PASSWORD',
+                            style: TextStyle(
+                                color: kGreen,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.5)),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: ShreddingPasswordField(
-                      key: _shredKey1,
-                      controller: _passwordCtrl,
-                      enabled: !_pairing,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-24: sparkles are field 1 only, not the
-                    // confirm field - reverted here per explicit
-                    // clarification after briefly adding it to both.
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: _confirmCtrl.text.isEmpty
-                              ? Colors.transparent
-                              : (_passwordsMatch ? kGreen : Colors.redAccent),
-                          width: 1.5,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: ShreddingPasswordField(
-                        key: _shredKey2,
-                        controller: _confirmCtrl,
-                        enabled: !_pairing,
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        'Your login password installs this phone\'s key over '
+                        'SSH - the same real encryption your bank\'s app '
+                        'uses. Never stored, only used for this connection.',
+                        style: TextStyle(
+                            color: kTextMid, fontSize: 13, height: 1.6),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
-                  // 2026-08-24: real feedback, live (round 6) -
-                  // "Passwords match/should match text is too jump
-                  // scare, have the text smooth transition into
-                  // appearance." This block used to only exist in the
-                  // tree at all once the confirm field was non-empty (a
-                  // hard insert, not a fade) - AnimatedSwitcher cross-
-                  // fades between nothing and the real row instead of
-                  // popping it in instantly.
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _confirmCtrl.text.isEmpty
-                        ? const SizedBox.shrink(key: ValueKey('matchEmpty'))
-                        : Padding(
-                            key: const ValueKey('matchRow'),
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(_passwordsMatch ? Icons.check_circle : Icons.cancel,
-                                    color: _passwordsMatch ? kGreen : Colors.amber, size: 16),
-                                const SizedBox(width: 6),
-                                Text(_passwordsMatch ? 'Passwords match' : 'Passwords should match',
-                                    style: TextStyle(
-                                        color: _passwordsMatch ? kGreen : Colors.amber,
-                                        fontSize: 12)),
-                              ],
-                            ),
-                          ),
-                  ),
-                  if (_pairingFailure != null) ...[
                     const SizedBox(height: 16),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: DiagCard(
-                        label: 'WHAT HAPPENED',
-                        text: _pairingFailure!.diagnosis,
-                        accent: Colors.redAccent,
+                      child: ShreddingPasswordField(
+                        key: _shredKey1,
+                        controller: _passwordCtrl,
+                        enabled: !_pairing,
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      // 2026-08-24: sparkles are field 1 only, not the
+                      // confirm field - reverted here per explicit
+                      // clarification after briefly adding it to both.
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: _confirmCtrl.text.isEmpty
+                                ? Colors.transparent
+                                : (_passwordsMatch ? kGreen : Colors.redAccent),
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: ShreddingPasswordField(
+                          key: _shredKey2,
+                          controller: _confirmCtrl,
+                          enabled: !_pairing,
+                        ),
+                      ),
+                    ),
+                    // 2026-08-24: real feedback, live (round 6) -
+                    // "Passwords match/should match text is too jump
+                    // scare, have the text smooth transition into
+                    // appearance." This block used to only exist in the
+                    // tree at all once the confirm field was non-empty (a
+                    // hard insert, not a fade) - AnimatedSwitcher cross-
+                    // fades between nothing and the real row instead of
+                    // popping it in instantly.
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: _confirmCtrl.text.isEmpty
+                          ? const SizedBox.shrink(key: ValueKey('matchEmpty'))
+                          : Padding(
+                              key: const ValueKey('matchRow'),
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                      _passwordsMatch
+                                          ? Icons.check_circle
+                                          : Icons.cancel,
+                                      color: _passwordsMatch
+                                          ? kGreen
+                                          : Colors.amber,
+                                      size: 16),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                      _passwordsMatch
+                                          ? 'Passwords match'
+                                          : 'Passwords should match',
+                                      style: TextStyle(
+                                          color: _passwordsMatch
+                                              ? kGreen
+                                              : Colors.amber,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                    ),
+                    if (_pairingFailure != null) ...[
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: DiagCard(
+                          label: 'WHAT HAPPENED',
+                          text: _pairingFailure!.diagnosis,
+                          accent: Colors.redAccent,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 32),
+            const SizedBox(height: 32),
 
-          // Stage 3 of 3 - locked until passwords match.
-          IgnorePointer(
-            ignoring: !(_paired && _passwordsMatch),
-            child: AnimatedOpacity(
-              opacity: (_paired && _passwordsMatch) ? 1 : 0.3,
-              duration: const Duration(milliseconds: 200),
-              child: Column(
-                children: [
-                  Text('3. SET UP VAULT',
-                      style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
-                  const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: rowPadding),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: glyphWidth,
-                          child: Stack(
-                            children: [
-                              const Positioned.fill(child: SparkleBackground()),
-                              Draggable<bool>(
-                                data: true,
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: Opacity(
-                                    opacity: 0.85,
+            // Stage 3 of 3 - locked until passwords match.
+            IgnorePointer(
+              ignoring: !(_paired && _passwordsMatch),
+              child: AnimatedOpacity(
+                opacity: (_paired && _passwordsMatch) ? 1 : 0.3,
+                duration: const Duration(milliseconds: 200),
+                child: Column(
+                  children: [
+                    Text('3. SET UP VAULT',
+                        style: TextStyle(
+                            color: kGreen,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5)),
+                    const SizedBox(height: 14),
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: rowPadding),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: glyphWidth,
+                            child: Stack(
+                              children: [
+                                const Positioned.fill(
+                                    child: SparkleBackground()),
+                                Draggable<bool>(
+                                  data: true,
+                                  feedback: Material(
+                                    color: Colors.transparent,
+                                    child: Opacity(
+                                      opacity: 0.85,
+                                      child: _DeviceGlyph(
+                                        svgAsset:
+                                            'assets/pairing/pairing_laptop_plain.svg',
+                                        label: 'Your desktop',
+                                        caption:
+                                            '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                        accent: true,
+                                        width: glyphWidth,
+                                        iconSize: glyphIcon,
+                                      ),
+                                    ),
+                                  ),
+                                  childWhenDragging: Opacity(
+                                    opacity: 0.3,
                                     child: _DeviceGlyph(
-                                      svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
+                                      svgAsset:
+                                          'assets/pairing/pairing_laptop_plain.svg',
                                       label: 'Your desktop',
-                                      caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                      caption:
+                                          '${ctrl.desktopUser}@${ctrl.desktopIp}',
                                       accent: true,
                                       width: glyphWidth,
                                       iconSize: glyphIcon,
                                     ),
                                   ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.3,
                                   child: _DeviceGlyph(
-                                    svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
+                                    svgAsset:
+                                        'assets/pairing/pairing_laptop_plain.svg',
                                     label: 'Your desktop',
-                                    caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                    caption:
+                                        '${ctrl.desktopUser}@${ctrl.desktopIp}',
                                     accent: true,
                                     width: glyphWidth,
                                     iconSize: glyphIcon,
+                                    pulse: _pulseCtrl,
                                   ),
                                 ),
-                                child: _DeviceGlyph(
-                                  svgAsset: 'assets/pairing/pairing_laptop_plain.svg',
-                                  label: 'Your desktop',
-                                  caption: '${ctrl.desktopUser}@${ctrl.desktopIp}',
-                                  accent: true,
-                                  width: glyphWidth,
-                                  iconSize: glyphIcon,
-                                  pulse: _pulseCtrl,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.only(top: arrowTopOffset),
-                          child: Icon(Icons.arrow_forward_rounded, color: kGreen, size: 26),
-                        ),
-                        DragTarget<bool>(
-                          onWillAcceptWithDetails: (_) {
-                            if (!(_paired && _passwordsMatch)) return false;
-                            setState(() => _dragHover = true);
-                            return true;
-                          },
-                          onLeave: (_) => setState(() => _dragHover = false),
-                          onAcceptWithDetails: (_) {
-                            setState(() => _dragHover = false);
-                            _pairThenLink();
-                          },
-                          builder: (context, candidate, rejected) => _DeviceGlyph(
-                            icon: Icons.auto_stories_rounded,
-                            label: '$kGenericAppLabel $kContainerName',
-                            caption: 'this phone',
-                            width: glyphWidth,
-                            iconSize: glyphIcon,
-                            hovering: _dragHover,
+                          Padding(
+                            padding: EdgeInsets.only(top: arrowTopOffset),
+                            child: Icon(Icons.arrow_forward_rounded,
+                                color: kGreen, size: 26),
                           ),
-                        ),
-                      ],
+                          DragTarget<bool>(
+                            onWillAcceptWithDetails: (_) {
+                              if (!(_paired && _passwordsMatch)) return false;
+                              setState(() => _dragHover = true);
+                              return true;
+                            },
+                            onLeave: (_) => setState(() => _dragHover = false),
+                            onAcceptWithDetails: (_) {
+                              setState(() => _dragHover = false);
+                              _pairThenLink();
+                            },
+                            builder: (context, candidate, rejected) =>
+                                _DeviceGlyph(
+                              icon: Icons.auto_stories_rounded,
+                              label: '$kGenericAppLabel $kContainerName',
+                              caption: 'this phone',
+                              width: glyphWidth,
+                              iconSize: glyphIcon,
+                              hovering: _dragHover,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          if (_pairing) ...[
-            const SizedBox(height: 16),
-            Text('Pairing…',
-                style: TextStyle(color: kTextMid, fontSize: 13),
-                textAlign: TextAlign.center),
+            if (_pairing) ...[
+              const SizedBox(height: 16),
+              Text('Pairing…',
+                  style: TextStyle(color: kTextMid, fontSize: 13),
+                  textAlign: TextAlign.center),
+            ],
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: ctrl.startLinkingExistingVault,
+              child: Text(
+                'Already have a vault set up? Link it directly',
+                style: TextStyle(
+                  color: kTextMid,
+                  fontSize: 13,
+                  decoration: TextDecoration.underline,
+                  decorationColor: kTextMid,
+                ),
+              ),
+            ),
           ],
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: ctrl.startLinkingExistingVault,
-            child: Text(
-              'Already have a vault set up? Link it directly',
-              style: TextStyle(
-                color: kTextMid,
-                fontSize: 13,
-                decoration: TextDecoration.underline,
-                decorationColor: kTextMid,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -888,8 +956,7 @@ class _ParkedViewState extends State<_ParkedView> {
                     ),
                     child: Text(
                       ctrl.currentInstruction!,
-                      style: TextStyle(
-                          color: kStar, fontSize: 16, height: 2.0),
+                      style: TextStyle(color: kStar, fontSize: 16, height: 2.0),
                     ),
                   ),
 
@@ -919,8 +986,7 @@ class _ParkedViewState extends State<_ParkedView> {
                     onConfirm: ctrl.confirmVaultCreated,
                     validate: _validateVaultCreationDone,
                   ),
-                ] else if (ctrl.step ==
-                    LinkingStep.pickingVaultFolder) ...[
+                ] else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
                   // 2026-08-15: VAULT FOLDER moved into checklist item
                   // 2.1 itself (firstItemTapAction above) - the standalone
                   // button that used to sit here is gone. Only the busy
@@ -1060,8 +1126,7 @@ class _StepChecklistState extends State<_StepChecklist> {
                     color: _checked[i] ? kTextMid : kStar,
                     fontSize: 16,
                     height: 1.6,
-                    decoration:
-                        _checked[i] ? TextDecoration.lineThrough : null,
+                    decoration: _checked[i] ? TextDecoration.lineThrough : null,
                     decorationColor: kTextMid,
                   ),
                 ),
@@ -1196,7 +1261,6 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
     );
   }
 }
-
 
 // 2026-08-16: SwapGifSwipeConfirm (formerly private _SwapGifSwipeConfirm
 // here) moved to widgets/swap_gif_swipe_confirm.dart so PairingScreen
@@ -1361,8 +1425,7 @@ class _CompleteViewState extends State<_CompleteView>
                     curve: Curves.elasticOut,
                     builder: (_, scale, child) =>
                         Transform.scale(scale: scale, child: child),
-                    child:
-                        Icon(Icons.check_circle, color: kGreen, size: 50),
+                    child: Icon(Icons.check_circle, color: kGreen, size: 50),
                   ),
                 ),
               ),
@@ -1662,8 +1725,13 @@ class _FailedViewState extends State<_FailedView> {
                       )
                     : Icon(Icons.wifi_find, color: kGreen, size: 18),
                 label: Text(
-                    _discovering ? 'LOOKING FOR DESKTOP…' : 'FIND DESKTOP AUTOMATICALLY',
-                    style: TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w700)),
+                    _discovering
+                        ? 'LOOKING FOR DESKTOP…'
+                        : 'FIND DESKTOP AUTOMATICALLY',
+                    style: TextStyle(
+                        color: kGreen,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: kGreen),
                   padding: const EdgeInsets.symmetric(vertical: 12),
