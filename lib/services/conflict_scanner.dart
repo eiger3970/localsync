@@ -126,17 +126,22 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
     // 2026-08-18: real device finding - a vault linked to a
-    // non-already-empty folder gets a "LocalSync Vault Backup
-    // <timestamp>" snapshot (see vault_backup.dart) that can contain
-    // old, already-stale conflict markers from before. Scanning inside
+    // non-already-empty folder gets a "Vault Backup <timestamp>"
+    // snapshot (see vault_backup.dart) that can contain old,
+    // already-stale conflict markers from before. Scanning inside
     // backup folders surfaced those as live, actionable conflicts -
     // confusing and wrong, since resolving a snapshot of the past
     // isn't a real action. Same reasoning excludes this scanner's own
-    // "LocalSync Conflict Backups" output from being re-scanned as a
-    // conflict, though that one's format doesn't match the callout
-    // patterns below anyway.
+    // "Conflict Backups" output from being re-scanned as a conflict,
+    // though that one's format doesn't match the callout patterns
+    // below anyway. Both now share one kLocalSyncFolderName parent
+    // (2026-08-26), so one prefix check covers both; the two legacy
+    // top-level names are still excluded too, for vaults that had
+    // conflicts resolved before that move and still have the old
+    // top-level folders sitting around unmigrated.
     final relPath = entity.path.replaceFirst('${dir.path}/', '');
-    if (relPath.startsWith('LocalSync Vault Backup ') ||
+    if (relPath.startsWith('$kLocalSyncFolderName/') ||
+        relPath.startsWith('LocalSync Vault Backup ') ||
         relPath.startsWith('LocalSync Conflict Backups/')) {
       continue;
     }
@@ -214,7 +219,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
 /// text, no git knowledge required to find them.
 ///
 /// 2026-08-19: returns the backup file's path relative to the vault
-/// root (e.g. "LocalSync Conflict Backups/note - 202608191945.md") -
+/// root (e.g. "LocalSync/Conflict Backups/note - 202608191945.md") -
 /// real user feedback, live: "where is 'LocalSync Conflict Backups'?
 /// give me an absolute path... humans don't need to know petty shite,
 /// that's for computer machines to deal with." The app already knows
@@ -225,7 +230,8 @@ Future<String> _backupConflictBeforeResolving(
   String vaultPath,
   ConflictEntry entry,
 ) async {
-  final backupDir = Directory('$vaultPath/LocalSync Conflict Backups');
+  final backupDir =
+      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFileName = '$baseName - ${backupTimestamp()}.md';
@@ -242,7 +248,7 @@ Future<String> _backupConflictBeforeResolving(
     'Original file: ${entry.filePath}\n\n'
     '$sections',
   );
-  return 'LocalSync Conflict Backups/$backupFileName';
+  return '$kLocalSyncFolderName/Conflict Backups/$backupFileName';
 }
 
 /// Pure string transform - given the file's current [content] and the
@@ -340,15 +346,43 @@ class ReferenceEntry {
   final String filePath; // relative to the vault root
   final String label; // who/when this leftover version came from
   final String body; // the quoted content itself, for a short preview
+  // 2026-08-26: real feedback, live - "have a dropdown text for the
+  // phone side" too, mirroring [body] above for the dropped side. The
+  // kept side's text was never itself tagged with any marker (see
+  // applyResolution: only the dropped side gets wrapped in a callout),
+  // so this is recovered positionally instead - see
+  // scanForReferenceCallouts' extraction just below.
+  final String keptPreview;
   final int matchStart;
   final int matchEnd;
   const ReferenceEntry({
     required this.filePath,
     required this.label,
     required this.body,
+    required this.keptPreview,
     required this.matchStart,
     required this.matchEnd,
   });
+}
+
+/// The kept side's text has no marker of its own (see ReferenceEntry.
+/// keptPreview's doc) - it's just whatever content sits directly above
+/// where this callout starts. Bounded to [_maxLookback] chars, then
+/// trimmed to the last blank-line-separated paragraph within that
+/// window if one exists - the most relevant tail, not an arbitrary mid-
+/// sentence cut, and never the whole note even if this is the file's
+/// only conflict and [chosen] itself was long.
+const _maxLookback = 500;
+
+String _extractKeptPreview(String content, int calloutStart) {
+  final windowStart =
+      calloutStart - _maxLookback > 0 ? calloutStart - _maxLookback : 0;
+  var text = content.substring(windowStart, calloutStart).trimRight();
+  final lastParagraphBreak = text.lastIndexOf('\n\n');
+  final truncated = windowStart > 0 && lastParagraphBreak == -1;
+  if (lastParagraphBreak != -1) text = text.substring(lastParagraphBreak + 2);
+  text = text.trim();
+  return truncated ? '…$text' : text;
 }
 
 /// Scans every `.md` file under [vaultPath] for "kept for reference"
@@ -363,6 +397,7 @@ Future<List<ReferenceEntry>> scanForReferenceCallouts(String vaultPath) async {
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
+    if (entity.path.contains('/$kLocalSyncFolderName/')) continue;
     if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
     if (entity.path.contains('/LocalSync Vault Backup ')) continue;
 
@@ -375,6 +410,7 @@ Future<List<ReferenceEntry>> scanForReferenceCallouts(String vaultPath) async {
         filePath: relPath,
         label: m.group(1) ?? '',
         body: _stripQuoteBlock(m.group(2) ?? ''),
+        keptPreview: _extractKeptPreview(content, m.start),
         matchStart: m.start,
         matchEnd: m.end,
       ));
@@ -392,7 +428,8 @@ Future<void> deleteReferenceCallout(
   String vaultPath,
   ReferenceEntry entry,
 ) async {
-  final backupDir = Directory('$vaultPath/LocalSync Conflict Backups');
+  final backupDir =
+      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =

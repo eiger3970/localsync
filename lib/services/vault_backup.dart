@@ -27,6 +27,18 @@ String backupTimestamp() {
   return '${n.year}${p2(n.month)}${p2(n.day)}${p2(n.hour)}${p2(n.minute)}';
 }
 
+// 2026-08-26: real feedback, live - "LocalSync Conflict Backups" and
+// "LocalSync Vault Backup <timestamp>" used to each sit directly at the
+// vault's top level, two separate items cluttering the same file list
+// this app's own conflicts_screen.dart deliberately keeps things
+// visible in (see its "How conflicts are kept safe" dialog). One
+// dedicated top-level folder, not two, holding both kinds of backup as
+// subfolders - see conflict_scanner.dart's matching use for "Conflict
+// Backups". Deliberately NOT nested under a "Projects" folder or any
+// other user-specific convention - the app can't assume a given vault
+// is organized that way.
+const kLocalSyncFolderName = 'LocalSync';
+
 /// If [vaultPath] already has any content, copies the whole thing to a
 /// timestamped folder before the caller does anything destructive to
 /// it. Returns true if a backup was actually made.
@@ -51,9 +63,14 @@ Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
   // own just-created (empty) backup folder and copying it into itself.
   // Only applies at this top level; a genuine subdirectory deeper in
   // the tree that happens to share the name is never touched by it.
-  final backupName = 'LocalSync Vault Backup ${backupTimestamp()}';
-  await _copyDirectoryContents(dir, Directory('$vaultPath/$backupName'),
-      skipName: backupName);
+  // 2026-08-26: skips the whole kLocalSyncFolderName container now, not
+  // just this one timestamped backup - a vault backup copying its own
+  // sibling "Conflict Backups" folder into itself would be pointless
+  // (see kLocalSyncFolderName's own doc for why they share one parent).
+  final backupName = 'Vault Backup ${backupTimestamp()}';
+  await _copyDirectoryContents(
+      dir, Directory('$vaultPath/$kLocalSyncFolderName/$backupName'),
+      skipName: kLocalSyncFolderName);
   return true;
 }
 
