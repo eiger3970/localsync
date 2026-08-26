@@ -80,7 +80,7 @@ class SyncNoChanges extends SyncResult {
 // screen said a decision was needed, so the only way to ever discover
 // a conflict was already knowing to check a menu with no badge on it.
 // This carries how many files actually need review, straight from
-// _repairAllConflictsOnDisk's own count - not a guess, not a separate
+// repairAllConflictsOnDisk's own count - not a guess, not a separate
 // re-scan - so the caller can both say so honestly and navigate
 // straight into the Conflicts screen instead of a dead-end success
 // message. Replaces the old SyncConflict class, which existed for
@@ -344,10 +344,20 @@ class SyncService {
 // Top-level, not methods: compute() needs a top-level or static function
 // with no captured state, since it runs in a fresh isolate that starts
 // from scratch. Everything each one needs travels in via _SyncParams.
+//
+// 2026-08-26: commitDirtyTree/labelForCommit/repairAllConflictsOnDisk/
+// finishMergeCommit below were library-private until now - made public
+// (name unchanged, just dropped the leading underscore) so git_service.dart's
+// pullFromBareRepo() can reuse this exact merge-and-repair pipeline for the
+// initial-link case instead of a second, drifting copy - real feedback,
+// live: linking a real, already-used vault folder hit LinkingError
+// .mergeConflict, which used to just fail outright (deferred scope,
+// 2026-08-08) instead of doing the same safe three-way merge ordinary
+// day-to-day pulls already do here.
 
 Future<SyncResult> _pullInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
-    _commitDirtyTree(repo, p.commitMessage, p.deviceName);
+    commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -386,12 +396,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     git.Merge.commit(repo: repo, commit: annotated);
     var unresolvedCount = 0;
     if (repo.index.hasConflicts) {
-      final other = _labelForCommit(repo, remoteOid);
-      unresolvedCount = _repairAllConflictsOnDisk(p.vaultPath,
+      final other = labelForCommit(repo, remoteOid);
+      unresolvedCount = repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
     }
-    _finishMergeCommit(repo, p.deviceName,
+    finishMergeCommit(repo, p.deviceName,
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     if (unresolvedCount > 0) return SyncOkWithConflicts(unresolvedCount);
@@ -408,7 +418,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // can't see?" - yes, and now the result says so explicitly (only
     // when a commit actually happened - if the tree was already
     // clean, p.commitMessage was never used, so don't claim it was).
-    final committed = _commitDirtyTree(repo, p.commitMessage, p.deviceName);
+    final committed = commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -548,17 +558,17 @@ Future<SyncResult> _withRepo(
         String? otherLabel, otherTime;
         try {
           final mergeHeadOid = git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
-          final other = _labelForCommit(repo, mergeHeadOid);
+          final other = labelForCommit(repo, mergeHeadOid);
           otherLabel = other.label;
           otherTime = other.time.isEmpty ? null : other.time;
         } catch (_) {
           // No MERGE_HEAD to read a label from - repair still runs, just
           // falls back to a generic label.
         }
-        _repairAllConflictsOnDisk(p.vaultPath,
+        repairAllConflictsOnDisk(p.vaultPath,
             otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
       }
-      _finishMergeCommit(repo, p.deviceName);
+      finishMergeCommit(repo, p.deviceName);
       repo.stateCleanup();
     }
     final remote = git.Remote.lookup(repo: repo, name: 'origin');
@@ -584,7 +594,7 @@ Future<SyncResult> _withRepo(
 /// resulting tree's oid against HEAD's tree oid instead - a tree-hash
 /// comparison is unambiguous and doesn't depend on the status API at
 /// all, so it can't be wrong the same way.
-bool _commitDirtyTree(git.Repository repo, String message, String deviceName) {
+bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
   final parent  = git.Commit.lookup(repo: repo, oid: headOid);
   final tree    = _stageAndWriteTree(repo);
@@ -605,7 +615,7 @@ bool _commitDirtyTree(git.Repository repo, String message, String deviceName) {
 /// Completes an in-progress merge (from Merge.commit) by staging
 /// whatever is in the working directory now (post-repair) and creating
 /// the merge commit with both parents.
-void _finishMergeCommit(git.Repository repo, String deviceName, {String? message}) {
+void finishMergeCommit(git.Repository repo, String deviceName, {String? message}) {
   final localOid = repo.head.target;
   final git.Oid remoteOid;
   try {
@@ -754,7 +764,7 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 // instead of a generic "merged" message that looks identical whether
 // nothing happened or three files just went into conflict - see this
 // session's own mermaid flowchart of the flow this replaces.
-int _repairAllConflictsOnDisk(String path,
+int repairAllConflictsOnDisk(String path,
     {String otherLabel = 'other device', String? otherTime}) {
   var unresolvedCount = 0;
   final dir = Directory(path);
@@ -789,7 +799,7 @@ int _repairAllConflictsOnDisk(String path,
 /// fixed git identity. Now reads commit.author.name instead, which is
 /// the actual device name (see _signatureFor) - "who" is finally a real
 /// answer, not a second copy of "when".
-({String label, String time}) _labelForCommit(git.Repository repo, git.Oid oid) {
+({String label, String time}) labelForCommit(git.Repository repo, git.Oid oid) {
   try {
     final commit = git.Commit.lookup(repo: repo, oid: oid);
     final t = DateTime.fromMillisecondsSinceEpoch(commit.time * 1000);

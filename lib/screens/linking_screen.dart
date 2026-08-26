@@ -733,28 +733,9 @@ class _IdleViewState extends State<_IdleView>
                             bulleted: true,
                           );
                         }
-                        const messages = [
-                          'Re-enter your desktop password - used once, '
-                              'never stored.',
-                          'Re-enter your desktop password with care and '
-                              'use the eye to read it.',
-                          'Uninstall and reinstall the app.',
-                          'Seriously? Re-enter your password.',
-                          'Are you even trying?',
-                          'Nope, What the?????',
-                          'Yo mama!!!!!',
-                          "I'm not even kidding, take yo time, you are "
-                              'loved :-)',
-                          'Contact us or your psychiatrist and send your '
-                              'Bitcoin to steamyice42@walletofsatoshi.com.',
-                          "We'll send you Bitcoin, provide your Wallet "
-                              'of Satoshi address.',
-                        ];
-                        final index =
-                            (_pairAttempts - 1).clamp(0, messages.length - 1);
                         return DiagCard(
                           label: 'HOW TO FIX IT',
-                          text: messages[index],
+                          text: connectionRefusedRetryMessage(_pairAttempts),
                           accent: kGreen,
                           icon: Icons.lightbulb_outline,
                         );

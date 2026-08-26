@@ -35,10 +35,16 @@ class ShreddingPasswordField extends StatefulWidget {
 }
 
 class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const _duration = Duration(milliseconds: 650);
   final _rand = Random();
   late final AnimationController _ctrl;
+  // 2026-08-26: real feedback, live - "stars need to be twinkling." The
+  // prefixIcon cluster below was two static Icons with no animation at
+  // all, unlike SparkleBackground's real twinkle (sine-wave opacity,
+  // looping). Same sine formula, just driven by its own controller and
+  // scoped to this small 28px cluster instead of a full-width canvas.
+  late final AnimationController _sparkleCtrl;
   bool _obscure = true;
   bool _shredding = false;
   String _shreddedText = '';
@@ -50,12 +56,21 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: _duration);
+    _sparkleCtrl =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
+          ..repeat();
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _sparkleCtrl.dispose();
     super.dispose();
+  }
+
+  double _twinkle(double phaseOffset) {
+    final phase = (_sparkleCtrl.value + phaseOffset) % 1.0;
+    return sin(phase * pi * 2) * 0.5 + 0.5;
   }
 
   /// Plays the shred animation on whatever text is currently in the
@@ -111,19 +126,25 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
               // prefixIcon so it stays left-of-text with no manual
               // positioning.
               prefixIcon: widget.showSparkle
-                  ? SizedBox(
-                      width: 28,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(Icons.auto_awesome, color: kGreen, size: 16),
-                          Positioned(
-                            left: 14,
-                            top: -2,
-                            child:
-                                Icon(Icons.auto_awesome, color: kGreen, size: 10),
-                          ),
-                        ],
+                  ? AnimatedBuilder(
+                      animation: _sparkleCtrl,
+                      builder: (_, __) => SizedBox(
+                        width: 28,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Icon(Icons.auto_awesome,
+                                color: kGreen.withValues(alpha: _twinkle(0)),
+                                size: 16),
+                            Positioned(
+                              left: 14,
+                              top: -2,
+                              child: Icon(Icons.auto_awesome,
+                                  color: kGreen.withValues(alpha: _twinkle(0.5)),
+                                  size: 10),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : null,
