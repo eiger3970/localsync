@@ -398,10 +398,11 @@ extension LinkingErrorDetails on LinkingError {
 // auth attempt isn't uniform") these two error types are the same real
 // condition wearing two different faces depending on the server - both now
 // use this list. Renamed from connectionRefusedRetryMessage(s) to match.
+// 2026-08-26: reordered per direct request - "Uninstall and reinstall the
+// app" moved from #3 to #10 (last resort, not an early suggestion).
 const passwordRetryMessages = [
   'Re-enter your desktop password - used once, never stored.',
   'Re-enter your desktop password with care and use the eye to read it.',
-  'Uninstall and reinstall the app.',
   'Seriously? Re-enter your password.',
   'Are you even trying?',
   'Nope, What the?????',
@@ -410,6 +411,7 @@ const passwordRetryMessages = [
   'Contact us or your psychiatrist and send your Bitcoin to '
       'steamyice42@walletofsatoshi.com.',
   "We'll send you Bitcoin, provide your Wallet of Satoshi address.",
+  'Uninstall and reinstall the app.',
 ];
 
 /// True for the two LinkingErrors that are the same real "wrong password"
