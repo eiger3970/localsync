@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
+import 'sync_service.dart'
+    show commitDirtyTree, labelForCommit, repairAllConflictsOnDisk, finishMergeCommit;
 import 'vault_backup.dart';
 
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
@@ -39,6 +41,12 @@ class GitServiceImpl implements GitService {
   final String sshPrivateKeyPath; // On-device path to the phone's own SSH private key
   final String sshPublicKeyPath;  // On-device path to the phone's own SSH public key
   final String sshPassphrase;     // Empty string if the key has no passphrase
+  // 2026-08-26: added alongside the real merge-and-repair fix below - the
+  // reused finishMergeCommit/commitDirtyTree need a real commit author,
+  // same as sync_service.dart's own deviceName (see repository_provider
+  // .dart's getDeviceName()/defaultDeviceName() for where callers should
+  // source this from).
+  final String deviceName;
 
   /// Branch name on the bare repo. The codebase's own error-resolution text
   /// disagreed with itself (some strings said "main", one said "master") -
@@ -54,6 +62,7 @@ class GitServiceImpl implements GitService {
     required this.sshUser,
     required this.sshPrivateKeyPath,
     required this.sshPublicKeyPath,
+    required this.deviceName,
     this.sshPort = 22,
     this.defaultBranch = 'main',
     this.sshPassphrase = '',
@@ -181,6 +190,25 @@ class GitServiceImpl implements GitService {
 
       final repo = Repository.open(localVaultPath);
       try {
+        // 2026-08-26: real feedback, live - a real, already-used vault
+        // folder (own git history from being linked before) hit
+        // LinkingError.mergeConflict and stopped setup outright. This
+        // whole branch now mirrors sync_service.dart's _pullInIsolate
+        // (the proven day-to-day pull path, used routinely for real
+        // "Merge desktop and phone" syncs) instead of a narrower,
+        // fast-forward-or-fail version of the same thing:
+        //  - commitDirtyTree first, so any real, uncommitted edits sitting
+        //    in the vault folder become a real commit *before* anything
+        //    below can touch the working tree - the old fast-forward
+        //    branch's hard reset would have silently discarded those with
+        //    no backup, a real data-loss risk this fixes as a side effect.
+        //  - diverged history gets an actual three-way merge with
+        //    conflicts repaired in place (both sides kept), not a bare
+        //    failure - matching linking_state.dart's own note that
+        //    ordinary conflicts are supposed to be handled automatically,
+        //    not surfaced as a dead-end LinkingError.
+        commitDirtyTree(repo, 'Vault contents before linking', deviceName);
+
         final remote = Remote.lookup(repo: repo, name: 'origin');
         remote.fetch(callbacks: _callbacks);
 
@@ -189,24 +217,43 @@ class GitServiceImpl implements GitService {
           name: 'origin/$defaultBranch',
           type: GitBranch.remote,
         );
-        final analysis = Merge.analysis(
-          repo: repo,
-          theirHead: remoteBranch.target,
-        );
-
-        if (analysis.result.contains(GitMergeAnalysis.upToDate)) {
+        final localOid = repo.head.target;
+        final remoteOid = remoteBranch.target;
+        if (localOid == remoteOid) {
           return const StepSuccess(message: 'Already up to date');
         }
-        if (analysis.result.contains(GitMergeAnalysis.fastForward)) {
-          repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+
+        final baseOid = Merge.base(repo, localOid, remoteOid);
+        if (localOid == baseOid) {
+          repo.reset(oid: remoteOid, resetType: GitReset.hard);
           return const StepSuccess(message: 'Pulled (fast-forward)');
         }
+        if (remoteOid == baseOid) {
+          // Local (just committed above) is already ahead - nothing new
+          // to bring down. Pushing it up is the next step's job.
+          return const StepSuccess(message: 'Already up to date');
+        }
 
-        // Diverged history - real merge-conflict resolution deferred per
-        // 2026-08-08 scope decision (minimal happy-path now, hard recovery
-        // cases later). Surfacing this as a clear failure rather than
-        // attempting an automatic merge.
-        return const StepFailure(LinkingError.mergeConflict);
+        // Diverged - three-way merge, conflicts repaired in place (both
+        // versions kept), same as every other pull in this app.
+        final annotated = AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
+        Merge.commit(repo: repo, commit: annotated);
+        var unresolvedCount = 0;
+        if (repo.index.hasConflicts) {
+          final other = labelForCommit(repo, remoteOid);
+          unresolvedCount = repairAllConflictsOnDisk(localVaultPath,
+              otherLabel: other.label,
+              otherTime: other.time.isEmpty ? null : other.time);
+        }
+        finishMergeCommit(repo, deviceName,
+            message: 'Merge desktop and phone (linking existing vault)');
+        repo.stateCleanup();
+        return StepSuccess(
+            message: unresolvedCount > 0
+                ? 'Linked - merged in your existing notes. '
+                    '$unresolvedCount file${unresolvedCount == 1 ? '' : 's'} '
+                    'need your review in Conflicts.'
+                : 'Linked and merged in your existing notes.');
       } finally {
         repo.free();
       }

@@ -15,6 +15,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../../services/database_service.dart';
+import '../../services/device_name.dart';
 import '../../services/git_service.dart';
 import '../../services/ios_app_service.dart';
 import '../../services/ssh_key_paths.dart';
@@ -298,6 +300,14 @@ class LinkingController extends ChangeNotifier {
         return _fail(const StepFailure(LinkingError.vaultFolderAccessLost));
       }
       try {
+        // 2026-08-26: same deviceName resolution as repository_provider
+        // .dart's _runLocked/home_screen.dart - needed now that a real
+        // merge (not just clone-or-fast-forward) can happen here too,
+        // and a merge commit needs a real author.
+        final savedName = await DatabaseService().getDeviceName();
+        final deviceName = (savedName != null && savedName.trim().isNotEmpty)
+            ? savedName
+            : await defaultDeviceName();
         final git = GitServiceImpl(
           bareRepoPath: bareRepoPath,
           localVaultPath: accessPath,
@@ -306,6 +316,7 @@ class LinkingController extends ChangeNotifier {
           sshPrivateKeyPath: _privateKeyPath!,
           sshPublicKeyPath: _publicKeyPath!,
           sshPort: sshPort,
+          deviceName: deviceName,
         );
         final result = await git.pullFromBareRepo();
         if (result case StepFailure()) {

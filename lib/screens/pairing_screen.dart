@@ -56,6 +56,12 @@ class _PairingScreenState extends State<PairingScreen> {
   final _shredKey = GlobalKey<ShreddingPasswordFieldState>();
   final _discovery = DiscoveryService();
   bool _discovering = false;
+  // 2026-08-26: real feedback, live - "Password errors don't follow my
+  // list." This screen's own failure view always showed the generic
+  // resolution text for connectionRefused, never the 10-attempt escalating
+  // list linking_screen.dart already had. Same counter/scoping as there -
+  // see connectionRefusedRetryMessage in linking_state.dart.
+  int _pairAttempts = 0;
 
   @override
   void initState() {
@@ -217,13 +223,24 @@ class _PairingScreenState extends State<PairingScreen> {
                       // 2026-08-21: same fix as every other HOW TO FIX
                       // IT card in the app - "check all text which is
                       // verbose, change to point form."
-                      DiagCard(
-                        label: 'HOW TO FIX IT',
-                        text: result.resolution,
-                        accent: kGreen,
-                        icon: Icons.lightbulb_outline,
-                        bulleted: true,
-                      ),
+                      // 2026-08-26: connectionRefused now shows the same
+                      // 10-attempt escalating message linking_screen.dart
+                      // uses instead of the generic bulleted checklist -
+                      // see _pairAttempts above.
+                      result.error == LinkingError.connectionRefused
+                          ? DiagCard(
+                              label: 'HOW TO FIX IT',
+                              text: connectionRefusedRetryMessage(_pairAttempts),
+                              accent: kGreen,
+                              icon: Icons.lightbulb_outline,
+                            )
+                          : DiagCard(
+                              label: 'HOW TO FIX IT',
+                              text: result.resolution,
+                              accent: kGreen,
+                              icon: Icons.lightbulb_outline,
+                              bulleted: true,
+                            ),
                       // 2026-08-23: real feedback, live - same auto-
                       // discovery gap as LinkingScreen's failure view,
                       // but this is the screen where connectionRefused
@@ -290,6 +307,9 @@ class _PairingScreenState extends State<PairingScreen> {
     final shredding = _shredKey.currentState?.shred();
     if (shredding != null) unawaited(shredding);
     await _ctrl.pairWithPassword(password);
+    if (mounted && _ctrl.result is StepFailure) {
+      setState(() => _pairAttempts++);
+    }
   }
 
   // 2026-08-23: real feedback, live - same gap as LinkingScreen's
