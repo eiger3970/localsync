@@ -130,15 +130,18 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                       animation: _sparkleCtrl,
                       builder: (_, __) => SizedBox(
                         width: 28,
-                        // 2026-08-26: real feedback, live - "lower the
-                        // twinkly stars a little." The small star's -2
-                        // top offset floated it above the main star's own
-                        // box (clipBehavior.none let it render outside
-                        // the Stack's bounds) instead of sitting near it -
-                        // dropped to 2 (below, not above) and the whole
-                        // cluster nudged down a few px via this padding.
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                        // 2026-08-26: real feedback, live, twice - "lower
+                        // the twinkly stars a little." First attempt used
+                        // top-padding on the Stack, which prefixIcon's own
+                        // vertical centering partially cancels out (a
+                        // taller box just re-centers, so padding-only-on-
+                        // top shifts the content by roughly half the
+                        // padding, not the full amount) - didn't move it
+                        // enough. Transform.translate shifts the painted
+                        // result directly, after layout/centering, so the
+                        // full offset actually lands on screen.
+                        child: Transform.translate(
+                          offset: const Offset(0, 5),
                           child: Stack(
                             clipBehavior: Clip.none,
                             children: [
