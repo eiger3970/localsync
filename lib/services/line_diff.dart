@@ -162,8 +162,25 @@ List<String> _sentences(String paragraph) {
 /// sentences across concatenated paragraphs isn't a meaningful
 /// comparison.
 List<MergeHunk> mergeHunks(String ours, String theirs) {
-  final paragraphHunks =
-      _groupHunks(_diffUnits(_paragraphs(ours), _paragraphs(theirs)));
+  // 2026-08-26: maxMergeUnits was declared but never actually checked
+  // anywhere - real gap, the O(n*m) LCS below has no protection from a
+  // pathological input (a note with hundreds of blank-line artifacts
+  // from a copy-paste, for instance). conflict_picker_screen.dart's
+  // useDiff already caps total character count before this is ever
+  // reached in practice, but this function shouldn't depend on a
+  // caller remembering to check first - same "fall back to plain text
+  // if either side exceeds it" bias word_diff.dart's own maxDiffTokens
+  // doc already states, applied here for real instead of just declared.
+  final oursParagraphs = _paragraphs(ours);
+  final theirsParagraphs = _paragraphs(theirs);
+  if (oursParagraphs.length > maxMergeUnits ||
+      theirsParagraphs.length > maxMergeUnits) {
+    return ours == theirs
+        ? [MergeHunk(op: HunkOp.same, ours: ours, paragraphGroup: 0)]
+        : [MergeHunk(op: HunkOp.conflict, ours: ours, theirs: theirs, paragraphGroup: 0)];
+  }
+
+  final paragraphHunks = _groupHunks(_diffUnits(oursParagraphs, theirsParagraphs));
   final result = <MergeHunk>[];
   var group = 0;
 
@@ -175,8 +192,26 @@ List<MergeHunk> mergeHunks(String ours, String theirs) {
       continue;
     }
     if (h.ours.length == 1 && h.theirs.length == 1) {
-      final sentenceHunks = _groupHunks(
-          _diffUnits(_sentences(h.ours.single), _sentences(h.theirs.single)));
+      final oursSentences = _sentences(h.ours.single);
+      final theirsSentences = _sentences(h.theirs.single);
+      // Same reasoning, one level down: a single pathologically long
+      // paragraph (e.g. one line packed with URLs/abbreviations
+      // tripping up _sentencePattern into many tiny "sentences")
+      // shouldn't blow up the O(n*m) sentence-level diff either - falls
+      // back to treating the whole paragraph as one conflict piece.
+      if (oursSentences.length > maxMergeUnits ||
+          theirsSentences.length > maxMergeUnits) {
+        result.add(MergeHunk(
+          op: HunkOp.conflict,
+          ours: h.ours.single,
+          theirs: h.theirs.single,
+          paragraphGroup: group,
+        ));
+        group++;
+        continue;
+      }
+      final sentenceHunks =
+          _groupHunks(_diffUnits(oursSentences, theirsSentences));
       for (final sh in sentenceHunks) {
         result.add(MergeHunk(
           op: sh.op,

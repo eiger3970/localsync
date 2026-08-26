@@ -70,6 +70,34 @@ void main() {
       expect(hunks.last.ours, 'Para two.');
       expect(hunks.first.paragraphGroup, isNot(hunks.last.paragraphGroup));
     });
+
+    test('a pathological paragraph count (maxMergeUnits exceeded) falls '
+        'back to one whole-text hunk instead of running the O(n*m) diff', () {
+      final manyParagraphs =
+          List.generate(maxMergeUnits + 1, (i) => 'P$i').join('\n\n');
+      final ours = manyParagraphs;
+      final theirs = '$manyParagraphs\n\nOne more.';
+      final hunks = mergeHunks(ours, theirs);
+      expect(hunks.length, 1);
+      expect(hunks.single.op, HunkOp.conflict);
+      expect(hunks.single.ours, ours);
+      expect(hunks.single.theirs, theirs);
+      expect(composeMerge(hunks, {}), ours);
+      expect(composeMerge(hunks, {0}), theirs);
+    });
+
+    test('a pathological sentence count within one paragraph falls back '
+        'to that whole paragraph as one conflict piece', () {
+      final manySentences = List.generate(maxMergeUnits + 1, (i) => 'S$i.').join(' ');
+      final ours = 'Intro.\n\n$manySentences';
+      final theirs = 'Intro.\n\n$manySentences Extra.';
+      final hunks = mergeHunks(ours, theirs);
+      expect(hunks.length, 2);
+      expect(hunks[0].op, HunkOp.same);
+      expect(hunks[1].op, HunkOp.conflict);
+      expect(hunks[1].ours, manySentences);
+      expect(composeMerge(hunks, {}), ours);
+    });
   });
 
   group('composeMerge', () {
