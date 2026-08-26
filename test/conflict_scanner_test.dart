@@ -122,7 +122,13 @@ void main() {
       // up elsewhere.
       expect(updated,
           contains('Emailed about the domicile case this afternoon.'));
-      expect(updated, contains('Also in desktop obsidian - 202608251230\'s version'));
+      // 2026-08-26: real feedback, live - "What do I do? Is this an
+      // Obsidian error?" - wording changed to spell out "already
+      // resolved, not active" directly instead of relying on the
+      // [!question]- convention alone.
+      expect(updated, contains('Already resolved'));
+      expect(updated,
+          contains('This is desktop obsidian - 202608251230\'s version'));
       // Different callout kind than SYNC CONFLICT, on purpose - see the
       // next assertion.
       expect(updated, contains('[!question]-'));
