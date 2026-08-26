@@ -130,20 +130,30 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                       animation: _sparkleCtrl,
                       builder: (_, __) => SizedBox(
                         width: 28,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(Icons.auto_awesome,
-                                color: kGreen.withValues(alpha: _twinkle(0)),
-                                size: 16),
-                            Positioned(
-                              left: 14,
-                              top: -2,
-                              child: Icon(Icons.auto_awesome,
-                                  color: kGreen.withValues(alpha: _twinkle(0.5)),
-                                  size: 10),
-                            ),
-                          ],
+                        // 2026-08-26: real feedback, live - "lower the
+                        // twinkly stars a little." The small star's -2
+                        // top offset floated it above the main star's own
+                        // box (clipBehavior.none let it render outside
+                        // the Stack's bounds) instead of sitting near it -
+                        // dropped to 2 (below, not above) and the whole
+                        // cluster nudged down a few px via this padding.
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Icon(Icons.auto_awesome,
+                                  color: kGreen.withValues(alpha: _twinkle(0)),
+                                  size: 16),
+                              Positioned(
+                                left: 14,
+                                top: 2,
+                                child: Icon(Icons.auto_awesome,
+                                    color: kGreen.withValues(alpha: _twinkle(0.5)),
+                                    size: 10),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )

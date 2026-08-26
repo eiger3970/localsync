@@ -60,7 +60,7 @@ class _PairingScreenState extends State<PairingScreen> {
   // list." This screen's own failure view always showed the generic
   // resolution text for connectionRefused, never the 10-attempt escalating
   // list linking_screen.dart already had. Same counter/scoping as there -
-  // see connectionRefusedRetryMessage in linking_state.dart.
+  // see passwordRetryMessage in linking_state.dart.
   int _pairAttempts = 0;
 
   @override
@@ -227,10 +227,18 @@ class _PairingScreenState extends State<PairingScreen> {
                       // 10-attempt escalating message linking_screen.dart
                       // uses instead of the generic bulleted checklist -
                       // see _pairAttempts above.
-                      result.error == LinkingError.connectionRefused
+                      // 2026-08-26, follow-up: real feedback, live - a
+                      // genuine SSHAuthFailError during pairing classifies
+                      // as pairingPasswordRejected (see pairing_controller
+                      // .dart's own _diagnose()), not connectionRefused,
+                      // and still showed the old static 2-line text.
+                      // isPasswordRetryError covers both - same underlying
+                      // "wrong password" condition, different face
+                      // depending on the desktop's SSH server behavior.
+                      isPasswordRetryError(result.error)
                           ? DiagCard(
                               label: 'HOW TO FIX IT',
-                              text: connectionRefusedRetryMessage(_pairAttempts),
+                              text: passwordRetryMessage(_pairAttempts),
                               accent: kGreen,
                               icon: Icons.lightbulb_outline,
                             )

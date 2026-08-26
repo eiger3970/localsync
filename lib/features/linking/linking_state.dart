@@ -377,17 +377,28 @@ extension LinkingErrorDetails on LinkingError {
 
 // 2026-08-25: full 10-attempt list, real feedback, live - each attempt gets
 // its own distinct line, not a repeated/progressive reveal of the same
-// text. Scoped to connectionRefused only - see LinkingErrorDetails.resolution
-// above for the network-checklist text every other error type still uses.
-// Attempt 11+ repeats message 10 (list clamped) - nowhere further to
-// escalate to.
+// text. See LinkingErrorDetails.resolution above for the network-checklist
+// text every other error type still uses. Attempt 11+ repeats message 10
+// (list clamped) - nowhere further to escalate to.
 //
 // 2026-08-26: extracted here (was inlined only in linking_screen.dart) after
 // finding pairing_screen.dart's own failure view never got this list at all
 // and still showed the generic resolution text for the same error - "Password
 // errors don't follow my list." One shared source so the two screens'
 // attempt counters can't drift out of sync with two different copies again.
-const connectionRefusedRetryMessages = [
+//
+// 2026-08-26, follow-up: was scoped to connectionRefused only - real
+// feedback, live, on a genuine SSHAuthFailError("All authentication method
+// failed") during actual pairing (pairing_controller.dart's own _diagnose()
+// classifies that as pairingPasswordRejected, not connectionRefused) still
+// showed the old static 2-line resolution instead of this list. Per this
+// app's own established finding (linking_state.dart's connectionRefused
+// diagnosis comment, 2026-08-24: "a wrong password attempt surfaces here,
+// not as pairingPasswordRejected... the SSH server's behavior on a failed
+// auth attempt isn't uniform") these two error types are the same real
+// condition wearing two different faces depending on the server - both now
+// use this list. Renamed from connectionRefusedRetryMessage(s) to match.
+const passwordRetryMessages = [
   'Re-enter your desktop password - used once, never stored.',
   'Re-enter your desktop password with care and use the eye to read it.',
   'Uninstall and reinstall the app.',
@@ -401,7 +412,14 @@ const connectionRefusedRetryMessages = [
   "We'll send you Bitcoin, provide your Wallet of Satoshi address.",
 ];
 
-String connectionRefusedRetryMessage(int attempts) {
-  final index = (attempts - 1).clamp(0, connectionRefusedRetryMessages.length - 1);
-  return connectionRefusedRetryMessages[index];
+/// True for the two LinkingErrors that are the same real "wrong password"
+/// condition wearing two different faces, depending on how the desktop's
+/// SSH server behaves on a failed attempt - see passwordRetryMessages above.
+bool isPasswordRetryError(LinkingError error) =>
+    error == LinkingError.connectionRefused ||
+    error == LinkingError.pairingPasswordRejected;
+
+String passwordRetryMessage(int attempts) {
+  final index = (attempts - 1).clamp(0, passwordRetryMessages.length - 1);
+  return passwordRetryMessages[index];
 }
