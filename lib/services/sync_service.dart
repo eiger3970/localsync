@@ -63,14 +63,7 @@ class SyncOk extends SyncResult {
 }
 
 class SyncNoChanges extends SyncResult {
-  // 2026-08-14: temporary diagnostic field - "nothing to sync" was
-  // reported after adding a genuinely new note, which shouldn't
-  // happen (index.addAll(['*']) stages untracked files too). Carries
-  // what git2dart's repo.status actually saw at push time, so the
-  // next real-device test surfaces the true cause instead of another
-  // guess. Remove once the root cause is found and fixed.
-  final String? debug;
-  const SyncNoChanges({this.debug});
+  const SyncNoChanges();
 }
 
 // 2026-08-19: real user finding, walked through the actual flow live -
@@ -158,9 +151,7 @@ class SyncEvent {
 /// own copy of this).
 String syncResultMessage(SyncResult result) => switch (result) {
       SyncOk(:final message) => message,
-      // 2026-08-14 diagnostic: see SyncNoChanges.debug's comment.
-      SyncNoChanges(:final debug) =>
-          debug == null ? 'Nothing to sync.' : 'Nothing to sync - $debug',
+      SyncNoChanges() => 'Nothing to sync.',
       SyncOkWithConflicts(:final conflictCount) => conflictCount == 1
           ? 'Merged in changes - 1 file needs your review.'
           : 'Merged in changes - $conflictCount files need your review.',
@@ -411,9 +402,6 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
 
 Future<SyncResult> _pushInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
-    // 2026-08-14 diagnostic: what git2dart sees in the working tree
-    // before staging - see SyncNoChanges.debug's comment.
-    final statusBefore = repo.status;
     // 2026-08-16: "is this auto committing an auto timestamp... I
     // can't see?" - yes, and now the result says so explicitly (only
     // when a commit actually happened - if the tree was already
@@ -427,20 +415,17 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
     if (localOid == remoteOid) {
-      // 2026-08-14 diagnostic: raw filesystem listing, bypassing git
-      // entirely - statusEntries=0 alone doesn't say whether the note
-      // is genuinely missing from this exact folder or whether git2dart
-      // just isn't seeing it despite it being there.
-      final rawEntries = Directory(p.vaultPath)
-          .listSync(recursive: true)
-          .map((e) => e.path.replaceFirst('${p.vaultPath}/', ''))
-          .where((name) => !name.startsWith('.git'))
-          .toList();
-      return SyncNoChanges(
-        debug: 'path=${p.vaultPath} statusEntries=${statusBefore.length} '
-            'statusFiles=${statusBefore.keys.join(",")} committed=$committed '
-            'rawCount=${rawEntries.length} rawFiles=${rawEntries.join(",")}',
-      );
+      // 2026-08-14: was a raw diagnostic dump here (vault path, git2dart
+      // status, a full filesystem listing) - real feedback, live,
+      // 2026-08-26: "Nothing to sync - path=/private/var/...bla bla bla
+      // for the entire phone screen." That diagnostic was tracking a
+      // real bug (a genuinely new note not being detected as a change)
+      // that commitDirtyTree's always-stage-and-compare-tree-hash fix
+      // (see its own doc comment) already resolved - this branch
+      // reaching localOid == remoteOid now really does mean nothing
+      // changed, the normal everyday case, not something to dump
+      // internals about.
+      return const SyncNoChanges();
     }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
