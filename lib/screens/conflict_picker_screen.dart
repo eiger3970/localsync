@@ -20,6 +20,7 @@ import '../services/ios_app_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
+import 'merge_picker_screen.dart';
 
 // 2026-08-18: "red colour more difficult than green below with same
 // text size" - Material's default Colors.redAccent is noticeably
@@ -253,7 +254,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // matches how vimdiff itself reads (highlighted region,
                 // not shouting text). Landscape gives each column real
                 // width; portrait still works, just narrower.
-                if (useDiff && versions.length == 2)
+                if (useDiff && versions.length == 2) ...[
                   IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,6 +273,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _ConflictPanel(
+                            // 2026-08-26: real key, not ordinal position -
+                            // conflict_vimdiff_preview_test.dart used to
+                            // tap this panel via find.byType(InkWell).at(1),
+                            // which broke the moment any other InkWell-
+                            // based widget (the new "MERGE PIECES INSTEAD"
+                            // button below) got added anywhere on this
+                            // screen. A key survives that kind of change.
+                            key: const Key('conflict_panel_theirs'),
                             title: titleFor(1),
                             tokens: wordDiffTheirs(
                                 versions[0].body, versions[1].body),
@@ -283,8 +292,45 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         ),
                       ],
                     ),
-                  )
-                else
+                  ),
+                  const SizedBox(height: 14),
+                  // 2026-08-26: premium tier from docs/pricing-tiers.md -
+                  // "automatic - put/yank individual pieces from each
+                  // side," not just picking one whole side above. Same
+                  // useDiff gate (pairwise, size-capped) since
+                  // line_diff.dart's sentence refinement only makes
+                  // sense for the same 2-version case the word-diff view
+                  // already requires.
+                  OutlinedButton(
+                    onPressed: () async {
+                      final result =
+                          await Navigator.push<ConflictResolvedResult>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MergePickerScreen(
+                            repo: widget.repo,
+                            entry: entry,
+                            myDeviceName: _myDeviceName,
+                          ),
+                        ),
+                      );
+                      if (result?.resolved == true && context.mounted) {
+                        Navigator.pop(context, result);
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: kTextMid),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      minimumSize: const Size.fromHeight(0),
+                    ),
+                    child: Text('MERGE PIECES INSTEAD',
+                        style: TextStyle(
+                            color: kTextMid,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3)),
+                  ),
+                ] else
                   for (var i = 0; i < versions.length; i++) ...[
                     if (i > 0) const SizedBox(height: 16),
                     _ConflictPanel(
@@ -373,6 +419,7 @@ class _ConflictPanel extends StatelessWidget {
   final Color highlightColor;
   final VoidCallback onTap;
   const _ConflictPanel({
+    super.key,
     required this.title,
     required this.tokens,
     required this.plainText,

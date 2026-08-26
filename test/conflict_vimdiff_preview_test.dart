@@ -73,7 +73,11 @@ void main() {
     // actually tap in this stubbed-repo test.
     tester.view.physicalSize = const Size(1170, 2532);
     await tester.pump();
-    await tester.tap(find.byType(InkWell).at(1));
+    // 2026-08-26: tap by key, not ordinal InkWell index - the previous
+    // find.byType(InkWell).at(1) broke the moment conflict_picker_screen
+    // gained another InkWell-based widget elsewhere on the screen (the
+    // "MERGE PIECES INSTEAD" button) with no relation to this panel.
+    await tester.tap(find.byKey(const Key('conflict_panel_theirs')));
     await tester.pump(const Duration(milliseconds: 300));
     await expectLater(
       find.byType(MaterialApp),
