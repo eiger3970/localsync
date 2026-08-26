@@ -97,26 +97,30 @@ class PairingController extends ChangeNotifier {
 
   // 2026-08-26: real feedback, live - "SocketException: ... No route to
   // host ... The solution was I had to unnecessarily enter the password a
-  // 2nd time." The correct password worked immediately on the very next
+  // 2nd time." The correct password worked immediately on the next
   // attempt against the same IP - not a real, sustained unreachability,
   // just a route/ARP entry not ready yet right after a network change
-  // (hotspot reconnect, app resume). One bounded retry here removes a
-  // step the user shouldn't have had to take by hand. A second failure
-  // is treated as real and propagates exactly as before.
+  // (hotspot reconnect, app resume).
+  //
+  // 2026-08-26, follow-up: real feedback, live, again - a first fix here
+  // used a single 800ms retry and the user still hit this. The user's
+  // own manual "fix" (retype the password, tap submit again) necessarily
+  // took several real seconds - noticing the error, typing, tapping -
+  // not 800ms. Matching that actual timing instead of guessing short:
+  // up to 3 attempts total, waiting 2s then 4s between them.
   Future<SSHSocket> _connectWithRetry() async {
-    try {
-      return await SSHSocket.connect(
-        desktopIp,
-        sshPort,
-        timeout: const Duration(seconds: 15),
-      );
-    } on SocketException {
-      await Future.delayed(const Duration(milliseconds: 800));
-      return await SSHSocket.connect(
-        desktopIp,
-        sshPort,
-        timeout: const Duration(seconds: 15),
-      );
+    const delays = [Duration(seconds: 2), Duration(seconds: 4)];
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await SSHSocket.connect(
+          desktopIp,
+          sshPort,
+          timeout: const Duration(seconds: 15),
+        );
+      } on SocketException {
+        if (attempt >= delays.length) rethrow;
+        await Future.delayed(delays[attempt]);
+      }
     }
   }
 
