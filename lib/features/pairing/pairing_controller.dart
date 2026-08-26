@@ -10,6 +10,7 @@
 // rather than inventing a separate result type, per this session's goal
 // of keeping one extensible error vocabulary.
 
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dartssh2/dartssh2.dart';
 import '../linking/linking_state.dart';
@@ -48,11 +49,7 @@ class PairingController extends ChangeNotifier {
       // generous for a local-network connection (this only ever talks
       // to a device on the same LAN, never over the open internet) while
       // still failing fast enough to be usable.
-      final socket = await SSHSocket.connect(
-        desktopIp,
-        sshPort,
-        timeout: const Duration(seconds: 15),
-      );
+      final socket = await _connectWithRetry();
       final client = SSHClient(
         socket,
         username: desktopUser,
@@ -95,6 +92,31 @@ class PairingController extends ChangeNotifier {
     } finally {
       _isRunning = false;
       notifyListeners();
+    }
+  }
+
+  // 2026-08-26: real feedback, live - "SocketException: ... No route to
+  // host ... The solution was I had to unnecessarily enter the password a
+  // 2nd time." The correct password worked immediately on the very next
+  // attempt against the same IP - not a real, sustained unreachability,
+  // just a route/ARP entry not ready yet right after a network change
+  // (hotspot reconnect, app resume). One bounded retry here removes a
+  // step the user shouldn't have had to take by hand. A second failure
+  // is treated as real and propagates exactly as before.
+  Future<SSHSocket> _connectWithRetry() async {
+    try {
+      return await SSHSocket.connect(
+        desktopIp,
+        sshPort,
+        timeout: const Duration(seconds: 15),
+      );
+    } on SocketException {
+      await Future.delayed(const Duration(milliseconds: 800));
+      return await SSHSocket.connect(
+        desktopIp,
+        sshPort,
+        timeout: const Duration(seconds: 15),
+      );
     }
   }
 
