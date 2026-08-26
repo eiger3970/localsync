@@ -199,8 +199,22 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
+                  // 2026-08-26: real feedback, live - "shows a circle
+                  // activating, then No unresolved conflicts... add a
+                  // text informing the user what's happening." A bare
+                  // spinner with no label read as unclear/stuck, even
+                  // though scanForConflicts (a recursive walk of every
+                  // .md file) can take a moment on a large vault.
                   return Center(
-                    child: CircularProgressIndicator(color: kGreen),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: kGreen),
+                        const SizedBox(height: 16),
+                        Text('Scanning your entire phone PKM vault…',
+                            style: TextStyle(color: kTextMid, fontSize: 14)),
+                      ],
+                    ),
                   );
                 }
                 final entries = snapshot.data ?? const [];

@@ -298,10 +298,22 @@ String applyResolution(String content, ConflictEntry entry, String chosen) {
 
 /// One collapsed "kept for reference" callout for a version that wasn't
 /// picked - see applyResolution's 2026-08-25 comment.
+///
+/// 2026-08-26: real feedback, live - "What do I do? Is this an Obsidian
+/// error and unable to fix from the app?" The old wording ("Also in
+/// desktop obsidian's version (edit in, or delete)") didn't say this was
+/// already resolved - the content right above this callout in the note IS
+/// the version that was kept; this is only the losing side, left in place
+/// so nothing was silently dropped. [!question]- (not [!warning]+, and
+/// deliberately not matching this scanner's own SYNC-CONFLICT-only
+/// pattern) already meant "not active," but only to someone who already
+/// knew that convention - spelled out directly now instead.
 String _mergeCallout(ConflictVersion v) {
   final label = v.when != null ? '${v.who} - ${v.when}' : v.who;
   final quoted = v.body.split('\n').map((l) => '> $l').join('\n');
-  return '> [!question]- Also in $label\'s version (edit in, or delete)\n'
+  return '> [!question]- Already resolved - kept for reference only, not '
+      'an active conflict. This is $label\'s version that was NOT kept - '
+      'copy anything you want from it, then delete this block whenever.\n'
       '$quoted';
 }
 
