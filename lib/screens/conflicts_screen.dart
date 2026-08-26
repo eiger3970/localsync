@@ -206,12 +206,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       content: Text(
                         'Resolving a conflict always saves both full '
                         'versions first, before anything is changed.\n\n'
+                        // 2026-08-26: real feedback, live - "these are
+                        // out of place" - Conflict Backups and Vault
+                        // Backup used to each sit directly at the vault
+                        // root as their own top-level folder. Now one
+                        // "LocalSync" folder holds both, still visible
+                        // and easy to find, not two separate items
+                        // cluttering the top level (see
+                        // vault_backup.dart's kLocalSyncFolderName).
                         'Location: open Obsidian, look at your file '
                         'list (the folder icon in the left sidebar) - '
-                        'there\'s a folder called "LocalSync Conflict '
-                        'Backups" at the top level, right alongside '
-                        'your other folders. Nothing is lost, even if '
-                        'you pick the wrong one - just open the note '
+                        'there\'s a folder called "LocalSync" at the '
+                        'top level, right alongside your other '
+                        'folders. Inside it, "Conflict Backups" holds '
+                        'every version. Nothing is lost, even if you '
+                        'pick the wrong one - just open the note '
                         'inside it to find the other version.\n\n'
                         // 2026-08-26: real feedback, live - "I need this
                         // advice when using the app... here are the
@@ -314,8 +323,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 // inside this one.
                 final hasRefs = refs.isNotEmpty;
                 final refHeaderIndex = entries.length;
+                // 2026-08-26: real feedback, live, from the validated
+                // mockup at claude.ai/code/artifact/27d803c3 - a closing
+                // line on Delete's scope, same idea as the "resolving
+                // here only updates this phone" banner above but scoped
+                // to this section specifically. One more trailing slot
+                // in the same flat list, only when there's actually a
+                // reference section to close out.
+                final hintIndex = refHeaderIndex + refs.length + 1;
                 final totalCount =
-                    entries.length + (hasRefs ? 1 + refs.length : 0);
+                    entries.length + (hasRefs ? 2 + refs.length : 0);
                 return Column(
                   children: [
                     // 2026-08-26: real feedback, live - "these steps are
@@ -359,6 +376,15 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 color: kTextMid,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600)),
+                      );
+                    }
+                    if (hasRefs && i == hintIndex) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                            'Delete only affects this device until you sync.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: kTextDim, fontSize: 12)),
                       );
                     }
                     if (i > refHeaderIndex) {
@@ -473,7 +499,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                           text: 'Resolved. $versionWord '
                                               'backed up in '),
                                       TextSpan(
-                                        text: 'LocalSync Conflict Backups',
+                                        text: 'LocalSync/Conflict Backups',
                                         style: TextStyle(
                                           color: kGreen,
                                           fontWeight: FontWeight.bold,
@@ -558,10 +584,73 @@ class ReferenceCalloutTile extends StatelessWidget {
   });
 
   // Only the dropped side's origin is actually tracked (entry.label,
-  // written by conflict_scanner.dart's _mergeCallout as "who - when") -
-  // the kept side has no equivalent data, so it's labeled generically
-  // ("this note") rather than guessing a device it might not be.
+  // written by conflict_scanner.dart's _mergeCallout as "who - when").
   String get _droppedWho => entry.label.split(' - ').first.trim();
+
+  // 'yours' is the literal string conflict_scanner.dart's ConflictVersion
+  // uses for "this exact device" (see its own doc) - never a display
+  // name, so it's checked verbatim rather than guessed at.
+  bool get _droppedIsYours => _droppedWho.toLowerCase() == 'yours';
+
+  // 2026-08-26: real feedback, live, using the finished mockup at
+  // claude.ai/code/artifact/27d803c3 as the reference - both sides need
+  // a device identity, not just the dropped one. "This device" instead
+  // of a bare "yours" (never shown to the user verbatim elsewhere either)
+  // for the common case of your own edit getting dropped.
+  // 2026-08-26: real feedback, live - "desktop obsidian to be Desktop
+  // obsidian" - this is free-text the user typed into the device-name
+  // setting (database_service.dart), shown verbatim before - sentence
+  // case to match this app's own label convention rather than whatever
+  // case it happened to be typed in.
+  String get _droppedDisplayName => _droppedIsYours
+      ? 'This device'
+      : _droppedWho.isEmpty
+          ? _droppedWho
+          : _droppedWho[0].toUpperCase() + _droppedWho.substring(1);
+
+  // The kept side's exact identity was never persisted - applyResolution
+  // (conflict_scanner.dart) only keeps the winning text, not which
+  // ConflictVersion.who it came from. But this app is always exactly two
+  // devices, phone and one paired desktop (see database_service.dart's
+  // device-name setting), so it's still fully determined by elimination:
+  // dropped-is-yours means the kept side must be the desktop; anything
+  // else dropped means the kept side must be yours. The desktop's exact
+  // configured name isn't recoverable here though, so that branch uses a
+  // generic label instead of guessing a name that might be wrong.
+  bool get _keptIsThisDevice => !_droppedIsYours;
+  String get _keptDisplayName =>
+      _keptIsThisDevice ? 'This device' : 'Your other device';
+  IconData get _droppedIcon => _droppedIsYours ? Icons.smartphone : Icons.computer;
+  IconData get _keptIcon => _keptIsThisDevice ? Icons.smartphone : Icons.computer;
+
+  // 2026-08-26: real feedback, live - "title has no name of what the
+  // conflict [is] like" and "I need some sign that the conflict has
+  // already been resolved." entry.label already carries who/when for
+  // the dropped side but it was only ever surfaced inside the Delete
+  // button's wording - nothing under the bare file-path title said who
+  // or when, or that this was already handled. Reuses the top-level
+  // _parseWhen this file already has for the main conflict list's own
+  // YYYYMMDDhhmm dates.
+  // 2026-08-26: real feedback, live - "change date to YYYYMMDDhhmm" -
+  // the raw digits straight out of entry.label, not reformatted. Matches
+  // this app's own timestamp shape everywhere else (backupTimestamp() in
+  // vault_backup.dart, the main conflict list's raw `e.when`) instead of
+  // a human-formatted date this one spot was the odd one out on.
+  String? get _droppedWhenRaw {
+    final parts = entry.label.split(' - ');
+    return parts.length > 1 ? parts.last.trim() : null;
+  }
+
+  // 2026-08-26: real feedback, live - "verbose, but needed" - kept the
+  // who/when/not-kept facts, dropped the "Already resolved" framing
+  // (redundant: being in this "Old versions" section already says
+  // that) to fit on one line instead of wrapping to two.
+  String get _subtitle {
+    final who =
+        _droppedWho.isEmpty ? 'An earlier edit' : "$_droppedDisplayName's edit";
+    final when = _droppedWhenRaw;
+    return when == null ? '$who not kept' : '$who not kept - $when';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -578,6 +667,8 @@ class ReferenceCalloutTile extends StatelessWidget {
           Text(entry.filePath,
               style: TextStyle(
                   color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(_subtitle, style: TextStyle(color: kTextMid, fontSize: 12.5)),
           const SizedBox(height: 10),
           IntrinsicHeight(
             child: Row(
@@ -592,80 +683,211 @@ class ReferenceCalloutTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      // 2026-08-26: real feedback, live - "phone image and
+                      // text to vertically align with desktop icon and
+                      // text." Was MainAxisAlignment.center on both sides
+                      // independently - fine when both boxes hold the same
+                      // amount of content, but the amber side gained a
+                      // Delete button (see below) making it taller, so
+                      // centering each block within its own now-different
+                      // total height pushed the icon/devname rows out of
+                      // alignment with each other. Anchoring both to the
+                      // top instead means they start at the same Y
+                      // regardless of what either side has below them.
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        Icon(Icons.check_circle, color: kGreen, size: 20),
+                        Icon(_keptIcon, color: kGreen, size: 22),
                         const SizedBox(height: 4),
-                        Text('IN NOTE NOW',
+                        Text(_keptDisplayName,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: kGreen,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.4)),
+                            style: TextStyle(color: kTextMid, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        // 2026-08-26: real feedback, live - "have a
+                        // dropdown text for the phone side" too, mirroring
+                        // the amber side's expandable preview. Uses
+                        // entry.keptPreview (conflict_scanner.dart) - the
+                        // kept side's text has no marker of its own, so
+                        // it's recovered positionally rather than tagged,
+                        // unlike the dropped side's entry.body.
+                        Theme(
+                          data: Theme.of(context)
+                              .copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            dense: true,
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding:
+                                const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                            iconColor: kGreen,
+                            collapsedIconColor: kGreen,
+                            // 2026-08-26: real feedback, live - same fix
+                            // as the amber side's matching comment just
+                            // below: built into title now (top-aligned,
+                            // static), not controlAffinity, so this stays
+                            // consistent with the amber side even though
+                            // "IN NOTE NOW" itself is short enough not to
+                            // wrap today.
+                            trailing: const SizedBox.shrink(),
+                            title: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Icon(Icons.chevron_right,
+                                      size: 16, color: kGreen),
+                                ),
+                                const SizedBox(width: 2),
+                                Expanded(
+                                  child: Text('IN NOTE NOW',
+                                      style: TextStyle(
+                                          color: kGreen,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.4)),
+                                ),
+                              ],
+                            ),
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                    entry.keptPreview.isEmpty
+                                        ? '(nothing else above this in the note)'
+                                        : entry.keptPreview,
+                                    style: TextStyle(
+                                        color: kStar, fontSize: 12, height: 1.4)),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                // 2026-08-26: real feedback, live - "left and right
+                // squares to have a space between them" - was 8, bumped
+                // to 12.
+                const SizedBox(width: 12),
                 Expanded(
                   child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.08),
                       border:
                           Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Theme(
-                      data: Theme.of(context)
-                          .copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        dense: true,
-                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                        childrenPadding:
-                            const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                        iconColor: Colors.amber,
-                        collapsedIconColor: Colors.amber,
-                        title: const Text('IN CONFLICT BACKUPS',
-                            style: TextStyle(
-                                color: Colors.amber,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.4)),
-                        children: [
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(entry.body,
-                                style: TextStyle(
-                                    color: kStar, fontSize: 12, height: 1.4)),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        Icon(_droppedIcon, color: Colors.amber, size: 22),
+                        const SizedBox(height: 4),
+                        Text(_droppedDisplayName,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: kTextMid, fontSize: 11)),
+                        const SizedBox(height: 2),
+                        // 2026-08-26: real feedback, live - checked
+                        // against resolveConflict (conflict_scanner.dart):
+                        // this content is already written to LocalSync/
+                        // Conflict Backups the moment the conflict was
+                        // resolved, before this callout was even folded
+                        // into the note. "IN CONFLICT BACKUPS" is a fact
+                        // about what already happened, not a promise
+                        // about what Delete below will do - matches the
+                        // finished mockup at
+                        // claude.ai/code/artifact/27d803c3.
+                        Theme(
+                          data: Theme.of(context)
+                              .copyWith(dividerColor: Colors.transparent),
+                          child: ExpansionTile(
+                            dense: true,
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding:
+                                const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                            iconColor: Colors.amber,
+                            collapsedIconColor: Colors.amber,
+                            // 2026-08-26: real feedback, live - "left
+                            // arrow to be left of IN" - controlAffinity's
+                            // built-in leading icon vertically centers
+                            // against the WHOLE title block, so once "IN
+                            // CONFLICT BACKUPS" wraps to two lines the
+                            // arrow floats between them, not next to "IN"
+                            // specifically. ExpansionTile has no
+                            // titleAlignment passthrough (checked against
+                            // the installed 3.44.9 SDK source directly),
+                            // so the icon is built into title itself here,
+                            // top-aligned via the Row's own
+                            // crossAxisAlignment - trailing suppressed so
+                            // the built-in icon doesn't also show. Static,
+                            // not animated - the built-in rotation only
+                            // came for free through controlAffinity/
+                            // trailing, this would need real expand-state
+                            // tracking (StatelessWidget today) to keep it.
+                            trailing: const SizedBox.shrink(),
+                            title: const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: EdgeInsets.only(top: 2),
+                                  child: Icon(Icons.chevron_right,
+                                      size: 16, color: Colors.amber),
+                                ),
+                                SizedBox(width: 2),
+                                Expanded(
+                                  child: Text('IN CONFLICT BACKUPS',
+                                      style: TextStyle(
+                                          color: Colors.amber,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.4)),
+                                ),
+                              ],
+                            ),
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(entry.body,
+                                    style: TextStyle(
+                                        color: kStar, fontSize: 12, height: 1.4)),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 8),
+                        // 2026-08-26: real feedback, live - "make button
+                        // same width and vertically aligned with right
+                        // section." A separate Row below, sized to match
+                        // via identical flex proportions, wasn't reliably
+                        // exact - nested directly inside this same amber
+                        // Expanded instead, so the width match is exact
+                        // by construction, not by two Rows happening to
+                        // agree. "Change DELETE image, to DELETE NOTE" -
+                        // device icon replaced with a second word, per
+                        // direct instruction. Worth a second look though:
+                        // this only ever removes the folded callout block
+                        // from the note (see deleteReferenceCallout,
+                        // conflict_repair.dart), never the note itself -
+                        // "DELETE NOTE" reads as more destructive than
+                        // what actually happens.
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: onDelete,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.redAccent),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                            child: const Text('DELETE NOTE',
+                                style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: OutlinedButton.icon(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline,
-                  size: 16, color: Colors.redAccent),
-              label: Text(
-                  'DELETE ${_droppedWho.isEmpty ? "THIS EDIT" : "$_droppedWho'S EDIT"}'
-                      .toUpperCase(),
-                  style: const TextStyle(
-                      color: Colors.redAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.redAccent),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              ),
             ),
           ),
         ],

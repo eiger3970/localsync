@@ -128,7 +128,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               icon: Icons.backup,
               color: kGreen,
               text: 'Every version backed up first, in ',
-              linkText: 'LocalSync Conflict Backups',
+              linkText: 'LocalSync/Conflict Backups',
               onLinkTap: () =>
                   IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
             ),
@@ -157,7 +157,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
 
   // 2026-08-19: pop carries the backup note's location, not just
   // success/failure - real user feedback, live: told to go find
-  // "LocalSync Conflict Backups" in Obsidian's file list by hand,
+  // "LocalSync/Conflict Backups" in Obsidian's file list by hand,
   // "humans don't need to know petty shite, that's for computer
   // machines to deal with." conflicts_screen.dart uses this to offer a
   // direct "View backup" deep-link instead.
@@ -235,7 +235,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             'versions stacked up - they were never fully '
                             'resolved before another change arrived. Tap '
                             'the one to keep; the rest are still saved to '
-                            '"LocalSync Conflict Backups".'
+                            '"LocalSync/Conflict Backups".'
                         : "Tap a version to review it, then confirm - "
                             'nothing is changed until you confirm.',
                     style: TextStyle(color: kStar, fontSize: 15)),
