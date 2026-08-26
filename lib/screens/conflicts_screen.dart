@@ -218,6 +218,23 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               ],
             ),
           ),
+          // 2026-08-26: real feedback, live - "these steps are needed in
+          // the moment, not some obscure guide... any action needed is to
+          // show in the same page." The push-to-sync step above was real
+          // but only ever lived behind the info-icon dialog - a genuine
+          // test session needed to ask directly rather than find it
+          // there. Always visible now, no tap required.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: kSurface,
+            child: Text(
+              'Pick a version below to resolve, then tap PUSH on the '
+              'home screen to sync your desktop - resolving here only '
+              'updates this phone.',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+            ),
+          ),
           Expanded(
             child: FutureBuilder<List<ConflictEntry>>(
               future: _future,

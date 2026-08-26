@@ -156,12 +156,11 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                         // - "lower the twinkly stars a little." First
                         // attempt used top-padding (cancelled out by
                         // prefixIcon's own centering). Second used
-                        // Transform.translate(0, 5), a real direct shift
-                        // that still wasn't enough. Doubled to 10 this
-                        // round - if still not right, this needs an actual
-                        // screenshot rather than another guess.
+                        // Transform.translate(0, 5). Third doubled to 10.
+                        // Still "a little" more each time - bumped again
+                        // to 16.
                         child: Transform.translate(
-                          offset: const Offset(0, 10),
+                          offset: const Offset(0, 16),
                           child: Stack(
                             clipBehavior: Clip.none,
                             children: [
