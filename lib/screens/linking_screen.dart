@@ -710,21 +710,20 @@ class _IdleViewState extends State<_IdleView>
                     // list provided directly (was 2 messages before this
                     // pass): each attempt gets its own distinct line, not
                     // a repeated/progressive reveal of the same text.
-                    // Scoped to connectionRefused specifically - this is
-                    // the ambiguous "could be a mistyped password, could
-                    // be network" error this whole exchange has been
-                    // about (see linking_state.dart's diagnosis text and
-                    // history). Any other error type keeps showing its
-                    // own resolution text unconditionally, unaffected -
-                    // those already have their own specific, correct
-                    // guidance and were never part of this complaint.
-                    // Attempt 11+ repeats message 10 (list clamped) -
-                    // there's nowhere further to escalate to.
+                    // Scoped to connectionRefused and pairingPasswordRejected
+                    // (see isPasswordRetryError) - these are the ambiguous
+                    // "could be a mistyped password, could be network/auth"
+                    // errors this whole exchange has been about (see
+                    // linking_state.dart's diagnosis text and history). Any
+                    // other error type keeps showing its own resolution text
+                    // unconditionally, unaffected - those already have their
+                    // own specific, correct guidance and were never part of
+                    // this complaint. Attempt 11+ repeats message 10 (list
+                    // clamped) - there's nowhere further to escalate to.
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Builder(builder: (context) {
-                        if (_pairingFailure!.error !=
-                            LinkingError.connectionRefused) {
+                        if (!isPasswordRetryError(_pairingFailure!.error)) {
                           return DiagCard(
                             label: 'HOW TO FIX IT',
                             text: _pairingFailure!.resolution,
@@ -735,7 +734,7 @@ class _IdleViewState extends State<_IdleView>
                         }
                         return DiagCard(
                           label: 'HOW TO FIX IT',
-                          text: connectionRefusedRetryMessage(_pairAttempts),
+                          text: passwordRetryMessage(_pairAttempts),
                           accent: kGreen,
                           icon: Icons.lightbulb_outline,
                         );
