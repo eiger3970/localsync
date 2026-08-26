@@ -47,9 +47,11 @@ class ConflictsScreen extends StatefulWidget {
   State<ConflictsScreen> createState() => _ConflictsScreenState();
 }
 
+typedef _ScanResult = ({List<ConflictEntry> conflicts, List<ReferenceEntry> refs});
+
 class _ConflictsScreenState extends State<ConflictsScreen> {
   final _vaultFolder = VaultFolderService();
-  late Future<List<ConflictEntry>> _future;
+  late Future<_ScanResult> _future;
   // 2026-08-20: filePaths of entries this scan found that match a
   // previously-resolved signature - see resolved_watchlist.dart. Keyed by
   // filePath rather than by entry identity since ConflictEntry has no id
@@ -63,9 +65,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     _future = _scan();
   }
 
-  Future<List<ConflictEntry>> _scan() async {
+  // 2026-08-26: real feedback, live - "the Conflicts page finished" -
+  // scans both real unresolved conflicts and the "kept for reference"
+  // leftovers (conflict_scanner.dart's scanForReferenceCallouts) in one
+  // pass, so both sections refresh together off one future instead of
+  // two independently-timed ones drifting apart.
+  Future<_ScanResult> _scan() async {
     final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
-    if (path == null) return const [];
+    if (path == null) return (conflicts: <ConflictEntry>[], refs: <ReferenceEntry>[]);
     try {
       final entries = await scanForConflicts(path);
       // 2026-08-20: real device feedback, live - scanForConflicts returns
@@ -81,10 +88,24 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       // has at least one non-"yours" version) sort last, not first.
       entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
       await _checkForReverts(entries);
-      return entries;
+      final refs = await scanForReferenceCallouts(path);
+      return (conflicts: entries, refs: refs);
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
+  }
+
+  /// Deletes one "kept for reference" leftover (always backed up first -
+  /// see deleteReferenceCallout's own doc), then rescans both sections.
+  Future<void> _deleteRef(ReferenceEntry ref) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      await deleteReferenceCallout(path, ref);
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (mounted) setState(() => _future = _scan());
   }
 
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
@@ -219,7 +240,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<ConflictEntry>>(
+            child: FutureBuilder<_ScanResult>(
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
@@ -241,8 +262,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     ),
                   );
                 }
-                final entries = snapshot.data ?? const [];
-                if (entries.isEmpty) {
+                final entries = snapshot.data?.conflicts ?? const [];
+                final refs = snapshot.data?.refs ?? const [];
+                if (entries.isEmpty && refs.isEmpty) {
                   // 2026-08-26: real feedback, live - "Conflicts screen
                   // makes no sense now" - a fixed "pick a version below"
                   // banner used to show unconditionally, even here where
@@ -283,6 +305,17 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 }
                 final splitIndex = entries.indexWhere((e) => !isRecent(e));
                 final hasSplit = splitIndex > 0 && splitIndex < entries.length;
+                // 2026-08-26: real feedback, live - "just need the
+                // Conflicts page finished." Reference cleanup entries
+                // (leftover "kept for reference" callouts, real conflicts
+                // are handled above) are appended into this SAME list -
+                // refHeaderIndex is where their section header sits, one
+                // flat scrollable instead of nesting a second scrollable
+                // inside this one.
+                final hasRefs = refs.isNotEmpty;
+                final refHeaderIndex = entries.length;
+                final totalCount =
+                    entries.length + (hasRefs ? 1 + refs.length : 0);
                 return Column(
                   children: [
                     // 2026-08-26: real feedback, live - "these steps are
@@ -292,26 +325,47 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     // fixed top-of-page fixture read as nonsensical in the
                     // empty state - "Conflicts screen makes no sense now"
                     // - see the empty-state branch above for that half.
-                    Container(
-                      width: double.infinity,
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      color: kSurface,
-                      child: Text(
-                        'Pick a version below to resolve, then tap PUSH '
-                        'on the home screen to sync your desktop - '
-                        'resolving here only updates this phone.',
-                        style: TextStyle(color: kTextMid, fontSize: 13),
+                    // Only shown when there's a real conflict to resolve -
+                    // it doesn't apply to the reference-cleanup section.
+                    if (entries.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        color: kSurface,
+                        child: Text(
+                          'Pick a version below to resolve, then tap PUSH '
+                          'on the home screen to sync your desktop - '
+                          'resolving here only updates this phone.',
+                          style: TextStyle(color: kTextMid, fontSize: 13),
+                        ),
                       ),
-                    ),
                     Expanded(
                       child: ListView.separated(
                   padding: const EdgeInsets.all(16),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, i) => hasSplit && i == splitIndex - 1
-                      ? const _EarlierDivider()
-                      : Divider(color: kTextDim),
+                  itemCount: totalCount,
+                  separatorBuilder: (_, i) {
+                    if (i >= entries.length - 1) return const SizedBox(height: 4);
+                    return hasSplit && i == splitIndex - 1
+                        ? const _EarlierDivider()
+                        : Divider(color: kTextDim);
+                  },
                   itemBuilder: (context, i) {
+                    if (i == refHeaderIndex) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 8),
+                        child: Text('Old versions (${refs.length})',
+                            style: TextStyle(
+                                color: kTextMid,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600)),
+                      );
+                    }
+                    if (i > refHeaderIndex) {
+                      final ref = refs[i - refHeaderIndex - 1];
+                      return ReferenceCalloutTile(
+                          entry: ref, onDelete: () => _deleteRef(ref));
+                    }
                     final e = entries[i];
                     // 2026-08-20: this exact conflict was resolved before
                     // and has now reappeared - most likely Obsidian's own
@@ -432,11 +486,28 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                 vaultName: vaultName);
                                           },
                                       ),
-                                      const TextSpan(text: '.'),
+                                      // 2026-08-26: real feedback, live -
+                                      // "these user actions like reboot
+                                      // tab or vault needs to be noted in
+                                      // the phone Conflicts screen in the
+                                      // moment of the relevant fix." Real
+                                      // testing hit Obsidian (desktop AND
+                                      // phone) still showing old note
+                                      // content after a background file
+                                      // change - the file itself was
+                                      // confirmed correct on disk both
+                                      // times, Obsidian's own editor just
+                                      // hadn't noticed. Told here, right
+                                      // where a resolution just wrote to
+                                      // this exact note.
+                                      const TextSpan(
+                                          text: '. If it still looks '
+                                              'unchanged in Obsidian, '
+                                              'close and reopen the note.'),
                                     ],
                                   ),
                                 ),
-                                duration: const Duration(seconds: 8),
+                                duration: const Duration(seconds: 10),
                               ),
                             );
                           }
@@ -449,6 +520,152 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   ],
                 );
               },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 2026-08-26: real feedback, live - "stop the eye bleed, simple buttons
+// for this or that." The wording fix on _mergeCallout's leftover blocks
+// (conflict_scanner.dart) answered "what is this" but still left "now
+// what" as manually editing the note by hand in Obsidian - exactly the
+// interface this screen already exists to avoid for real conflicts. This
+// is that same idea applied to leftover reference content: one real
+// Delete button, backed up first (deleteReferenceCallout), no note-
+// editing required. Public (not `_ReferenceCalloutTile`) so it can be
+// preview-tested in isolation, same pattern as DiagCard.
+// 2026-08-26: real feedback, live, many rounds - final shape settled via
+// an HTML mockup (real device screenshots weren't practical mid-session):
+// left/right compare (same principle as the real conflict picker's
+// vimdiff-style view, "comparing data is easier left and right, not
+// above and below"), green = what's actually in the note now, amber =
+// the leftover that isn't - named by WHERE it is ("IN CONFLICT
+// BACKUPS", not a bare "NOT IN NOTE" with a separate reassurance line -
+// "why not replace NOT IN NOTE with IN CONFLICT BACKUPS?"). The amber
+// side is a real ExpansionTile, not a link - "I prefer dropdown for
+// immediate results and performance" - reading the actual leftover text
+// never leaves this screen.
+class ReferenceCalloutTile extends StatelessWidget {
+  final ReferenceEntry entry;
+  final VoidCallback onDelete;
+  const ReferenceCalloutTile({
+    super.key,
+    required this.entry,
+    required this.onDelete,
+  });
+
+  // Only the dropped side's origin is actually tracked (entry.label,
+  // written by conflict_scanner.dart's _mergeCallout as "who - when") -
+  // the kept side has no equivalent data, so it's labeled generically
+  // ("this note") rather than guessing a device it might not be.
+  String get _droppedWho => entry.label.split(' - ').first.trim();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kSurface,
+        border: Border(left: BorderSide(color: kTextDim, width: 2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(entry.filePath,
+              style: TextStyle(
+                  color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: kGreen.withValues(alpha: 0.08),
+                      border: Border.all(color: kGreen.withValues(alpha: 0.35)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, color: kGreen, size: 20),
+                        const SizedBox(height: 4),
+                        Text('IN NOTE NOW',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: kGreen,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withValues(alpha: 0.08),
+                      border:
+                          Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        dense: true,
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                        childrenPadding:
+                            const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                        iconColor: Colors.amber,
+                        collapsedIconColor: Colors.amber,
+                        title: const Text('IN CONFLICT BACKUPS',
+                            style: TextStyle(
+                                color: Colors.amber,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.4)),
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(entry.body,
+                                style: TextStyle(
+                                    color: kStar, fontSize: 12, height: 1.4)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline,
+                  size: 16, color: Colors.redAccent),
+              label: Text(
+                  'DELETE ${_droppedWho.isEmpty ? "THIS EDIT" : "$_droppedWho'S EDIT"}'
+                      .toUpperCase(),
+                  style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700)),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              ),
             ),
           ),
         ],
