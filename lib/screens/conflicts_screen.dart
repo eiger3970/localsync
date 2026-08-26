@@ -218,23 +218,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
               ],
             ),
           ),
-          // 2026-08-26: real feedback, live - "these steps are needed in
-          // the moment, not some obscure guide... any action needed is to
-          // show in the same page." The push-to-sync step above was real
-          // but only ever lived behind the info-icon dialog - a genuine
-          // test session needed to ask directly rather than find it
-          // there. Always visible now, no tap required.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: kSurface,
-            child: Text(
-              'Pick a version below to resolve, then tap PUSH on the '
-              'home screen to sync your desktop - resolving here only '
-              'updates this phone.',
-              style: TextStyle(color: kTextMid, fontSize: 13),
-            ),
-          ),
           Expanded(
             child: FutureBuilder<List<ConflictEntry>>(
               future: _future,
@@ -260,9 +243,31 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 }
                 final entries = snapshot.data ?? const [];
                 if (entries.isEmpty) {
+                  // 2026-08-26: real feedback, live - "Conflicts screen
+                  // makes no sense now" - a fixed "pick a version below"
+                  // banner used to show unconditionally, even here where
+                  // there is nothing below to pick. Split into two states
+                  // instead: this one still reminds about pushing (in
+                  // case the user just resolved the last one), without
+                  // the now-nonsensical "pick a version" line.
                   return Center(
-                    child: Text('No unresolved conflicts.',
-                        style: TextStyle(color: kTextMid, fontSize: 15)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('No unresolved conflicts.',
+                              style: TextStyle(color: kTextMid, fontSize: 15)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'If you just resolved one, tap PUSH on the '
+                            'home screen to sync your desktop.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: kTextDim, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
                 // Entries are already sorted most-recent-first (see
@@ -278,7 +283,29 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 }
                 final splitIndex = entries.indexWhere((e) => !isRecent(e));
                 final hasSplit = splitIndex > 0 && splitIndex < entries.length;
-                return ListView.separated(
+                return Column(
+                  children: [
+                    // 2026-08-26: real feedback, live - "these steps are
+                    // needed in the moment, not some obscure guide."
+                    // Moved here (only shown when there is actually
+                    // something to pick below) after the same banner as a
+                    // fixed top-of-page fixture read as nonsensical in the
+                    // empty state - "Conflicts screen makes no sense now"
+                    // - see the empty-state branch above for that half.
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: kSurface,
+                      child: Text(
+                        'Pick a version below to resolve, then tap PUSH '
+                        'on the home screen to sync your desktop - '
+                        'resolving here only updates this phone.',
+                        style: TextStyle(color: kTextMid, fontSize: 13),
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: entries.length,
                   separatorBuilder: (_, i) => hasSplit && i == splitIndex - 1
@@ -417,6 +444,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       },
                     );
                   },
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
