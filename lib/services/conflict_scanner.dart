@@ -317,6 +317,100 @@ String _mergeCallout(ConflictVersion v) {
       '$quoted';
 }
 
+// ─────────────────────────────────────────────
+// "Kept for reference" cleanup - real, tap-to-delete
+// ─────────────────────────────────────────────
+//
+// 2026-08-26: real feedback, live - "stop the eye bleed, simple buttons
+// for this or that." The wording fix above answered "what is this," but
+// left "now what" as manually editing the note by hand in Obsidian - the
+// exact kind of interface this app's own Conflicts screen already exists
+// to avoid for real conflicts. Same idea applied to _mergeCallout's
+// leftover blocks: find them, offer one real Delete button, back up
+// first (same safety convention as every other destructive action in
+// this file).
+
+final _referenceCalloutPattern = RegExp(
+  r"> \[!question\]- Already resolved - kept for reference only, not an "
+  r"active conflict\. This is (.+?)'s version that was NOT kept[^\n]*\n"
+  r"((?:> .*\n?)*)",
+);
+
+class ReferenceEntry {
+  final String filePath; // relative to the vault root
+  final String label; // who/when this leftover version came from
+  final String body; // the quoted content itself, for a short preview
+  final int matchStart;
+  final int matchEnd;
+  const ReferenceEntry({
+    required this.filePath,
+    required this.label,
+    required this.body,
+    required this.matchStart,
+    required this.matchEnd,
+  });
+}
+
+/// Scans every `.md` file under [vaultPath] for "kept for reference"
+/// callouts left behind by a merge resolution - see _mergeCallout above.
+/// Skips backup folders for the same reason scanForConflicts does: their
+/// whole purpose is to hold old content forever, not surface it as
+/// something to act on.
+Future<List<ReferenceEntry>> scanForReferenceCallouts(String vaultPath) async {
+  final entries = <ReferenceEntry>[];
+  final dir = Directory(vaultPath);
+  if (!await dir.exists()) return entries;
+
+  await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    if (entity is! File || !entity.path.endsWith('.md')) continue;
+    if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
+    if (entity.path.contains('/LocalSync Vault Backup ')) continue;
+
+    final content = await entity.readAsString();
+    if (!content.contains('[!question]- Already resolved')) continue;
+    final relPath = entity.path.substring(vaultPath.length + 1);
+
+    for (final m in _referenceCalloutPattern.allMatches(content)) {
+      entries.add(ReferenceEntry(
+        filePath: relPath,
+        label: m.group(1) ?? '',
+        body: _stripQuoteBlock(m.group(2) ?? ''),
+        matchStart: m.start,
+        matchEnd: m.end,
+      ));
+    }
+  }
+  return entries;
+}
+
+/// Removes exactly one reference callout, backing up its content first -
+/// same safety convention as resolveConflict below: never silently
+/// discard something that was specifically kept so nothing would be
+/// lost. Coordinated write for the same Obsidian-cache reason
+/// resolveConflict uses it.
+Future<void> deleteReferenceCallout(
+  String vaultPath,
+  ReferenceEntry entry,
+) async {
+  final backupDir = Directory('$vaultPath/LocalSync Conflict Backups');
+  await backupDir.create(recursive: true);
+  final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
+  final backupFile =
+      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
+  await backupFile.writeAsString(
+    '# Reference content, removed by user\n\n'
+    'Original file: ${entry.filePath}\n'
+    'From: ${entry.label}\n\n'
+    '${entry.body}\n',
+  );
+
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
+  if (entry.matchEnd > content.length) return; // file changed since scan
+  final updated = content.replaceRange(entry.matchStart, entry.matchEnd, '');
+  await VaultFolderService().coordinatedWrite(filePath, updated);
+}
+
 /// Rewrites [filePath] (relative to [vaultPath]), replacing exactly the
 /// conflict span [entry] was found at with [chosen] (typically
 /// entry.ours or entry.theirs, picked by the user). Direct substring
