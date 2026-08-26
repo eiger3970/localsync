@@ -150,6 +150,19 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         icon: Icons.touch_app,
                         label: 'Pick anytime',
                       ),
+                      // 2026-08-26: real feedback, live - "I need this
+                      // advice when using the app... here are the steps
+                      // to sync after the conflict." Resolving a conflict
+                      // only changes this device - the previous 3 steps
+                      // stopped one step short of actually telling the
+                      // user that, so real testing needed asking me
+                      // directly for the missing step. Added here instead
+                      // of only ever living in a chat answer.
+                      Icon(Icons.arrow_forward, color: kTextDim, size: 18),
+                      const _SafetyStep(
+                        icon: Icons.cloud_upload,
+                        label: 'Push to sync',
+                      ),
                     ],
                   ),
                 ),
@@ -178,7 +191,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         'Backups" at the top level, right alongside '
                         'your other folders. Nothing is lost, even if '
                         'you pick the wrong one - just open the note '
-                        'inside it to find the other version.',
+                        'inside it to find the other version.\n\n'
+                        // 2026-08-26: real feedback, live - "I need this
+                        // advice when using the app... here are the
+                        // steps to sync after the conflict." Resolving
+                        // here only changes this device - a real test
+                        // session needed to ask directly what to do
+                        // next, so it's spelled out here now instead of
+                        // only ever living in a chat answer.
+                        'After resolving everything below: tap PUSH (or '
+                        'run Sync) on the home screen. Resolving a '
+                        'conflict here only updates this device - your '
+                        'desktop won\'t see the result until you push.',
                         style: TextStyle(color: kStar, fontSize: 16),
                       ),
                       actions: [

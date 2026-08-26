@@ -44,7 +44,23 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   // all, unlike SparkleBackground's real twinkle (sine-wave opacity,
   // looping). Same sine formula, just driven by its own controller and
   // scoped to this small 28px cluster instead of a full-width canvas.
+  //
+  // 2026-08-26, follow-up: real feedback, live - "twinkle isn't random,
+  // the left star is permanent and the other blinks on and off, but the
+  // randomness is the goal." One shared controller with a fixed 0.5
+  // phase offset put the two stars exactly opposite each other on the
+  // same period - a smooth, perfectly predictable seesaw, not
+  // independent twinkling, and every field instance twinkled in lockstep
+  // with every other. Two separate controllers with different (non-
+  // integer-ratio) periods drift in and out of phase continuously
+  // instead of repeating a fixed short pattern, and a per-instance
+  // random start phase (picked once here, not derived from the shared
+  // controller) means field 1 and field 2 never mirror each other
+  // either.
   late final AnimationController _sparkleCtrl;
+  late final AnimationController _sparkleCtrl2;
+  late final double _phaseSeed1;
+  late final double _phaseSeed2;
   bool _obscure = true;
   bool _shredding = false;
   String _shreddedText = '';
@@ -56,8 +72,13 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: _duration);
+    _phaseSeed1 = _rand.nextDouble();
+    _phaseSeed2 = _rand.nextDouble();
     _sparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
+          ..repeat();
+    _sparkleCtrl2 =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1900))
           ..repeat();
   }
 
@@ -65,11 +86,12 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   void dispose() {
     _ctrl.dispose();
     _sparkleCtrl.dispose();
+    _sparkleCtrl2.dispose();
     super.dispose();
   }
 
-  double _twinkle(double phaseOffset) {
-    final phase = (_sparkleCtrl.value + phaseOffset) % 1.0;
+  double _twinkle(AnimationController ctrl, double phaseSeed) {
+    final phase = (ctrl.value + phaseSeed) % 1.0;
     return sin(phase * pi * 2) * 0.5 + 0.5;
   }
 
@@ -127,7 +149,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
               // positioning.
               prefixIcon: widget.showSparkle
                   ? AnimatedBuilder(
-                      animation: _sparkleCtrl,
+                      animation: Listenable.merge([_sparkleCtrl, _sparkleCtrl2]),
                       builder: (_, __) => SizedBox(
                         width: 28,
                         // 2026-08-26: real feedback, live, three times now
@@ -144,13 +166,15 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                             clipBehavior: Clip.none,
                             children: [
                               Icon(Icons.auto_awesome,
-                                  color: kGreen.withValues(alpha: _twinkle(0)),
+                                  color: kGreen.withValues(
+                                      alpha: _twinkle(_sparkleCtrl, _phaseSeed1)),
                                   size: 16),
                               Positioned(
                                 left: 14,
                                 top: 2,
                                 child: Icon(Icons.auto_awesome,
-                                    color: kGreen.withValues(alpha: _twinkle(0.5)),
+                                    color: kGreen.withValues(
+                                        alpha: _twinkle(_sparkleCtrl2, _phaseSeed2)),
                                     size: 10),
                               ),
                             ],
