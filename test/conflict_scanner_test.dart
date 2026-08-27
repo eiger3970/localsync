@@ -168,4 +168,86 @@ void main() {
           contains('- [ ] Kanban round 3 phone edit 202608201339\n## Done'));
     });
   });
+
+  // 2026-08-27: real feedback, live - "fear of reversing a mistaken git
+  // merge" plus a direct ask to build Undo. See undoReferenceCallout's
+  // own doc (conflict_scanner.dart) for why this writes no extra backup.
+  group('undoReferenceCallout', () {
+    test('swaps the kept text and the reference callout, and undo is reversible',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Journal entry.md');
+      await file.writeAsString(
+        '# Aug 24th\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT — yours (review and delete one)\n'
+        '> Fixed the pairing screen this morning.\n'
+        '> [!warning]+ SYNC CONFLICT — desktop obsidian - 202608251230 (review and delete one)\n'
+        '> Emailed about the domicile case this afternoon.\n'
+        '\n'
+        'Next entry.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      final resolved =
+          applyResolution(await file.readAsString(), entry, entry.versions[0].body);
+      await file.writeAsString(resolved);
+
+      // Real span exists now, so Undo is offered.
+      final refs = await scanForReferenceCallouts(dir.path);
+      expect(refs, hasLength(1));
+      final ref = refs.single;
+      expect(ref.keptMarkerStart, isNotNull);
+      expect(ref.keptContent, contains('Fixed the pairing screen'));
+
+      await undoReferenceCallout(dir.path, ref);
+      final afterUndo = await file.readAsString();
+
+      // The previously-dropped side is now the active, kept content.
+      expect(afterUndo, contains('Emailed about the domicile case this afternoon.'));
+      // The previously-kept side is now the reference leftover.
+      expect(afterUndo, contains('Already resolved'));
+      expect(afterUndo, contains("This is Your version's version"));
+      expect(afterUndo, contains('Fixed the pairing screen this morning.'));
+      expect(afterUndo, contains('Next entry.'));
+
+      // Undoing again swaps it right back - reversible both ways.
+      final refsAfter = await scanForReferenceCallouts(dir.path);
+      expect(refsAfter.single.keptMarkerStart, isNotNull);
+      await undoReferenceCallout(dir.path, refsAfter.single);
+      final afterSecondUndo = await file.readAsString();
+      expect(afterSecondUndo, contains('Fixed the pairing screen this morning.'));
+      expect(
+          afterSecondUndo, contains("This is desktop obsidian - 202608251230's version"));
+    });
+
+    test('an old note with no LOCALSYNC-KEPT marker has no undoable span',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Legacy note.md');
+      // Hand-written, pre-marker shape - what an older resolved note
+      // looks like on disk (no <!-- LOCALSYNC-KEPT --> wrapper).
+      await file.writeAsString(
+        'Kept text from before this marker existed.\n'
+        '\n'
+        '> [!question]- Already resolved - kept for reference only, not '
+        'an active conflict. This is yours\'s version that was NOT kept - '
+        'copy anything you want from it, then delete this block whenever.\n'
+        '> Old dropped text.\n',
+      );
+
+      final refs = await scanForReferenceCallouts(dir.path);
+      expect(refs, hasLength(1));
+      expect(refs.single.keptMarkerStart, isNull);
+      expect(refs.single.keptContent, isNull);
+
+      // Calling undo on it is a safe no-op, not a crash.
+      final before = await file.readAsString();
+      await undoReferenceCallout(dir.path, refs.single);
+      expect(await file.readAsString(), before);
+    });
+  });
 }
