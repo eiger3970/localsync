@@ -902,6 +902,25 @@ class _IdleViewState extends State<_IdleView>
               ),
             ),
           ),
+          // 2026-08-27: Tier 0 (docs/product-tiers.md) - free, generic
+          // file sync, no $kNoteAppName/PKM awareness at all. Same
+          // placement/style as the existing-vault link just above -
+          // real UI polish for this whole path is a real next step, not
+          // done here (see the SyncMode.genericFolder header comment in
+          // repository.dart), this is a working, reachable entry point.
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: ctrl.startLinkingGenericFolder,
+            child: Text(
+              'Just want to sync plain files, no $kNoteAppName? Sync a folder',
+              style: TextStyle(
+                color: kTextMid,
+                fontSize: 13,
+                decoration: TextDecoration.underline,
+                decorationColor: kTextMid,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1527,11 +1546,17 @@ class _CompleteViewState extends State<_CompleteView>
       // assumption fixed in the display text and deep link earlier,
       // just missed here. Display-only field (see repository.dart),
       // but still wrong for anyone who typed a different vault name.
-      obsidianVaultPath: 'On My iPhone/$kNoteAppName/'
-          '${vaultPath.split('/').last}',
+      // 2026-08-27: a Tier 0 genericFolder repo has no $kNoteAppName
+      // container at all - "On My iPhone/$kNoteAppName/..." would be an
+      // actively wrong claim about where the folder lives, not just an
+      // unused display string, so this branches on ctrl.syncMode.
+      obsidianVaultPath: ctrl.syncMode == SyncMode.genericFolder
+          ? vaultPath.split('/').last
+          : 'On My iPhone/$kNoteAppName/${vaultPath.split('/').last}',
       autoSync: true,
       status: SyncStatus.ok,
       lastSync: DateTime.now(),
+      syncMode: ctrl.syncMode,
     ));
   }
 

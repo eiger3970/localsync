@@ -22,6 +22,7 @@ import '../../services/ios_app_service.dart';
 import '../../services/ssh_key_paths.dart';
 import '../../services/vault_folder_service.dart';
 import '../../constants.dart';
+import '../../models/repository.dart';
 import 'linking_state.dart';
 
 class LinkingController extends ChangeNotifier {
@@ -95,6 +96,15 @@ class LinkingController extends ChangeNotifier {
   String? _pickedVaultPath;
   String? _pickedVaultBookmark;
 
+  // 2026-08-27: Tier 0 - which entry point started this run, so
+  // linking_screen.dart's _saveRepository() can tag the resulting
+  // Repository correctly (see repository.dart's SyncMode doc). Defaults
+  // to obsidianVault - every existing entry point (startLinking,
+  // startLinkingExistingVault) is unchanged and still means that; only
+  // the new startLinkingGenericFolder below sets this to genericFolder.
+  SyncMode _syncMode = SyncMode.obsidianVault;
+  SyncMode get syncMode => _syncMode;
+
   // 2026-08-14: real device feedback - after tapping Open in the native
   // folder picker (step 2.6), the screen stayed on the static
   // pickingVaultFolder view (fixed 55% progress bar, no spinner) for
@@ -146,6 +156,26 @@ class LinkingController extends ChangeNotifier {
     _isRunning = true;
     notifyListeners();
     await _checkPairing(newVault: false);
+  }
+
+  // 2026-08-27: Tier 0 entry point (docs/product-tiers.md) - "alpha
+  // testers aren't ready for PKM... need the free tier for them." Same
+  // pairing precondition as every other entry point (a real SSH keypair
+  // still has to exist), but genuinely no Obsidian precondition at all -
+  // unlike _skipToPickingFolder below, this never checks
+  // isObsidianInstalled(), since a plain-file-sync user may not have
+  // Obsidian on their phone at all. Lands on the same pickingVaultFolder
+  // step and reuses pickVaultFolder()/_cloneInto() unchanged - the
+  // native folder-picker + security-scoped-bookmark mechanism
+  // (VaultFolderService) was never actually Obsidian-specific at the
+  // platform level, only named for the one thing it was first built for.
+  Future<void> startLinkingGenericFolder() async {
+    assert(_step == LinkingStep.idle || _step == LinkingStep.failed);
+    _reset();
+    _syncMode = SyncMode.genericFolder;
+    _isRunning = true;
+    notifyListeners();
+    await _checkPairingGeneric();
   }
 
   Future<void> resumeFromBackground() async {
@@ -253,6 +283,33 @@ class LinkingController extends ChangeNotifier {
     } else {
       await _skipToPickingFolder();
     }
+  }
+
+  // 2026-08-27: Tier 0's pairing check - same keypair precondition as
+  // _checkPairing above, deliberately duplicated rather than adding a
+  // third branch to that method's newVault bool, since the two are
+  // conceptually different gates (which vault-setup step comes next vs.
+  // whether Obsidian needs to be installed at all) and keeping them
+  // separate reads clearer than a bool that would otherwise need to
+  // become an enum for one call site.
+  Future<void> _checkPairingGeneric() async {
+    _step = LinkingStep.checkingPairing;
+    notifyListeners();
+
+    final privateKeyPath = await SshKeyPaths.privateKeyPath();
+    final publicKeyPath = await SshKeyPaths.publicKeyPath();
+
+    if (!kIsWeb) {
+      final hasKeypair = await _keypairExists(privateKeyPath, publicKeyPath);
+      if (!hasKeypair) {
+        return _fail(const StepFailure(LinkingError.pairingNotComplete));
+      }
+    }
+
+    _privateKeyPath = privateKeyPath;
+    _publicKeyPath = publicKeyPath;
+    _step = LinkingStep.pickingVaultFolder;
+    notifyListeners();
   }
 
   Future<void> _awaitVaultCreation() async {
@@ -508,5 +565,6 @@ class LinkingController extends ChangeNotifier {
     _pickedVaultPath = null;
     _pickedVaultBookmark = null;
     _pickingFolder = false;
+    _syncMode = SyncMode.obsidianVault;
   }
 }
