@@ -105,6 +105,16 @@ class LinkingController extends ChangeNotifier {
   SyncMode _syncMode = SyncMode.obsidianVault;
   SyncMode get syncMode => _syncMode;
 
+  // 2026-08-27: set by the new "what do you want to sync?" chooser
+  // (sync_choice_screen.dart) before it navigates into this screen, so
+  // the drag-to-pair gesture in _IdleView - the main, most obvious way
+  // to start, not just the small text links - lands on the right flow
+  // after pairing succeeds (see _pairThenLink's own use of this). Null
+  // means "no choice made yet" (existing entry points - "Vault - add
+  // another" from the kebab menu, say - skip the chooser and keep their
+  // prior direct behavior unchanged).
+  SyncMode? preferredMode;
+
   // 2026-08-14: real device feedback - after tapping Open in the native
   // folder picker (step 2.6), the screen stayed on the static
   // pickingVaultFolder view (fixed 55% progress bar, no spinner) for
