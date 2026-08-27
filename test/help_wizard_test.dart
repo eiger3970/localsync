@@ -29,12 +29,15 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    // Horizontal row of 3 buttons, not a vertical stack.
+    // Horizontal row of 3 buttons, not a vertical stack. Each slot is
+    // an AnimatedContainer (not Expanded) so it can animate its own
+    // width down to 0 when a sibling is picked, letting the picked one
+    // re-center - see _choiceSlot's own comment.
     expect(find.byKey(const ValueKey('choices')), findsOneWidget);
     expect(
         find.descendant(
             of: find.byKey(const ValueKey('choices')),
-            matching: find.byType(Expanded)),
+            matching: find.byType(AnimatedContainer)),
         findsNWidgets(3));
 
     expect(find.text('BOTH\nEDITED'), findsOneWidget);
@@ -61,6 +64,37 @@ void main() {
     expect(find.text('DESKTOP\nEDITED'), findsOneWidget);
     expect(find.text('PHONE\nEDITED'), findsOneWidget);
     expect(find.text('WORKFLOW'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Flow A: picking a choice slides it to center - siblings collapse to 0 width',
+      (tester) async {
+    await tester.pumpWidget(_harness('A'));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final slots = find.descendant(
+        of: find.byKey(const ValueKey('choices')),
+        matching: find.byType(AnimatedContainer));
+    expect(slots, findsNWidgets(3));
+    // Before picking: all 3 share the row equally, none is 0-width.
+    for (final w in tester.widgetList<AnimatedContainer>(slots)) {
+      expect(w.constraints!.maxWidth, greaterThan(0));
+    }
+
+    await tester.tap(find.text('DESKTOP\nEDITED'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+
+    // Real feedback, live - "smooth slide the button to the centre...
+    // don't jump." The two unpicked slots collapse to 0 width (not just
+    // faded) so the Row's own center alignment re-centers the picked
+    // one into the freed space.
+    final widthsAfter = tester
+        .widgetList<AnimatedContainer>(slots)
+        .map((w) => w.constraints!.maxWidth)
+        .toList();
+    expect(widthsAfter.where((w) => w == 0).length, 2);
+    expect(widthsAfter.where((w) => w > 0).length, 1);
   });
 
   testWidgets('Flow A: PHONE EDITED -> Phone PUSH, Desktop PULL (with note), Done',

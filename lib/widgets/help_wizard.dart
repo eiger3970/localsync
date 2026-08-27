@@ -262,16 +262,52 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
     );
   }
 
+  // 2026-08-27, sixth pass - real feedback, live: "BOTH EDITED should be
+  // centered... smooth slide the button to the centre once selected,
+  // don't jump." Was Expanded (fixed 1/3 width each, opacity-only fade)
+  // - the picked button never actually moved, it just got easier to see
+  // where it already was. Switched to explicit AnimatedContainer widths:
+  // the two unpicked buttons animate their width down to 0 (clipped,
+  // not just faded), and since the Row keeps mainAxisAlignment.center,
+  // the remaining button re-centers itself in the freed space as a
+  // genuine slide, not a cut.
+  // LayoutBuilder doesn't work here - AlertDialog sizes its content via
+  // an intrinsic-width pass, and LayoutBuilder can't answer intrinsic
+  // dimension queries (real error, caught by the test suite: "LayoutBuilder
+  // does not support returning intrinsic dimensions"). Computing the
+  // same available width analytically via MediaQuery instead, matching
+  // the insetPadding/contentPadding this dialog already uses.
   Widget _buildChoices() {
-    return Row(
+    return Builder(
       key: const ValueKey('choices'),
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (int i = 0; i < _choices.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(child: _choiceButton(_choices[i])),
-        ],
-      ],
+      builder: (context) {
+        const gap = 8.0;
+        final screenWidth = MediaQuery.of(context).size.width;
+        const horizontalChrome = 10 * 2 + 16 * 2; // insetPadding + contentPadding
+        final availableWidth = screenWidth - horizontalChrome;
+        final segmentWidth = (availableWidth - gap * 2) / 3;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (int i = 0; i < _choices.length; i++) ...[
+              if (i > 0) const SizedBox(width: gap),
+              _choiceSlot(_choices[i], segmentWidth),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _choiceSlot(_ChoiceDef choice, double segmentWidth) {
+    final isFading = _pending != null && _pending != choice.key;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOut,
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(),
+      width: isFading ? 0 : segmentWidth,
+      child: _choiceButton(choice),
     );
   }
 
