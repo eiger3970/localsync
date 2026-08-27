@@ -21,12 +21,14 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:purchases_flutter/purchases_flutter.dart';
 
-// TODO: paste the real public API key here once RevenueCat's project
-// is set up (Project Settings -> API Keys -> Apple App Store key).
-// Never a secret worth protecting hard - RevenueCat's public SDK keys
-// are meant to ship inside client apps, same as Stripe's publishable
-// keys - but it does need to be the real value before anything here
-// can actually reach RevenueCat.
+// 2026-08-26: confirmed with the user directly - this IS the real key
+// from an already-existing RevenueCat project, not a placeholder still
+// waiting to be filled in (the TODO this replaced said otherwise and
+// was stale). Never a secret worth protecting hard either way -
+// RevenueCat's public SDK keys are meant to ship inside client apps,
+// same as Stripe's publishable keys. What's still actually missing is
+// the Apple Developer account / App Store product on the other side -
+// see this file's header comment.
 const kRevenueCatApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
 
 // RevenueCat entitlement identifier, configured in the RevenueCat

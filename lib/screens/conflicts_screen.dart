@@ -16,6 +16,7 @@ import '../services/database_service.dart';
 import '../services/ios_app_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
+import '../widgets/controllable_gif.dart';
 import 'conflict_picker_screen.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
@@ -232,7 +233,23 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         'After resolving everything below: tap PUSH (or '
                         'run Sync) on the home screen. Resolving a '
                         'conflict here only updates this device - your '
-                        'desktop won\'t see the result until you push.',
+                        'desktop won\'t see the result until you push.\n\n'
+                        // 2026-08-26: real feedback, live - user had to
+                        // ask directly what to do on the desktop side
+                        // after pushing, since pushing only updates the
+                        // shared repo, not the desktop's own working
+                        // files - a separate real gap from the "tap
+                        // PUSH" note just above, which only covers the
+                        // phone side. Deliberately generic about HOW
+                        // (not every desktop setup pulls the same way)
+                        // rather than naming a specific script.
+                        'One more step after pushing: your desktop '
+                        'still needs to pull those changes into its own '
+                        'Obsidian vault - pushing from here only updates '
+                        'the shared repo, not the files on your desktop. '
+                        'How you do that depends on your desktop setup '
+                        '(a plain git pull in your vault folder, or '
+                        'whatever sync step you already use there).',
                         style: TextStyle(color: kStar, fontSize: 16),
                       ),
                       actions: [
@@ -259,11 +276,25 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   // spinner with no label read as unclear/stuck, even
                   // though scanForConflicts (a recursive walk of every
                   // .md file) can take a moment on a large vault.
+                  // 2026-08-26: real feedback, live - "can that change
+                  // to the progress_dog.gif?" Same running-dog asset
+                  // already used elsewhere for "something's happening"
+                  // (linking_screen.dart/pairing_screen.dart) for visual
+                  // consistency. ControllableGif directly, not the
+                  // ActionGif/trigger wrapper those screens use - this
+                  // isn't gesture-triggered, it just plays for exactly
+                  // as long as the real scan takes (tied to playing:
+                  // true for the whole time this branch is built), no
+                  // swipe/floor-timing contract needed.
                   return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: kGreen),
+                        const ControllableGif(
+                          assetPath: 'assets/gifs/progress_running.gif',
+                          playing: true,
+                          height: 64,
+                        ),
                         const SizedBox(height: 16),
                         Text('Scanning your entire phone PKM vault…',
                             style: TextStyle(color: kTextMid, fontSize: 14)),
