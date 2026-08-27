@@ -36,6 +36,17 @@ const kRevenueCatApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
 // directly (RevenueCat's own abstraction layer sits between the two).
 const kConflictPickerEntitlementId = 'conflict_picker';
 
+// 2026-08-27: Tier 1 (docs/product-tiers.md) - unlocks Obsidian/PKM
+// awareness itself: vault linking, the full "special recipe" pairing
+// sequence, Kanban-safe conflict merge. This is the actual free/paid
+// boundary per the 2026-08-26 business-model redraw - kConflictPickerEntitlementId
+// above is one tier ABOVE this one (the visual picker on top of PKM
+// sync already being unlocked), not a substitute for it. Not yet
+// configured as a real product in the RevenueCat dashboard - same
+// "no funded Apple Developer account yet" blocker as the rest of this
+// file's header comment.
+const kPkmSyncEntitlementId = 'pkm_sync';
+
 class PurchaseService {
   bool _configured = false;
   bool get isConfigured => _configured;

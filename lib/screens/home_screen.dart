@@ -9,11 +9,13 @@ import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
 import '../services/device_name.dart';
+import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/help_wizard.dart';
+import '../widgets/pkm_sync_upsell.dart';
 import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
@@ -413,7 +415,7 @@ class HomeScreen extends StatelessWidget {
           // 2026-08-20: acts on the selected repo (see app-bar
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
-          return _SyncGestureZone(
+          final gestureZone = _SyncGestureZone(
             onPull: () => _runAndShow(context,
                 ({bool confirmed = false}) =>
                     provider.pullRepository(repo.id!, confirmed: confirmed),
@@ -421,6 +423,30 @@ class HomeScreen extends StatelessWidget {
             onPush: () => _runAndShow(context,
                 ({bool confirmed = false}) =>
                     provider.pushRepository(repo.id!, confirmed: confirmed)),
+          );
+          // 2026-08-27: real feedback, live - "the free app can then
+          // setup obsidian with the special recipe algorithm... running
+          // through the obsidian install once an IAP is paid." Only a
+          // Tier 0 (genericFolder) repo gets this - an existing Obsidian
+          // vault repo's home screen is completely unchanged, still just
+          // the gesture zone with the full body.
+          if (repo.syncMode != SyncMode.genericFolder) return gestureZone;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: PkmSyncUpsell(
+                  purchases: context.watch<PurchaseService>(),
+                  onUnlocked: () {
+                    context.read<LinkingController>().preferredMode =
+                        SyncMode.obsidianVault;
+                    Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => const LinkingScreen()));
+                  },
+                ),
+              ),
+              Expanded(child: gestureZone),
+            ],
           );
         },
       ),
