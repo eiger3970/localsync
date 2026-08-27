@@ -47,6 +47,7 @@ import 'package:flutter/foundation.dart' show compute;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
+import 'binary_conflict_log.dart';
 import 'conflict_repair.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
@@ -836,21 +837,47 @@ void _resolveBinaryConflict(
   final backupDir =
       Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
   backupDir.createSync(recursive: true);
-  final baseName = relPath.split('/').last;
+  final rawName = relPath.split('/').last;
+  // Extension preserved at the very end (not just appended after the
+  // whole original filename) so the backup file itself still opens in
+  // whatever app handles that file type - same convention
+  // vault_backup.dart's "Vault Backup <timestamp>" folder naming and
+  // the markdown conflict backups already use.
+  final dot = rawName.lastIndexOf('.');
+  final stem = dot > 0 ? rawName.substring(0, dot) : rawName;
+  final ext = dot > 0 ? rawName.substring(dot) : '';
   final ts = backupTimestamp();
 
   final ours = entry.our;
   final theirs = entry.their;
+  String? keptBackupName, otherBackupName;
 
   if (ours != null) {
     final blob = git.Blob.lookup(repo: repo, oid: ours.oid);
-    File('${backupDir.path}/$baseName - yours - $ts')
-        .writeAsBytesSync(blob.contentBytes);
+    keptBackupName = '$stem - yours - $ts$ext';
+    File('${backupDir.path}/$keptBackupName').writeAsBytesSync(blob.contentBytes);
   }
   if (theirs != null) {
     final blob = git.Blob.lookup(repo: repo, oid: theirs.oid);
-    File('${backupDir.path}/$baseName - $otherLabel - $ts')
-        .writeAsBytesSync(blob.contentBytes);
+    otherBackupName = '$stem - $otherLabel - $ts$ext';
+    File('${backupDir.path}/$otherBackupName').writeAsBytesSync(blob.contentBytes);
+  }
+
+  // Logged so the Conflicts screen can offer a real choice later - see
+  // binary_conflict_log.dart. Only logged when both sides genuinely
+  // exist to choose between; a one-sided conflict (only added-by-them,
+  // say) has nothing to swap to.
+  if (keptBackupName != null && otherBackupName != null) {
+    appendBinaryConflictLogEntry(
+      vaultPath,
+      BinaryConflictLogEntry(
+        path: relPath,
+        keptBackupName: keptBackupName,
+        otherBackupName: otherBackupName,
+        otherLabel: otherLabel,
+        when: ts,
+      ),
+    );
   }
 
   // Keep "ours" as the resolved content when it exists; if only
