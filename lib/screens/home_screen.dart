@@ -18,6 +18,7 @@ import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
 import 'linking_screen.dart';
+import 'sync_choice_screen.dart';
 import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
@@ -355,22 +356,27 @@ class HomeScreen extends StatelessWidget {
             );
           }
           // 2026-08-17: "why is page 1 necessary, can't page 2 do all
-          // that?" - it couldn't, because page 1 (this empty state)
-          // and page 2 (LinkingScreen's own _IdleView) were both a
-          // drag-to-connect gesture, back to back - page 1's drag did
-          // nothing except open page 2, which then made the user drag
-          // again before anything real happened. Removed entirely:
-          // straight to LinkingScreen (still titled PKM VAULT SETUP,
-          // still requires its own real drag to actually start
-          // pairing - that gesture is genuine, page 1's was not).
-          // pushReplacement, not push - backing out of setup with zero
-          // repos configured should land on an actual empty state, not
-          // instantly redirect right back into setup again.
+          // that?" - a PREVIOUS page 1 was removed because it and
+          // LinkingScreen's own _IdleView were both a drag-to-connect
+          // gesture, back to back - page 1's drag did nothing except
+          // open page 2, which then made the user drag again before
+          // anything real happened. That's not what SyncChoiceScreen is
+          // (2026-08-27) - it's two plain taps, no gesture duplicated,
+          // and it decides something real (which flow the drag gesture
+          // on the next screen leads to) instead of being a no-op
+          // stepping stone. Real feedback that prompted it: "a normie
+          // needs the hand held from install of app... PKM terminology
+          // is too much" - the very first thing a fresh install used to
+          // show was "PKM VAULT SETUP" with vault-lock imagery, before a
+          // Tier 0 (plain file sync) user ever saw anything relevant to
+          // them. pushReplacement, not push - backing out of setup with
+          // zero repos configured should land on an actual empty state,
+          // not instantly redirect right back into setup again.
           if (provider.repos.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (context.mounted) {
                 Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const LinkingScreen()));
+                    MaterialPageRoute(builder: (_) => const SyncChoiceScreen()));
               }
             });
             return const SizedBox.shrink();

@@ -268,7 +268,17 @@ class _IdleViewState extends State<_IdleView>
       return;
     }
     setState(() => _pairing = false);
-    widget.ctrl.startLinking();
+    // 2026-08-27: honors a choice made on the chooser screen before
+    // this one, if there was one - the drag gesture itself is identical
+    // either way (SSH pairing doesn't care about sync mode), only which
+    // flow it lands on afterward changes. Null (no chooser seen, e.g.
+    // "Vault - add another" from the kebab menu) keeps the original
+    // default.
+    if (widget.ctrl.preferredMode == SyncMode.genericFolder) {
+      widget.ctrl.startLinkingGenericFolder();
+    } else {
+      widget.ctrl.startLinking();
+    }
   }
 
   @override
