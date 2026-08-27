@@ -40,10 +40,19 @@ const Map<String, _WizardNode> _flowB = {
       text: 'Any conflicts?',
       yes: 'pick',
       no: 'end_no'),
+  // 2026-08-27: real feedback, live - "is that a does not equal sign?
+  // I don't understand this sentence... have a path or link." Reworded
+  // in plain English with the real path (vault_backup.dart's
+  // kLocalSyncFolderName + "Conflict Backups"). A real tappable link
+  // isn't possible - deep-linking to a specific Obsidian folder was
+  // already tried and found unreliable on real-device testing (see
+  // conflicts_screen.dart's own history) - so the exact path text is
+  // the honest substitute.
   'pick': _WizardNode(
       type: _NodeType.action,
       text: 'Pick version',
-      fine: 'Not picked ≠ deleted - saved under Conflict Backups.',
+      fine: "Not picked isn't deleted - saved in LocalSync/Conflict "
+          'Backups.',
       next: 'q2'),
   'q2': _WizardNode(
       type: _NodeType.question,
@@ -305,14 +314,14 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
           if (i < steps.length - 1)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Icon(Icons.arrow_downward, size: 14, color: kTextDim),
+              child: Icon(Icons.arrow_downward, size: 22, color: kStar),
             ),
         ],
         if (hint != null) ...[
           const SizedBox(height: 14),
           Text(hint,
               textAlign: TextAlign.center,
-              style: TextStyle(color: kTextMid, fontSize: 12)),
+              style: TextStyle(color: kTextMid, fontSize: 14)),
         ],
       ],
     );
@@ -357,7 +366,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
               Text(step.note!,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      color: kTextMid, fontSize: 12, height: 1.35)),
+                      color: kTextMid, fontSize: 14, height: 1.35)),
             ],
           ],
         ),
@@ -444,10 +453,14 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
                         fontWeight: node.type == _NodeType.action
                             ? FontWeight.w600
                             : FontWeight.normal)),
+                // 2026-08-27: real feedback, live - "Pick version, text
+                // below is too dark and small." Same fix Flow A's fine
+                // print already got, never carried over here - kTextDim
+                // -> kTextMid, 12.5 -> 14.
                 if (node.fine != null) ...[
                   const SizedBox(height: 8),
                   Text(node.fine!,
-                      style: TextStyle(color: kTextDim, fontSize: 12.5)),
+                      style: TextStyle(color: kTextMid, fontSize: 14)),
                 ],
                 const SizedBox(height: 20),
                 _buttons(node),
