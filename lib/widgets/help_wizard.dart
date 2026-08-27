@@ -41,18 +41,18 @@ const Map<String, _WizardNode> _flowB = {
       yes: 'pick',
       no: 'end_no'),
   // 2026-08-27: real feedback, live - "is that a does not equal sign?
-  // I don't understand this sentence... have a path or link." Reworded
-  // in plain English with the real path (vault_backup.dart's
-  // kLocalSyncFolderName + "Conflict Backups"). A real tappable link
-  // isn't possible - deep-linking to a specific Obsidian folder was
-  // already tried and found unreliable on real-device testing (see
-  // conflicts_screen.dart's own history) - so the exact path text is
-  // the honest substitute.
+  // I don't understand this sentence... have a path or link." User's own
+  // exact wording used verbatim below, not reworded a second time - the
+  // real path underneath is vault_backup.dart's kLocalSyncFolderName +
+  // "Conflict Backups", inside the Obsidian vault itself. A real
+  // tappable link isn't possible - deep-linking to a specific Obsidian
+  // folder was already tried and found unreliable on real-device
+  // testing (see conflicts_screen.dart's own history).
   'pick': _WizardNode(
       type: _NodeType.action,
       text: 'Pick version',
-      fine: "Not picked isn't deleted - saved in LocalSync/Conflict "
-          'Backups.',
+      fine: "Not picked doesn't delete text, rather data is saved in "
+          'Obsidian vault/LocalSync/Conflict Backups/note.',
       next: 'q2'),
   'q2': _WizardNode(
       type: _NodeType.question,

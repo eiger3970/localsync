@@ -139,8 +139,8 @@ void main() {
 
     expect(find.text('Pick version'), findsOneWidget);
     expect(
-        find.text("Not picked isn't deleted - saved in LocalSync/Conflict "
-            'Backups.'),
+        find.text("Not picked doesn't delete text, rather data is saved in "
+            'Obsidian vault/LocalSync/Conflict Backups/note.'),
         findsOneWidget);
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
