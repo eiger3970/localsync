@@ -139,7 +139,8 @@ void main() {
 
     expect(find.text('Pick version'), findsOneWidget);
     expect(
-        find.text('Not picked ≠ deleted - saved under Conflict Backups.'),
+        find.text("Not picked isn't deleted - saved in LocalSync/Conflict "
+            'Backups.'),
         findsOneWidget);
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
