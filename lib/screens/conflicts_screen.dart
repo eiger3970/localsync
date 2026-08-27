@@ -11,6 +11,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
+import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/ios_app_service.dart';
@@ -18,6 +19,7 @@ import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
+import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
@@ -49,7 +51,9 @@ class ConflictsScreen extends StatefulWidget {
   State<ConflictsScreen> createState() => _ConflictsScreenState();
 }
 
-typedef _ScanResult = ({List<ConflictEntry> conflicts, List<ReferenceEntry> refs});
+typedef _ScanResult = (
+  {List<ConflictEntry> conflicts, List<ReferenceEntry> refs, List<BinaryConflictLogEntry> binary}
+);
 
 class _ConflictsScreenState extends State<ConflictsScreen> {
   final _vaultFolder = VaultFolderService();
@@ -74,7 +78,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   // two independently-timed ones drifting apart.
   Future<_ScanResult> _scan() async {
     final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
-    if (path == null) return (conflicts: <ConflictEntry>[], refs: <ReferenceEntry>[]);
+    if (path == null) {
+      return (
+        conflicts: <ConflictEntry>[],
+        refs: <ReferenceEntry>[],
+        binary: <BinaryConflictLogEntry>[]
+      );
+    }
     try {
       final entries = await scanForConflicts(path);
       // 2026-08-20: real device feedback, live - scanForConflicts returns
@@ -91,7 +101,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
       await _checkForReverts(entries);
       final refs = await scanForReferenceCallouts(path);
-      return (conflicts: entries, refs: refs);
+      final binary = scanBinaryConflictLog(path);
+      return (conflicts: entries, refs: refs, binary: binary);
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
@@ -266,7 +277,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 }
                 final entries = snapshot.data?.conflicts ?? const [];
                 final refs = snapshot.data?.refs ?? const [];
-                if (entries.isEmpty && refs.isEmpty) {
+                final binary = snapshot.data?.binary ?? const [];
+                if (entries.isEmpty && refs.isEmpty && binary.isEmpty) {
                   // 2026-08-26: real feedback, live - "Conflicts screen
                   // makes no sense now" - a fixed "pick a version below"
                   // banner used to show unconditionally, even here where
@@ -328,6 +340,53 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     entries.length + (hasRefs ? 2 + refs.length : 0);
                 return Column(
                   children: [
+                    // 2026-08-27: whole-file (non-markdown) conflicts -
+                    // binary_conflict_log.dart. Deliberately its own
+                    // separate screen, not merged into the ListView
+                    // below - that list's section index math (refs +
+                    // divider + hint) is already fragile enough without
+                    // adding a fourth interleaved section blind. These
+                    // are rare compared to text conflicts, so a summary
+                    // banner + tap-through is a real, low-risk fit.
+                    if (binary.isNotEmpty)
+                      Material(
+                        color: Colors.amber.withValues(alpha: 0.08),
+                        child: InkWell(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    BinaryConflictsScreen(repo: widget.repo),
+                              ),
+                            );
+                            if (mounted) setState(() => _future = _scan());
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.insert_drive_file,
+                                    color: Colors.amber, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${binary.length} whole-file '
+                                    '${binary.length == 1 ? 'conflict' : 'conflicts'} '
+                                    'auto-resolved - your version was kept, '
+                                    'tap to review',
+                                    style: TextStyle(
+                                        color: kStar, fontSize: 13.5),
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right,
+                                    color: kTextDim, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     // 2026-08-26: real feedback, live - "these steps are
                     // needed in the moment, not some obscure guide."
                     // Moved here (only shown when there is actually
