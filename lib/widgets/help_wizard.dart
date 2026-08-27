@@ -91,10 +91,21 @@ class _WorkflowStep {
 //
 // The desktop-side note text is deliberately generic ("its own sync
 // step") - LocalSync is phone-only, there's no desktop app to name.
-const _desktopPushNote =
-    'Your OTHER device must send its data - phone LocalSync app is next.';
-const _desktopPullNote =
-    'Your OTHER device must receive the data - not this LocalSync app.';
+//
+// 2026-08-27, third pass - real feedback, live, several points at once:
+// - "Flow B" isn't a name a real user has ever seen anywhere in this
+//   app - it was leftover from this session's own design-doc shorthand.
+//   Dropped the footnote that referenced it entirely rather than invent
+//   a made-up in-app name for something that doesn't need naming - a
+//   real conflict still surfaces on its own via the Conflicts screen,
+//   same as always.
+// - Notes reworded per direct wording, spelling out "(computer/desktop/
+//   laptop)" since "your OTHER device" alone still left room to wonder
+//   what device that even means.
+const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
+    'send its data first - phone LocalSync app is after this step.';
+const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
+    'receive the data - not this LocalSync app.';
 
 const Map<String, List<_WorkflowStep>> _flowASteps = {
   'both': [
@@ -113,12 +124,6 @@ const Map<String, List<_WorkflowStep>> _flowASteps = {
     _WorkflowStep('Desktop PULL', _desktopPullNote),
     _WorkflowStep('Done'),
   ],
-};
-
-const Map<String, String?> _flowAFooterNote = {
-  'both': 'If conflicts show after pulling, resolve them first - see Flow B.',
-  'desktop': null,
-  'phone': null,
 };
 
 class _ChoiceDef {
@@ -155,40 +160,25 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
     });
   }
 
-  void _back() => setState(() {
-        _picked = null;
-        _pending = null;
-      });
-
+  // 2026-08-27: dropped the close (X) button and the back link - real
+  // feedback, live: "why is the x at top right, unnecessary, user taps
+  // main screen to return... same user action consistent throughout
+  // app." showDialog is barrier-dismissible by default (never opted out
+  // of that here), so tapping outside already closed this - the X and
+  // the back link were redundant controls duplicating a gesture that
+  // already worked, not a missing feature.
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kSurface,
-      contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-      content: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          SizedBox(
-            width: 280,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: _picked == null
-                  ? _buildChoices()
-                  : _buildWorkflow(_picked!),
-            ),
-          ),
-          // Painted last so it's always on top - a Stack child earlier in
-          // the list can otherwise win the hit-test in a real layout,
-          // same class of bug flutter test's tap() warned about here.
-          Positioned(
-            top: -18,
-            right: -14,
-            child: IconButton(
-              icon: Icon(Icons.close, color: kTextDim, size: 18),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ],
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      content: SizedBox(
+        width: 280,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child:
+              _picked == null ? _buildChoices() : _buildWorkflow(_picked!),
+        ),
       ),
     );
   }
@@ -196,7 +186,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
   Widget _buildChoices() {
     return Row(
       key: const ValueKey('choices'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         for (int i = 0; i < _choices.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
@@ -260,13 +250,18 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
     );
   }
 
+  // 2026-08-27: real feedback, live, several fixes at once -
+  // - Centered (was left-aligned, arrows and the WORKFLOW label read as
+  //   randomly offset instead of belonging to the chain below them).
+  // - No back link - see the build() comment above.
+  // - No footer note about "Flow B" - it named an internal design-doc
+  //   flow, not anything a real user has ever seen in this app.
   Widget _buildWorkflow(String key) {
     final steps = _flowASteps[key]!;
-    final footerNote = _flowAFooterNote[key];
     return Column(
       key: ValueKey('workflow-$key'),
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text('WORKFLOW',
             style: TextStyle(
@@ -274,7 +269,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1)),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         for (int i = 0; i < steps.length; i++) ...[
           _stepBox(steps[i], isLast: i == steps.length - 1),
           if (i < steps.length - 1)
@@ -283,47 +278,48 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
               child: Icon(Icons.arrow_downward, size: 14, color: kTextDim),
             ),
         ],
-        if (footerNote != null) ...[
-          const SizedBox(height: 12),
-          Text(footerNote, style: TextStyle(color: kTextDim, fontSize: 10)),
-        ],
-        const SizedBox(height: 14),
-        GestureDetector(
-          onTap: _back,
-          child: Text('< back',
-              style: TextStyle(
-                  color: kTextDim,
-                  fontSize: 10.5,
-                  decoration: TextDecoration.underline)),
-        ),
       ],
     );
   }
 
+  // 2026-08-27: real feedback, live -
+  // - Shrink-wrapped to content instead of stretching edge to edge -
+  //   "rectangles are too wide, make look like workflow chart shapes"
+  //   (matches the diamond/rectangle/pill vocabulary the HTML mockup's
+  //   flowcharts already established).
+  // - Done no longer painted green - it read as a live, tappable button
+  //   when nothing here is tappable. Same neutral style as every other
+  //   step; only the corner radius hints "this is the end," like a
+  //   flowchart terminator, without borrowing the accent color that
+  //   means "safe/confirmed" everywhere else in this app.
+  // - Fine print bumped from 10px/kTextDim to 12px/kTextMid - real
+  //   feedback, live: "text too small and dark grey."
   Widget _stepBox(_WorkflowStep step, {required bool isLast}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-      decoration: BoxDecoration(
-        color: isLast ? kGreen.withValues(alpha: 0.08) : kSurface,
-        border: Border.all(color: isLast ? kGreen : kBorder, width: 1.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Text(step.label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: isLast ? kGreen : kStar,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
-          if (step.note != null) ...[
-            const SizedBox(height: 4),
-            Text(step.note!,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 150, maxWidth: 240),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: BoxDecoration(
+          color: kSurface,
+          border: Border.all(color: kBorder, width: 1.5),
+          borderRadius: BorderRadius.circular(isLast ? 20 : 8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(step.label,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: kTextDim, fontSize: 10)),
+                style: TextStyle(
+                    color: kStar, fontSize: 13, fontWeight: FontWeight.w600)),
+            if (step.note != null) ...[
+              const SizedBox(height: 5),
+              Text(step.note!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: kTextMid, fontSize: 12, height: 1.35)),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -380,18 +376,19 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
   @override
   Widget build(BuildContext context) {
     final node = _flowB[_nodeId]!;
+    // 2026-08-27: dropped the close (X) here too - same fix as
+    // _FlowAPickerDialog above, for the same reason: showDialog is
+    // already barrier-dismissible, tapping outside already worked, and
+    // this app should use one consistent dismiss gesture, not two.
     return AlertDialog(
       backgroundColor: kSurface,
-      contentPadding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-      content: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          SizedBox(
-            width: 260,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      content: SizedBox(
+        width: 260,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                 Text(_eyebrow(node),
                     style: TextStyle(
                         color: _eyebrowColor(node),
@@ -414,19 +411,7 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
                 const SizedBox(height: 20),
                 _buttons(node),
               ],
-            ),
-          ),
-          // Painted last so it's always on top - see the matching note
-          // on _FlowAPickerDialog's Stack above.
-          Positioned(
-            top: -18,
-            right: -14,
-            child: IconButton(
-              icon: Icon(Icons.close, color: kTextDim, size: 18),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
