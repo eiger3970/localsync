@@ -903,16 +903,20 @@ class _IdleViewState extends State<_IdleView>
             ),
           ),
           // 2026-08-27: Tier 0 (docs/product-tiers.md) - free, generic
-          // file sync, no $kNoteAppName/PKM awareness at all. Same
-          // placement/style as the existing-vault link just above -
-          // real UI polish for this whole path is a real next step, not
-          // done here (see the SyncMode.genericFolder header comment in
+          // file sync, no PKM awareness at all. Names the app-agnostic
+          // $kContainerName here, not $kNoteAppName - "no vault needed"
+          // is real, generic-app-swap-safe copy (same reasoning as
+          // constants.dart's own kContainerName/kGenericAppLabel split);
+          // naming Obsidian specifically on this exact link would be
+          // wrong the moment a second PKM is supported. Real UI polish
+          // for this whole path is a real next step, not done here (see
+          // the SyncMode.genericFolder header comment in
           // repository.dart), this is a working, reachable entry point.
           const SizedBox(height: 12),
           GestureDetector(
             onTap: ctrl.startLinkingGenericFolder,
             child: Text(
-              'Just want to sync plain files, no $kNoteAppName? Sync a folder',
+              "Just want to sync plain files, no $kContainerName needed? Sync a folder directly",
               style: TextStyle(
                 color: kTextMid,
                 fontSize: 13,
