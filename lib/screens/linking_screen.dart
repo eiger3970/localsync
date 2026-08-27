@@ -58,8 +58,16 @@ class LinkingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            '${kGenericAppLabel.toUpperCase()} ${kContainerName.toUpperCase()} SETUP'),
+        // 2026-08-27: mode-aware - a Tier 0 choice from SyncChoiceScreen
+        // shouldn't still land on "PKM VAULT SETUP", the exact framing
+        // that choice exists to avoid seeing at all.
+        title: Consumer<LinkingController>(
+          builder: (_, ctrl, __) => Text(
+            ctrl.preferredMode == SyncMode.genericFolder
+                ? 'FILE SYNC SETUP'
+                : '${kGenericAppLabel.toUpperCase()} ${kContainerName.toUpperCase()} SETUP',
+          ),
+        ),
         leading: Consumer<LinkingController>(
           builder: (_, ctrl, __) {
             // Prevent back-nav while machine is running between park points
@@ -397,7 +405,9 @@ class _IdleViewState extends State<_IdleView>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-                'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
+                widget.ctrl.preferredMode == SyncMode.genericFolder
+                    ? 'Bring your desktop files to this phone'
+                    : 'Bring your desktop $kGenericAppLabel $kContainerName to this phone',
                 style: TextStyle(
                     color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
                 textAlign: TextAlign.center),
@@ -878,8 +888,14 @@ class _IdleViewState extends State<_IdleView>
                           },
                           builder: (context, candidate, rejected) =>
                               _DeviceGlyph(
-                            icon: Icons.auto_stories_rounded,
-                            label: '$kGenericAppLabel $kContainerName',
+                            icon: widget.ctrl.preferredMode ==
+                                    SyncMode.genericFolder
+                                ? Icons.folder_outlined
+                                : Icons.auto_stories_rounded,
+                            label: widget.ctrl.preferredMode ==
+                                    SyncMode.genericFolder
+                                ? 'files'
+                                : '$kGenericAppLabel $kContainerName',
                             caption: 'this phone',
                             width: glyphWidth,
                             iconSize: glyphIcon,
