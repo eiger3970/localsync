@@ -290,14 +290,41 @@ Future<String> _backupConflictBeforeResolving(
 /// paid put/yank tier) - but nothing is left only in a backup file
 /// anymore; the user edits it down right here, same as resolving a real
 /// git merge conflict block.
+///
+/// 2026-08-27: real feedback, live - "fear of reversing a mistaken git
+/// merge" plus a direct ask to build Undo for a resolved conflict.
+/// [_mergeCallout] already gives the dropped side an exact, regex-
+/// matchable span (its own callout block) - the kept side never had
+/// one, only a heuristic best-effort lookback (see [_extractKeptPreview]
+/// and [ReferenceEntry.keptPreview]'s own doc for why that's a preview,
+/// not a safe span to swap). A byte-precise Undo needs both sides
+/// bounded exactly, so [chosen] is now wrapped the same way, in an HTML
+/// comment pair instead of a callout - Obsidian renders `<!-- -->` as
+/// fully invisible in reading view, so the kept text still reads as
+/// plain, unfolded prose, unlike a collapsed callout which would hide
+/// it. Only written when there's actually a reference callout to pair
+/// it with (the same `notChosen.isEmpty`/Kanban gate below) - a plain
+/// pick with nothing dropped has nothing for Undo to swap against.
 String applyResolution(String content, ConflictEntry entry, String chosen) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
   final notChosen =
       entry.versions.where((v) => v.body != chosen).toList();
-  final merged = entry.isKanban || notChosen.isEmpty
-      ? chosen
-      : '$chosen\n\n${notChosen.map(_mergeCallout).join('\n')}';
+  String merged;
+  if (entry.isKanban || notChosen.isEmpty) {
+    merged = chosen;
+  } else {
+    final chosenIndex = entry.versions.indexWhere((v) => v.body == chosen);
+    final chosenLabel = chosenIndex <= 0
+        ? 'Your version'
+        : (entry.versions[chosenIndex].when != null
+            ? '${entry.versions[chosenIndex].who} - ${entry.versions[chosenIndex].when}'
+            : entry.versions[chosenIndex].who);
+    final keptBlock = '<!-- LOCALSYNC-KEPT label="$chosenLabel" -->\n'
+        '$chosen\n'
+        '<!-- LOCALSYNC-KEPT-END -->\n\n';
+    merged = '$keptBlock${notChosen.map(_mergeCallout).join('\n')}';
+  }
   final replacement = '$merged$trailingNewline';
   return content.replaceRange(entry.matchStart, entry.matchEnd, replacement);
 }
@@ -355,6 +382,16 @@ class ReferenceEntry {
   final String keptPreview;
   final int matchStart;
   final int matchEnd;
+  // 2026-08-27: exact span/label/content of the kept side's own
+  // LOCALSYNC-KEPT marker (see applyResolution's doc) - null for a note
+  // resolved before this marker existed. Undo is only offered
+  // (conflicts_screen.dart's ReferenceCalloutTile) when these are
+  // non-null - an older note has no exact, safe span to swap, so Undo
+  // is simply unavailable for it rather than guessed at.
+  final int? keptMarkerStart;
+  final int? keptMarkerEnd;
+  final String? keptLabel;
+  final String? keptContent;
   const ReferenceEntry({
     required this.filePath,
     required this.label,
@@ -362,7 +399,26 @@ class ReferenceEntry {
     required this.keptPreview,
     required this.matchStart,
     required this.matchEnd,
+    this.keptMarkerStart,
+    this.keptMarkerEnd,
+    this.keptLabel,
+    this.keptContent,
   });
+}
+
+final _keptMarkerPattern = RegExp(
+  r'<!-- LOCALSYNC-KEPT label="(.*?)" -->\n(.*?)\n<!-- LOCALSYNC-KEPT-END -->\n\n',
+  dotAll: true,
+);
+
+String _truncateToPreview(String text) {
+  final tail =
+      text.length <= _maxLookback ? text : text.substring(text.length - _maxLookback);
+  final lastParagraphBreak = tail.lastIndexOf('\n\n');
+  final truncated = text.length > _maxLookback && lastParagraphBreak == -1;
+  final shown =
+      lastParagraphBreak == -1 ? tail : tail.substring(lastParagraphBreak + 2);
+  return truncated ? '…${shown.trim()}' : shown.trim();
 }
 
 /// The kept side's text has no marker of its own (see ReferenceEntry.
@@ -406,17 +462,77 @@ Future<List<ReferenceEntry>> scanForReferenceCallouts(String vaultPath) async {
     final relPath = entity.path.substring(vaultPath.length + 1);
 
     for (final m in _referenceCalloutPattern.allMatches(content)) {
+      // A LOCALSYNC-KEPT marker immediately precedes its paired
+      // reference callout (applyResolution writes them together) - the
+      // exact adjacency (km.end == m.start) is what makes this safe to
+      // match up even with several conflicts/callouts in one file.
+      int? keptStart, keptEnd;
+      String? keptLabel, keptContent;
+      for (final km in _keptMarkerPattern.allMatches(content)) {
+        if (km.end == m.start) {
+          keptStart = km.start;
+          keptEnd = km.end;
+          keptLabel = km.group(1);
+          keptContent = km.group(2);
+          break;
+        }
+      }
       entries.add(ReferenceEntry(
         filePath: relPath,
         label: m.group(1) ?? '',
         body: _stripQuoteBlock(m.group(2) ?? ''),
-        keptPreview: _extractKeptPreview(content, m.start),
+        keptPreview: keptContent != null
+            ? _truncateToPreview(keptContent)
+            : _extractKeptPreview(content, m.start),
         matchStart: m.start,
         matchEnd: m.end,
+        keptMarkerStart: keptStart,
+        keptMarkerEnd: keptEnd,
+        keptLabel: keptLabel,
+        keptContent: keptContent,
       ));
     }
   }
   return entries;
+}
+
+/// Swaps a "kept for reference" leftover back to being the active, kept
+/// content in the note - the literal opposite of the pick that created
+/// it. Only possible when [entry].keptMarkerStart is non-null - see
+/// ReferenceEntry's own doc for why an older, already-resolved note has
+/// no exact span to swap and simply can't offer this.
+///
+/// 2026-08-27: real feedback, live - "just reverted version does not
+/// need to be backed up." Unlike deleteReferenceCallout below, this
+/// deliberately writes no separate backup file first: the content being
+/// displaced isn't discarded, it's written right back into a
+/// [!question]- reference callout in the same spot the version now
+/// returning used to occupy - exactly as recoverable after Undo as
+/// before it, so a second backup of the same text would be redundant.
+Future<void> undoReferenceCallout(
+  String vaultPath,
+  ReferenceEntry entry,
+) async {
+  if (entry.keptMarkerStart == null || entry.keptLabel == null) return;
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
+  if (entry.matchEnd > content.length) return; // file changed since scan
+
+  final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
+  final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
+
+  final newKept = '<!-- LOCALSYNC-KEPT label="${entry.label}" -->\n'
+      '${entry.body}\n'
+      '<!-- LOCALSYNC-KEPT-END -->\n\n';
+  final newRef = _mergeCallout(ConflictVersion(
+    who: entry.keptLabel!,
+    when: null,
+    body: entry.keptContent!,
+  ));
+
+  final updated = content.replaceRange(
+      entry.keptMarkerStart!, entry.matchEnd, '$newKept$newRef$trailingNewline');
+  await VaultFolderService().coordinatedWrite(filePath, updated);
 }
 
 /// Removes exactly one reference callout, backing up its content first -

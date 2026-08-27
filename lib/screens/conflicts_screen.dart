@@ -110,6 +110,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (mounted) setState(() => _future = _scan());
   }
 
+  /// Swaps a leftover reference callout back to being the kept content -
+  /// see undoReferenceCallout's own doc (conflict_scanner.dart) for why
+  /// this, unlike _deleteRef above, writes no extra backup first.
+  Future<void> _undoRef(ReferenceEntry ref) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      await undoReferenceCallout(path, ref);
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (mounted) setState(() => _future = _scan());
+  }
+
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
     final db = DatabaseService();
     final now = DateTime.now();
@@ -369,7 +383,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     if (i > refHeaderIndex) {
                       final ref = refs[i - refHeaderIndex - 1];
                       return ReferenceCalloutTile(
-                          entry: ref, onDelete: () => _deleteRef(ref));
+                          entry: ref,
+                          onDelete: () => _deleteRef(ref),
+                          // Undo needs an exact swap span (see
+                          // ReferenceEntry's own doc) - null on an older
+                          // note resolved before that marker existed,
+                          // which the tile reads as "not offered" rather
+                          // than a broken button.
+                          onUndo: ref.keptMarkerStart == null
+                              ? null
+                              : () => _undoRef(ref));
                     }
                     final e = entries[i];
                     // 2026-08-20: this exact conflict was resolved before
@@ -556,10 +579,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
 class ReferenceCalloutTile extends StatefulWidget {
   final ReferenceEntry entry;
   final VoidCallback onDelete;
+  // 2026-08-27: null when entry.keptMarkerStart is null (an older note,
+  // resolved before Undo had an exact span to swap - see
+  // ReferenceEntry's own doc) - the UNDO button is left off entirely
+  // for that case rather than shown disabled with no explanation.
+  final VoidCallback? onUndo;
   const ReferenceCalloutTile({
     super.key,
     required this.entry,
     required this.onDelete,
+    this.onUndo,
   });
 
   @override
@@ -580,6 +609,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
 
   ReferenceEntry get entry => widget.entry;
   VoidCallback get onDelete => widget.onDelete;
+  VoidCallback? get onUndo => widget.onUndo;
 
   // Only the dropped side's origin is actually tracked (entry.label,
   // written by conflict_scanner.dart's _mergeCallout as "who - when").
@@ -764,6 +794,31 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                             ],
                           ),
                         ),
+                        // 2026-08-27: real feedback, live - "build the
+                        // undo." Mirrors the amber side's DELETE NOTE
+                        // button below - same width/placement pattern,
+                        // green-accented to match this side. Left off
+                        // entirely (not shown disabled) when onUndo is
+                        // null - see ReferenceCalloutTile's own doc.
+                        if (onUndo != null) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: onUndo,
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: kGreen),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              child: Text('UNDO',
+                                  style: TextStyle(
+                                      color: kGreen,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700)),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
