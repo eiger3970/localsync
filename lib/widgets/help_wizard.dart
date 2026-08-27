@@ -173,16 +173,32 @@ class _FlowAPickerDialog extends StatefulWidget {
 }
 
 class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
-  // _pending: the button mid-settle-animation, before the workflow swap.
+  // _pending: the button mid-settle-animation, before the workflow appears.
   // _picked: the workflow actually showing, once the settle finishes.
   String? _pending;
   String? _picked;
+  final _scrollController = ScrollController();
 
   void _pick(String key) {
     setState(() => _pending = key);
     Future.delayed(const Duration(milliseconds: 320), () {
-      if (mounted) setState(() => _picked = key);
+      if (!mounted) return;
+      setState(() => _picked = key);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   // 2026-08-27: dropped the close (X) button and the back link - real
@@ -197,18 +213,50 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
   // AlertDialog's default (40px horizontal) and content sizes to
   // whatever that leaves, instead of a fixed 280 that left wide margins
   // on a real phone screen.
+  //
+  // 2026-08-27, fifth pass - real feedback, live: "change to not
+  // disappear the button... a smooth transition below appears with
+  // Pick version...and so on." The choice row no longer gets swapped
+  // out - it stays on screen (picked button green/scaled, the other two
+  // faded but still present) and the workflow appears below it via
+  // AnimatedSwitcher, inside a scrollable, height-capped container so
+  // long content never overflows the dialog.
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kSurface,
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
       contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
-      content: SizedBox(
-        width: double.infinity,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child:
-              _picked == null ? _buildChoices() : _buildWorkflow(_picked!),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildChoices(),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _picked == null
+                      ? const SizedBox.shrink(key: ValueKey('empty'))
+                      : Container(
+                          key: ValueKey('workflow-$_picked'),
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(top: 20),
+                          padding: const EdgeInsets.only(top: 18),
+                          decoration: BoxDecoration(
+                              border: Border(
+                                  top: BorderSide(color: kBorder))),
+                          child: _buildWorkflow(_picked!),
+                        ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -385,8 +433,22 @@ class _HelpWizardDialog extends StatefulWidget {
   State<_HelpWizardDialog> createState() => _HelpWizardDialogState();
 }
 
+class _HistoryEntry {
+  final _WizardNode node;
+  final String chosen;
+  const _HistoryEntry(this.node, this.chosen);
+}
+
 class _HelpWizardDialogState extends State<_HelpWizardDialog> {
   late String _nodeId;
+  // 2026-08-27, fifth pass - real feedback, live: "change the Main page
+  // and Conflicts workflow to not disappear the button... a smooth
+  // transition below appears with Pick version...and so on." Every
+  // answered card now stays on screen (muted, a checkmark tag instead
+  // of live buttons) while the next card appears below it, instead of
+  // replacing the dialog's whole content each time.
+  final List<_HistoryEntry> _history = [];
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -394,7 +456,26 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
     _nodeId = _start;
   }
 
-  void _go(String id) => setState(() => _nodeId = id);
+  void _go(String id, String chosen) {
+    setState(() {
+      _history.add(_HistoryEntry(_flowB[_nodeId]!, chosen));
+      _nodeId = id;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   String _eyebrow(_WizardNode node) {
     switch (node.type) {
@@ -423,49 +504,85 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
     }
   }
 
+  // 2026-08-27: dropped the close (X) here too - same fix as
+  // _FlowAPickerDialog above, for the same reason: showDialog is
+  // already barrier-dismissible, tapping outside already worked, and
+  // this app should use one consistent dismiss gesture, not two.
+  //
+  // insetPadding/content width matched to _FlowAPickerDialog's
+  // edge-to-edge fix - same "maximum space" feedback applies here too.
   @override
   Widget build(BuildContext context) {
-    final node = _flowB[_nodeId]!;
-    // 2026-08-27: dropped the close (X) here too - same fix as
-    // _FlowAPickerDialog above, for the same reason: showDialog is
-    // already barrier-dismissible, tapping outside already worked, and
-    // this app should use one consistent dismiss gesture, not two.
     return AlertDialog(
       backgroundColor: kSurface,
-      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      content: SizedBox(
-        width: 260,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                Text(_eyebrow(node),
-                    style: TextStyle(
-                        color: _eyebrowColor(node),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1)),
-                const SizedBox(height: 10),
-                Text(node.text,
-                    style: TextStyle(
-                        color: kStar,
-                        fontSize: 17,
-                        fontWeight: node.type == _NodeType.action
-                            ? FontWeight.w600
-                            : FontWeight.normal)),
-                // 2026-08-27: real feedback, live - "Pick version, text
-                // below is too dark and small." Same fix Flow A's fine
-                // print already got, never carried over here - kTextDim
-                // -> kTextMid, 12.5 -> 14.
-                if (node.fine != null) ...[
-                  const SizedBox(height: 8),
-                  Text(node.fine!,
-                      style: TextStyle(color: kTextMid, fontSize: 14)),
-                ],
-                const SizedBox(height: 20),
-                _buttons(node),
-              ],
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
+      contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
         ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final entry in _history) ...[
+                  _cardBody(entry.node, resolved: entry.chosen),
+                  const SizedBox(height: 16),
+                ],
+                _cardBody(_flowB[_nodeId]!, resolved: null),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cardBody(_WizardNode node, {required String? resolved}) {
+    return Opacity(
+      opacity: resolved != null ? 0.55 : 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_eyebrow(node),
+              style: TextStyle(
+                  color: _eyebrowColor(node),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1)),
+          const SizedBox(height: 10),
+          Text(node.text,
+              style: TextStyle(
+                  color: kStar,
+                  fontSize: 17,
+                  fontWeight: node.type == _NodeType.action
+                      ? FontWeight.w600
+                      : FontWeight.normal)),
+          if (node.fine != null) ...[
+            const SizedBox(height: 8),
+            Text(node.fine!, style: TextStyle(color: kTextMid, fontSize: 14)),
+          ],
+          const SizedBox(height: 20),
+          resolved != null
+              ? Row(
+                  children: [
+                    Icon(Icons.check, size: 15, color: kGreen),
+                    const SizedBox(width: 5),
+                    Text(resolved,
+                        style: TextStyle(
+                            color: kGreen,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4)),
+                  ],
+                )
+              : _buttons(node),
+        ],
       ),
     );
   }
@@ -478,7 +595,7 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                   side: BorderSide(color: kGreen), foregroundColor: kGreen),
-              onPressed: () => _go(node.yes!),
+              onPressed: () => _go(node.yes!, 'YES'),
               child: const Text('YES'),
             ),
           ),
@@ -487,7 +604,7 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
                   side: BorderSide(color: kTextDim), foregroundColor: kTextMid),
-              onPressed: () => _go(node.no!),
+              onPressed: () => _go(node.no!, 'NO'),
               child: const Text('NO'),
             ),
           ),
@@ -500,7 +617,7 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
               backgroundColor: kGreen, foregroundColor: kVoid),
-          onPressed: () => _go(node.next!),
+          onPressed: () => _go(node.next!, 'CONTINUE'),
           child: const Text('CONTINUE'),
         ),
       );

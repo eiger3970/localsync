@@ -44,6 +44,25 @@ void main() {
     expect(find.byIcon(Icons.close), findsNothing);
   });
 
+  testWidgets(
+      'Flow A: picking a choice keeps all 3 buttons visible, workflow appears below',
+      (tester) async {
+    await tester.pumpWidget(_harness('A'));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('PHONE\nEDITED'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+
+    // Real feedback, live - "change to not disappear the button." All
+    // three choice buttons are still on screen after picking one, not
+    // swapped away for the workflow.
+    expect(find.text('BOTH\nEDITED'), findsOneWidget);
+    expect(find.text('DESKTOP\nEDITED'), findsOneWidget);
+    expect(find.text('PHONE\nEDITED'), findsOneWidget);
+    expect(find.text('WORKFLOW'), findsOneWidget);
+  });
+
   testWidgets('Flow A: PHONE EDITED -> Phone PUSH, Desktop PULL (with note), Done',
       (tester) async {
     await tester.pumpWidget(_harness('A'));
@@ -137,6 +156,10 @@ void main() {
     await tester.tap(find.text('YES'));
     await tester.pumpAndSettle();
 
+    // Real feedback, live - "not disappear the button." The answered
+    // "Any conflicts?" card stays on screen (muted) while "Pick
+    // version" appears below it, instead of replacing it.
+    expect(find.text('Any conflicts?'), findsOneWidget);
     expect(find.text('Pick version'), findsOneWidget);
     expect(
         find.text("Not picked doesn't delete text, rather data is saved in "
@@ -146,21 +169,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('More conflicts?'), findsOneWidget);
-    // Loop back for a second conflict.
-    await tester.tap(find.text('YES'));
+    // Loop back for a second conflict - "Pick version" is now visited
+    // twice (once resolved in history, once live), so it genuinely
+    // appears twice on screen at once - and so does the "YES" button's
+    // text, once as a live button and once inside the first question's
+    // resolved checkmark tag, so the live button needs a more specific
+    // finder from here on.
+    await tester.tap(find.widgetWithText(OutlinedButton, 'YES'));
     await tester.pumpAndSettle();
-    expect(find.text('Pick version'), findsOneWidget);
-    await tester.tap(find.text('CONTINUE'));
+    expect(find.text('Pick version'), findsNWidgets(2));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
     // No more conflicts this time.
-    await tester.tap(find.text('NO'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'NO'));
     await tester.pumpAndSettle();
 
     expect(find.text('PUSH'), findsOneWidget);
-    await tester.tap(find.text('CONTINUE'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
+    // Every step of the whole resolved path is still on screen. "Pick
+    // version" and "More conflicts?" were each visited twice (the loop),
+    // so both genuinely appear twice.
+    expect(find.text('Any conflicts?'), findsOneWidget);
+    expect(find.text('Pick version'), findsNWidgets(2));
+    expect(find.text('More conflicts?'), findsNWidgets(2));
+    expect(find.text('PUSH'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
   });
 
