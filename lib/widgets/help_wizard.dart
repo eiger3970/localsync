@@ -126,6 +126,22 @@ const Map<String, List<_WorkflowStep>> _flowASteps = {
   ],
 };
 
+// 2026-08-27, fourth pass - real feedback, live: "bottom of flowchart
+// might need a hint of any conflicts... kebab icon -> Conflicts."
+// Checked before adding: no separate user manual exists anywhere in
+// this repo - conflict-solving guidance already lives ON the Conflicts
+// screen itself (its safety-steps row + its own ? wizard, Flow B just
+// below). So this points to the real navigation path to reach it,
+// using the actual UI, not a made-up name like the removed footnote
+// did. Only 'both' and 'desktop' get it - 'phone' never runs Phone
+// PULL, so it never actually risks a conflict.
+const _conflictHint = 'If conflicts show: tap ⋮ then Conflicts.';
+const Map<String, String?> _flowAHint = {
+  'both': _conflictHint,
+  'desktop': _conflictHint,
+  'phone': null,
+};
+
 class _ChoiceDef {
   final String key;
   final String label;
@@ -167,13 +183,19 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
   // of that here), so tapping outside already closed this - the X and
   // the back link were redundant controls duplicating a gesture that
   // already worked, not a missing feature.
+  // 2026-08-27: real feedback, live - "touching left and right edge of
+  // screen, using maximum space." insetPadding trimmed way down from
+  // AlertDialog's default (40px horizontal) and content sizes to
+  // whatever that leaves, instead of a fixed 280 that left wide margins
+  // on a real phone screen.
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: kSurface,
-      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
+      contentPadding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
       content: SizedBox(
-        width: 280,
+        width: double.infinity,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child:
@@ -196,6 +218,13 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
     );
   }
 
+  // 2026-08-27: real feedback, live - "made larger... maximum space,"
+  // and "plain white doesn't instantly tell me these are live buttons,
+  // background needs to be different (lighter) than the phone's black
+  // background." Padding/icon/text sizes bumped up, and the fill moved
+  // from kSurface (same color as the dialog itself - zero contrast) to
+  // kBorder, reused here as a fill rather than just a stroke color, so
+  // real contrast against the dialog without inventing a new token.
   Widget _choiceButton(_ChoiceDef choice) {
     final isPending = _pending == choice.key;
     final isFading = _pending != null && !isPending;
@@ -207,18 +236,18 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
         duration: const Duration(milliseconds: 250),
         scale: isPending ? 1.08 : 1.0,
         child: Material(
-          color: kSurface,
-          borderRadius: BorderRadius.circular(8),
+          color: kBorder,
+          borderRadius: BorderRadius.circular(10),
           elevation: 4,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             onTap: _pending == null ? () => _pick(choice.key) : null,
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 6),
               decoration: BoxDecoration(
                 border: Border.all(
                     color: isPending ? kGreen : kTextMid, width: 1.5),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -227,17 +256,17 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       for (int i = 0; i < choice.icons.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 3),
-                        Icon(choice.icons[i], size: 18, color: color),
+                        if (i > 0) const SizedBox(width: 5),
+                        Icon(choice.icons[i], size: 27, color: color),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 9),
                   Text(choice.label,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           color: color,
-                          fontSize: 9.5,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                           height: 1.3)),
@@ -258,6 +287,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
   //   flow, not anything a real user has ever seen in this app.
   Widget _buildWorkflow(String key) {
     final steps = _flowASteps[key]!;
+    final hint = _flowAHint[key];
     return Column(
       key: ValueKey('workflow-$key'),
       mainAxisSize: MainAxisSize.min,
@@ -278,6 +308,12 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
               child: Icon(Icons.arrow_downward, size: 14, color: kTextDim),
             ),
         ],
+        if (hint != null) ...[
+          const SizedBox(height: 14),
+          Text(hint,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kTextMid, fontSize: 12)),
+        ],
       ],
     );
   }
@@ -294,14 +330,19 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
   //   means "safe/confirmed" everywhere else in this app.
   // - Fine print bumped from 10px/kTextDim to 12px/kTextMid - real
   //   feedback, live: "text too small and dark grey."
+  // 2026-08-27: real feedback, live - "rectangles aren't distinguishable
+  // enough, give them a lighter background colour than the window
+  // background." Same fix as _choiceButton above: fill moved from
+  // kSurface to kBorder, stroke moved from kBorder to kTextMid so it
+  // still reads against the new fill instead of disappearing into it.
   Widget _stepBox(_WorkflowStep step, {required bool isLast}) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 150, maxWidth: 240),
+      constraints: const BoxConstraints(minWidth: 170, maxWidth: 280),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
         decoration: BoxDecoration(
-          color: kSurface,
-          border: Border.all(color: kBorder, width: 1.5),
+          color: kBorder,
+          border: Border.all(color: kTextMid, width: 1.5),
           borderRadius: BorderRadius.circular(isLast ? 20 : 8),
         ),
         child: Column(
