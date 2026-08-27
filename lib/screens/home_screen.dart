@@ -13,6 +13,7 @@ import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/gif_swipe_trigger.dart';
+import '../widgets/help_wizard.dart';
 import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
@@ -109,6 +110,10 @@ class HomeScreen extends StatelessWidget {
                 if (v == 'settings') {
                   Navigator.push(context,
                       MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                }
+                if (v == 'security') {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SecurityInfoScreen()));
                 }
                 final repo = provider.selectedRepo;
                 if (repo == null) return;
@@ -241,6 +246,29 @@ class HomeScreen extends StatelessWidget {
                             : 'Pull automatically every time the app opens',
                       ),
                     ),
+                  // 2026-08-27: moved here from a standalone AppBar icon -
+                  // "keep help on the title bar... security icon can move
+                  // to the kebab menu" (real feedback, live). Alphabetical
+                  // slot between Pull and Settings, same as everything
+                  // else in this menu. Reuses _StatusIcon's own
+                  // icon/color logic (still a real shield glyph, colored
+                  // by sync/error state) rather than a fixed icon -
+                  // that live-status meaning is exactly what's being
+                  // traded for Help's bar slot, so it's worth keeping
+                  // inside the menu even though it's no longer glanceable
+                  // without opening it.
+                  if (hasRepo)
+                    PopupMenuItem(
+                      value: 'security',
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _StatusIcon(repos: provider.repos),
+                          const SizedBox(width: 12),
+                          Text('Security', style: TextStyle(color: kStar, fontSize: 14)),
+                        ],
+                      ),
+                    ),
                   // 2026-08-20: real user feedback - "this is difficult
                   // for users, I need to build this in." Desktop IP
                   // drifts (USB tether vs hotspot vs plain DHCP
@@ -288,22 +316,16 @@ class HomeScreen extends StatelessWidget {
               },
             ),
           ),
-          Consumer<RepositoryProvider>(
-            builder: (_, p, __) => Padding(
-              padding: const EdgeInsets.only(right: 16),
-              // 2026-08-23: real feature request, live - was purely
-              // decorative (tapping it did nothing). Now opens the
-              // security explainer screen - same tap target, real
-              // action behind it.
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SecurityInfoScreen()),
-                ),
-                child: _StatusIcon(repos: p.repos),
-              ),
-            ),
+          // 2026-08-27: the security status shield used to live here -
+          // moved into the kebab menu (see 'security' PopupMenuItem
+          // above) per explicit direction: "keep help on the title
+          // bar... the help is more important." This is its replacement,
+          // opening the new branching help wizard (help_wizard.dart)
+          // instead of a single static dialog.
+          IconButton(
+            icon: Icon(Icons.help_outline, color: kGreen),
+            tooltip: 'Help',
+            onPressed: () => showHelpWizard(context, 'A'),
           ),
         ],
       ),

@@ -17,6 +17,7 @@ import '../services/ios_app_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/controllable_gif.dart';
+import '../widgets/help_wizard.dart';
 import 'conflict_picker_screen.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
@@ -188,79 +189,26 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     ],
                   ),
                 ),
+                // 2026-08-27: replaced the static "How conflicts are kept
+                // safe" info dialog with the branching help wizard
+                // (help_wizard.dart, Flow B) - same icon and tap target,
+                // real per-step guidance instead of one long paragraph.
+                // The facts that dialog held (both versions always saved
+                // first, LocalSync/Conflict Backups location, desktop
+                // needs its own pull after push) aren't repeated 1:1 in
+                // the wizard's terser cards - if real device testing
+                // shows that's a gap, add it back as a card rather than
+                // reviving the paragraph.
+                // 2026-08-27: icon changed from info_outline to
+                // help_outline - real feedback, live: Home's new icon and
+                // this one were showing different glyphs (i vs ?) for the
+                // exact same "opens the help wizard" action. Matching
+                // Home's choice since this is genuinely guidance, not
+                // static info.
                 IconButton(
-                  icon: Icon(Icons.info_outline, color: kTextMid),
-                  tooltip: 'How this works',
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      backgroundColor: kSurface,
-                      title: Text('How conflicts are kept safe',
-                          style: TextStyle(color: kStar, fontSize: 17)),
-                      // 2026-08-18: "still too small and dark", "need a
-                      // clearer location" - bumped to kStar/16px to
-                      // match the rest of the app's readable text, and
-                      // named the exact spot instead of the vague "in
-                      // your vault": a normal top-level folder, visible
-                      // in Obsidian's own file list like any other
-                      // folder, not hidden or app-only.
-                      content: Text(
-                        'Resolving a conflict always saves both full '
-                        'versions first, before anything is changed.\n\n'
-                        // 2026-08-26: real feedback, live - "these are
-                        // out of place" - Conflict Backups and Vault
-                        // Backup used to each sit directly at the vault
-                        // root as their own top-level folder. Now one
-                        // "LocalSync" folder holds both, still visible
-                        // and easy to find, not two separate items
-                        // cluttering the top level (see
-                        // vault_backup.dart's kLocalSyncFolderName).
-                        'Location: open Obsidian, look at your file '
-                        'list (the folder icon in the left sidebar) - '
-                        'there\'s a folder called "LocalSync" at the '
-                        'top level, right alongside your other '
-                        'folders. Inside it, "Conflict Backups" holds '
-                        'every version. Nothing is lost, even if you '
-                        'pick the wrong one - just open the note '
-                        'inside it to find the other version.\n\n'
-                        // 2026-08-26: real feedback, live - "I need this
-                        // advice when using the app... here are the
-                        // steps to sync after the conflict." Resolving
-                        // here only changes this device - a real test
-                        // session needed to ask directly what to do
-                        // next, so it's spelled out here now instead of
-                        // only ever living in a chat answer.
-                        'After resolving everything below: tap PUSH (or '
-                        'run Sync) on the home screen. Resolving a '
-                        'conflict here only updates this device - your '
-                        'desktop won\'t see the result until you push.\n\n'
-                        // 2026-08-26: real feedback, live - user had to
-                        // ask directly what to do on the desktop side
-                        // after pushing, since pushing only updates the
-                        // shared repo, not the desktop's own working
-                        // files - a separate real gap from the "tap
-                        // PUSH" note just above, which only covers the
-                        // phone side. Deliberately generic about HOW
-                        // (not every desktop setup pulls the same way)
-                        // rather than naming a specific script.
-                        'One more step after pushing: your desktop '
-                        'still needs to pull those changes into its own '
-                        'Obsidian vault - pushing from here only updates '
-                        'the shared repo, not the files on your desktop. '
-                        'How you do that depends on your desktop setup '
-                        '(a plain git pull in your vault folder, or '
-                        'whatever sync step you already use there).',
-                        style: TextStyle(color: kStar, fontSize: 16),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Got it',
-                              style: TextStyle(color: kStar, fontSize: 15)),
-                        ),
-                      ],
-                    ),
-                  ),
+                  icon: Icon(Icons.help_outline, color: kTextMid),
+                  tooltip: 'Help',
+                  onPressed: () => showHelpWizard(context, 'B'),
                 ),
               ],
             ),
@@ -605,7 +553,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
 // side is a real ExpansionTile, not a link - "I prefer dropdown for
 // immediate results and performance" - reading the actual leftover text
 // never leaves this screen.
-class ReferenceCalloutTile extends StatelessWidget {
+class ReferenceCalloutTile extends StatefulWidget {
   final ReferenceEntry entry;
   final VoidCallback onDelete;
   const ReferenceCalloutTile({
@@ -613,6 +561,25 @@ class ReferenceCalloutTile extends StatelessWidget {
     required this.entry,
     required this.onDelete,
   });
+
+  @override
+  State<ReferenceCalloutTile> createState() => _ReferenceCalloutTileState();
+}
+
+class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
+  // 2026-08-27: real feedback, live - "arrows point right, need to point
+  // down when text is selected to show and point right when not showing
+  // text." Both ExpansionTiles below were StatelessWidget-static (see
+  // their own 2026-08-26 comments) because the built-in rotating chevron
+  // only comes for free through controlAffinity/trailing, and that
+  // placement was already ruled out for the amber/green wrap case just
+  // above. Tracking expand state here instead, one bool per tile, and
+  // rotating the same static icon manually.
+  bool _keptExpanded = false;
+  bool _droppedExpanded = false;
+
+  ReferenceEntry get entry => widget.entry;
+  VoidCallback get onDelete => widget.onDelete;
 
   // Only the dropped side's origin is actually tracked (entry.label,
   // written by conflict_scanner.dart's _mergeCallout as "who - when").
@@ -758,13 +725,20 @@ class ReferenceCalloutTile extends StatelessWidget {
                             // "IN NOTE NOW" itself is short enough not to
                             // wrap today.
                             trailing: const SizedBox.shrink(),
+                            onExpansionChanged: (v) =>
+                                setState(() => _keptExpanded = v),
                             title: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
-                                  child: Icon(Icons.chevron_right,
-                                      size: 16, color: kGreen),
+                                  child: AnimatedRotation(
+                                    turns: _keptExpanded ? 0.25 : 0,
+                                    duration:
+                                        const Duration(milliseconds: 200),
+                                    child: Icon(Icons.chevron_right,
+                                        size: 16, color: kGreen),
+                                  ),
                                 ),
                                 const SizedBox(width: 2),
                                 Expanded(
@@ -848,22 +822,28 @@ class ReferenceCalloutTile extends StatelessWidget {
                             // so the icon is built into title itself here,
                             // top-aligned via the Row's own
                             // crossAxisAlignment - trailing suppressed so
-                            // the built-in icon doesn't also show. Static,
-                            // not animated - the built-in rotation only
-                            // came for free through controlAffinity/
-                            // trailing, this would need real expand-state
-                            // tracking (StatelessWidget today) to keep it.
+                            // the built-in icon doesn't also show. 2026-08-27:
+                            // rotated manually via _droppedExpanded now the
+                            // tile tracks its own state - see the State
+                            // class just above this widget's declaration.
                             trailing: const SizedBox.shrink(),
-                            title: const Row(
+                            onExpansionChanged: (v) =>
+                                setState(() => _droppedExpanded = v),
+                            title: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Padding(
-                                  padding: EdgeInsets.only(top: 2),
-                                  child: Icon(Icons.chevron_right,
-                                      size: 16, color: Colors.amber),
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: AnimatedRotation(
+                                    turns: _droppedExpanded ? 0.25 : 0,
+                                    duration:
+                                        const Duration(milliseconds: 200),
+                                    child: const Icon(Icons.chevron_right,
+                                        size: 16, color: Colors.amber),
+                                  ),
                                 ),
-                                SizedBox(width: 2),
-                                Expanded(
+                                const SizedBox(width: 2),
+                                const Expanded(
                                   child: Text('IN CONFLICT BACKUPS',
                                       style: TextStyle(
                                           color: Colors.amber,
