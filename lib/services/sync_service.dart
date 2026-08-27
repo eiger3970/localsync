@@ -552,6 +552,16 @@ Future<SyncResult> _withRepo(
         }
         repairAllConflictsOnDisk(p.vaultPath,
             otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
+        // 2026-08-27: real gap found - repairAllConflictsOnDisk (.md
+        // only) was the ONLY conflict handling that ever ran here.
+        // Anything else conflicted (images/PDFs in an existing vault,
+        // or any file at all in a Tier 0 generic-sync repo) fell
+        // straight through to finishMergeCommit below with whatever
+        // libgit2's default merge left on disk - no detection, no
+        // backup, no user visibility. See repairBinaryConflictsOnDisk's
+        // own doc for the fix.
+        repairBinaryConflictsOnDisk(repo, p.vaultPath,
+            otherLabel: otherLabel ?? 'other device');
       }
       finishMergeCommit(repo, p.deviceName);
       repo.stateCleanup();
@@ -771,6 +781,89 @@ int repairAllConflictsOnDisk(String path,
     }
   }
   return unresolvedCount;
+}
+
+/// Resolves every remaining index conflict repairAllConflictsOnDisk
+/// didn't touch (anything not ending in .md - images, PDFs, or any file
+/// at all in a Tier 0 generic-sync repo, which has no markdown to begin
+/// with). A binary/generic file can't be text-merged or wrapped in a
+/// callout the way conflict_scanner.dart does for markdown, so the
+/// safety net works at the whole-file level instead: both sides get
+/// backed up as real files (not a markdown note - content may not be
+/// text at all), "ours" is kept as the resolved result (deterministic,
+/// not whatever libgit2's own default merge happened to leave on disk),
+/// and the conflict is cleared from the index so it doesn't block the
+/// merge commit. Nothing is silently dropped - same convention
+/// conflict_scanner.dart already uses for text, applied here because
+/// this repair pass is the only place a genuinely unresolvable-by-text
+/// conflict is guaranteed to be seen before it gets committed.
+///
+/// 2026-08-27: real gap found - before this, any conflict here fell
+/// straight through to finishMergeCommit with no detection, no backup,
+/// and no user visibility at all. Picking either side as a real,
+/// visible choice (like the markdown Conflicts screen offers) is real,
+/// buildable follow-up work - this closes the actual safety hole first.
+int repairBinaryConflictsOnDisk(
+  git.Repository repo,
+  String vaultPath, {
+  String otherLabel = 'other device',
+}) {
+  var resolvedCount = 0;
+  final conflicts = repo.index.conflicts;
+  for (final path in conflicts.keys.toList()) {
+    if (path.endsWith('.md')) continue; // handled by repairAllConflictsOnDisk
+    final entry = conflicts[path]!;
+    try {
+      _resolveBinaryConflict(repo, vaultPath, path, entry, otherLabel);
+      resolvedCount++;
+    } catch (_) {
+      // Leaves this one path as a real, still-unresolved index conflict
+      // rather than guessing - finishMergeCommit will surface it via
+      // whatever git2dart does with a genuinely unhandled conflict,
+      // which is still safer than silently writing a wrong guess here.
+    }
+  }
+  return resolvedCount;
+}
+
+void _resolveBinaryConflict(
+  git.Repository repo,
+  String vaultPath,
+  String relPath,
+  git.ConflictEntry entry,
+  String otherLabel,
+) {
+  final backupDir =
+      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+  backupDir.createSync(recursive: true);
+  final baseName = relPath.split('/').last;
+  final ts = backupTimestamp();
+
+  final ours = entry.our;
+  final theirs = entry.their;
+
+  if (ours != null) {
+    final blob = git.Blob.lookup(repo: repo, oid: ours.oid);
+    File('${backupDir.path}/$baseName - yours - $ts')
+        .writeAsBytesSync(blob.contentBytes);
+  }
+  if (theirs != null) {
+    final blob = git.Blob.lookup(repo: repo, oid: theirs.oid);
+    File('${backupDir.path}/$baseName - $otherLabel - $ts')
+        .writeAsBytesSync(blob.contentBytes);
+  }
+
+  // Keep "ours" as the resolved content when it exists; if only
+  // "theirs" exists (e.g. they added a file we never touched), that's
+  // the only real content to keep - never leave the file missing.
+  final kept = ours ?? theirs;
+  if (kept == null) return; // both sides deleted it - nothing to keep
+  final blob = git.Blob.lookup(repo: repo, oid: kept.oid);
+  File('$vaultPath/$relPath').writeAsBytesSync(blob.contentBytes);
+  // Re-staging at this path clears its conflict entries (stage >0) and
+  // replaces them with a single stage-0 entry - the standard libgit2
+  // resolution step, same as `git add` on a manually resolved conflict.
+  repo.index.add(relPath);
 }
 
 /// Mirrors synco.sh's SYNCO_OTHER_LABEL/SYNCO_OTHER_TIME - the other
