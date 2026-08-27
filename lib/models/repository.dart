@@ -1,5 +1,17 @@
 // models/repository.dart
 
+// 2026-08-27: Tier 0 (free, generic file sync, no PKM awareness) - see
+// docs/product-tiers.md. A repo linked through the plain-folder path
+// (LinkingController.startLinkingGenericFolder) has no Obsidian vault
+// concept at all - genericFolder distinguishes it from every existing
+// repo, which stays obsidianVault (the default, so old saved records
+// with no sync_mode key at all - see fromMap below - keep behaving
+// exactly as they always did). What this actually changes: whole-file
+// "keep mine or theirs" conflict handling instead of markdown-aware
+// merge, and UI copy that doesn't say "vault"/"Obsidian" - neither is
+// built yet, this is the field those will read.
+enum SyncMode { obsidianVault, genericFolder }
+
 enum SyncStatus { idle, syncing, ok, error }
 
 enum SyncPhase {
@@ -72,6 +84,7 @@ class Repository {
   final String?    lastErrorDebug;
   final int        fileCount;
   final int        folderCount;
+  final SyncMode   syncMode;
 
   const Repository({
     this.id,
@@ -92,6 +105,7 @@ class Repository {
     this.lastErrorDebug,
     this.fileCount    = 0,
     this.folderCount  = 0,
+    this.syncMode     = SyncMode.obsidianVault,
   });
 
   Repository copyWith({
@@ -113,6 +127,7 @@ class Repository {
     String?      lastErrorDebug,
     int?         fileCount,
     int?         folderCount,
+    SyncMode?    syncMode,
   }) => Repository(
     id:                id               ?? this.id,
     name:              name             ?? this.name,
@@ -132,6 +147,7 @@ class Repository {
     lastErrorDebug:    lastErrorDebug   ?? this.lastErrorDebug,
     fileCount:         fileCount        ?? this.fileCount,
     folderCount:       folderCount      ?? this.folderCount,
+    syncMode:          syncMode         ?? this.syncMode,
   );
 
   Map<String, dynamic> toMap() => {
@@ -151,6 +167,7 @@ class Repository {
     'last_error_debug': lastErrorDebug,
     'file_count':     fileCount,
     'folder_count':   folderCount,
+    'sync_mode':      syncMode.name,
   };
 
   factory Repository.fromMap(Map<String, dynamic> m) => Repository(
@@ -177,5 +194,12 @@ class Repository {
     lastErrorDebug:    m['last_error_debug'] as String?,
     fileCount:         (m['file_count'] as int?) ?? 0,
     folderCount:       (m['folder_count'] as int?) ?? 0,
+    // No sync_mode key at all = every repo saved before this field
+    // existed - all real repos so far are Obsidian vaults, so that's
+    // the correct default, not a guess.
+    syncMode:          SyncMode.values.firstWhere(
+                          (v) => v.name == m['sync_mode'],
+                          orElse: () => SyncMode.obsidianVault,
+                        ),
   );
 }
