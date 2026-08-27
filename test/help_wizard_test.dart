@@ -63,6 +63,9 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
     // No back link any more.
     expect(find.text('< back'), findsNothing);
+    // PHONE never runs Phone PULL, so it can't actually produce a
+    // conflict - no hint pointing at Conflicts here.
+    expect(find.textContaining('Conflicts'), findsNothing);
   });
 
   testWidgets(
@@ -83,6 +86,9 @@ void main() {
     expect(find.text('Phone PULL'), findsOneWidget);
     expect(find.text('Phone PUSH'), findsNothing);
     expect(find.text('Done'), findsOneWidget);
+    // Runs Phone PULL, so a real conflict is possible here.
+    expect(find.text('If conflicts show: tap ⋮ then Conflicts.'),
+        findsOneWidget);
   });
 
   testWidgets(
@@ -102,6 +108,9 @@ void main() {
     // "Flow B" is internal design-doc shorthand, never a name a real
     // user has seen in this app - the footnote naming it was dropped.
     expect(find.textContaining('Flow B'), findsNothing);
+    // Runs Phone PULL, so a real conflict is possible here too.
+    expect(find.text('If conflicts show: tap ⋮ then Conflicts.'),
+        findsOneWidget);
   });
 
   testWidgets('Flow A: tapping outside the dialog dismisses it (barrier default)',
