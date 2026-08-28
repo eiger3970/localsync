@@ -381,6 +381,15 @@ class _IdleViewState extends State<_IdleView>
     final password = _passwordCtrl.text;
     unawaited(_shredKey1.currentState?.shred());
     unawaited(_shredKey2.currentState?.shred());
+    // 2026-08-28: real device bug, live - _pairingCtrl was built once in
+    // initState() with whatever desktopUser/desktopIp LinkingController
+    // had at that moment, usually both empty on a fresh install (Settings
+    // hasn't been visited yet). Re-synced here, immediately before every
+    // real attempt, so a Settings visit in between (the normal flow -
+    // Stage 1's own reminder sends the user there) is actually picked up
+    // instead of pairing against a stale, already-empty snapshot.
+    _pairingCtrl.desktopUser = widget.ctrl.desktopUser;
+    _pairingCtrl.desktopIp = widget.ctrl.desktopIp;
     await _pairingCtrl.pairWithPassword(password,
         allowAutoInstallGit: _allowAutoInstallGit!);
     if (!mounted) return;

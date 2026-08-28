@@ -17,9 +17,19 @@ import '../linking/linking_state.dart';
 import '../../services/keypair_service.dart';
 
 class PairingController extends ChangeNotifier {
-  final String desktopUser;
-  final String desktopIp;
-  final int    sshPort;
+  // 2026-08-28: real device bug, live - "same error" (desktopNotConfigured)
+  // kept firing even after Settings was correctly saved. Root cause: this
+  // controller is constructed once in linking_screen.dart's initState()
+  // with a SNAPSHOT of LinkingController's desktopUser/desktopIp at that
+  // moment - the normal flow is land on Stage 1 (both still empty) -> tap
+  // the Settings reminder -> fill in -> come back to the SAME still-alive
+  // LinkingScreen instance, whose initState never re-runs. These used to
+  // be final, so the snapshot could never catch up. Mutable now, synced
+  // fresh from LinkingController right before every pairing attempt (see
+  // linking_screen.dart's own comment at the call site).
+  String desktopUser;
+  String desktopIp;
+  final int sshPort;
 
   PairingController({
     required this.desktopUser,
