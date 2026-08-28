@@ -553,16 +553,24 @@ class LinkingController extends ChangeNotifier {
               'Come back here when you\'re done.',
 
         LinkingStep.pickingVaultFolder => _syncMode == SyncMode.genericFolder
-            // 2026-08-28: real feedback - a generic-folder user picking
-            // an existing, already-messy folder (Downloads, Camera
-            // Roll exports, etc.) is a fair worry, and this app has no
-            // way to filter what the native picker shows. Can't offer
-            // real presets (no "Documents" folder is guaranteed to
-            // exist on a given phone), so this gives the one piece of
-            // durable advice that works everywhere instead: dedicate a
-            // fresh, empty folder rather than reusing a full one.
+            // 2026-08-28: real feedback, live - "it pulled files
+            // automatically from somewhere from the desktop... this is
+            // just a surprise. I need informed users." Same "must be
+            // 100% informed" principle already applied to the git-install
+            // consent screen, here for the actual file copy itself -
+            // nothing previously told the user that picking a folder
+            // triggers an automatic pull from the desktop's configured
+            // path, with whatever's already stored there landing in the
+            // folder they pick. Explicit disclosure now comes first,
+            // before the "pick empty" tip that already existed - that
+            // tip explained what to avoid, never what was actually about
+            // to happen.
             ? 'pick the folder to sync:\n\n'
                 '${vaultFolderSteps.join(' → ')}\n\n'
+                'What happens next: whatever is already stored on your '
+                'desktop, at the path in Settings, gets copied into the '
+                'folder you pick - automatically, as soon as you tap '
+                'Open.\n\n'
                 'Tip: pick or create an empty folder just for this '
                 '(e.g. a new "Sync" folder), rather than an existing '
                 'folder full of other files - keeps things tidy as it '
