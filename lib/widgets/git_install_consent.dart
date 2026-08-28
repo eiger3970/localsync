@@ -89,7 +89,15 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_showCommand ? Icons.expand_less : Icons.expand_more,
+                  // 2026-08-28: real feedback, live - "arrow points down
+                  // but should point right. Command showing has arrow
+                  // pointing up but should point down." Collapsed = right
+                  // (there's more to reveal to the right/below), expanded
+                  // = down (pointing at the command box that just opened
+                  // directly beneath it) - was backwards (expand_more/
+                  // expand_less, an up/down pair with no "collapsed"
+                  // state at all).
+                  Icon(_showCommand ? Icons.keyboard_arrow_down : Icons.chevron_right,
                       color: kGreen, size: 18),
                   const SizedBox(width: 4),
                   Text('Show the exact command',
@@ -116,27 +124,35 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
           ],
         ),
       ),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: Text('Cancel', style: TextStyle(color: kTextDim)),
-        ),
-        Row(
+        // 2026-08-28: real feedback, live - "the button is cut off the
+        // right edge of the phone screen." The old two-button Row inside
+        // AlertDialog's actions overflowed the dialog's real width on a
+        // real device. Stacked full-width instead - guaranteed to fit
+        // regardless of text length or screen width, not just a shorter-
+        // text bet that could overflow again on a narrower phone.
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, false),
-              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorder)),
-              child: Text('I\'ll install it myself',
-                  style: TextStyle(color: kTextMid, fontSize: 13)),
-            ),
-            const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: kGreen),
-              child: Text('Let LocalSync install it',
-                  style: TextStyle(color: kVoid, fontSize: 13, fontWeight: FontWeight.w700)),
+              child: Text('LocalSync auto install',
+                  style: TextStyle(color: kVoid, fontSize: 14, fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(context, false),
+              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorder)),
+              child: Text('Install git myself',
+                  style: TextStyle(color: kTextMid, fontSize: 14)),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: Text('Cancel', style: TextStyle(color: kTextDim)),
             ),
           ],
         ),
