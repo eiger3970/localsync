@@ -14,6 +14,7 @@
 // immediately, no app restart - and persist through RepositoryProvider
 // so it survives a relaunch too.
 
+import 'dart:math' show sin, pi;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -34,7 +35,8 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with SingleTickerProviderStateMixin {
   static final _ipPattern =
       RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
 
@@ -66,6 +68,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _discovery = DiscoveryService();
   bool _discovering = false;
 
+  // 2026-08-28: real feedback, live - "Use suggested path" auto_awesome
+  // icon read as a static glyph, not the "sparkle" it's meant to imply -
+  // same sine-wave twinkle ShreddingPasswordField already uses for its
+  // password-field prefix icons, just a single icon here instead of a
+  // two-star cluster.
+  late final AnimationController _pathSparkleCtrl;
+
+  // 2026-08-28: real feedback, live - "might tier0 users need a folder
+  // to store multiple git files in or just the one?" Real gap the
+  // question surfaced: this button always suggested the exact same
+  // path, so a second linked folder/vault would collide with the
+  // first - RepositoryProvider's own dedup check keys on remote
+  // identity and silently no-ops a second repo pointed at a bare repo
+  // already in use, with zero user-facing error (see
+  // linking_screen.dart's _saveRepository()). Counts taps this Settings
+  // visit so each suggestion is genuinely distinct - "sync.git" first,
+  // "sync-2.git" next, etc.
+  int _suggestCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +94,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
+    _pathSparkleCtrl =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
+          ..repeat();
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
     });
@@ -234,6 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _userCtrl.dispose();
     _ipCtrl.dispose();
     _pathCtrl.dispose();
+    _pathSparkleCtrl.dispose();
     super.dispose();
   }
 
@@ -466,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           'existing links are unaffected',
                       helperMaxLines: 2,
                       helperStyle: TextStyle(color: kTextMid, fontSize: 13),
-                      hintText: '/home/user/Documents/Git/LocalSync/sync.git',
+                      hintText: '/home/user/Documents/Git/localsync.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
                       // i" instead of a "?" - Icons.info_outline reads
@@ -501,7 +526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
                             ('New setup? Just type any path here, e.g. '
-                                    '~/Documents/Git/LocalSync/sync.git - '
+                                    '~/Documents/Git/localsync.git - '
                                     'it gets created automatically the '
                                     'first time you pair, nothing to run '
                                     'yourself',
@@ -552,20 +577,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return;
                   }
                   setState(() {
-                    // 2026-08-28: real feedback, live - "vault is a term
-                    // for experts... newbies need Folder throughout"
-                    // (and a totally different Bitwarden product besides
-                    // - genuinely confusing, not just jargon). Was
-                    // vault.git.
+                    // 2026-08-28: real feedback, live - "why did you
+                    // make a weird default path name?" Dropped the
+                    // /LocalSync/sync.git subfolder split in favour of
+                    // matching this repo's own real naming convention
+                    // (lowercase, flat) - and counts taps so a second/
+                    // third suggestion this Settings visit doesn't
+                    // collide with the first (see _suggestCount's own
+                    // comment for why that collision is a real, not
+                    // hypothetical, gap). Was
+                    // '/home/$user/Documents/Git/LocalSync/sync.git'
+                    // (and vault.git before that).
+                    _suggestCount++;
+                    final suffix = _suggestCount == 1 ? '' : '-$_suggestCount';
                     _pathCtrl.text =
-                        '/home/$user/Documents/Git/LocalSync/sync.git';
+                        '/home/$user/Documents/Git/localsync$suffix.git';
                     _pathError = null;
                   });
                 },
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, color: kGreen, size: 15),
+                    // 2026-08-28: real feedback, live - "stars aren't
+                    // twinkling" - was a static Icon, same sine-wave
+                    // opacity twinkle as ShreddingPasswordField's
+                    // prefixIcon cluster, just one icon here.
+                    AnimatedBuilder(
+                      animation: _pathSparkleCtrl,
+                      builder: (_, __) => Icon(Icons.auto_awesome,
+                          color: kGreen.withValues(
+                              alpha: sin(_pathSparkleCtrl.value * pi * 2) *
+                                      0.35 +
+                                  0.65),
+                          size: 15),
+                    ),
                     const SizedBox(width: 5),
                     Text('Use suggested path',
                         style: TextStyle(
