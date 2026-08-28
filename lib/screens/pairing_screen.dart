@@ -15,6 +15,7 @@ import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/git_install_consent.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
@@ -312,9 +313,21 @@ class _PairingScreenState extends State<PairingScreen> {
   Future<void> _pair() async {
     final password = _passwordCtrl.text;
     if (password.isEmpty) return;
+
+    // 2026-08-28: same consent gate as LinkingScreen's own _pairThenLink()
+    // - asked once, remembered, never defaulted silently either way.
+    var allowAutoInstallGit = await DatabaseService().getGitAutoInstallChoice();
+    if (allowAutoInstallGit == null) {
+      if (!mounted) return;
+      final decided = await showGitInstallConsent(context);
+      if (decided == null) return;
+      await DatabaseService().setGitAutoInstallChoice(decided);
+      allowAutoInstallGit = decided;
+    }
+
     final shredding = _shredKey.currentState?.shred();
     if (shredding != null) unawaited(shredding);
-    await _ctrl.pairWithPassword(password);
+    await _ctrl.pairWithPassword(password, allowAutoInstallGit: allowAutoInstallGit);
     if (mounted && _ctrl.result is StepFailure) {
       setState(() => _pairAttempts++);
     }

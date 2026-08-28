@@ -17,12 +17,14 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/discovery_service.dart';
+import '../services/database_service.dart';
 import '../services/repository_provider.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/git_install_consent.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
 import '../widgets/sparkle_background.dart';
@@ -279,6 +281,20 @@ class _IdleViewState extends State<_IdleView>
   // two real actions, no intermediate screen. On failure, shows the
   // error inline on this same screen instead of navigating away.
   Future<void> _pairThenLink() async {
+    // 2026-08-28: real feedback, live - "normies need to be 100%
+    // informed" before this app ever runs a privileged command with
+    // their password. Asked once (DatabaseService remembers the
+    // answer), not every pairing - but resolved BEFORE the password is
+    // even sent anywhere, never defaulted silently.
+    var allowAutoInstallGit = await DatabaseService().getGitAutoInstallChoice();
+    if (allowAutoInstallGit == null) {
+      if (!mounted) return;
+      final decided = await showGitInstallConsent(context);
+      if (decided == null) return; // cancelled - real choice, not a nag
+      await DatabaseService().setGitAutoInstallChoice(decided);
+      allowAutoInstallGit = decided;
+    }
+
     setState(() {
       _pairing = true;
       _pairingFailure = null;
@@ -286,7 +302,8 @@ class _IdleViewState extends State<_IdleView>
     final password = _passwordCtrl.text;
     unawaited(_shredKey1.currentState?.shred());
     unawaited(_shredKey2.currentState?.shred());
-    await _pairingCtrl.pairWithPassword(password);
+    await _pairingCtrl.pairWithPassword(password,
+        allowAutoInstallGit: allowAutoInstallGit);
     if (!mounted) return;
     final result = _pairingCtrl.result;
     if (result is StepFailure) {
