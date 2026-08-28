@@ -174,6 +174,17 @@ enum LinkingError {
   /// see the RAW ERROR section (StepFailure.debugDetail) for what
   /// actually happened.
   unclassifiedError,
+
+  /// 2026-08-28: real device bug, live - main.dart's build-time
+  /// desktopUser/desktopIp defaults were blanked (used to be this
+  /// developer's own personal desktop info, shown to every fresh
+  /// install - see main.dart's own comment), so a user who attempts
+  /// PAIR NOW before ever visiting Settings now hits a raw
+  /// `SocketException: Failed host lookup: ""` - an empty hostname,
+  /// not a real network failure. Caught before the connection attempt
+  /// even starts (pairing_controller.dart's pairWithPassword) instead
+  /// of letting it fall through to unclassifiedError's generic message.
+  desktopNotConfigured,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -249,6 +260,8 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.vaultPickerFailed => 'Could not open Files.',
         LinkingError.unclassifiedError =>
           'Something went wrong that LocalSync did not expect.',
+        LinkingError.desktopNotConfigured =>
+          'Desktop username and IP address have not been set yet.',
       };
 
   String get resolution => switch (this) {
@@ -373,6 +386,9 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.unclassifiedError =>
           'Check the RAW ERROR section below for what actually happened.\n'
               'Tap TRY AGAIN - most causes here are one-off, not a real network or pairing problem.',
+        LinkingError.desktopNotConfigured =>
+          'Go to Settings and fill in Desktop username and '
+              'IP address - desktop, then try pairing again.',
       };
 }
 
