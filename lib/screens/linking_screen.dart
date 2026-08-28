@@ -624,10 +624,19 @@ class _IdleViewState extends State<_IdleView>
                   letterSpacing: 1.5)),
           const SizedBox(height: 14),
           // Stage 2 body - locked until stage 1 is done.
+          // 2026-08-28: real feedback, live - a real device showed Stage 2
+          // unlocking after cancelling the consent dialog once, then
+          // completing Stage 1 again - the exact chain wasn't reproducible
+          // off-device, so this is a structural fix rather than a traced
+          // one: gating on _paired alone left a path where _paired could
+          // end up true without _allowAutoInstallGit ever actually being
+          // resolved. Now requires both - Stage 2 cannot unlock unless a
+          // real consent choice exists, full stop, regardless of how
+          // _paired got set.
           IgnorePointer(
-            ignoring: !_paired,
+            ignoring: !(_paired && _allowAutoInstallGit != null),
             child: AnimatedOpacity(
-              opacity: _paired ? 1 : 0.3,
+              opacity: (_paired && _allowAutoInstallGit != null) ? 1 : 0.3,
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
@@ -879,10 +888,14 @@ class _IdleViewState extends State<_IdleView>
                   letterSpacing: 1.5)),
           const SizedBox(height: 14),
           // Stage 3 body - locked until passwords match.
+          // 2026-08-28: same structural fix as Stage 2 above - requires a
+          // real consent choice to exist, not just _paired.
           IgnorePointer(
-            ignoring: !(_paired && _passwordsMatch),
+            ignoring: !(_paired && _allowAutoInstallGit != null && _passwordsMatch),
             child: AnimatedOpacity(
-              opacity: (_paired && _passwordsMatch) ? 1 : 0.3,
+              opacity: (_paired && _allowAutoInstallGit != null && _passwordsMatch)
+                  ? 1
+                  : 0.3,
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
@@ -950,7 +963,11 @@ class _IdleViewState extends State<_IdleView>
                         ),
                         DragTarget<bool>(
                           onWillAcceptWithDetails: (_) {
-                            if (!(_paired && _passwordsMatch)) return false;
+                            if (!(_paired &&
+                                _allowAutoInstallGit != null &&
+                                _passwordsMatch)) {
+                              return false;
+                            }
                             setState(() => _dragHover = true);
                             return true;
                           },
