@@ -750,7 +750,18 @@ class _IdleViewState extends State<_IdleView>
                           key: _shredKey1,
                           controller: _passwordCtrl,
                           enabled: !_pairing,
-                          showSparkle: true,
+                          // 2026-08-28: real feedback, live - "can
+                          // password field 1 stars twinkling disappear
+                          // once populated... magic stars disappear
+                          // once actioned, as they're no longer needed
+                          // to attract the eye." Was hardcoded true
+                          // regardless of content - field 2 already had
+                          // this exact reactive pattern (showSparkle:
+                          // _passwordCtrl.text.isNotEmpty, i.e. only
+                          // once it's the active next step), just never
+                          // applied symmetrically to field 1 once IT
+                          // has been typed into.
+                          showSparkle: _passwordCtrl.text.isEmpty,
                           focusNode: _passwordFocusNode,
                         ),
                         Positioned(

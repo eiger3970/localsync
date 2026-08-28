@@ -123,6 +123,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // clipboard between phone and desktop), but removes any
             // need to type the command out by hand somewhere it CAN be
             // pasted (a notes app, an SSH client, etc).
+            //
+            // 2026-08-28: real feedback, live - "be clearer like:
+            // Command for your desktop terminal:" - the box below had
+            // no label at all explaining what it was or where it's
+            // meant to be run, just an unmarked monospace string.
+            Text('Command for your desktop terminal:',
+                style: TextStyle(color: kTextMid, fontSize: 12)),
+            const SizedBox(height: 6),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
@@ -250,11 +258,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         backgroundColor: kSurface,
         content: Text(
-          'No desktop found - make sure it\'s advertising (see Settings help) '
-          'and on the same network',
+          // 2026-08-28: real feedback, live - "the satellite is only
+          // for wireless, but my phone is connected via USB, so I just
+          // sat there waiting forever." Auto-discovery is mDNS-based
+          // and works over Wi-Fi hotspot reliably; USB tether is real
+          // but genuinely less reliable for multicast on iOS. The old
+          // message never mentioned USB at all, leaving a USB-connected
+          // tester with no idea to fall back to the manual command
+          // instead of retrying the same search.
+          'No desktop found on Wi-Fi. On USB tether, use the (i) '
+              'button below instead for the manual command.',
           style: TextStyle(color: kStar, fontSize: 14),
         ),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 5),
       ),
     );
   }
@@ -323,6 +339,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'Desktop username',
+                      // 2026-08-28: real feedback, live - "white text,
+                      // should be faded grey so I know I'm meant to
+                      // type in there... or have the cursor active."
+                      // Without this, an empty/unfocused field rests
+                      // the bold kStar-colored label INSIDE the box
+                      // (Material's default), reading as already-typed
+                      // content, not a label - and hintText stays
+                      // hidden until the label floats up, which only
+                      // happened once tapped. Forcing the label to
+                      // always float to the header position means the
+                      // grey hint is visible inside the box from the
+                      // very first frame, no tap needed first.
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       // 2026-08-28: real feedback, live - "Text is
                       // higher than the lines: Desktop username is
                       // above the text box." This field was new, still
@@ -403,6 +432,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // added the plain-language version alongside it
                       // rather than replacing it outright.
                       labelText: 'Git bare repo path (folder sharing to your phone)',
+                      // 2026-08-28: same fix as Desktop username above -
+                      // always float, so the grey hint path shows from
+                      // the first frame instead of the bold label
+                      // sitting inside the box looking like real content.
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       labelStyle: TextStyle(
                           color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: floatingLabelStyle fix - "text must
@@ -571,6 +605,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'IP address - desktop',
+                      // 2026-08-28: same fix as the two fields above -
+                      // always float, so the grey hint IP shows from the
+                      // first frame instead of requiring a tap first.
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
                       // 2026-08-28: matched to the other two fields'
                       // now-consistent 15/15 sizing (see Desktop
                       // username's own comment above).
@@ -625,7 +663,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   )
                                 : Icon(Icons.satellite_alt,
                                     color: kGreen, size: 20),
-                            tooltip: 'Find automatically',
+                            tooltip: 'Find automatically (Wi-Fi only)',
                             onPressed: _discovering ? null : _findDesktop,
                           ),
                           IconButton(
