@@ -51,12 +51,11 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     _purchaseService.init();
     _linkingController = LinkingController(
       // 2026-08-28: build-time fallback only, now overridable via the
-      // Settings screen (same pattern as desktopIp/bareRepoPath below) -
-      // was hardcoded with no override at all, meaning any real customer
-      // whose desktop login isn't 'rapi5' would have every SSH connection
-      // fail immediately. Real blocker, found while checking an unrelated
-      // question, not something the app had ever surfaced to a user.
-      desktopUser:    'rapi5',
+      // Settings screen (same pattern as desktopIp/bareRepoPath below).
+      // Blanked to empty (was this developer's own real desktop login,
+      // 'rapi5') - same "personal info leaking into a fresh install's
+      // default" fix as desktopIp/bareRepoPath below.
+      desktopUser:    '',
       // localVaultPath removed 2026-08-09: the vault folder is no
       // longer a fixed app-owned path computed once at startup - it's
       // the user's own Obsidian vault folder, selected during setup via
@@ -71,24 +70,22 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // code edit and rebuild to fix. Re-verified against `ip -4 addr
       // show` at time of writing (phone was on hotspot/WiFi, wlan0).
       //
-      // 2026-08-25: real bug, live - Settings is only reachable from
-      // home_screen.dart, which requires pairing to succeed first, so a
-      // fresh sideload with nothing saved yet has no way to correct this
-      // fallback if it's stale. It was stale (172.20.10.2), desktop's
-      // real IP is 172.20.10.11 (eth1, hotspot-tethered) - re-verified
-      // via `ip -4 addr show eth1` at time of writing.
-      desktopIp:      '172.20.10.11',
-      // 2026-08-20: real production repo, replacing Working Copy - the
-      // conflict-resolution concern that held this back earlier today
-      // is now closed (3-for-3 real-device revert test, plus the full
-      // test checklist: Kanban conflicts, deletion-safety, auto/manual
-      // toggle, auto-sync-on-launch). Fresh mirror backup taken
-      // immediately before this switch (Md_files_bare_backup_
-      // 202608201534.git, HEAD unchanged since the morning's backup -
-      // no activity missed) and a plain-folder vault copy from earlier
-      // today, both independent of anything this app does going
-      // forward.
-      bareRepoPath:   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+      // 2026-08-28: real feedback, live - "I don't understand why this
+      // is still mentioning obsidian, tier0 users need simple terms."
+      // This build-time fallback used to be this developer's own real
+      // desktop IP/path (172.20.10.11, .../pi5-obsidian/...) - meaning
+      // any fresh install, real customer or Tier 0 tester alike, saw
+      // this developer's personal desktop info pre-filled in Settings
+      // before ever configuring anything. Blanked to empty strings -
+      // Stage 1's own _needsSettings check (linking_screen.dart) already
+      // handles the "nothing configured yet" case correctly (shows a
+      // Settings reminder before any pairing attempt), so an empty
+      // fallback is the actually-correct default, not a regression.
+      desktopIp:      '',
+      // 2026-08-28: same reasoning as desktopIp above - was this
+      // developer's own real bare repo path, now blank so a fresh
+      // install never sees another user's desktop folder structure.
+      bareRepoPath:   '',
       sshPort:        22,
     );
     // Applies saved desktopIp/bareRepoPath overrides, if the user has

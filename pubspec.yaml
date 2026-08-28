@@ -1,6 +1,6 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
-version: 0.1.0+1
+version: 0.1.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -23,6 +23,15 @@ dependencies:
   # code of its own to link (unlike git2dart's FFI symbols), so lower
   # risk than that saga, but still a new native platform channel.
   device_info_plus: ^10.1.0
+  # 2026-08-28: real feedback, live - fixes that were genuinely pushed
+  # and merged still read as "not applied" during a real device test,
+  # traced back to pubspec.yaml's build number never having been
+  # bumped (every build today shared the same CFBundleVersion, which
+  # can make a sideload tool treat a new build as already installed).
+  # No way from inside the app itself to confirm which build is
+  # actually running - this makes that answerable at a glance instead
+  # of inferred from git commits after the fact.
+  package_info_plus: ^8.0.0
   # 2026-08-21: switched from raw in_app_purchase (hand-rolled StoreKit
   # calls) to RevenueCat's own SDK - handles receipt validation and
   # purchase-restore correctness that would otherwise need hand-
