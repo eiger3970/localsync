@@ -57,7 +57,21 @@ class PairingController extends ChangeNotifier {
     // even attempted, with a real, specific message instead.
     if (desktopUser.trim().isEmpty || desktopIp.trim().isEmpty) {
       _isRunning = false;
-      _result = const StepFailure(LinkingError.desktopNotConfigured);
+      // 2026-08-28: real feedback, live - "raw error not showing." This
+      // guard fires before any real exception exists, so debugDetail
+      // was left null on purpose - but with no diagnostic text at all,
+      // it looked like the RAW ERROR section was broken/missing rather
+      // than genuinely not applicable. Reports exactly which field(s)
+      // are empty instead, since a user can otherwise be fooled into
+      // thinking a value they typed was saved when Settings' own save
+      // silently rejected it (see settings_screen.dart's _save() fix,
+      // same session - a bad IP used to discard a valid username too).
+      final missing = [
+        if (desktopUser.trim().isEmpty) 'Desktop username',
+        if (desktopIp.trim().isEmpty) 'IP address - desktop',
+      ].join(', ');
+      _result = StepFailure(LinkingError.desktopNotConfigured,
+          debugDetail: 'Empty in Settings: $missing');
       notifyListeners();
       return;
     }

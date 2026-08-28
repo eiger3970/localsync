@@ -302,7 +302,16 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _save() async {
     final user = _userCtrl.text.trim();
-    final ip = _ipCtrl.text.trim();
+    // 2026-08-28: real feedback, live - "the keyboard has no means to
+    // type in 172.20.10.11/28" - `ip addr show` (this app's own help
+    // dialog tells the user to run it) prints addresses in CIDR form,
+    // and a pasted value carries the /28 straight through even though
+    // the numeric keyboard itself has no slash key to type one by hand.
+    // Stripped before validating rather than rejected outright - the
+    // prefix length was never meaningful here, just noise from the
+    // source command's output format.
+    final ip = _ipCtrl.text.trim().split('/').first;
+    _ipCtrl.text = ip;
     final path = _pathCtrl.text.trim();
     setState(() {
       // 2026-08-28: same "can't be empty" validation as the bare repo
@@ -312,16 +321,31 @@ class _SettingsScreenState extends State<SettingsScreen>
       _ipError = _ipPattern.hasMatch(ip) ? null : 'Not a valid IP address';
       _pathError = path.isEmpty ? 'Can\'t be empty' : null;
     });
-    if (_userError != null || _ipError != null || _pathError != null) return;
 
+    // 2026-08-28: real bug, live - "Same error: Desktop username and IP
+    // address have not been set yet" after a save attempt that DID
+    // include a real username. Root cause: this used to gate all three
+    // fields behind one combined `if (anyError) return` - one invalid
+    // field (the IP, mistyped with a CIDR suffix) silently discarded
+    // two other perfectly valid fields instead of saving what it could.
+    // Each field now saves independently; only the screen's own close
+    // waits for every field to be valid, so a user fixing one bad field
+    // doesn't lose what they already got right.
     final linkingCtrl = context.read<LinkingController>();
     final provider = context.read<RepositoryProvider>();
-    await provider.setDesktopUser(user);
-    linkingCtrl.updateDesktopUser(user);
-    await provider.setDesktopIp(ip);
-    linkingCtrl.updateDesktopIp(ip);
-    await provider.setBareRepoPath(path);
-    linkingCtrl.updateBareRepoPath(path);
+    if (_userError == null) {
+      await provider.setDesktopUser(user);
+      linkingCtrl.updateDesktopUser(user);
+    }
+    if (_ipError == null) {
+      await provider.setDesktopIp(ip);
+      linkingCtrl.updateDesktopIp(ip);
+    }
+    if (_pathError == null) {
+      await provider.setBareRepoPath(path);
+      linkingCtrl.updateBareRepoPath(path);
+    }
+    if (_userError != null || _ipError != null || _pathError != null) return;
     if (mounted) Navigator.pop(context);
   }
 
@@ -732,6 +756,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // exact ASCII form asked for the first time.
                                 ('Hotspot Wi-Fi -> look for wlan0', true),
                                 ('USB tether -> look for eth1 or usb0', true),
+                                // 2026-08-28: real feedback, live - "the
+                                // keyboard has no means to type in
+                                // 172.20.10.11/28." This command's
+                                // output includes a /prefix like that -
+                                // the field strips it automatically now,
+                                // but a clear note here means no one
+                                // second-guesses it before saving.
+                                ('Ignore the /28 (or similar) after the '
+                                        'address - only the 4 numbers matter',
+                                    true),
                                 ('IP address changes every switch - re-run '
                                         'the command',
                                     false),
