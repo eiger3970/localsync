@@ -46,6 +46,22 @@ class PairingController extends ChangeNotifier {
     _result    = null;
     notifyListeners();
 
+    // 2026-08-28: real device bug, live - main.dart's desktopUser/
+    // desktopIp defaults are now blank (were this developer's own real
+    // desktop info - see main.dart's own comment on why). A user who
+    // taps PAIR NOW before ever visiting Settings used to hit
+    // SSHSocket.connect('', ...), which throws a raw
+    // "SocketException: Failed host lookup: """ that _diagnose() below
+    // can't classify - shown as the generic "Something went wrong that
+    // LocalSync did not expect." Caught here, before any connection is
+    // even attempted, with a real, specific message instead.
+    if (desktopUser.trim().isEmpty || desktopIp.trim().isEmpty) {
+      _isRunning = false;
+      _result = const StepFailure(LinkingError.desktopNotConfigured);
+      notifyListeners();
+      return;
+    }
+
     try {
       final publicKeyLine = await KeypairService().ensureKeypair();
 
