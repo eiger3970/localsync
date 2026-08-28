@@ -35,6 +35,15 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
   String? _error;
   Package? _package;
   String? _priceLabel;
+  // 2026-08-28: real feedback, live - "smoother" for this exact widget,
+  // given its own 2026-08-18 spec (small, always-visible, "fries with
+  // that", NOT naggy) means fixing the one thing that spec doesn't
+  // cover: a real-looking "$24.99" next to a button that can never be
+  // pressed (no RevenueCat product configured yet - see
+  // purchase_service.dart) reads as broken, not honest. This distinguishes
+  // "still checking" from "checked, nothing to sell yet" so the button
+  // slot can show a quiet coming-soon state instead of a dead price.
+  bool _checked = false;
 
   @override
   void initState() {
@@ -48,10 +57,15 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
         .where((p) =>
             p.storeProduct.identifier.contains(kPkmSyncEntitlementId))
         .firstOrNull;
-    if (!mounted || package == null) return;
+    if (!mounted) return;
+    if (package == null) {
+      setState(() => _checked = true);
+      return;
+    }
     setState(() {
       _package = package;
       _priceLabel = package.storeProduct.priceString;
+      _checked = true;
     });
   }
 
@@ -120,25 +134,37 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
                 ),
               ),
               const SizedBox(width: 10),
-              _busy
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: kGreen),
-                    )
-                  : OutlinedButton(
-                      onPressed: _package == null ? null : _buy,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: kGreen),
-                        foregroundColor: kGreen,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                      ),
-                      child: Text(_priceLabel ?? r'$24.99',
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
+              if (_busy)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: kGreen),
+                )
+              else if (_package != null)
+                OutlinedButton(
+                  onPressed: _buy,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: kGreen),
+                    foregroundColor: kGreen,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                  ),
+                  child: Text(_priceLabel!,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                )
+              else if (_checked)
+                // No real product configured yet (purchase_service.dart -
+                // no funded Apple Developer account/RevenueCat product).
+                // A quiet, non-interactive label instead of a fake price
+                // on a dead button - reads as "not yet available", not
+                // "broken".
+                Text('Coming soon',
+                    style: TextStyle(
+                        color: kTextDim,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic)),
             ],
           ),
           if (_error != null) ...[

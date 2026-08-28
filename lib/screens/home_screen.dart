@@ -438,8 +438,20 @@ class HomeScreen extends StatelessWidget {
                 child: PkmSyncUpsell(
                   purchases: context.watch<PurchaseService>(),
                   onUnlocked: () {
-                    context.read<LinkingController>().preferredMode =
-                        SyncMode.obsidianVault;
+                    // 2026-08-28: reset() before navigating in, same fix
+                    // _openLinking already needed for the exact same
+                    // singleton-controller staleness bug ("Add another
+                    // vault used to land straight on a stale failure
+                    // screen from whatever the PREVIOUS linking attempt
+                    // left behind") - this call site was missing it.
+                    // Matters more now that LinkingScreen's own initState
+                    // (_skipStage1IfAlreadyPaired) calls startLinking()
+                    // immediately on mount rather than waiting for a user
+                    // gesture, so a stale non-idle/non-failed _step here
+                    // would trip straight into that method's assert.
+                    final ctrl = context.read<LinkingController>();
+                    ctrl.reset();
+                    ctrl.preferredMode = SyncMode.obsidianVault;
                     Navigator.push(context, MaterialPageRoute(
                         builder: (_) => const LinkingScreen()));
                   },
@@ -504,9 +516,18 @@ class HomeScreen extends StatelessWidget {
         title: Text('Remove sync connection',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: Text(
-          'This unlinks "${repo.localPath.split('/').last}" from your desktop '
-          '$kGenericAppLabel $kContainerName. The $kContainerName and its '
-          'files stay on this phone.',
+          // 2026-08-28: was always "$kGenericAppLabel $kContainerName"
+          // ("PKM vault") regardless of the actual repo - wrong for a
+          // Tier 0 generic-folder repo, which has neither. Branches on
+          // the real repo's own syncMode, same field already used to
+          // decide obsidianVaultPath when the repo was created.
+          repo.syncMode == SyncMode.genericFolder
+              ? 'This unlinks "${repo.localPath.split('/').last}" from your '
+                  'desktop folder. The folder and its files stay on this '
+                  'phone.'
+              : 'This unlinks "${repo.localPath.split('/').last}" from your '
+                  'desktop $kGenericAppLabel $kContainerName. The '
+                  '$kContainerName and its files stay on this phone.',
           style: TextStyle(color: kTextMid, fontSize: 15),
         ),
         actions: [
