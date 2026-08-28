@@ -1759,7 +1759,15 @@ class _CompleteViewState extends State<_CompleteView>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Your notes have arrived!',
+              // 2026-08-28: real feedback, live - this heading was
+              // hardcoded regardless of mode, even though the body text
+              // right below it already correctly said "files" for Tier
+              // 0 (see the syncMode ternary a few lines down) - same
+              // class of bug already fixed there, just missed here.
+              Text(
+                  widget.ctrl.syncMode == SyncMode.genericFolder
+                      ? 'Your files have arrived!'
+                      : 'Your notes have arrived!',
                   style: TextStyle(
                       color: kStar, fontSize: 28, fontWeight: FontWeight.w800)),
               const SizedBox(width: 10),

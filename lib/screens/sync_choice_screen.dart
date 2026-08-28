@@ -156,7 +156,11 @@ class _SettingsNudge extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('First time? Check your desktop connection first',
+                    // 2026-08-28: real feedback, live - "remove the word
+                    // first" (the trailing one, at the end of the
+                    // sentence - redundant next to "First time?" already
+                    // opening it).
+                    Text('First time? Check your desktop connection',
                         style: TextStyle(
                             color: kStar, fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
