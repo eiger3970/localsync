@@ -266,6 +266,21 @@ class _IdleViewState extends State<_IdleView>
   Future<void> _skipStage1IfAlreadyPaired() async {
     final already = await widget.ctrl.hasExistingKeypair();
     if (!mounted || !already) return;
+    // 2026-08-28: real feedback, live - "I need informed users." This
+    // skip is safe (no SSH/sudo runs on this path - startLinking() /
+    // startLinkingGenericFolder() go straight through the existing
+    // keypair, never touching PairingController), but it looked like
+    // random skipping with zero explanation, including the consent
+    // screen never showing up - confusing, even though nothing risky
+    // happened. A brief note instead of silence.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Already paired with this desktop - skipping ahead',
+            style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
+        backgroundColor: kGreen,
+        duration: const Duration(seconds: 3),
+      ),
+    );
     setState(() => _paired = true);
     if (widget.ctrl.preferredMode == SyncMode.genericFolder) {
       widget.ctrl.startLinkingGenericFolder();
