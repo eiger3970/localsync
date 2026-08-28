@@ -295,6 +295,23 @@ class LinkingController extends ChangeNotifier {
     }
   }
 
+  // 2026-08-28: real feedback, live - "tier0 or obsidian have both
+  // paired with key and desktop password right? that step... isn't
+  // needed" for a returning user. LinkingScreen's own Stage 1 (drag key
+  // into lock + retype desktop password) always started from scratch
+  // on every entry, with nothing checking whether this phone already
+  // has a working keypair from an earlier pairing - true for the IAP
+  // unlock path specifically, but really for any return visit
+  // (kebab menu's "add another", too). Same file-existence check
+  // _checkPairing/_checkPairingGeneric above already use, exposed
+  // publicly so LinkingScreen's initState can skip Stage 1 entirely
+  // when it would just be repeating a completed step.
+  Future<bool> hasExistingKeypair() async {
+    final privateKeyPath = await SshKeyPaths.privateKeyPath();
+    final publicKeyPath = await SshKeyPaths.publicKeyPath();
+    return _keypairExists(privateKeyPath, publicKeyPath);
+  }
+
   // 2026-08-27: Tier 0's pairing check - same keypair precondition as
   // _checkPairing above, deliberately duplicated rather than adding a
   // third branch to that method's newVault bool, since the two are
@@ -482,20 +499,36 @@ class LinkingController extends ChangeNotifier {
   // screen (2.1-2.6) - what the user does inside iOS's native document
   // picker after tapping VAULT FOLDER, which Localsync has no
   // visibility into once it's open.
-  List<String> get vaultFolderSteps => [
-        'swipe up to open VAULT FOLDER',
-        'tap Browse',
-        'tap On My iPhone (Browse/Locations/On My iPhone)',
-        'tap $kNoteAppName folder',
-        'tap the vault',
-        'tap Open',
-        // 2026-08-15: was a separate warning Text below the checklist -
-        // folded into the checklist itself per explicit direction, even
-        // though it's not an action to perform (it's a heads-up), so
-        // the whole sequence lives in one tickable list rather than
-        // being split across two different UI elements.
-        'phone will pause up to a minute, downloading your notes',
-      ];
+  // 2026-08-28: found still hardcoded to the Obsidian vault flow even
+  // after Tier 0 (startLinkingGenericFolder) was added 2026-08-27 to
+  // reuse this same step - a generic-folder user has no vault/On My
+  // iPhone/$kNoteAppName folder to navigate to, so the old text was
+  // just wrong for that flow, not merely unpolished. Now mode-aware;
+  // the underlying native picker (_vaultFolder.pickFolder()) was
+  // always folder-agnostic, only this copy wasn't.
+  List<String> get vaultFolderSteps => _syncMode == SyncMode.genericFolder
+      ? [
+          'swipe up to open the folder picker',
+          'tap Browse',
+          'navigate to the folder you want to sync',
+          'tap the folder to select it',
+          'tap Open',
+          'phone will pause up to a minute, checking the folder',
+        ]
+      : [
+          'swipe up to open VAULT FOLDER',
+          'tap Browse',
+          'tap On My iPhone (Browse/Locations/On My iPhone)',
+          'tap $kNoteAppName folder',
+          'tap the vault',
+          'tap Open',
+          // 2026-08-15: was a separate warning Text below the checklist -
+          // folded into the checklist itself per explicit direction, even
+          // though it's not an action to perform (it's a heads-up), so
+          // the whole sequence lives in one tickable list rather than
+          // being split across two different UI elements.
+          'phone will pause up to a minute, downloading your notes',
+        ];
 
   // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit
   // direction - there are exactly two real user actions in this whole
@@ -519,9 +552,23 @@ class LinkingController extends ChangeNotifier {
               '${vaultCreationSteps.join(' → ')}\n\n'
               'Come back here when you\'re done.',
 
-        LinkingStep.pickingVaultFolder =>
-          '2 of 2: tap the vault you just created:\n\n'
-              '${vaultFolderSteps.join(' → ')}',
+        LinkingStep.pickingVaultFolder => _syncMode == SyncMode.genericFolder
+            // 2026-08-28: real feedback - a generic-folder user picking
+            // an existing, already-messy folder (Downloads, Camera
+            // Roll exports, etc.) is a fair worry, and this app has no
+            // way to filter what the native picker shows. Can't offer
+            // real presets (no "Documents" folder is guaranteed to
+            // exist on a given phone), so this gives the one piece of
+            // durable advice that works everywhere instead: dedicate a
+            // fresh, empty folder rather than reusing a full one.
+            ? 'pick the folder to sync:\n\n'
+                '${vaultFolderSteps.join(' → ')}\n\n'
+                'Tip: pick or create an empty folder just for this '
+                '(e.g. a new "Sync" folder), rather than an existing '
+                'folder full of other files - keeps things tidy as it '
+                'grows.'
+            : '2 of 2: tap the vault you just created:\n\n'
+                '${vaultFolderSteps.join(' → ')}',
         _ => null,
       };
 

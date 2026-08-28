@@ -241,6 +241,28 @@ class _IdleViewState extends State<_IdleView>
     );
     _passwordCtrl.addListener(() => setState(() {}));
     _confirmCtrl.addListener(() => setState(() {}));
+    _skipStage1IfAlreadyPaired();
+  }
+
+  // 2026-08-28: real feedback, live - a returning user (Tier 0 buying
+  // the Obsidian unlock, or "add another vault" from the kebab menu)
+  // already has a working keypair from an earlier pairing - re-dragging
+  // the key into the lock and retyping the desktop password was pure
+  // repetition, not a real precondition. Same local keypair-file check
+  // _checkPairing/_checkPairingGeneric already gate on, just run early
+  // enough to skip Stage 1's gesture entirely instead of requiring it
+  // and then re-verifying the same thing a moment later. Mirrors
+  // _pairThenLink's own tail exactly (same mode branch, same start
+  // calls) - just reached without the drag+password round trip.
+  Future<void> _skipStage1IfAlreadyPaired() async {
+    final already = await widget.ctrl.hasExistingKeypair();
+    if (!mounted || !already) return;
+    setState(() => _paired = true);
+    if (widget.ctrl.preferredMode == SyncMode.genericFolder) {
+      widget.ctrl.startLinkingGenericFolder();
+    } else {
+      widget.ctrl.startLinking();
+    }
   }
 
   @override
@@ -798,7 +820,17 @@ class _IdleViewState extends State<_IdleView>
 
           // Heading always full color/opacity - same fix as Stage 2's
           // heading above.
-          Text('3. SET UP VAULT',
+          // 2026-08-28: real feedback, live - a Tier 0 user is linking a
+          // plain folder, not a vault, and the glyph directly below this
+          // heading already knew that (preferredMode ternary a few lines
+          // down) - this heading was the one piece of Stage 3 still
+          // hardcoded to vault language regardless of mode. Wording is
+          // exact, given directly - "3. SET UP FOLDER SYNC", not a
+          // paraphrase.
+          Text(
+              widget.ctrl.preferredMode == SyncMode.genericFolder
+                  ? '3. SET UP FOLDER SYNC'
+                  : '3. SET UP VAULT',
               style: TextStyle(
                   color: kGreen,
                   fontSize: 11,
@@ -892,9 +924,14 @@ class _IdleViewState extends State<_IdleView>
                                     SyncMode.genericFolder
                                 ? Icons.folder_outlined
                                 : Icons.auto_stories_rounded,
+                            // 2026-08-28: real feedback, live - exact
+                            // wording given directly, "Folder sync", not
+                            // "files" - matches the new "3. SET UP FOLDER
+                            // SYNC" heading above rather than drifting
+                            // from it.
                             label: widget.ctrl.preferredMode ==
                                     SyncMode.genericFolder
-                                ? 'files'
+                                ? 'Folder sync'
                                 : '$kGenericAppLabel $kContainerName',
                             caption: 'this phone',
                             width: glyphWidth,
@@ -1052,7 +1089,14 @@ class _ParkedViewState extends State<_ParkedView> {
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
       LinkingStep.awaitingVaultCreation => 'Create your $kContainerName',
-      LinkingStep.pickingVaultFolder => 'Select your $kContainerName',
+      // 2026-08-28: generic-folder mode never reaches
+      // awaitingVaultCreation (skips straight here, see
+      // startLinkingGenericFolder), so only this branch needed the
+      // syncMode check - matches the convention already used for
+      // obsidianVaultPath in _saveRepository below.
+      LinkingStep.pickingVaultFolder => ctrl.syncMode == SyncMode.genericFolder
+          ? 'Select your folder'
+          : 'Select your $kContainerName',
       _ => 'Your turn',
     };
 
@@ -1691,55 +1735,72 @@ class _CompleteViewState extends State<_CompleteView>
             // the user to type that specific name (see
             // vaultCreationSteps). Uses the actual picked folder's
             // name, same value OPEN OBSIDIAN below now deep-links to.
-            'Your notes have been downloaded into\n'
-            '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
-            'vault in $kNoteAppName.',
+            // 2026-08-28: branched on syncMode - a Tier 0 user may have
+            // no $kNoteAppName installed at all (see
+            // startLinkingGenericFolder's doc comment), so "vault in
+            // Obsidian" was an actively wrong claim for that flow, not
+            // just unpolished copy.
+            widget.ctrl.syncMode == SyncMode.genericFolder
+                ? 'Your files have been synced into\n'
+                    '"${widget.ctrl.pickedVaultPath?.split('/').last ?? 'folder'}".'
+                : 'Your notes have been downloaded into\n'
+                    '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
+                    'vault in $kNoteAppName.',
             style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          // 2026-08-15: real device feedback - reaching this screen and
-          // tapping OPEN OBSIDIAN used to hand the user off with zero
-          // guidance for what happens next inside Obsidian. Confirmed
-          // live: because the clone just brought in the desktop vault's
-          // real .obsidian/plugins/ folder, Obsidian shows a one-time
-          // "trust this vault's plugins" prompt before it'll index -
-          // this never appeared on page 3's empty, plugin-free vault,
-          // only here, after real content exists. Wording below is the
-          // exact on-screen text from the live run (also matches the
-          // user's own older sync research - "Trust author and enable
-          // plugins" - which flagged this same step in other contexts,
-          // just never mapped onto this specific screen before now).
-          Text('Finish up in Obsidian:',
-              style: TextStyle(
-                  color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-          // 2026-08-15: expanded to include the two swipe actions
-          // themselves (3.0, 3.5) and the background-switch back to
-          // Localsync (3.4) per explicit direction, so the checklist is
-          // a complete, self-contained record of every physical action
-          // in the sequence - not just the three that happen inside
-          // Obsidian. 3.0 (OPEN OBSIDIAN) is now embedded directly in
-          // the checklist as a real swipe-up gesture, same as page 3's
-          // 1.1, instead of a separate button below.
-          // 2026-08-18: "3.5 swipe, delete" - dropped the trailing
-          // checklist line entirely, matching page 2's I'VE CREATED IT
-          // (no checklist line at all for the confirm action, just the
-          // standalone gif control below).
-          _StepChecklist(
-            key: const ValueKey(3),
-            groupNumber: 3,
-            startIndex: 0,
-            swipeActions: {0: widget.ctrl.openObsidianNow},
-            steps: const [
-              'swipe up to open $kNoteAppName',
-              'tap Trust author and enable plugins',
-              'wait for Indexing vault... to finish',
-              'tap X to skip Community plugins (set up later)',
-              'return to Localsync app',
-            ],
-          ),
-          const SizedBox(height: 16),
+          // 2026-08-28: the whole "Finish up in Obsidian" section below
+          // (trust-plugins prompt, indexing wait, community-plugins
+          // skip) only makes sense for an actual Obsidian vault - a
+          // Tier 0 generic-folder user has nothing to finish inside
+          // Obsidian, and may not have it installed at all, so this
+          // entire block is skipped for that mode rather than just
+          // reworded. Falls straight to the leave-setup swipe below.
+          if (widget.ctrl.syncMode != SyncMode.genericFolder) ...[
+            // 2026-08-15: real device feedback - reaching this screen and
+            // tapping OPEN OBSIDIAN used to hand the user off with zero
+            // guidance for what happens next inside Obsidian. Confirmed
+            // live: because the clone just brought in the desktop vault's
+            // real .obsidian/plugins/ folder, Obsidian shows a one-time
+            // "trust this vault's plugins" prompt before it'll index -
+            // this never appeared on page 3's empty, plugin-free vault,
+            // only here, after real content exists. Wording below is the
+            // exact on-screen text from the live run (also matches the
+            // user's own older sync research - "Trust author and enable
+            // plugins" - which flagged this same step in other contexts,
+            // just never mapped onto this specific screen before now).
+            Text('Finish up in Obsidian:',
+                style: TextStyle(
+                    color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            // 2026-08-15: expanded to include the two swipe actions
+            // themselves (3.0, 3.5) and the background-switch back to
+            // Localsync (3.4) per explicit direction, so the checklist is
+            // a complete, self-contained record of every physical action
+            // in the sequence - not just the three that happen inside
+            // Obsidian. 3.0 (OPEN OBSIDIAN) is now embedded directly in
+            // the checklist as a real swipe-up gesture, same as page 3's
+            // 1.1, instead of a separate button below.
+            // 2026-08-18: "3.5 swipe, delete" - dropped the trailing
+            // checklist line entirely, matching page 2's I'VE CREATED IT
+            // (no checklist line at all for the confirm action, just the
+            // standalone gif control below).
+            _StepChecklist(
+              key: const ValueKey(3),
+              groupNumber: 3,
+              startIndex: 0,
+              swipeActions: {0: widget.ctrl.openObsidianNow},
+              steps: const [
+                'swipe up to open $kNoteAppName',
+                'tap Trust author and enable plugins',
+                'wait for Indexing vault... to finish',
+                'tap X to skip Community plugins (set up later)',
+                'return to Localsync app',
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           Center(
             // 2026-08-18: "bottom needs the same progress_person/dog
             // and when swiped the progress_running.gif takes over" -
