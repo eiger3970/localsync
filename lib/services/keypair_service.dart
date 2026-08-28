@@ -7,6 +7,7 @@
 import 'dart:io';
 import 'package:cryptography/cryptography.dart';
 import 'package:openssh_ed25519/openssh_ed25519.dart';
+import 'file_backup_exclusion.dart';
 import 'ssh_key_paths.dart';
 
 class KeypairService {
@@ -21,6 +22,14 @@ class KeypairService {
     final publicFile  = File(publicPath);
 
     if (await privateFile.exists() && await publicFile.exists()) {
+      // 2026-08-28: real feedback, live - a device that already has a
+      // keypair from BEFORE this fix existed (an in-place app upgrade,
+      // not a fresh reinstall) would otherwise never get the exclusion
+      // applied, since generation only happens once. Idempotent to call
+      // again if it's already excluded, so this runs every time
+      // regardless of which branch below is taken.
+      await FileBackupExclusion.exclude(privatePath);
+      await FileBackupExclusion.exclude(publicPath);
       return publicFile.readAsString();
     }
 
@@ -49,6 +58,13 @@ class KeypairService {
     } catch (_) {
       // Not fatal - e.g. not available on this platform.
     }
+
+    // 2026-08-28: real feedback, live - close off private key material
+    // ever being included in a device backup (see
+    // file_backup_exclusion.dart's header for the full reasoning).
+    // Best-effort, same as the chmod above.
+    await FileBackupExclusion.exclude(privatePath);
+    await FileBackupExclusion.exclude(publicPath);
 
     return publicLine;
   }
