@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
 import 'sync_service.dart'
@@ -130,10 +131,50 @@ class GitServiceImpl implements GitService {
 
   bool get _isCloned => Directory('$localVaultPath/.git').existsSync();
 
+  // 2026-08-28: real feedback, live - "ain't nobody got time for that. The
+  // app needs to do it all." docs/desktop-setup.md's manual `git init
+  // --bare` step (a terminal command, on the desktop) was the only way a
+  // fresh bare repo ever got created - this app has never automated it.
+  // By the time this runs, pairing has already installed the phone's key
+  // on the desktop (features/pairing/), so it has everything needed to do
+  // this itself over the same SSH access instead. Idempotent and
+  // non-destructive: `rev-parse --git-dir` only fails (and `git init
+  // --bare` only runs) when nothing valid exists there yet - a bare repo
+  // that already exists, with real history, is never touched.
+  Future<void> _ensureBareRepoExists() async {
+    final socket = await SSHSocket.connect(sshHost, sshPort,
+        timeout: const Duration(seconds: 15));
+    final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+    final client = SSHClient(
+      socket,
+      username: sshUser,
+      identities: SSHKeyPair.fromPem(
+          privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+    );
+    try {
+      // Single-quoted, with any embedded single-quote escaped - same
+      // precedent as pairing_controller.dart's own remote command
+      // (bareRepoPath is a Settings value the user typed, not attacker
+      // input, but escaping costs nothing here either).
+      final escaped = bareRepoPath.replaceAll("'", r"'\''");
+      final command = "mkdir -p \"\$(dirname '$escaped')\" && "
+          "(git --git-dir='$escaped' rev-parse --git-dir >/dev/null 2>&1 || "
+          "git init --bare '$escaped')";
+      final res = await client.runWithResult(command);
+      if (res.exitCode != 0) {
+        throw Exception('Could not prepare bare repo on desktop: '
+            'exit ${res.exitCode}: ${String.fromCharCodes(res.stderr)}');
+      }
+    } finally {
+      client.close();
+    }
+  }
+
   @override
   Future<StepResult> pullFromBareRepo() async {
     await _ensurePlatformInitialized();
     try {
+      await _ensureBareRepoExists();
       if (!_isCloned) {
         // Was Repository.clone() until 2026-08-09 - required an empty
         // target directory, but localVaultPath is now the user's own
