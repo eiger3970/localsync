@@ -229,6 +229,13 @@ class _IdleViewState extends State<_IdleView>
   // KeyPairingTrigger directly, the same widget PairingScreen and this
   // file's own diagnostics-retry flow already use successfully.
   bool _paired = false;
+  // 2026-08-28: real feedback, live - the consent check used to run
+  // inside _pairThenLink() (Stage 3's drag), which meant it appeared
+  // AFTER the password was already typed into Stage 2 - the opposite of
+  // "before you type your password". Resolved here instead, the moment
+  // Stage 1 settles and Stage 2 is about to unlock, then reused by
+  // _pairThenLink() below rather than asked twice.
+  bool? _allowAutoInstallGit;
 
   @override
   void initState() {
@@ -267,6 +274,30 @@ class _IdleViewState extends State<_IdleView>
     }
   }
 
+  // 2026-08-28: real feedback, live - "Password warning appears after
+  // I've already entered the password, and only after completing step
+  // 3. Introduce the warning when step 2 activates." Stage 1's own drag
+  // is purely ceremonial (see pairing_controller.dart's own comment on
+  // that) - the real moment to ask is right here, before Stage 2's
+  // password fields unlock, not after Stage 3's drag when the password
+  // is already sitting typed in the field. Resolved once here and
+  // reused by _pairThenLink() below, rather than asked twice.
+  Future<void> _onKeyPairingSettled() async {
+    var allow = await DatabaseService().getGitAutoInstallChoice();
+    if (allow == null) {
+      if (!mounted) return;
+      final decided = await showGitInstallConsent(context);
+      if (decided == null) return; // cancelled - Stage 2 stays locked
+      await DatabaseService().setGitAutoInstallChoice(decided);
+      allow = decided;
+    }
+    if (!mounted) return;
+    setState(() {
+      _allowAutoInstallGit = allow;
+      _paired = true;
+    });
+  }
+
   @override
   void dispose() {
     _pulseCtrl.dispose();
@@ -281,19 +312,12 @@ class _IdleViewState extends State<_IdleView>
   // two real actions, no intermediate screen. On failure, shows the
   // error inline on this same screen instead of navigating away.
   Future<void> _pairThenLink() async {
-    // 2026-08-28: real feedback, live - "normies need to be 100%
-    // informed" before this app ever runs a privileged command with
-    // their password. Asked once (DatabaseService remembers the
-    // answer), not every pairing - but resolved BEFORE the password is
-    // even sent anywhere, never defaulted silently.
-    var allowAutoInstallGit = await DatabaseService().getGitAutoInstallChoice();
-    if (allowAutoInstallGit == null) {
-      if (!mounted) return;
-      final decided = await showGitInstallConsent(context);
-      if (decided == null) return; // cancelled - real choice, not a nag
-      await DatabaseService().setGitAutoInstallChoice(decided);
-      allowAutoInstallGit = decided;
-    }
+    // 2026-08-28: consent is now resolved earlier, in
+    // _onKeyPairingSettled() above (Stage 1 -> 2, before any password is
+    // typed) - _allowAutoInstallGit is always set by the time Stage 3's
+    // drag can even fire, since Stage 3 stays locked until _paired is
+    // true, which only happens after that consent step resolves.
+    assert(_allowAutoInstallGit != null);
 
     setState(() {
       _pairing = true;
@@ -303,7 +327,7 @@ class _IdleViewState extends State<_IdleView>
     unawaited(_shredKey1.currentState?.shred());
     unawaited(_shredKey2.currentState?.shred());
     await _pairingCtrl.pairWithPassword(password,
-        allowAutoInstallGit: allowAutoInstallGit);
+        allowAutoInstallGit: _allowAutoInstallGit!);
     if (!mounted) return;
     final result = _pairingCtrl.result;
     if (result is StepFailure) {
@@ -537,7 +561,7 @@ class _IdleViewState extends State<_IdleView>
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis),
           onConfirm: () async {},
-          onSettled: () => setState(() => _paired = true),
+          onSettled: _onKeyPairingSettled,
         ),
       ),
     ];

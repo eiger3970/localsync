@@ -63,6 +63,14 @@ class _PairingScreenState extends State<PairingScreen> {
   // list linking_screen.dart already had. Same counter/scoping as there -
   // see passwordRetryMessage in linking_state.dart.
   int _pairAttempts = 0;
+  // 2026-08-28: real feedback, live - "Introduce the warning when step 2
+  // activates" - LinkingScreen's embedded flow has a real Stage 1 -> 2
+  // gate to hook into; this screen has no such stage split (the password
+  // field is on screen from the very start), so the equivalent here is
+  // resolving consent before the screen's first frame is even
+  // interactive - both fields below stay disabled until this is
+  // non-null, not just gated at submit time.
+  bool? _allowAutoInstallGit;
 
   @override
   void initState() {
@@ -73,6 +81,27 @@ class _PairingScreenState extends State<PairingScreen> {
     );
     _ctrl.addListener(_onChange);
     _passwordCtrl.addListener(_onChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveGitConsent());
+  }
+
+  Future<void> _resolveGitConsent() async {
+    final stored = await DatabaseService().getGitAutoInstallChoice();
+    if (!mounted) return;
+    if (stored != null) {
+      setState(() => _allowAutoInstallGit = stored);
+      return;
+    }
+    final decided = await showGitInstallConsent(context);
+    if (!mounted) return;
+    if (decided == null) {
+      // Cancelled - real choice, not a nag. Fields stay disabled;
+      // backing out of this screen entirely is the only way forward,
+      // same as declining leaves LinkingScreen's Stage 2 locked.
+      return;
+    }
+    await DatabaseService().setGitAutoInstallChoice(decided);
+    if (!mounted) return;
+    setState(() => _allowAutoInstallGit = decided);
   }
 
   void _onChange() => setState(() {});
@@ -145,7 +174,9 @@ class _PairingScreenState extends State<PairingScreen> {
           // can be pixel-aligned to the key/lock's actual rest row
           // instead of positioned externally by guesswork.
           canvas: KeyPairingTrigger(
-            enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+            enabled: _allowAutoInstallGit != null &&
+                !_ctrl.isRunning &&
+                _passwordCtrl.text.isNotEmpty,
             onConfirm: _pair,
             leadingBadge: const _StepBadge(2),
           ),
@@ -188,7 +219,7 @@ class _PairingScreenState extends State<PairingScreen> {
                       child: ShreddingPasswordField(
                         key: _shredKey,
                         controller: _passwordCtrl,
-                        enabled: !_ctrl.isRunning,
+                        enabled: _allowAutoInstallGit != null && !_ctrl.isRunning,
                       ),
                     ),
                   ],
@@ -313,21 +344,15 @@ class _PairingScreenState extends State<PairingScreen> {
   Future<void> _pair() async {
     final password = _passwordCtrl.text;
     if (password.isEmpty) return;
-
-    // 2026-08-28: same consent gate as LinkingScreen's own _pairThenLink()
-    // - asked once, remembered, never defaulted silently either way.
-    var allowAutoInstallGit = await DatabaseService().getGitAutoInstallChoice();
-    if (allowAutoInstallGit == null) {
-      if (!mounted) return;
-      final decided = await showGitInstallConsent(context);
-      if (decided == null) return;
-      await DatabaseService().setGitAutoInstallChoice(decided);
-      allowAutoInstallGit = decided;
-    }
+    // 2026-08-28: consent is resolved in _resolveGitConsent() before this
+    // screen's fields are even enabled (see initState) - always set by
+    // the time a real submit can fire.
+    assert(_allowAutoInstallGit != null);
 
     final shredding = _shredKey.currentState?.shred();
     if (shredding != null) unawaited(shredding);
-    await _ctrl.pairWithPassword(password, allowAutoInstallGit: allowAutoInstallGit);
+    await _ctrl.pairWithPassword(password,
+        allowAutoInstallGit: _allowAutoInstallGit!);
     if (mounted && _ctrl.result is StepFailure) {
       setState(() => _pairAttempts++);
     }
