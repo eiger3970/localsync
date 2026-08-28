@@ -372,26 +372,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     controller: _pathCtrl,
                     style: TextStyle(color: kStar, fontSize: 14),
                     decoration: InputDecoration(
-                      labelText: 'Git bare repo path',
+                      // 2026-08-28: real feedback, live - "Git bare repo
+                      // path... big word for newbies, need to add
+                      // something basic." Kept the real technical name
+                      // (still matches docs/desktop-setup.md and what a
+                      // desktop terminal command would reference) but
+                      // added the plain-language version alongside it
+                      // rather than replacing it outright.
+                      labelText: 'Git bare repo path (folder sharing to your phone)',
                       labelStyle: TextStyle(
-                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: floatingLabelStyle fix - "text must
                       // be larger than /home/rapi5/Documents/Git/pi5-
                       // obsidia..." - see the field below for why this
                       // is needed even though labelStyle already says 18.
                       floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "what does
                       // this even mean, make it clearer" on "For the
                       // next vault you link". Spells out the actual
                       // scope (only future links, not existing ones) -
                       // see RepositoryProvider's own comment on
                       // setBareRepoPath for the same explanation.
-                      helperText: 'Applies to the next vault you link - '
+                      // 2026-08-28: real feedback, live - "what's the
+                      // difference between a Vault and a Folder... Tier
+                      // 0 uses need the word Folder throughout, Vault is
+                      // a term for experts" (and a totally different
+                      // Bitwarden product to a newbie besides). Settings
+                      // isn't mode-scoped - it can't know in advance
+                      // whether the next link will be Tier 0 or Obsidian
+                      // - so "folder" here, being generically true of an
+                      // Obsidian vault too, is the safer plain-language
+                      // default rather than "vault" confusing the far
+                      // more common Tier 0 case.
+                      helperText: 'Applies to a new folder you link - '
                           'existing links are unaffected',
                       helperMaxLines: 2,
                       helperStyle: TextStyle(color: kTextMid, fontSize: 13),
-                      hintText: '/home/user/Git_bare_repo/name.git',
+                      hintText: '/home/user/Documents/Git/LocalSync/sync.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
                       // i" instead of a "?" - Icons.info_outline reads
@@ -426,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
                             ('New setup? Just type any path here, e.g. '
-                                    '~/Documents/Git/LocalSync/vault.git - '
+                                    '~/Documents/Git/LocalSync/sync.git - '
                                     'it gets created automatically the '
                                     'first time you pair, nothing to run '
                                     'yourself',
@@ -439,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             if (_pathCtrl.text.trim().isNotEmpty)
                               ('Currently set to: ${_pathCtrl.text.trim()}', false)
                             else
-                              ('Your real vault is usually the one you '
+                              ('Your real folder is usually the one you '
                                       'set up first',
                                   false),
                           ],
@@ -477,8 +495,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return;
                   }
                   setState(() {
+                    // 2026-08-28: real feedback, live - "vault is a term
+                    // for experts... newbies need Folder throughout"
+                    // (and a totally different Bitwarden product besides
+                    // - genuinely confusing, not just jargon). Was
+                    // vault.git.
                     _pathCtrl.text =
-                        '/home/$user/Documents/Git/LocalSync/vault.git';
+                        '/home/$user/Documents/Git/LocalSync/sync.git';
                     _pathError = null;
                   });
                 },

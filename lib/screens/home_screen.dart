@@ -1239,26 +1239,43 @@ class _AppBarRepoStatus extends StatelessWidget {
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  // 2026-08-28, follow-up real feedback, live - "possible
+                  // to vertically centre?" The dot used a manual top-2px
+                  // nudge tuned for single-line text only; once the name
+                  // wraps to 2 lines that nudge left it pinned near the
+                  // top instead of centred against the taller block.
+                  // Plain .center cross-axis alignment centres it against
+                  // whatever height the name actually ends up being,
+                  // 1 line or 2, no manual offset needed.
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: isSyncing
-                          ? const _SpinningSync()
-                          : _StatusDot(status: repo.status),
-                    ),
+                    isSyncing
+                        ? const _SpinningSync()
+                        : _StatusDot(status: repo.status),
                     const SizedBox(width: 6),
                     // 2026-08-28: real feedback, live - "show the full
                     // name... maybe it needs 2 lines." Fixed 110px cap
                     // (2026-08-20) replaced with nameMaxWidth, the real
-                    // width LayoutBuilder measured above - still an
-                    // explicit ConstrainedBox (same reasoning as the
-                    // 2026-08-20 comment this replaces: Center doesn't
-                    // clip an overflowing child, so this still can't be
-                    // skipped), just no longer a guessed constant. Wraps
-                    // to 2 lines instead of truncating to 1.
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: nameMaxWidth),
+                    // width LayoutBuilder measured above.
+                    //
+                    // 2026-08-28, follow-up real feedback, live - "too
+                    // much space to the right [[of the name, before the
+                    // kebab]]." ConstrainedBox(maxWidth:) only caps the
+                    // width, it doesn't claim it - a short name (e.g.
+                    // "Files needed on...") sized to its own natural
+                    // content, leaving the outer Row narrower than
+                    // nameMaxWidth. Since the whole widget sits inside a
+                    // Center (home_screen.dart's AppBar title), a
+                    // narrower-than-expected block gets centred off to
+                    // the left of where it visually should sit, reading
+                    // as a lopsided gap before the kebab. SizedBox
+                    // instead of ConstrainedBox makes the name actually
+                    // OCCUPY the full computed width (text left-aligned
+                    // within it, still wrapping/ellipsizing as needed),
+                    // so the Row's real width is deterministic and
+                    // Center behaves symmetrically.
+                    SizedBox(
+                      width: nameMaxWidth,
                       child: Text(
                         repo.name,
                         style: TextStyle(
