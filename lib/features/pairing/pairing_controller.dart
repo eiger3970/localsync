@@ -33,7 +33,15 @@ class PairingController extends ChangeNotifier {
   bool         get isRunning => _isRunning;
   StepResult?  get result    => _result;
 
-  Future<void> pairWithPassword(String password) async {
+  // 2026-08-28: real feedback, live - "normies need to be 100% informed"
+  // before this app ever runs a privileged command with their password -
+  // allowAutoInstallGit is the real, explicit choice from a new consent
+  // screen (git_install_consent.dart), backed by
+  // DatabaseService.getGitAutoInstallChoice()/setGitAutoInstallChoice()
+  // so it's asked once, not every pairing, but never defaulted silently
+  // either way.
+  Future<void> pairWithPassword(String password,
+      {required bool allowAutoInstallGit}) async {
     _isRunning = true;
     _result    = null;
     notifyListeners();
@@ -61,7 +69,37 @@ class PairingController extends ChangeNotifier {
       // "ssh-ed25519 " prefix + " localsync" suffix), not attacker input,
       // but escaping costs nothing and avoids relying on that assumption.
       final escaped = publicKeyLine.replaceAll("'", r"'\''");
-      final command =
+      // 2026-08-28: real feedback, live - "normies need computer with git
+      // ... this needs a better setup." This is the one moment the app
+      // ever has the desktop login password in memory (never stored,
+      // discarded right after this call) - the only point a `sudo`
+      // install can authenticate itself without a second prompt. Assumes
+      // the login password is also the sudo password, true for the
+      // single personal-desktop-account threat model this whole pairing
+      // design already targets (see git_service.dart's cert-check
+      // comment for the same stated assumption). Debian-based only -
+      // macOS's real git install is Xcode Command Line Tools, an
+      // interactive GUI license-accept dartssh2 can't drive headlessly,
+      // so this leaves that path alone rather than half-automate it and
+      // fail confusingly; unsupported-OS case still surfaces as a real,
+      // diagnosable exit code instead of a silent no-op.
+      final escapedPassword = password.replaceAll("'", r"'\''");
+      // 2026-08-28, follow-up: allowAutoInstallGit false (the user chose
+      // "I'll install it myself" on the consent screen) still checks for
+      // git - just never attempts sudo either way. exit 4 is a new,
+      // distinct code for "declined automatic install", separate from
+      // exit 3's "can't automate on this OS at all" and exit 2's
+      // "attempted and failed".
+      final gitCheck = allowAutoInstallGit
+          ? 'if ! command -v git >/dev/null 2>&1; then '
+              '  if command -v apt-get >/dev/null 2>&1; then '
+              "    echo '$escapedPassword' | sudo -S apt-get install -y git >/dev/null 2>&1 || exit 2; "
+              '  else '
+              '    exit 3; '
+              '  fi; '
+              'fi && '
+          : 'command -v git >/dev/null 2>&1 || exit 4 && ';
+      final command = '$gitCheck'
           'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
           "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys && "
           'chmod 600 ~/.ssh/authorized_keys';
@@ -69,7 +107,39 @@ class PairingController extends ChangeNotifier {
       final res = await client.runWithResult(command);
       client.close();
 
-      if (res.exitCode != 0) {
+      if (res.exitCode == 4) {
+        // 2026-08-28: chose "I'll install it myself" on the consent
+        // screen, and git genuinely isn't there. Real command to run
+        // manually, not a vague "install git" - apt-get is the one
+        // package manager the consent screen's own dropdown already
+        // named as supported.
+        _result = const StepFailure(
+          LinkingError.unclassifiedError,
+          debugDetail: 'git is not installed on the desktop. Run this '
+              'yourself in a terminal on the desktop, then try pairing '
+              'again:\nsudo apt-get install -y git',
+        );
+      } else if (res.exitCode == 3) {
+        // 2026-08-28: this desktop has no git and no apt-get (macOS,
+        // most likely) - the auto-install path above deliberately
+        // doesn't attempt anything there (see its own comment). Real,
+        // specific guidance instead of the generic unclassifiedError
+        // catch-all below.
+        _result = const StepFailure(
+          LinkingError.unclassifiedError,
+          debugDetail: 'git is not installed and could not be installed '
+              'automatically on this desktop. On macOS, install the Xcode '
+              'Command Line Tools (run `git` once in Terminal and accept '
+              'the prompt), then try pairing again.',
+        );
+      } else if (res.exitCode == 2) {
+        _result = const StepFailure(
+          LinkingError.unclassifiedError,
+          debugDetail: 'Automatic git install failed on the desktop '
+              '(sudo password rejected, or apt-get itself failed). '
+              'Install git manually on the desktop, then try pairing again.',
+        );
+      } else if (res.exitCode != 0) {
         // 2026-08-23: real bug, found while investigating a separate
         // report - this reached connectionRefused for a command that
         // ran successfully (real TCP connect, real SSH auth, real
