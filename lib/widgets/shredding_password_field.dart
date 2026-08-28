@@ -23,11 +23,21 @@ class ShreddingPasswordField extends StatefulWidget {
   // always-on - "field 2 have stars once field1 has typing started" -
   // field 1 passes true always, field 2 passes a reactive condition.
   final bool showSparkle;
+  // 2026-08-28: real feedback, live - "Step 2 activates but then I have
+  // to tap the field, why doesn't the cursor activate ready to type?"
+  // Stage 2 unlocks dynamically (after Stage 1 settles + consent is
+  // answered), well after this widget's own initial build - a plain
+  // `autofocus: true` only fires on first mount, it wouldn't catch that
+  // later unlock. Caller-controlled FocusNode instead, so
+  // linking_screen.dart can call requestFocus() at the exact moment
+  // Stage 2 actually becomes usable.
+  final FocusNode? focusNode;
   const ShreddingPasswordField({
     super.key,
     required this.controller,
     this.enabled = true,
     this.showSparkle = false,
+    this.focusNode,
   });
 
   @override
@@ -123,6 +133,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
           opacity: _shredding ? 0 : 1,
           child: TextField(
             controller: widget.controller,
+            focusNode: widget.focusNode,
             obscureText: _obscure,
             enabled: widget.enabled && !_shredding,
             style: TextStyle(color: kStar),

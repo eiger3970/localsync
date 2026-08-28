@@ -309,10 +309,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'Desktop username',
+                      // 2026-08-28: real feedback, live - "Text is
+                      // higher than the lines: Desktop username is
+                      // above the text box." This field was new, still
+                      // on the original 18/19 sizing while "Git bare
+                      // repo path" right below it had already been
+                      // reduced to 15/15 for its own longer label text -
+                      // matched here for consistency across the whole
+                      // screen rather than guessing at the exact
+                      // rendering mechanism blind.
                       labelStyle: TextStyle(
-                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       helperText: 'The login username on your desktop - '
                           'what you\'d type to sign in there',
                       helperMaxLines: 2,
@@ -548,8 +557,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'IP address - desktop',
+                      // 2026-08-28: matched to the other two fields'
+                      // now-consistent 15/15 sizing (see Desktop
+                      // username's own comment above).
                       labelStyle: TextStyle(
-                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "text must be
                       // larger than 172.20.10.11." labelStyle alone
                       // only governs the label's un-floated resting
@@ -562,7 +574,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // the label rendered smaller than the 16px value
                       // text despite labelStyle already saying 18px.
                       floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
+                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live, two rounds.
                       // First round just reworded "Changes with Tether/
                       // Hotspot" without fixing the real bug - helperText

@@ -16,6 +16,7 @@ import '../constants.dart';
 import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
+import '../services/database_service.dart';
 import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import '../features/pairing/pairing_controller.dart';
@@ -30,6 +31,7 @@ import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
+import 'settings_screen.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
 // black screen" / "I swiped right [LOCALSYNC HOME] and blackscreen".
@@ -191,6 +193,11 @@ class _IdleViewState extends State<_IdleView>
   final _confirmCtrl = TextEditingController();
   final _shredKey1 = GlobalKey<ShreddingPasswordFieldState>();
   final _shredKey2 = GlobalKey<ShreddingPasswordFieldState>();
+  // 2026-08-28: real feedback, live - cursor should be ready to type the
+  // moment Stage 2 unlocks, not require an extra manual tap. See
+  // ShreddingPasswordField's own comment for why this has to be a
+  // caller-controlled FocusNode rather than autofocus.
+  final _passwordFocusNode = FocusNode();
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -235,6 +242,13 @@ class _IdleViewState extends State<_IdleView>
   // Stage 1 settles and Stage 2 is about to unlock, then reused by
   // _pairThenLink() below rather than asked twice.
   bool? _allowAutoInstallGit;
+  // 2026-08-28: real feedback, live - a "check Settings first" banner
+  // lived on SyncChoiceScreen for one day, reverted same day ("this is
+  // the welcome page, it needs warm fuzzy feelings, not technical mumbo
+  // jumbo"). The underlying need was real - moved here instead, Stage
+  // 1's own technical-setup context, where a Settings reminder actually
+  // belongs.
+  bool _needsSettings = false;
 
   @override
   void initState() {
@@ -250,6 +264,20 @@ class _IdleViewState extends State<_IdleView>
     _passwordCtrl.addListener(() => setState(() {}));
     _confirmCtrl.addListener(() => setState(() {}));
     _skipStage1IfAlreadyPaired();
+    _checkSettings();
+  }
+
+  Future<void> _checkSettings() async {
+    final db = DatabaseService();
+    final user = await db.getDesktopUser();
+    final ip = await db.getDesktopIp();
+    final path = await db.getBareRepoPath();
+    if (!mounted) return;
+    setState(() {
+      _needsSettings = (user == null || user.trim().isEmpty) &&
+          (ip == null || ip.trim().isEmpty) &&
+          (path == null || path.trim().isEmpty);
+    });
   }
 
   // 2026-08-28: real feedback, live - a returning user (Tier 0 buying
@@ -314,6 +342,14 @@ class _IdleViewState extends State<_IdleView>
       _allowAutoInstallGit = decided;
       _paired = true;
     });
+    // 2026-08-28: real feedback, live - "Step 2 activates but then I
+    // have to tap the field, why doesn't the cursor activate ready to
+    // type?" Scheduled for after this frame, not called inline here -
+    // the password field is still behind IgnorePointer(ignoring: true)
+    // until the setState above actually rebuilds, and requesting focus
+    // before that rebuild lands would be racing it.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _passwordFocusNode.requestFocus());
   }
 
   @override
@@ -321,6 +357,7 @@ class _IdleViewState extends State<_IdleView>
     _pulseCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
+    _passwordFocusNode.dispose();
     _pairingCtrl.dispose();
     super.dispose();
   }
@@ -535,6 +572,13 @@ class _IdleViewState extends State<_IdleView>
               ],
             ),
             const SizedBox(height: 24),
+            if (_needsSettings) ...[
+              _SettingsReminder(
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen())),
+              ),
+              const SizedBox(height: 20),
+            ],
             Text('1. PAIR YOUR DEVICE',
                 style: TextStyle(
                     color: kGreen,
@@ -707,6 +751,7 @@ class _IdleViewState extends State<_IdleView>
                           controller: _passwordCtrl,
                           enabled: !_pairing,
                           showSparkle: true,
+                          focusNode: _passwordFocusNode,
                         ),
                         Positioned(
                           left: -10,
@@ -2267,6 +2312,54 @@ class _PulsingDotsState extends State<_PulsingDots>
 // ── Device glyph (pictogram for source/destination) ──────────────────────────────
 
 // ── Scope checklist row ──────────────────────────────────────────────────────
+
+// 2026-08-28: real feedback, live - moved here from SyncChoiceScreen the
+// same day it was added there (see this class's own callers for the
+// full story). Stage 1's own technical-setup context, unlike the warm
+// first-hello screen, is the right place for a Settings reminder.
+class _SettingsReminder extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SettingsReminder({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: kSurface,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber, width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.settings_outlined, color: Colors.amber, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('First time? Check your desktop connection',
+                        style: TextStyle(
+                            color: kStar, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('Desktop username, IP address, and folder path',
+                        style: TextStyle(color: kTextMid, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: kTextDim, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _ScopeRow extends StatelessWidget {
   final String label;
