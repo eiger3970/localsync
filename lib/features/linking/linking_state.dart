@@ -300,10 +300,11 @@ extension LinkingErrorDetails on LinkingError {
               'If you already paired, the key may not have reached the desktop '
               '(interrupted connection) - pairing again is safe to repeat.',
         LinkingError.bareRepoNotFound =>
-          'On desktop, verify the bare repo exists at the path configured '
-              'in main.dart\'s bareRepoPath (ls ~/Documents/Git/pi5-obsidian/'
-              'Git_bare_repo/).\n\n'
-              'If missing, run Fresh Setup steps 1–10 on your desktop first.',
+          'Check Settings -> Git bare repo path. LocalSync creates this '
+              'folder automatically the first time you pair, so this '
+              'usually means the path was changed after that, or the '
+              'desktop account cannot write there.\n\n'
+              'On desktop, confirm the folder exists at that exact path.',
         LinkingError.obsidianNotInstalled =>
           'Install $kNoteAppName from the App Store.\n'
               'Then restart setup.',

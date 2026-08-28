@@ -17,6 +17,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
@@ -50,6 +51,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // any) was already tapped, rather than always looking untapped.
   String? _interestSelected;
 
+  // 2026-08-28: real feedback, live - a genuinely pushed/merged fix
+  // still read as "not applied" during device testing, traced to the
+  // build number never being bumped (see pubspec.yaml's own comment).
+  // Shown here so which build is actually installed is a glance, not
+  // a guess.
+  String? _versionLabel;
+
   // 2026-08-21: real auto-discovery, item 2 of the IAP build order -
   // scoped to the IP field only, see discovery_service.dart's header
   // for why. Unrestricted/free for now, same "build first, wire in
@@ -67,6 +75,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
+    });
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) {
+        setState(() =>
+            _versionLabel = 'v${info.version} (${info.buildNumber})');
+      }
     });
   }
 
@@ -672,6 +686,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ConflictPickerUpsell(purchases: context.watch<PurchaseService>()),
             const SizedBox(height: 28),
             _buildAutoDiscoveryCard(),
+            if (_versionLabel != null) ...[
+              const SizedBox(height: 20),
+              Center(
+                child: Text(_versionLabel!,
+                    style: TextStyle(color: kTextDim, fontSize: 11)),
+              ),
+            ],
           ],
         ),
       ),
