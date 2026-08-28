@@ -1274,18 +1274,39 @@ class _AppBarRepoStatus extends StatelessWidget {
                     // within it, still wrapping/ellipsizing as needed),
                     // so the Row's real width is deterministic and
                     // Center behaves symmetrically.
+                    // 2026-08-28: real feedback, live - "still don't
+                    // wrap" - a long real folder name (the user's own,
+                    // not app text) landing awkwardly split (one word
+                    // alone on line 1, the rest ellipsized on line 2)
+                    // read as broken rather than wrapped. Same fix this
+                    // codebase already uses for the identical problem
+                    // (settings_screen.dart's _SkinSwatch label,
+                    // 2026-08-25) - FittedBox scales the whole 2-line
+                    // block down just enough to actually fit, rather
+                    // than truncating at a fixed font size. maxLines
+                    // removed from the inner Text (it now wraps to
+                    // however many lines it naturally needs at 13px;
+                    // the outer height cap is what FittedBox scales
+                    // against) - a short name never triggers scaling at
+                    // all, renders exactly as before.
                     SizedBox(
                       width: nameMaxWidth,
-                      child: Text(
-                        repo.name,
-                        style: TextStyle(
-                            color: kStar,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2),
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: true,
-                        maxLines: 2,
+                      height: 32, // ~2 lines at fontSize 13, height 1.2
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: nameMaxWidth,
+                          child: Text(
+                            repo.name,
+                            style: TextStyle(
+                                color: kStar,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2),
+                            softWrap: true,
+                          ),
+                        ),
                       ),
                     ),
                   ],
