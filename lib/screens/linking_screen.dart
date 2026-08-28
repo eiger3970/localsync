@@ -198,6 +198,17 @@ class _IdleViewState extends State<_IdleView>
   // ShreddingPasswordField's own comment for why this has to be a
   // caller-controlled FocusNode rather than autofocus.
   final _passwordFocusNode = FocusNode();
+  // 2026-08-28: real feedback, live - "field1 stars should disappear
+  // [only] when password field1 is complete... and user activates
+  // password field2." A text-only condition (isEmpty/isNotEmpty) turns
+  // field 1's sparkle off the instant the FIRST character lands, well
+  // before the user is actually done with it - both fields ended up
+  // sparkling at once mid-typing, read as "field 1 never stopped."
+  // Real signal for "done with field 1" is field 2 gaining focus, not
+  // field 1 merely being non-empty - tracked here, sticky once true
+  // (moving focus back to field 1 later shouldn't re-earn the sparkle).
+  final _confirmFocusNode = FocusNode();
+  bool _field1Done = false;
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -263,6 +274,11 @@ class _IdleViewState extends State<_IdleView>
     );
     _passwordCtrl.addListener(() => setState(() {}));
     _confirmCtrl.addListener(() => setState(() {}));
+    _confirmFocusNode.addListener(() {
+      if (_confirmFocusNode.hasFocus && !_field1Done) {
+        setState(() => _field1Done = true);
+      }
+    });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
   }
@@ -358,6 +374,7 @@ class _IdleViewState extends State<_IdleView>
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _passwordFocusNode.dispose();
+    _confirmFocusNode.dispose();
     _pairingCtrl.dispose();
     super.dispose();
   }
@@ -759,18 +776,17 @@ class _IdleViewState extends State<_IdleView>
                           key: _shredKey1,
                           controller: _passwordCtrl,
                           enabled: !_pairing,
-                          // 2026-08-28: real feedback, live - "can
-                          // password field 1 stars twinkling disappear
-                          // once populated... magic stars disappear
-                          // once actioned, as they're no longer needed
-                          // to attract the eye." Was hardcoded true
-                          // regardless of content - field 2 already had
-                          // this exact reactive pattern (showSparkle:
-                          // _passwordCtrl.text.isNotEmpty, i.e. only
-                          // once it's the active next step), just never
-                          // applied symmetrically to field 1 once IT
-                          // has been typed into.
-                          showSparkle: _passwordCtrl.text.isEmpty,
+                          // 2026-08-28: real feedback, live - "field1
+                          // stars should disappear once password field1
+                          // is complete... and user activates password
+                          // field2." First attempt used a text-only
+                          // condition (isEmpty) - turned off on the
+                          // very first character, well before the user
+                          // was actually done, so both fields sparkled
+                          // at once mid-typing. Real signal is _field1Done
+                          // (field 2 gaining focus), not mere non-empty
+                          // text - see its own declaration for why.
+                          showSparkle: !_field1Done,
                           focusNode: _passwordFocusNode,
                         ),
                         Positioned(
@@ -818,6 +834,7 @@ class _IdleViewState extends State<_IdleView>
                         controller: _confirmCtrl,
                         enabled: !_pairing,
                         showSparkle: _passwordCtrl.text.isNotEmpty,
+                        focusNode: _confirmFocusNode,
                       ),
                     ),
                   ),

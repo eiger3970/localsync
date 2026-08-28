@@ -31,7 +31,7 @@ The Git bare repository is the thing both sides (desktop and phone) actually syn
 
 Neither device talks to the other directly, and a second synced copy of the vault's text notes is itself a convenient backup - if one device is lost or fails, the other still has everything (binary attachments aren't covered by this - kept out of scope here deliberately).
 
-Today the desktop side of the sync (the `git push / pull` step above) is manual, run by hand. Nothing automated exists for it yet.
+The desktop side of the sync (the `git push / pull` step above) can run by hand, or automated via `desktop/localsync_sync.sh` - see [Desktop-side sync automation](#-desktop-side-sync-automation-optional) below. It is not installed on the desktop automatically by anything - it's a file in this repo you copy over and set up yourself, once.
 
 If both are already set up (git is installed, SSH is reachable), skip to [Settings values](#settings-values).
 
@@ -129,6 +129,34 @@ This is used once, over the SSH connection, to install the phone's own key into 
 ## 📓 5. Vault linking
 
 Kebab menu → **Add another vault** (or the first-run setup flow upon install, for a first vault). For an Obsidian vault folder that already exists, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
+
+## 🔁 Desktop-side sync automation (optional)
+
+`desktop/localsync_sync.sh` keeps the desktop's own working copy (a real Obsidian vault open on the desktop, or just a synced folder for Tier 0) up to date against the bare repository - fetch, compare, and either fast-forward or a real three-way merge with the same conflict repair the phone app itself uses (markdown conflict callouts, Kanban-safe, and a back-up-both-keep-ours safety net for any non-text file). Real, tested against local temp repos including a same-run markdown + binary conflict - not yet tested against a live bare repo over real SSH from another machine.
+
+It is **not** installed or run automatically by anything - copy it onto the desktop yourself, once:
+```
+mkdir -p ~/Documents/Scripts
+cp desktop/localsync_sync.sh ~/Documents/Scripts/
+chmod +x ~/Documents/Scripts/localsync_sync.sh
+```
+
+Configure via environment variables (or edit the defaults directly in the script) - they must match what's set in LocalSync's own Settings screen on the phone:
+```
+export LOCALSYNC_VAULT=~/Documents/LocalSync/vault        # desktop working copy
+export LOCALSYNC_BARE_REPO=~/Documents/Git/localsync.git  # same path as Settings -> Git bare repo path
+```
+
+Run it by hand to test:
+```
+~/Documents/Scripts/localsync_sync.sh
+```
+
+To run it periodically instead of by hand, add a cron entry (`crontab -e`):
+```
+*/5 * * * * ~/Documents/Scripts/localsync_sync.sh
+```
+Logs to `~/.localsync_sync.log` by default (`LOCALSYNC_LOG` to change it) - check there first if a scheduled run doesn't seem to be doing anything.
 
 ## 🧪 Before linking a real vault
 
