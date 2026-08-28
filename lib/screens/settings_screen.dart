@@ -708,9 +708,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // an imperative ("Update this") instead of a
                       // passive "Changes", which implied automatic
                       // behavior that doesn't exist.
-                      helperText:
-                          'Update this manually after switching Tether or Hotspot',
-                      helperMaxLines: 2,
+                      // 2026-08-28: real feedback, live - "this must be
+                      // clear, it's a small ambiguity amongst many." The
+                      // /28-suffix clarification only lived behind the
+                      // (i) help dialog - not good enough on its own,
+                      // needed to be visible with zero taps, right at
+                      // the field itself, every time.
+                      helperText: 'Just the 4 numbers, e.g. 172.20.10.11 - '
+                          'no /28 suffix. Update manually after switching '
+                          'Tether or Hotspot.',
+                      helperMaxLines: 3,
                       helperStyle: TextStyle(color: kTextMid, fontSize: 13),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
