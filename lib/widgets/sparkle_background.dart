@@ -19,41 +19,73 @@ import '../theme.dart';
 /// Drop this behind actionable content (inside a Stack, sized to fill
 /// via Positioned.fill) to hint "this is something you interact with".
 class SparkleBackground extends StatefulWidget {
-  const SparkleBackground({super.key});
+  // 2026-08-28: real feedback, live - "Section 3 could also have the
+  // nice blue stars fade away" once pairing actually starts (matching
+  // the shred animation's blue) instead of just abruptly not mattering
+  // anymore once the drag commits. Opt-in and defaulted true so every
+  // OTHER caller (checklist rows, gif swipe confirms, the pull/push
+  // gesture zone, the pairing screen's own drag target) keeps looping
+  // green forever, unchanged - only linking_screen.dart's Stage 3 drag
+  // area passes false once _pairing flips true.
+  final bool active;
+  const SparkleBackground({super.key, this.active = true});
 
   @override
   State<SparkleBackground> createState() => _SparkleBackgroundState();
 }
 
 class _SparkleBackgroundState extends State<SparkleBackground>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _ctrl;
+  late final AnimationController _fadeCtrl;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))
       ..repeat();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+      value: widget.active ? 0 : 1,
+    );
+  }
+
+  @override
+  void didUpdateWidget(SparkleBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active && !widget.active) {
+      _fadeCtrl.forward();
+    } else if (!oldWidget.active && widget.active) {
+      _fadeCtrl.reverse();
+    }
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _fadeCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => CustomPaint(painter: _SparklePainter(_ctrl.value)),
+      animation: Listenable.merge([_ctrl, _fadeCtrl]),
+      builder: (_, __) => CustomPaint(
+        painter: _SparklePainter(_ctrl.value,
+            color: Color.lerp(kGreen, kBlue, _fadeCtrl.value)!,
+            opacity: 1 - _fadeCtrl.value),
+      ),
     );
   }
 }
 
 class _SparklePainter extends CustomPainter {
   final double progress; // 0..1, loops
-  _SparklePainter(this.progress);
+  final Color color;
+  final double opacity;
+  _SparklePainter(this.progress, {required this.color, required this.opacity});
 
   static const _positions = [
     Offset(0.03, 0.30), Offset(0.08, 0.70), Offset(0.16, 0.15),
@@ -64,14 +96,15 @@ class _SparklePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (opacity <= 0) return;
     for (var i = 0; i < _positions.length; i++) {
       final phase = (progress + i / _positions.length) % 1.0;
-      final opacity = (math.sin(phase * math.pi * 2) * 0.5 + 0.5);
-      final radius = 2.5 + opacity * 2.5;
+      final twinkle = (math.sin(phase * math.pi * 2) * 0.5 + 0.5);
+      final radius = 2.5 + twinkle * 2.5;
       final center = Offset(
           _positions[i].dx * size.width, _positions[i].dy * size.height);
       final paint = Paint()
-        ..color = kGreen.withValues(alpha: opacity * 0.6)
+        ..color = color.withValues(alpha: twinkle * 0.6 * opacity)
         ..strokeWidth = 1.4;
       canvas.drawLine(
           center.translate(-radius, 0), center.translate(radius, 0), paint);
@@ -82,5 +115,7 @@ class _SparklePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SparklePainter old) =>
+      old.color != color ||
+      old.opacity != opacity ||
       old.progress != progress;
 }

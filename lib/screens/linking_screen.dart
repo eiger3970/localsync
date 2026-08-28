@@ -1009,7 +1009,15 @@ class _IdleViewState extends State<_IdleView>
                           width: glyphWidth,
                           child: Stack(
                             children: [
-                              const Positioned.fill(child: SparkleBackground()),
+                              // 2026-08-28: real feedback, live -
+                              // "Section 3 could also have the nice
+                              // blue stars fade away" once pairing
+                              // starts, matching the shred animation's
+                              // blue instead of just continuing to
+                              // sparkle green with no acknowledgement
+                              // that this drag has already happened.
+                              Positioned.fill(
+                                  child: SparkleBackground(active: !_pairing)),
                               Draggable<bool>(
                                 data: true,
                                 feedback: Material(
