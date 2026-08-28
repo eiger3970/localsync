@@ -16,58 +16,27 @@
 // the entry point and the words around it change, per the deliberate
 // scope decision to not touch how any of that actually works.
 //
-// 2026-08-28: real feedback, live - "still not confident about hand
-// holding git file path setup on desktop and phone." Today's earlier
-// fixes (desktop username field, suggested-path button, real path in
-// the folder-picker disclosure) all only help once someone's already
-// found Settings - nothing ever sent a first-time user there before
-// attempting to pair, so the very first real connection attempt would
-// fail against this developer's own build-time desktop IP, with no clue
-// why. Soft nudge, not a hard block (matches this app's established
-// "not naggy" precedent elsewhere) - a visible banner when Settings has
-// genuinely never been touched, with a direct way there, but the choice
-// cards below stay tappable regardless.
+// 2026-08-28: a same-day round added a "check Settings first" banner
+// directly on this screen - reverted same day, real feedback, live:
+// "this must be the welcome page with hero stuff... I see technical
+// mumbo jumbo... a welcome needs warm fuzzy positive easy feelings, not
+// verbose text." The underlying need (warn a first-time user before
+// they hit a real connection failure) was real, but this exact screen -
+// the one this file's own 2026-08-27 header exists specifically to keep
+// jargon-free - was the wrong place for it. Moved to LinkingScreen's own
+// Stage 1 instead (see its own 2026-08-28 comment) - a technical-setup
+// context where a Settings reminder actually belongs, not the warm
+// first hello.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/repository.dart';
-import '../services/database_service.dart';
 import '../features/linking/linking_controller.dart';
 import 'linking_screen.dart';
-import 'settings_screen.dart';
 
-class SyncChoiceScreen extends StatefulWidget {
+class SyncChoiceScreen extends StatelessWidget {
   const SyncChoiceScreen({super.key});
-
-  @override
-  State<SyncChoiceScreen> createState() => _SyncChoiceScreenState();
-}
-
-class _SyncChoiceScreenState extends State<SyncChoiceScreen> {
-  // null while still checking - avoids a one-frame flash either way.
-  bool? _needsSettings;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkSettings();
-  }
-
-  Future<void> _checkSettings() async {
-    final db = DatabaseService();
-    final user = await db.getDesktopUser();
-    final ip = await db.getDesktopIp();
-    final path = await db.getBareRepoPath();
-    if (!mounted) return;
-    // Only nudge when NONE have ever been set - even one real override
-    // means this isn't a genuinely untouched first run.
-    setState(() {
-      _needsSettings = (user == null || user.trim().isEmpty) &&
-          (ip == null || ip.trim().isEmpty) &&
-          (path == null || path.trim().isEmpty);
-    });
-  }
 
   void _choose(BuildContext context, SyncMode mode) {
     context.read<LinkingController>().preferredMode = mode;
@@ -99,13 +68,6 @@ class _SyncChoiceScreenState extends State<SyncChoiceScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.4),
               ),
-              if (_needsSettings == true) ...[
-                const SizedBox(height: 20),
-                _SettingsNudge(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                ),
-              ],
               const SizedBox(height: 40),
               _ChoiceCard(
                 icon: Icons.folder_outlined,
@@ -122,54 +84,6 @@ class _SyncChoiceScreenState extends State<SyncChoiceScreen> {
                     'protection built in',
                 onTap: () => _choose(context, SyncMode.obsidianVault),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsNudge extends StatelessWidget {
-  final VoidCallback onTap;
-  const _SettingsNudge({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: kSurface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.amber, width: 1),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.settings_outlined, color: Colors.amber, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2026-08-28: real feedback, live - "remove the word
-                    // first" (the trailing one, at the end of the
-                    // sentence - redundant next to "First time?" already
-                    // opening it).
-                    Text('First time? Check your desktop connection',
-                        style: TextStyle(
-                            color: kStar, fontSize: 13, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text('Desktop username, IP address, and folder path',
-                        style: TextStyle(color: kTextMid, fontSize: 11.5)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: kTextDim),
             ],
           ),
         ),
