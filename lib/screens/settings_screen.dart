@@ -37,8 +37,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static final _ipPattern =
       RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
 
+  late final TextEditingController _userCtrl;
   late final TextEditingController _ipCtrl;
   late final TextEditingController _pathCtrl;
+  String? _userError;
   String? _ipError;
   String? _pathError;
 
@@ -60,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final ctrl = context.read<LinkingController>();
+    _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
@@ -206,6 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _userCtrl.dispose();
     _ipCtrl.dispose();
     _pathCtrl.dispose();
     super.dispose();
@@ -242,16 +246,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
+    final user = _userCtrl.text.trim();
     final ip = _ipCtrl.text.trim();
     final path = _pathCtrl.text.trim();
     setState(() {
+      // 2026-08-28: same "can't be empty" validation as the bare repo
+      // path below - an empty desktopUser would mean every SSH
+      // connection tries to log in as no one at all.
+      _userError = user.isEmpty ? 'Can\'t be empty' : null;
       _ipError = _ipPattern.hasMatch(ip) ? null : 'Not a valid IP address';
       _pathError = path.isEmpty ? 'Can\'t be empty' : null;
     });
-    if (_ipError != null || _pathError != null) return;
+    if (_userError != null || _ipError != null || _pathError != null) return;
 
     final linkingCtrl = context.read<LinkingController>();
     final provider = context.read<RepositoryProvider>();
+    await provider.setDesktopUser(user);
+    linkingCtrl.updateDesktopUser(user);
     await provider.setDesktopIp(ip);
     linkingCtrl.updateDesktopIp(ip);
     await provider.setBareRepoPath(path);
@@ -277,6 +288,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-08-28: real feedback, live - found while checking an
+            // unrelated UX question: desktopUser was hardcoded in
+            // main.dart with no Settings field at all, meaning a real
+            // customer whose desktop login isn't 'rapi5' would have
+            // every SSH connection fail immediately, with no way to fix
+            // it on-device. New first field, alphabetically ahead of
+            // "Git bare repo path" per the 2026-08-21 ordering decision
+            // below.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 10),
+                  child: Icon(Icons.person_outline, color: kTextMid, size: 22),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _userCtrl,
+                    style: TextStyle(color: kStar, fontSize: 16),
+                    decoration: InputDecoration(
+                      labelText: 'Desktop username',
+                      labelStyle: TextStyle(
+                          color: kStar, fontSize: 18, fontWeight: FontWeight.w700),
+                      floatingLabelStyle: TextStyle(
+                          color: kStar, fontSize: 19, fontWeight: FontWeight.w700),
+                      helperText: 'The login username on your desktop - '
+                          'what you\'d type to sign in there',
+                      helperMaxLines: 2,
+                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
+                      hintText: 'e.g. rapi5',
+                      errorText: _userError,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 28),
+            Divider(color: kBorder, height: 1),
+            const SizedBox(height: 28),
             // 2026-08-20: real feedback, live - "looks complicated, less
             // verbose is better." Both labels cut to one short line,
             // same trim already applied elsewhere in this app for the
@@ -360,12 +410,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // (Md_files_bare.git) - wrong for any other
                         // real vault. Now reads the field's own live
                         // text at the moment the dialog opens instead.
+                        // 2026-08-28: real feedback, live - "how do I
+                        // create a new LocalSync git folder? Can the app
+                        // walk me through?" This help dialog only ever
+                        // covered finding an EXISTING bare repo - no
+                        // help at all for the much more common first-
+                        // time case, someone with nothing to find yet.
+                        // Since git_service.dart's _ensureBareRepoExists()
+                        // (2026-08-28) creates the path automatically on
+                        // first pairing, that's now the actual answer -
+                        // leads with it instead of assuming a repo
+                        // already exists.
                         onPressed: () => _showHelp(
-                          'Finding the Git bare repo path',
+                          'Setting the Git bare repo path',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
-                            ('Run this on the desktop terminal', false),
-                            ('Lists every Git bare repo on the desktop', false),
+                            ('New setup? Just type any path here, e.g. '
+                                    '~/Documents/Git/LocalSync/vault.git - '
+                                    'it gets created automatically the '
+                                    'first time you pair, nothing to run '
+                                    'yourself',
+                                false),
+                            ('Already have one and want to reuse it? Run '
+                                    'this on the desktop terminal instead',
+                                false),
+                            ('Lists every Git bare repo on the desktop',
+                                true),
                             if (_pathCtrl.text.trim().isNotEmpty)
                               ('Currently set to: ${_pathCtrl.text.trim()}', false)
                             else
@@ -379,6 +449,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ],
+            ),
+            // 2026-08-28: real feedback, live - "as simple as suggesting
+            // a path... handhold the new customer." Now that
+            // desktopUser is a real Settings field (not hardcoded), a
+            // real suggestion can be built from it instead of asking the
+            // user to type an absolute path from scratch. Linux
+            // convention (/home/<user>/...) since that's this app's
+            // primary documented platform - macOS users (~/Users/...
+            // instead) still need to adjust it themselves, noted in the
+            // snackbar-free case below rather than guessing the OS.
+            Padding(
+              padding: const EdgeInsets.only(left: 32, top: 8),
+              child: GestureDetector(
+                onTap: () {
+                  final user = _userCtrl.text.trim();
+                  if (user.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: kSurface,
+                        content: Text(
+                            'Fill in Desktop username above first',
+                            style: TextStyle(color: kStar, fontSize: 14)),
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _pathCtrl.text =
+                        '/home/$user/Documents/Git/LocalSync/vault.git';
+                    _pathError = null;
+                  });
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, color: kGreen, size: 15),
+                    const SizedBox(width: 5),
+                    Text('Use suggested path',
+                        style: TextStyle(
+                            color: kGreen,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
             ),
             // 2026-08-21: real feedback, live - "add a line space above
             // to separate more from the above text, as all the

@@ -21,6 +21,7 @@ const _kTemplatesSeededKey    = 'db_commit_templates_seeded';
 const _kDeviceNameKey         = 'db_device_name';
 const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 const _kDesktopIpKey          = 'db_desktop_ip';
+const _kDesktopUserKey        = 'db_desktop_user';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
@@ -108,6 +109,33 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDeviceNameKey, name);
+  }
+
+  // ── Desktop username override ───────────────────────────────────────────────
+  // 2026-08-28: real feedback, live - found while checking a UX question,
+  // not the thing asked about. main.dart's desktopUser was hardcoded to
+  // 'rapi5' (this developer's own desktop account) with no override at
+  // all - the only reason it ever worked was that every real device test
+  // so far happened to run against this exact machine. Any actual
+  // customer, whose desktop login isn't 'rapi5', would have every SSH
+  // connection fail immediately. Same override pattern as desktopIp/
+  // bareRepoPath: null means "use the build-time default," a real value
+  // means the user has set their own.
+  static String? _webDesktopUser;
+
+  Future<String?> getDesktopUser() async {
+    if (kIsWeb) return _webDesktopUser;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kDesktopUserKey);
+  }
+
+  Future<void> setDesktopUser(String user) async {
+    if (kIsWeb) {
+      _webDesktopUser = user;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDesktopUserKey, user);
   }
 
   // ── Desktop IP override ────────────────────────────────────────────────────

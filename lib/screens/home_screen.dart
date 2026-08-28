@@ -1155,16 +1155,6 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
-// 2026-08-17: was a _MetaText instance method - extracted to top-level
-// so _AppBarRepoStatus can share it instead of duplicating.
-String _timeAgo(DateTime t) {
-  final d = DateTime.now().difference(t);
-  if (d.inSeconds < 60) return 'just now';
-  if (d.inMinutes < 60) return '${d.inMinutes}m ago';
-  if (d.inHours < 24) return '${d.inHours}h ago';
-  return '${d.inDays}d ago';
-}
-
 // ── App-bar repo status ───────────────────────────────────────────────────────
 //
 // 2026-08-17: "can row 2 PKM_vault AUTO synced just now be moved to
@@ -1200,9 +1190,26 @@ class _AppBarRepoStatus extends StatelessWidget {
     // another pull, which would just fail again the same way.
     final hasError = repo.status == SyncStatus.error && repo.lastError != null;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    // 2026-08-28: real feedback, live - "show the full name of the
+    // path... make the spacing... dynamic for phone sizes." The old
+    // fixed 110px cap (2026-08-20) was a guess tuned to whatever names
+    // were being tested at the time - LayoutBuilder reads the REAL
+    // width this widget was actually given (the Expanded slot between
+    // the logo and the kebab icon in home_screen.dart's AppBar title,
+    // which already varies correctly by screen size) instead of
+    // guessing, so the name gets everything that's really available,
+    // not a hardcoded number. Reserves space for the status dot and,
+    // if present, the multi-repo dropdown - same fixed-width siblings
+    // that already sit in this Row.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final reserved =
+            26.0 + (allRepos.length > 1 ? 44.0 : 0.0) + 12.0;
+        final nameMaxWidth =
+            (constraints.maxWidth - reserved).clamp(60.0, constraints.maxWidth);
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
         GestureDetector(
           onTap: () {
             HapticFeedback.lightImpact();
@@ -1220,53 +1227,36 @@ class _AppBarRepoStatus extends StatelessWidget {
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    isSyncing
-                        ? const _SpinningSync()
-                        : _StatusDot(status: repo.status),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: isSyncing
+                          ? const _SpinningSync()
+                          : _StatusDot(status: repo.status),
+                    ),
                     const SizedBox(width: 6),
-                    // 2026-08-20: real bug, live - "kebab icon is now
-                    // overrun by the AUTO text," a real vault's longer
-                    // name (e.g. "Obsidian_phone_vault") pushed the
-                    // AUTO badge and kebab icon out of the app bar
-                    // entirely. Only ever surfaced with a long name -
-                    // every test vault used so far had a short
-                    // timestamp-style name, so this never showed. The
-                    // Flexible+ellipsis here relies on a bounded max-
-                    // width reaching it through Center/Column/Padding
-                    // above, which apparently isn't reliably happening -
-                    // an explicit ConstrainedBox guarantees it can never
-                    // push its siblings regardless of that ancestor
-                    // chain's behavior.
-                    // 2026-08-21: real feedback, live, two rounds of
-                    // spacing fixes that didn't hold - "the drop down
-                    // arrow is exactly behind the kebab icon" persisted
-                    // even after forcing a real gap on the actions
-                    // side. Same root class of bug as the 2026-08-20
-                    // "AUTO text overran the kebab" fix above: Center
-                    // doesn't clip an overflowing child, so if this
-                    // Row's total natural width (dot + name + AUTO
-                    // badge + dropdown) exceeds the space actually
-                    // available, the surplus paints straight through
-                    // whatever's next to it instead of being contained.
-                    // User's own proposed fix: drop the AUTO badge
-                    // entirely - the same information already exists
-                    // one tap away in the kebab menu's "Pull manually"
-                    // (currently AUTO) / "Pull automatically" (currently
-                    // MANUAL) wording, so nothing is actually lost, and
-                    // removing ~45px of content is a real, direct fix
-                    // for the overflow class of bug, not another
-                    // spacing patch on top of it.
+                    // 2026-08-28: real feedback, live - "show the full
+                    // name... maybe it needs 2 lines." Fixed 110px cap
+                    // (2026-08-20) replaced with nameMaxWidth, the real
+                    // width LayoutBuilder measured above - still an
+                    // explicit ConstrainedBox (same reasoning as the
+                    // 2026-08-20 comment this replaces: Center doesn't
+                    // clip an overflowing child, so this still can't be
+                    // skipped), just no longer a guessed constant. Wraps
+                    // to 2 lines instead of truncating to 1.
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 110),
+                      constraints: BoxConstraints(maxWidth: nameMaxWidth),
                       child: Text(
                         repo.name,
                         style: TextStyle(
                             color: kStar,
                             fontSize: 13,
-                            fontWeight: FontWeight.w600),
+                            fontWeight: FontWeight.w600,
+                            height: 1.2),
                         overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+                        softWrap: true,
+                        maxLines: 2,
                       ),
                     ),
                   ],
@@ -1285,10 +1275,11 @@ class _AppBarRepoStatus extends StatelessWidget {
                   )
                 else if (isSyncing)
                   Text(repo.syncPhase.label,
-                      style: TextStyle(color: kTextMid, fontSize: 10))
-                else if (repo.lastSync != null)
-                  Text('synced ${_timeAgo(repo.lastSync!)}',
                       style: TextStyle(color: kTextMid, fontSize: 10)),
+                // 2026-08-28: real feedback, live - "remove the synced
+                // just now" - dropped the idle-state "synced Xm ago"
+                // line entirely; error/syncing status above are
+                // unaffected, only asked to remove this one.
               ],
             ),
           ),
@@ -1338,7 +1329,9 @@ class _AppBarRepoStatus extends StatelessWidget {
           // real visual and tap gap between the two.
           const SizedBox(width: 8),
         ],
-      ],
+          ],
+        );
+      },
     );
   }
 }
