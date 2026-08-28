@@ -50,6 +50,12 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     _themeService.load();
     _purchaseService.init();
     _linkingController = LinkingController(
+      // 2026-08-28: build-time fallback only, now overridable via the
+      // Settings screen (same pattern as desktopIp/bareRepoPath below) -
+      // was hardcoded with no override at all, meaning any real customer
+      // whose desktop login isn't 'rapi5' would have every SSH connection
+      // fail immediately. Real blocker, found while checking an unrelated
+      // question, not something the app had ever surfaced to a user.
       desktopUser:    'rapi5',
       // localVaultPath removed 2026-08-09: the vault folder is no
       // longer a fixed app-owned path computed once at startup - it's
@@ -90,6 +96,11 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     // always some UI time before a real link attempt could race this.
     // Falls back to the build-time defaults above on first run (nothing
     // saved yet).
+    DatabaseService().getDesktopUser().then((saved) {
+      if (saved != null && saved.trim().isNotEmpty) {
+        _linkingController.updateDesktopUser(saved.trim());
+      }
+    });
     DatabaseService().getDesktopIp().then((saved) {
       if (saved != null && saved.trim().isNotEmpty) {
         _linkingController.updateDesktopIp(saved.trim());

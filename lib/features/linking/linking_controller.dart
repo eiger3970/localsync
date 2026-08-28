@@ -26,7 +26,13 @@ import '../../models/repository.dart';
 import 'linking_state.dart';
 
 class LinkingController extends ChangeNotifier {
-  final String desktopUser;
+  // 2026-08-28: was final, hardcoded to this developer's own desktop
+  // login ('rapi5') at every real call site - found while checking an
+  // unrelated question. Any real customer, whose desktop username isn't
+  // 'rapi5', would have every SSH connection fail immediately - this
+  // only ever worked because every device test so far ran against this
+  // exact machine. Same override pattern as desktopIp/bareRepoPath now.
+  String desktopUser;
   // 2026-08-20: was final - real user feedback, "this is difficult for
   // users, I need to build this in." The desktop's IP is a real-world
   // value that drifts (USB tether vs hotspot vs a DHCP reassignment -
@@ -68,6 +74,13 @@ class LinkingController extends ChangeNotifier {
   /// no app restart needed.
   void updateDesktopIp(String ip) {
     desktopIp = ip;
+    notifyListeners();
+  }
+
+  /// Overwrites [desktopUser] and notifies listeners - same contract as
+  /// [updateDesktopIp].
+  void updateDesktopUser(String user) {
+    desktopUser = user;
     notifyListeners();
   }
 

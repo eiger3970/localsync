@@ -64,6 +64,13 @@ class RepositoryProvider extends ChangeNotifier {
   Future<String?> getDeviceName() => _db.getDeviceName();
   Future<void> setDeviceName(String name) => _db.setDeviceName(name);
 
+  // ── Desktop username override ───────────────────────────────────────────────
+  // See database_service.dart's getDesktopUser/setDesktopUser - was
+  // hardcoded to this developer's own desktop login with no override at
+  // all, a real blocker for any actual customer.
+  Future<String?> getDesktopUser() => _db.getDesktopUser();
+  Future<void> setDesktopUser(String user) => _db.setDesktopUser(user);
+
   // ── Desktop IP override ────────────────────────────────────────────────────
   // See database_service.dart's getDesktopIp/setDesktopIp for why this
   // exists - same one-place-for-app-state reasoning as device name above.
