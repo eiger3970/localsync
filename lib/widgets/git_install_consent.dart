@@ -3,13 +3,14 @@
 // 2026-08-28: real feedback, live - "normies need to be 100% informed"
 // before pairing_controller.dart's auto `sudo apt-get install git` step
 // ever runs, using the desktop password with zero disclosure until this.
-// Shown once, before the first real pairing attempt (the answer is
-// remembered via DatabaseService.getGitAutoInstallChoice() -
-// setGitAutoInstallChoice()) - not asked again every pairing, but never
-// defaulted silently either way. Explicit per direction: warn against
-// blindly trusting any app with a password, show the literal command
-// rather than a vague description, and give a real manual-install choice
-// alongside the automatic one, not just an accept/decline on automation.
+// Shown before every real pairing attempt - a security consent, not a
+// convenience prompt, so per explicit direction (2026-08-28, follow-up,
+// after the remembered-choice version read as confusing/buggy on a real
+// device) this is never persisted or skipped based on a prior answer.
+// Explicit per direction: warn against blindly trusting any app with a
+// password, show the literal command rather than a vague description,
+// and give a real manual-install choice alongside the automatic one,
+// not just an accept/decline on automation.
 //
 // Returns true (let LocalSync install it), false (I'll install it
 // myself), or null (cancelled - caller should not proceed with pairing

@@ -24,7 +24,6 @@ const _kDesktopIpKey          = 'db_desktop_ip';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
-const _kGitAutoInstallChoiceKey = 'db_git_auto_install_choice';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -192,36 +191,6 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kAutoDiscoveryInterestKey, price);
-  }
-
-  // ── Git auto-install consent ────────────────────────────────────────────────
-  // 2026-08-28: real feedback, live - "normies need to be 100% informed" about
-  // pairing_controller.dart's auto `sudo apt-get install git` step, which
-  // silently used the desktop password with zero disclosure until this. null
-  // means "never asked" - the consent screen is shown and blocks pairing
-  // until a real choice is made, not defaulted to either answer. true =
-  // let the app run the install automatically; false = the app checks
-  // whether git exists but never attempts sudo, failing with manual
-  // instructions instead if it's missing. Remembered after the first
-  // choice, same convention as every other "no override set" preference
-  // in this file - not asked again every single pairing.
-  static bool? _webGitAutoInstallChoice;
-
-  Future<bool?> getGitAutoInstallChoice() async {
-    if (kIsWeb) return _webGitAutoInstallChoice;
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey(_kGitAutoInstallChoiceKey)
-        ? prefs.getBool(_kGitAutoInstallChoiceKey)
-        : null;
-  }
-
-  Future<void> setGitAutoInstallChoice(bool allow) async {
-    if (kIsWeb) {
-      _webGitAutoInstallChoice = allow;
-      return;
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kGitAutoInstallChoiceKey, allow);
   }
 
   // ── Selected skin ───────────────────────────────────────────────────────────

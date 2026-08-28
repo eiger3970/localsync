@@ -17,7 +17,6 @@ import '../features/linking/linking_state.dart';
 import '../features/linking/linking_controller.dart';
 import '../models/repository.dart';
 import '../services/discovery_service.dart';
-import '../services/database_service.dart';
 import '../services/repository_provider.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
@@ -297,18 +296,22 @@ class _IdleViewState extends State<_IdleView>
   // password fields unlock, not after Stage 3's drag when the password
   // is already sitting typed in the field. Resolved once here and
   // reused by _pairThenLink() below, rather than asked twice.
+  //
+  // 2026-08-28, follow-up: real feedback, live - the remembered-choice
+  // behavior ("asked once, not every pairing") surfaced as confusing
+  // twice in a row on a real device ("step 2 activates with no password
+  // warning"), even though it was working as designed. Explicit
+  // decision after being asked directly: ask every single time instead
+  // - a security consent, not a convenience prompt, so the remembered
+  // shortcut traded away more visibility than wanted. No longer reads
+  // or writes DatabaseService's stored choice at all.
   Future<void> _onKeyPairingSettled() async {
-    var allow = await DatabaseService().getGitAutoInstallChoice();
-    if (allow == null) {
-      if (!mounted) return;
-      final decided = await showGitInstallConsent(context);
-      if (decided == null) return; // cancelled - Stage 2 stays locked
-      await DatabaseService().setGitAutoInstallChoice(decided);
-      allow = decided;
-    }
+    if (!mounted) return;
+    final decided = await showGitInstallConsent(context);
+    if (decided == null) return; // cancelled - Stage 2 stays locked
     if (!mounted) return;
     setState(() {
-      _allowAutoInstallGit = allow;
+      _allowAutoInstallGit = decided;
       _paired = true;
     });
   }
