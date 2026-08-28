@@ -828,10 +828,19 @@ class _IdleViewState extends State<_IdleView>
                               builder: (_, t, __) => AnimatedBuilder(
                                 animation: _outerStarTwinkleCtrl,
                                 builder: (_, __) {
+                                  // 2026-08-28, follow-up: real feedback,
+                                  // live - "still not twinkling." *0.3+0.7
+                                  // only swung opacity between 0.4 and 1.0 -
+                                  // too subtle on a 12px icon to read as
+                                  // twinkling at all. Matched to the exact
+                                  // same *0.5+0.5 full 0-to-1 range every
+                                  // other twinkle in this app already uses
+                                  // (ShreddingPasswordField's own
+                                  // _twinkle(), SparkleBackground's painter).
                                   final twinkle = math.sin(
                                           _outerStarTwinkleCtrl.value * math.pi * 2) *
-                                          0.3 +
-                                      0.7;
+                                          0.5 +
+                                      0.5;
                                   return Opacity(
                                     opacity: (1 - t) * twinkle,
                                     child: Icon(Icons.auto_awesome,
