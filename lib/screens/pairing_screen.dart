@@ -84,13 +84,12 @@ class _PairingScreenState extends State<PairingScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveGitConsent());
   }
 
+  // 2026-08-28: real feedback, live - the remembered-choice behavior
+  // read as confusing/buggy on a real device twice in a row, and after
+  // being asked directly the explicit answer was to ask every single
+  // time - a security consent, not a convenience prompt. No longer
+  // reads or writes DatabaseService's stored choice.
   Future<void> _resolveGitConsent() async {
-    final stored = await DatabaseService().getGitAutoInstallChoice();
-    if (!mounted) return;
-    if (stored != null) {
-      setState(() => _allowAutoInstallGit = stored);
-      return;
-    }
     final decided = await showGitInstallConsent(context);
     if (!mounted) return;
     if (decided == null) {
@@ -99,8 +98,6 @@ class _PairingScreenState extends State<PairingScreen> {
       // same as declining leaves LinkingScreen's Stage 2 locked.
       return;
     }
-    await DatabaseService().setGitAutoInstallChoice(decided);
-    if (!mounted) return;
     setState(() => _allowAutoInstallGit = decided);
   }
 

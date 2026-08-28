@@ -36,10 +36,10 @@ class PairingController extends ChangeNotifier {
   // 2026-08-28: real feedback, live - "normies need to be 100% informed"
   // before this app ever runs a privileged command with their password -
   // allowAutoInstallGit is the real, explicit choice from a new consent
-  // screen (git_install_consent.dart), backed by
-  // DatabaseService.getGitAutoInstallChoice()/setGitAutoInstallChoice()
-  // so it's asked once, not every pairing, but never defaulted silently
-  // either way.
+  // screen (git_install_consent.dart), asked fresh on every pairing
+  // attempt (2026-08-28 follow-up: no longer remembered - a security
+  // consent, not a convenience prompt), never defaulted silently either
+  // way.
   Future<void> pairWithPassword(String password,
       {required bool allowAutoInstallGit}) async {
     _isRunning = true;
