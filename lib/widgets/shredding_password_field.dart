@@ -71,18 +71,6 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   late final AnimationController _sparkleCtrl2;
   late final double _phaseSeed1;
   late final double _phaseSeed2;
-  // 2026-08-28: real feedback, live - "Section1 stars just disappear,
-  // but they could have the nice blue fade away too." Was a hard
-  // prefixIcon-or-null swap - the moment showSparkle flipped false, the
-  // whole cluster vanished instantly, no transition. Now fades opacity
-  // to 0 AND shifts color from green to blue over the same duration as
-  // the shred animation, so it reads as one connected moment rather
-  // than an abrupt cut. _everSparkled gates whether to reserve the
-  // 28px gutter at all - a field that hasn't shown sparkle yet (field
-  // 2, before field 1 has content) still renders with zero prefix
-  // space, exactly as before this fix.
-  late final AnimationController _fadeCtrl;
-  bool _everSparkled = false;
   bool _obscure = true;
   bool _shredding = false;
   String _shreddedText = '';
@@ -102,23 +90,6 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     _sparkleCtrl2 =
         AnimationController(vsync: this, duration: const Duration(milliseconds: 1900))
           ..repeat();
-    _everSparkled = widget.showSparkle;
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: _duration,
-      value: widget.showSparkle ? 0 : 1,
-    );
-  }
-
-  @override
-  void didUpdateWidget(ShreddingPasswordField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.showSparkle) _everSparkled = true;
-    if (oldWidget.showSparkle && !widget.showSparkle) {
-      _fadeCtrl.forward();
-    } else if (!oldWidget.showSparkle && widget.showSparkle) {
-      _fadeCtrl.reverse();
-    }
   }
 
   @override
@@ -126,7 +97,6 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     _ctrl.dispose();
     _sparkleCtrl.dispose();
     _sparkleCtrl2.dispose();
-    _fadeCtrl.dispose();
     super.dispose();
   }
 
@@ -188,23 +158,18 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
               // reads as sparkle rather than one static glyph, still via
               // prefixIcon so it stays left-of-text with no manual
               // positioning.
-              // 2026-08-28: real feedback, live - "Section1 stars just
-              // disappear, but they could have the nice blue fade away
-              // too." _everSparkled (not widget.showSparkle) gates
-              // whether to render at all - a field that hasn't sparkled
-              // yet (field 2, before field 1 has content) still renders
-              // null, zero prefix space, same as before this fix. Once
-              // it HAS sparkled, it keeps rendering (at whatever
-              // _fadeCtrl says) so the fade-out has something to
-              // animate instead of being cut off by a hard null swap.
-              prefixIcon: _everSparkled
+              // 2026-08-28: real feedback, live - "the fade away blue
+              // stars on the password fields can be removed, it's out
+              // of time." Reverted the fade-to-blue treatment (had its
+              // own real timing/amplitude bugs across several rounds) -
+              // plain hard on/off via widget.showSparkle directly, same
+              // as before that whole detour. The stop-condition itself
+              // (_field1Done in linking_screen.dart) stays - that part
+              // was confirmed working.
+              prefixIcon: widget.showSparkle
                   ? AnimatedBuilder(
-                      animation:
-                          Listenable.merge([_sparkleCtrl, _sparkleCtrl2, _fadeCtrl]),
-                      builder: (_, __) {
-                        final fadeColor = Color.lerp(kGreen, kBlue, _fadeCtrl.value)!;
-                        final fadeOpacity = 1 - _fadeCtrl.value;
-                        return SizedBox(
+                      animation: Listenable.merge([_sparkleCtrl, _sparkleCtrl2]),
+                      builder: (_, __) => SizedBox(
                         width: 28,
                         // 2026-08-26: real feedback, live, three times now
                         // - "lower the twinkly stars a little." First
@@ -219,24 +184,21 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                             clipBehavior: Clip.none,
                             children: [
                               Icon(Icons.auto_awesome,
-                                  color: fadeColor.withValues(
-                                      alpha: _twinkle(_sparkleCtrl, _phaseSeed1) *
-                                          fadeOpacity),
+                                  color: kGreen.withValues(
+                                      alpha: _twinkle(_sparkleCtrl, _phaseSeed1)),
                                   size: 16),
                               Positioned(
                                 left: 14,
                                 top: 2,
                                 child: Icon(Icons.auto_awesome,
-                                    color: fadeColor.withValues(
-                                        alpha: _twinkle(_sparkleCtrl2, _phaseSeed2) *
-                                            fadeOpacity),
+                                    color: kGreen.withValues(
+                                        alpha: _twinkle(_sparkleCtrl2, _phaseSeed2)),
                                     size: 10),
                               ),
                             ],
                           ),
                         ),
-                        );
-                      },
+                      ),
                     )
                   : null,
               suffixIcon: IconButton(
