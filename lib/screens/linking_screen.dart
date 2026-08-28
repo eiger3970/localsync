@@ -209,6 +209,14 @@ class _IdleViewState extends State<_IdleView>
   // (moving focus back to field 1 later shouldn't re-earn the sparkle).
   final _confirmFocusNode = FocusNode();
   bool _field1Done = false;
+  // 2026-08-28: real feedback, live - "stars on left outside field are
+  // solid and no longer twinkling." The outer star (Positioned(left:
+  // -10, ...) below) was always a bare static Icon, never animated at
+  // all - fixing its fade-out didn't add the twinkle the INSIDE
+  // cluster already has (ShreddingPasswordField's own _sparkleCtrl).
+  // Independent controller here since this outer star lives in this
+  // State, not inside ShreddingPasswordField's.
+  late final AnimationController _outerStarTwinkleCtrl;
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -268,6 +276,9 @@ class _IdleViewState extends State<_IdleView>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
+    _outerStarTwinkleCtrl =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
+          ..repeat();
     _pairingCtrl = PairingController(
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
@@ -371,6 +382,7 @@ class _IdleViewState extends State<_IdleView>
   @override
   void dispose() {
     _pulseCtrl.dispose();
+    _outerStarTwinkleCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _passwordFocusNode.dispose();
@@ -797,10 +809,15 @@ class _IdleViewState extends State<_IdleView>
                         // a completely separate, permanently-static icon
                         // from the prefixIcon cluster fixed above, so
                         // fixing that cluster left this one still
-                        // showing forever. Same fade-to-blue treatment,
-                        // via TweenAnimationBuilder since this is a
-                        // single static Icon, not already inside an
-                        // AnimationController-driven builder.
+                        // showing forever. Fade-to-blue via
+                        // TweenAnimationBuilder (this is a single static
+                        // Icon, not already inside an AnimationController
+                        // -driven builder) combined with
+                        // _outerStarTwinkleCtrl for the twinkle itself -
+                        // "stars on left outside field are solid and no
+                        // longer twinkling" - this icon was ALWAYS a bare
+                        // static Icon, never animated, unlike the inside
+                        // cluster's real sine-wave twinkle.
                         Positioned(
                           left: -10,
                           top: 14,
@@ -808,10 +825,19 @@ class _IdleViewState extends State<_IdleView>
                             child: TweenAnimationBuilder<double>(
                               tween: Tween(begin: 0, end: _field1Done ? 1.0 : 0.0),
                               duration: const Duration(milliseconds: 650),
-                              builder: (_, t, __) => Opacity(
-                                opacity: 1 - t,
-                                child: Icon(Icons.auto_awesome,
-                                    color: Color.lerp(kGreen, kBlue, t), size: 12),
+                              builder: (_, t, __) => AnimatedBuilder(
+                                animation: _outerStarTwinkleCtrl,
+                                builder: (_, __) {
+                                  final twinkle = math.sin(
+                                          _outerStarTwinkleCtrl.value * math.pi * 2) *
+                                          0.3 +
+                                      0.7;
+                                  return Opacity(
+                                    opacity: (1 - t) * twinkle,
+                                    child: Icon(Icons.auto_awesome,
+                                        color: Color.lerp(kGreen, kBlue, t), size: 12),
+                                  );
+                                },
                               ),
                             ),
                           ),
