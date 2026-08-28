@@ -567,10 +567,17 @@ class LinkingController extends ChangeNotifier {
             // to happen.
             ? 'pick the folder to sync:\n\n'
                 '${vaultFolderSteps.join(' → ')}\n\n'
+                // 2026-08-28, follow-up: "I need the desktop to inform
+                // the user what the path is" - real, buildable ask.
+                // bareRepoPath/desktopUser/desktopIp are already known
+                // here (typed into Settings before this screen was ever
+                // reached), so the disclosure can name the exact source
+                // instead of pointing back at "Settings" as if it were
+                // somewhere else to go check.
                 'What happens next: whatever is already stored on your '
-                'desktop, at the path in Settings, gets copied into the '
-                'folder you pick - automatically, as soon as you tap '
-                'Open.\n\n'
+                'desktop at $desktopUser@$desktopIp:$bareRepoPath gets '
+                'copied into the folder you pick - automatically, as '
+                'soon as you tap Open.\n\n'
                 'Tip: pick or create an empty folder just for this '
                 '(e.g. a new "Sync" folder), rather than an existing '
                 'folder full of other files - keeps things tidy as it '
