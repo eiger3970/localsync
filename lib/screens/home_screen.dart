@@ -1289,13 +1289,24 @@ class _AppBarRepoStatus extends StatelessWidget {
                     // plain 2-line wrap + ellipsis this had before that
                     // attempt - reliably wraps, doesn't shrink, matches
                     // what was actually working prior to today.
+                    // 2026-08-28, follow-up: real feedback, live - "I
+                    // would expect: Files needed / on phone" (currently
+                    // "Files" / "needed on..."). Flutter's own greedy
+                    // wrap already fits as many whole words as fit per
+                    // line - it wasn't choosing an arbitrary break
+                    // point, "Files needed" together genuinely didn't
+                    // fit within nameMaxWidth at 13px. Dropped to 11px,
+                    // the safest lever to fit more per line (unlike the
+                    // FittedBox attempt above, this doesn't touch the
+                    // wrap mechanism itself, just gives it more room) -
+                    // best-effort, not verified against the real device.
                     SizedBox(
                       width: nameMaxWidth,
                       child: Text(
                         repo.name,
                         style: TextStyle(
                             color: kStar,
-                            fontSize: 13,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             height: 1.2),
                         overflow: TextOverflow.ellipsis,

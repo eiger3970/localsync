@@ -209,14 +209,6 @@ class _IdleViewState extends State<_IdleView>
   // (moving focus back to field 1 later shouldn't re-earn the sparkle).
   final _confirmFocusNode = FocusNode();
   bool _field1Done = false;
-  // 2026-08-28: real feedback, live - "stars on left outside field are
-  // solid and no longer twinkling." The outer star (Positioned(left:
-  // -10, ...) below) was always a bare static Icon, never animated at
-  // all - fixing its fade-out didn't add the twinkle the INSIDE
-  // cluster already has (ShreddingPasswordField's own _sparkleCtrl).
-  // Independent controller here since this outer star lives in this
-  // State, not inside ShreddingPasswordField's.
-  late final AnimationController _outerStarTwinkleCtrl;
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -276,9 +268,6 @@ class _IdleViewState extends State<_IdleView>
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    _outerStarTwinkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
-          ..repeat();
     _pairingCtrl = PairingController(
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
@@ -382,7 +371,6 @@ class _IdleViewState extends State<_IdleView>
   @override
   void dispose() {
     _pulseCtrl.dispose();
-    _outerStarTwinkleCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _passwordFocusNode.dispose();
@@ -806,51 +794,25 @@ class _IdleViewState extends State<_IdleView>
                         // stars on the left of the password field." This
                         // second star spilling past the field's own
                         // border was never wired to _field1Done at all -
-                        // a completely separate, permanently-static icon
-                        // from the prefixIcon cluster fixed above, so
-                        // fixing that cluster left this one still
-                        // showing forever. Fade-to-blue via
-                        // TweenAnimationBuilder (this is a single static
-                        // Icon, not already inside an AnimationController
-                        // -driven builder) combined with
-                        // _outerStarTwinkleCtrl for the twinkle itself -
-                        // "stars on left outside field are solid and no
-                        // longer twinkling" - this icon was ALWAYS a bare
-                        // static Icon, never animated, unlike the inside
-                        // cluster's real sine-wave twinkle.
-                        Positioned(
-                          left: -10,
-                          top: 14,
-                          child: IgnorePointer(
-                            child: TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0, end: _field1Done ? 1.0 : 0.0),
-                              duration: const Duration(milliseconds: 650),
-                              builder: (_, t, __) => AnimatedBuilder(
-                                animation: _outerStarTwinkleCtrl,
-                                builder: (_, __) {
-                                  // 2026-08-28, follow-up: real feedback,
-                                  // live - "still not twinkling." *0.3+0.7
-                                  // only swung opacity between 0.4 and 1.0 -
-                                  // too subtle on a 12px icon to read as
-                                  // twinkling at all. Matched to the exact
-                                  // same *0.5+0.5 full 0-to-1 range every
-                                  // other twinkle in this app already uses
-                                  // (ShreddingPasswordField's own
-                                  // _twinkle(), SparkleBackground's painter).
-                                  final twinkle = math.sin(
-                                          _outerStarTwinkleCtrl.value * math.pi * 2) *
-                                          0.5 +
-                                      0.5;
-                                  return Opacity(
-                                    opacity: (1 - t) * twinkle,
-                                    child: Icon(Icons.auto_awesome,
-                                        color: Color.lerp(kGreen, kBlue, t), size: 12),
-                                  );
-                                },
-                              ),
+                        // fixing the prefixIcon cluster left this one
+                        // showing forever.
+                        //
+                        // 2026-08-28, follow-up: real feedback, live -
+                        // "the fade away blue stars on the password
+                        // fields can be removed, it's out of time." The
+                        // fade-to-blue + twinkle treatment tried here had
+                        // real bugs across several rounds (wrong
+                        // timing, then not twinkling, then amplitude too
+                        // subtle) - reverted to a plain show/hide, same
+                        // stop-condition, no animation.
+                        if (!_field1Done)
+                          Positioned(
+                            left: -10,
+                            top: 14,
+                            child: IgnorePointer(
+                              child: Icon(Icons.auto_awesome, color: kGreen, size: 12),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),
