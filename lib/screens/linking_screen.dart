@@ -789,12 +789,31 @@ class _IdleViewState extends State<_IdleView>
                           showSparkle: !_field1Done,
                           focusNode: _passwordFocusNode,
                         ),
+                        // 2026-08-28: real feedback, live - "stars do
+                        // stop inside the field, but there's remaining
+                        // stars on the left of the password field." This
+                        // second star spilling past the field's own
+                        // border was never wired to _field1Done at all -
+                        // a completely separate, permanently-static icon
+                        // from the prefixIcon cluster fixed above, so
+                        // fixing that cluster left this one still
+                        // showing forever. Same fade-to-blue treatment,
+                        // via TweenAnimationBuilder since this is a
+                        // single static Icon, not already inside an
+                        // AnimationController-driven builder.
                         Positioned(
                           left: -10,
                           top: 14,
                           child: IgnorePointer(
-                            child: Icon(Icons.auto_awesome,
-                                color: kGreen, size: 12),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: _field1Done ? 1.0 : 0.0),
+                              duration: const Duration(milliseconds: 650),
+                              builder: (_, t, __) => Opacity(
+                                opacity: 1 - t,
+                                child: Icon(Icons.auto_awesome,
+                                    color: Color.lerp(kGreen, kBlue, t), size: 12),
+                              ),
+                            ),
                           ),
                         ),
                       ],
