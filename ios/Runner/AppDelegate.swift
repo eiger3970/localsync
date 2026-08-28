@@ -259,7 +259,53 @@ class VaultFolderChannel: NSObject, UIDocumentPickerDelegate {
   }
 }
 
+// File-utility bridge (2026-08-28) - specifically for excluding the
+// phone's own SSH private/public key files from iCloud/iTunes device
+// backup. keypair_service.dart writes those files to Application
+// Support, which is included in device backups by default unless a
+// file explicitly opts out via URLResourceValues.isExcludedFromBackup -
+// a plain Foundation API, but not exposed through dart:io or
+// path_provider, hence this small channel. Real motivation: a returning
+// device backup/restore could silently reintroduce an old keypair after
+// the user deleted the app specifically to reset it - private key
+// material shouldn't be backed up regardless, this closes that off
+// properly rather than leaving it to chance.
+class FileUtilsChannel: NSObject {
+  func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "localsync/file_utils",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "excludeFromBackup":
+        self.excludeFromBackup(call: call, result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func excludeFromBackup(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let path = args["path"] as? String else {
+      result(FlutterError(code: "BAD_ARGS", message: "path is required", details: nil))
+      return
+    }
+    var url = URL(fileURLWithPath: path)
+    do {
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      try url.setResourceValues(values)
+      result(true)
+    } catch {
+      result(FlutterError(code: "EXCLUDE_FAILED", message: error.localizedDescription, details: nil))
+    }
+  }
+}
+
 private let vaultFolderChannel = VaultFolderChannel()
+private let fileUtilsChannel = FileUtilsChannel()
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -279,5 +325,10 @@ private let vaultFolderChannel = VaultFolderChannel()
       return
     }
     vaultFolderChannel.register(with: registrar.messenger())
+
+    guard let fileUtilsRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "FileUtilsChannel") else {
+      return
+    }
+    fileUtilsChannel.register(with: fileUtilsRegistrar.messenger())
   }
 }

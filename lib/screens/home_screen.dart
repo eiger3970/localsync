@@ -100,10 +100,20 @@ class HomeScreen extends StatelessWidget {
           // visual gap from whatever `actions` starts with. Forcing a
           // real gap from the `actions` side instead is unambiguous
           // regardless of how the title's own centering math resolves.
-          const SizedBox(width: 14),
+          // 2026-08-28: real feedback, live - "kebab icon is too far
+          // left, leaving too much space to its right [before Help] and
+          // taking away valuable real estate on its left [from the repo
+          // name/dropdown]." Widened from 14 to give the name area more
+          // room, and the kebab+Help pairing below gets tight explicit
+          // padding instead of each IconButton's default ~48px tap
+          // target stacking into a much bigger visual gap than intended
+          // between them - net effect shifts the kebab right, closer to
+          // Help, exactly as asked.
+          const SizedBox(width: 24),
           Consumer<RepositoryProvider>(
             builder: (_, provider, __) => PopupMenuButton<String>(
               color: kSurface,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
               icon: Icon(Icons.more_vert, color: kGreen, size: 22),
               onSelected: (v) {
                 if (v == 'pair') _openPairing(context);
@@ -328,6 +338,8 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.help_outline, color: kGreen),
             tooltip: 'Help',
+            padding: const EdgeInsets.only(left: 6, right: 12),
+            constraints: const BoxConstraints(),
             onPressed: () => showHelpWizard(context, 'A'),
           ),
         ],
