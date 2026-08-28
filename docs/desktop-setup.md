@@ -6,10 +6,11 @@ Obsidian is a PKM (personal knowledge management) app LocalSync supports today;
 Logseq and other PKMs are a longer-term direction, not built yet.
 - this guide is accurate to what LocalSync actually does right now.
 
-3 installs needed before linking a vault in LocalSync:
+2 things needed on the desktop before linking a vault in LocalSync:
 - **Git**
-- **Git bare repository**
 - **SSH access**
+
+The Git bare repository itself no longer needs a manual step (2026-08-28) - LocalSync creates it on the desktop automatically, the first time it pairs, over the same SSH access pairing already sets up. Nothing to run by hand unless you want a specific existing path reused (see [Git bare repository](#-3-git-bare-repository) below).
 
 This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and similar) and macOS.
 
@@ -32,7 +33,7 @@ Neither device talks to the other directly, and a second synced copy of the vaul
 
 Today the desktop side of the sync (the `git push / pull` step above) is manual, run by hand. Nothing automated exists for it yet.
 
-If all three are already set up (git is installed, a Git bare repository exists, SSH is reachable), skip to [Settings values](#settings-values).
+If both are already set up (git is installed, SSH is reachable), skip to [Settings values](#settings-values).
 
 ## 🌿 1. Git
 
@@ -70,13 +71,15 @@ If it says `PasswordAuthentication no`, change it to `yes`, then restart SSH (`s
 
 ## 📦 3. Git bare repository
 
-A single, recommended location - no need to decide this from scratch:
-```
-mkdir -p ~/Documents/Git/LocalSync
-git init --bare ~/Documents/Git/LocalSync/vault.git
-```
+**Automatic as of 2026-08-28** - the first time LocalSync pairs with this desktop, it creates the bare repository itself at whatever path is typed into Settings, using the SSH access pairing just installed (`git_service.dart`'s `_ensureBareRepoExists()`). Nothing to run here by hand for a fresh setup.
 
-This exact path (adjusted for the real username) goes into LocalSync's Settings - note the **full absolute path** (e.g. `/home/username/Documents/Git/LocalSync/vault.git`, or on macOS `/Users/username/Documents/Git/LocalSync/vault.git`).
+A single, recommended path if the Settings field is otherwise empty - no need to decide this from scratch:
+```
+/home/username/Documents/Git/LocalSync/vault.git
+```
+(macOS: `/Users/username/Documents/Git/LocalSync/vault.git`)
+
+Type the **full absolute path** into LocalSync's Settings; the folder and bare repo both get created automatically if they don't already exist. Only run `git init --bare <path>` by hand if pointing at a specific path you've already created for another reason - the automatic step is idempotent and never touches a bare repo that already exists.
 
 ## 📡 Auto-discovery (optional)
 
