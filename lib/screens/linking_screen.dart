@@ -714,6 +714,44 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
+                  // 2026-08-29: real feedback, live - "I don't see the
+                  // password warning below password1 field... the
+                  // keyboard covers the lower phonescreen, maybe hiding
+                  // it. Move it to below 2. DESKTOP PASSWORD [heading]...
+                  // must not move the user's eye targeted on typing
+                  // password field1." Back above field 1 (the on-screen
+                  // keyboard opens the instant field 1 gets focus and
+                  // covers the lower half of the screen, which is where
+                  // "below field 1" put this - it was never visible
+                  // there on a real phone). Fixed-height SizedBox +
+                  // ClipRect + AnimatedSlide instead of the previous
+                  // AnimatedSize: the reserved space here never changes
+                  // size, so field 1 below it can't shift position while
+                  // this slides out of view as typing starts - it
+                  // scrolls up and clips out of its own fixed box rather
+                  // than collapsing the layout around it.
+                  SizedBox(
+                    height: 56,
+                    child: ClipRect(
+                      child: AnimatedSlide(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        offset: _passwordCtrl.text.isEmpty
+                            ? Offset.zero
+                            : const Offset(0, -1),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            'Your key is stored on both devices.\n'
+                            'Your password never is.',
+                            style: TextStyle(
+                                color: kTextMid, fontSize: 13, height: 1.6),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -785,33 +823,6 @@ class _IdleViewState extends State<_IdleView>
                           ),
                       ],
                     ),
-                  ),
-                  // 2026-08-29: real feedback, live - "might be better
-                  // positioned below password field1 and scroll up and
-                  // away when user types in password field1." Moved from
-                  // above field 1 (where it sat as a heading-adjacent
-                  // caption) to directly below it, and now collapses
-                  // upward instead of staying put once typing starts -
-                  // AnimatedSize shrinks the space it occupied to zero,
-                  // driven by the same _passwordCtrl listener that
-                  // already triggers rebuilds elsewhere on this screen
-                  // (see initState).
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    alignment: Alignment.topCenter,
-                    child: _passwordCtrl.text.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
-                            child: Text(
-                              'Your key is stored on both devices.\n'
-                              'Your password never is.',
-                              style: TextStyle(
-                                  color: kTextMid, fontSize: 13, height: 1.6),
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        : const SizedBox(width: double.infinity),
                   ),
                   const SizedBox(height: 12),
                   // 2026-08-25: copy-to-confirm button added then
