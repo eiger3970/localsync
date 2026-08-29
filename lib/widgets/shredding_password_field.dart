@@ -227,7 +227,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                           child: Opacity(
                             opacity: 1 - t,
                             child: Text(_obscure ? '•' : _shreddedText[i],
-                                style: TextStyle(color: kBlue, fontSize: 16)),
+                                style: TextStyle(color: kGreen, fontSize: 16)),
                           ),
                         ),
                       );
