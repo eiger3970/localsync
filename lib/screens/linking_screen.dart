@@ -754,7 +754,7 @@ class _IdleViewState extends State<_IdleView>
                   // scrolls up and clips out of its own fixed box rather
                   // than collapsing the layout around it.
                   SizedBox(
-                    height: 56,
+                    height: 72,
                     child: ClipRect(
                       child: AnimatedSlide(
                         duration: const Duration(milliseconds: 220),
@@ -764,9 +764,18 @@ class _IdleViewState extends State<_IdleView>
                             : const Offset(0, -1),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
+                          // 2026-08-29: real feedback, live - "you appear
+                          // to have lost the password advice, retrieve
+                          // it." When git_install_consent.dart's warning
+                          // box was split into network-setup vs password
+                          // subjects, "Never leaves this device" was
+                          // supposed to relocate here alongside "Never
+                          // stored, anywhere" - only the latter actually
+                          // made it into this caption. Both restored.
                           child: Text(
                             'Your key is stored on both devices.\n'
-                            'Your password never is.',
+                            'Your password: never stored, never leaves '
+                            'this device.',
                             style: TextStyle(
                                 color: kTextMid, fontSize: 13, height: 1.6),
                             textAlign: TextAlign.center,
