@@ -379,8 +379,15 @@ class _IdleViewState extends State<_IdleView>
               style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
           backgroundColor: Colors.amber,
           duration: const Duration(seconds: 6),
+          // 2026-08-29: real feedback, live - "SETTINGS needs magic
+          // stars to keep the theme for the user to action by tapping
+          // SETTINGS." SnackBarAction only takes a plain String label,
+          // no custom child widget - a static sparkle glyph is the
+          // real option available here (a live-twinkling animation
+          // would be barely noticeable in a snackbar visible only a
+          // few seconds anyway).
           action: SnackBarAction(
-            label: 'SETTINGS',
+            label: '✨ SETTINGS',
             textColor: kVoid,
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const SettingsScreen())),

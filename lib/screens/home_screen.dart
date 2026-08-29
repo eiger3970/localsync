@@ -1375,32 +1375,46 @@ class _AppBarRepoStatus extends StatelessWidget {
             // aimed at the visible arrow were landing on the kebab instead.
             // Not a data/state bug at all, once actually seen on-device.
             if (allRepos.length > 1) ...[
-              PopupMenuButton<int>(
-                color: kSurface,
-                tooltip: 'Switch $kContainerName',
-                icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
-                onSelected: onSelect,
-                itemBuilder: (_) => [
-                  for (final r in allRepos)
-                    PopupMenuItem(
-                      value: r.id,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            r.id == repo.id ? Icons.check : null,
-                            color: kGreen,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          _StatusDot(status: r.status),
-                          const SizedBox(width: 8),
-                          Text(r.name,
-                              style: TextStyle(color: kStar, fontSize: 14)),
-                        ],
+              // 2026-08-29: real feedback, live - "loads of available
+              // black space left of the kebab icon" even with a real
+              // vault linked and its name showing. Same root cause as
+              // the kebab's own 2026-08-29 fix: this button's icon is
+              // only 20px but PopupMenuButton enforces Material's
+              // default 48x48 minimum tap target regardless, and no
+              // padding override was ever set here either - shrinkWrap
+              // removes that, freeing real width back to the name area
+              // (_AppBarRepoStatus's `reserved` calculation below
+              // assumed this button was ~44px; it was actually ~48+).
+              Theme(
+                data: Theme.of(context).copyWith(
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                child: PopupMenuButton<int>(
+                  color: kSurface,
+                  tooltip: 'Switch $kContainerName',
+                  icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
+                  onSelected: onSelect,
+                  itemBuilder: (_) => [
+                    for (final r in allRepos)
+                      PopupMenuItem(
+                        value: r.id,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              r.id == repo.id ? Icons.check : null,
+                              color: kGreen,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            _StatusDot(status: r.status),
+                            const SizedBox(width: 8),
+                            Text(r.name,
+                                style: TextStyle(color: kStar, fontSize: 14)),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
               // 2026-08-21: real gap from the fix above - the button's own
               // hit area now covers the icon plus padding, but nothing
