@@ -9,14 +9,17 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/ios_app_service.dart';
+import '../services/purchase_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
+import '../widgets/conflict_picker_upsell.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
 import 'binary_conflicts_screen.dart';
@@ -51,9 +54,11 @@ class ConflictsScreen extends StatefulWidget {
   State<ConflictsScreen> createState() => _ConflictsScreenState();
 }
 
-typedef _ScanResult = (
-  {List<ConflictEntry> conflicts, List<ReferenceEntry> refs, List<BinaryConflictLogEntry> binary}
-);
+typedef _ScanResult = ({
+  List<ConflictEntry> conflicts,
+  List<ReferenceEntry> refs,
+  List<BinaryConflictLogEntry> binary
+});
 
 class _ConflictsScreenState extends State<ConflictsScreen> {
   final _vaultFolder = VaultFolderService();
@@ -147,8 +152,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     // dropped by pruneOld above) and matched ones (already done their
     // job - flagged once, no need to keep re-flagging every future scan
     // of the same file).
-    final remaining = watchlist.where((r) => !reverted.any((m) =>
-        m.filePath == r.filePath && m.who == r.who && m.when == r.when));
+    final remaining = watchlist.where((r) => !reverted.any(
+        (m) => m.filePath == r.filePath && m.who == r.who && m.when == r.when));
     await db.setResolvedWatchlist(remaining.toList());
   }
 
@@ -315,8 +320,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 final now = DateTime.now();
                 bool isRecent(ConflictEntry e) {
                   final t = _parseWhen(e.when);
-                  return t != null && now.difference(t) < const Duration(hours: 1);
+                  return t != null &&
+                      now.difference(t) < const Duration(hours: 1);
                 }
+
                 final splitIndex = entries.indexWhere((e) => !isRecent(e));
                 final hasSplit = splitIndex > 0 && splitIndex < entries.length;
                 // 2026-08-26: real feedback, live - "just need the
@@ -376,8 +383,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     '${binary.length == 1 ? 'conflict' : 'conflicts'} '
                                     'auto-resolved - your version was kept, '
                                     'tap to review',
-                                    style: TextStyle(
-                                        color: kStar, fontSize: 13.5),
+                                    style:
+                                        TextStyle(color: kStar, fontSize: 13.5),
                                   ),
                                 ),
                                 Icon(Icons.chevron_right,
@@ -409,199 +416,222 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           style: TextStyle(color: kTextMid, fontSize: 13),
                         ),
                       ),
+                    // 2026-08-29: real feedback, live - "this IAP would
+                    // appear in the Conflicts page when there's a
+                    // conflict." Moved from settings_screen.dart, where
+                    // its own header comment already said Conflicts was
+                    // the real intended home - it was only in Settings
+                    // because there was no purchasable Test Store
+                    // product yet when it was first built (2026-08-21,
+                    // now set up). Shown at the point of actual pain
+                    // (a real conflict to resolve), matching its own
+                    // spec: "a genuine lift/convenience offer... not a
+                    // lock screen" - the free manual-pick list below is
+                    // fully unaffected either way.
+                    if (entries.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: ConflictPickerUpsell(
+                            purchases: context.watch<PurchaseService>()),
+                      ),
                     Expanded(
                       child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: totalCount,
-                  separatorBuilder: (_, i) {
-                    if (i >= entries.length - 1) return const SizedBox(height: 4);
-                    return hasSplit && i == splitIndex - 1
-                        ? const _EarlierDivider()
-                        : Divider(color: kTextDim);
-                  },
-                  itemBuilder: (context, i) {
-                    if (i == refHeaderIndex) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 8),
-                        child: Text('Old versions (${refs.length})',
-                            style: TextStyle(
-                                color: kTextMid,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600)),
-                      );
-                    }
-                    if (hasRefs && i == hintIndex) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                            'Delete only affects this device until you sync.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: kTextDim, fontSize: 12)),
-                      );
-                    }
-                    if (i > refHeaderIndex) {
-                      final ref = refs[i - refHeaderIndex - 1];
-                      return ReferenceCalloutTile(
-                          entry: ref,
-                          onDelete: () => _deleteRef(ref),
-                          // Undo needs an exact swap span (see
-                          // ReferenceEntry's own doc) - null on an older
-                          // note resolved before that marker existed,
-                          // which the tile reads as "not offered" rather
-                          // than a broken button.
-                          onUndo: ref.keptMarkerStart == null
-                              ? null
-                              : () => _undoRef(ref));
-                    }
-                    final e = entries[i];
-                    // 2026-08-20: this exact conflict was resolved before
-                    // and has now reappeared - most likely Obsidian's own
-                    // cache reverting the write (see resolved_watchlist.dart)
-                    // rather than a brand new conflict. Called out
-                    // explicitly instead of looking like an unremarkable
-                    // first-time entry, since the user already thought
-                    // this one was handled.
-                    final reappeared = _revertedPaths.contains(e.filePath);
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: reappeared
-                          ? const Icon(Icons.warning_amber,
-                              color: Colors.amber, size: 22)
-                          : null,
-                      title: Text(e.filePath,
-                          style: TextStyle(color: kStar, fontSize: 15)),
-                      subtitle: Text(
-                        reappeared
-                            ? 'Resolved earlier, but this looks like it '
-                                'came back - possibly reverted by Obsidian. '
-                                'Check the backup note if unsure.'
-                            : (e.versions.length > 2
-                                ? '${e.versions.length - 1} unresolved versions '
-                                    'stacked - most recent by ${e.who}'
-                                : (e.when != null
-                                    ? 'Conflicting change by ${e.who} - ${e.when}'
-                                    : 'Conflicting change by ${e.who}')),
-                        // 2026-08-20: real feedback, live - "too dark
-                        // and grey", same complaint this screen has hit
-                        // repeatedly today on dim/small text (the
-                        // divider, the dialog backup line) - kStar/14px
-                        // matches how those were fixed.
-                        style: TextStyle(
-                            color: reappeared ? Colors.amber : kStar,
-                            fontSize: 14),
-                      ),
-                      trailing:
-                          Icon(Icons.chevron_right, color: kTextDim),
-                      onTap: () async {
-                        final result =
-                            await Navigator.push<ConflictResolvedResult>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ConflictPickerScreen(
-                                repo: widget.repo, entry: e),
-                          ),
-                        );
-                        if (result?.resolved == true) {
-                          setState(() => _future = _scan());
-                          // 2026-08-19: tried deep-linking straight to
-                          // the exact backup note (obsidian://open?
-                          // vault=...&file=...) - real device testing
-                          // found Obsidian doesn't honor the folder
-                          // portion of that path the way expected: it
-                          // silently opened a same-named file from a
-                          // completely unrelated old vault-backup
-                          // snapshot instead, twice, with two different
-                          // URL-encoding approaches. Showing WRONG
-                          // content is worse than making the user
-                          // navigate themselves, so this fell back to
-                          // opening just the vault (already
-                          // proven-reliable elsewhere - see
-                          // linking_controller.dart's openObsidianNow())
-                          // paired with an explicit folder name in the
-                          // message, rather than a broken file-specific
-                          // link.
-                          final vaultName = result?.vaultName;
-                          if (vaultName != null && context.mounted) {
-                            // 2026-08-19: real bug, live - "Both
-                            // versions" is wrong once a note has 3+
-                            // stacked versions (see the Kanban
-                            // multi-version test this session), not
-                            // just the common 2-way case.
-                            final versionWord = e.versions.length == 2
-                                ? 'Both versions'
-                                : 'All ${e.versions.length} versions';
-                            // 2026-08-19: "why is the button link needed?
-                            // ... make 'backed up' a link" - first pass
-                            // linked the verb. Real follow-up: "ideally
-                            // the link would be better in the actual
-                            // location the text says at the end of the
-                            // sentence" - a link should name the
-                            // destination, not the action, so it moved
-                            // onto "LocalSync Conflict Backups" instead.
-                            //
-                            // 2026-08-20: a same-session A/B test
-                            // confirmed which note Obsidian shows after
-                            // this tap tracks whatever was on-screen in
-                            // Obsidian right before switching away, not
-                            // this button - it never controlled the
-                            // destination either way, by either wording.
-                            // Reverted an "open Obsidian" rewording that
-                            // tried to hedge around that, per direct
-                            // instruction to keep the original text.
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: kSurface,
-                                content: Text.rich(
-                                  TextSpan(
-                                    style: TextStyle(
-                                        color: kStar, fontSize: 15),
-                                    children: [
-                                      TextSpan(
-                                          text: 'Resolved. $versionWord '
-                                              'backed up in '),
-                                      TextSpan(
-                                        text: 'LocalSync/Conflict Backups',
-                                        style: TextStyle(
-                                          color: kGreen,
-                                          fontWeight: FontWeight.bold,
-                                          decoration:
-                                              TextDecoration.underline,
-                                        ),
-                                        recognizer: TapGestureRecognizer()
-                                          ..onTap = () {
-                                            IosAppServiceImpl().openObsidian(
-                                                vaultName: vaultName);
-                                          },
-                                      ),
-                                      // 2026-08-26: real feedback, live -
-                                      // "these user actions like reboot
-                                      // tab or vault needs to be noted in
-                                      // the phone Conflicts screen in the
-                                      // moment of the relevant fix." Real
-                                      // testing hit Obsidian (desktop AND
-                                      // phone) still showing old note
-                                      // content after a background file
-                                      // change - the file itself was
-                                      // confirmed correct on disk both
-                                      // times, Obsidian's own editor just
-                                      // hadn't noticed. Told here, right
-                                      // where a resolution just wrote to
-                                      // this exact note.
-                                      const TextSpan(
-                                          text: '. If it still looks '
-                                              'unchanged in Obsidian, '
-                                              'close and reopen the note.'),
-                                    ],
-                                  ),
-                                ),
-                                duration: const Duration(seconds: 10),
-                              ),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: totalCount,
+                        separatorBuilder: (_, i) {
+                          if (i >= entries.length - 1)
+                            return const SizedBox(height: 4);
+                          return hasSplit && i == splitIndex - 1
+                              ? const _EarlierDivider()
+                              : Divider(color: kTextDim);
+                        },
+                        itemBuilder: (context, i) {
+                          if (i == refHeaderIndex) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8, bottom: 8),
+                              child: Text('Old versions (${refs.length})',
+                                  style: TextStyle(
+                                      color: kTextMid,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600)),
                             );
                           }
-                        }
-                      },
-                    );
-                  },
+                          if (hasRefs && i == hintIndex) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                  'Delete only affects this device until you sync.',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      TextStyle(color: kTextDim, fontSize: 12)),
+                            );
+                          }
+                          if (i > refHeaderIndex) {
+                            final ref = refs[i - refHeaderIndex - 1];
+                            return ReferenceCalloutTile(
+                                entry: ref,
+                                onDelete: () => _deleteRef(ref),
+                                // Undo needs an exact swap span (see
+                                // ReferenceEntry's own doc) - null on an older
+                                // note resolved before that marker existed,
+                                // which the tile reads as "not offered" rather
+                                // than a broken button.
+                                onUndo: ref.keptMarkerStart == null
+                                    ? null
+                                    : () => _undoRef(ref));
+                          }
+                          final e = entries[i];
+                          // 2026-08-20: this exact conflict was resolved before
+                          // and has now reappeared - most likely Obsidian's own
+                          // cache reverting the write (see resolved_watchlist.dart)
+                          // rather than a brand new conflict. Called out
+                          // explicitly instead of looking like an unremarkable
+                          // first-time entry, since the user already thought
+                          // this one was handled.
+                          final reappeared =
+                              _revertedPaths.contains(e.filePath);
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: reappeared
+                                ? const Icon(Icons.warning_amber,
+                                    color: Colors.amber, size: 22)
+                                : null,
+                            title: Text(e.filePath,
+                                style: TextStyle(color: kStar, fontSize: 15)),
+                            subtitle: Text(
+                              reappeared
+                                  ? 'Resolved earlier, but this looks like it '
+                                      'came back - possibly reverted by Obsidian. '
+                                      'Check the backup note if unsure.'
+                                  : (e.versions.length > 2
+                                      ? '${e.versions.length - 1} unresolved versions '
+                                          'stacked - most recent by ${e.who}'
+                                      : (e.when != null
+                                          ? 'Conflicting change by ${e.who} - ${e.when}'
+                                          : 'Conflicting change by ${e.who}')),
+                              // 2026-08-20: real feedback, live - "too dark
+                              // and grey", same complaint this screen has hit
+                              // repeatedly today on dim/small text (the
+                              // divider, the dialog backup line) - kStar/14px
+                              // matches how those were fixed.
+                              style: TextStyle(
+                                  color: reappeared ? Colors.amber : kStar,
+                                  fontSize: 14),
+                            ),
+                            trailing:
+                                Icon(Icons.chevron_right, color: kTextDim),
+                            onTap: () async {
+                              final result =
+                                  await Navigator.push<ConflictResolvedResult>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ConflictPickerScreen(
+                                      repo: widget.repo, entry: e),
+                                ),
+                              );
+                              if (result?.resolved == true) {
+                                setState(() => _future = _scan());
+                                // 2026-08-19: tried deep-linking straight to
+                                // the exact backup note (obsidian://open?
+                                // vault=...&file=...) - real device testing
+                                // found Obsidian doesn't honor the folder
+                                // portion of that path the way expected: it
+                                // silently opened a same-named file from a
+                                // completely unrelated old vault-backup
+                                // snapshot instead, twice, with two different
+                                // URL-encoding approaches. Showing WRONG
+                                // content is worse than making the user
+                                // navigate themselves, so this fell back to
+                                // opening just the vault (already
+                                // proven-reliable elsewhere - see
+                                // linking_controller.dart's openObsidianNow())
+                                // paired with an explicit folder name in the
+                                // message, rather than a broken file-specific
+                                // link.
+                                final vaultName = result?.vaultName;
+                                if (vaultName != null && context.mounted) {
+                                  // 2026-08-19: real bug, live - "Both
+                                  // versions" is wrong once a note has 3+
+                                  // stacked versions (see the Kanban
+                                  // multi-version test this session), not
+                                  // just the common 2-way case.
+                                  final versionWord = e.versions.length == 2
+                                      ? 'Both versions'
+                                      : 'All ${e.versions.length} versions';
+                                  // 2026-08-19: "why is the button link needed?
+                                  // ... make 'backed up' a link" - first pass
+                                  // linked the verb. Real follow-up: "ideally
+                                  // the link would be better in the actual
+                                  // location the text says at the end of the
+                                  // sentence" - a link should name the
+                                  // destination, not the action, so it moved
+                                  // onto "LocalSync Conflict Backups" instead.
+                                  //
+                                  // 2026-08-20: a same-session A/B test
+                                  // confirmed which note Obsidian shows after
+                                  // this tap tracks whatever was on-screen in
+                                  // Obsidian right before switching away, not
+                                  // this button - it never controlled the
+                                  // destination either way, by either wording.
+                                  // Reverted an "open Obsidian" rewording that
+                                  // tried to hedge around that, per direct
+                                  // instruction to keep the original text.
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: kSurface,
+                                      content: Text.rich(
+                                        TextSpan(
+                                          style: TextStyle(
+                                              color: kStar, fontSize: 15),
+                                          children: [
+                                            TextSpan(
+                                                text: 'Resolved. $versionWord '
+                                                    'backed up in '),
+                                            TextSpan(
+                                              text:
+                                                  'LocalSync/Conflict Backups',
+                                              style: TextStyle(
+                                                color: kGreen,
+                                                fontWeight: FontWeight.bold,
+                                                decoration:
+                                                    TextDecoration.underline,
+                                              ),
+                                              recognizer: TapGestureRecognizer()
+                                                ..onTap = () {
+                                                  IosAppServiceImpl()
+                                                      .openObsidian(
+                                                          vaultName: vaultName);
+                                                },
+                                            ),
+                                            // 2026-08-26: real feedback, live -
+                                            // "these user actions like reboot
+                                            // tab or vault needs to be noted in
+                                            // the phone Conflicts screen in the
+                                            // moment of the relevant fix." Real
+                                            // testing hit Obsidian (desktop AND
+                                            // phone) still showing old note
+                                            // content after a background file
+                                            // change - the file itself was
+                                            // confirmed correct on disk both
+                                            // times, Obsidian's own editor just
+                                            // hadn't noticed. Told here, right
+                                            // where a resolution just wrote to
+                                            // this exact note.
+                                            const TextSpan(
+                                                text: '. If it still looks '
+                                                    'unchanged in Obsidian, '
+                                                    'close and reopen the note.'),
+                                          ],
+                                        ),
+                                      ),
+                                      duration: const Duration(seconds: 10),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -707,8 +737,10 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
   bool get _keptIsThisDevice => !_droppedIsYours;
   String get _keptDisplayName =>
       _keptIsThisDevice ? 'This device' : 'Your other device';
-  IconData get _droppedIcon => _droppedIsYours ? Icons.smartphone : Icons.computer;
-  IconData get _keptIcon => _keptIsThisDevice ? Icons.smartphone : Icons.computer;
+  IconData get _droppedIcon =>
+      _droppedIsYours ? Icons.smartphone : Icons.computer;
+  IconData get _keptIcon =>
+      _keptIsThisDevice ? Icons.smartphone : Icons.computer;
 
   // 2026-08-26: real feedback, live - "title has no name of what the
   // conflict [is] like" and "I need some sign that the conflict has
@@ -763,7 +795,8 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     decoration: BoxDecoration(
                       color: kGreen.withValues(alpha: 0.08),
                       border: Border.all(color: kGreen.withValues(alpha: 0.35)),
@@ -823,8 +856,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                                   padding: const EdgeInsets.only(top: 2),
                                   child: AnimatedRotation(
                                     turns: _keptExpanded ? 0.25 : 0,
-                                    duration:
-                                        const Duration(milliseconds: 200),
+                                    duration: const Duration(milliseconds: 200),
                                     child: Icon(Icons.chevron_right,
                                         size: 16, color: kGreen),
                                   ),
@@ -848,7 +880,9 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                                         ? '(nothing else above this in the note)'
                                         : entry.keptPreview,
                                     style: TextStyle(
-                                        color: kStar, fontSize: 12, height: 1.4)),
+                                        color: kStar,
+                                        fontSize: 12,
+                                        height: 1.4)),
                               ),
                             ],
                           ),
@@ -888,11 +922,12 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.08),
-                      border:
-                          Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                      border: Border.all(
+                          color: Colors.amber.withValues(alpha: 0.4)),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
@@ -950,8 +985,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                                   padding: const EdgeInsets.only(top: 2),
                                   child: AnimatedRotation(
                                     turns: _droppedExpanded ? 0.25 : 0,
-                                    duration:
-                                        const Duration(milliseconds: 200),
+                                    duration: const Duration(milliseconds: 200),
                                     child: const Icon(Icons.chevron_right,
                                         size: 16, color: Colors.amber),
                                   ),
@@ -972,7 +1006,9 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(entry.body,
                                     style: TextStyle(
-                                        color: kStar, fontSize: 12, height: 1.4)),
+                                        color: kStar,
+                                        fontSize: 12,
+                                        height: 1.4)),
                               ),
                             ],
                           ),

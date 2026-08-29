@@ -20,13 +20,12 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
-import '../services/purchase_service.dart';
-import '../widgets/conflict_picker_upsell.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -94,16 +93,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
-    _pathSparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
-          ..repeat();
+    _pathSparkleCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat();
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
     });
     PackageInfo.fromPlatform().then((info) {
       if (mounted) {
-        setState(() =>
-            _versionLabel = 'v${info.version} (${info.buildNumber})');
+        setState(
+            () => _versionLabel = 'v${info.version} (${info.buildNumber})');
       }
     });
   }
@@ -292,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           // tester with no idea to fall back to the manual command
           // instead of retrying the same search.
           'No desktop found on Wi-Fi. On USB tether, use the (i) '
-              'button below instead for the manual command.',
+          'button below instead for the manual command.',
           style: TextStyle(color: kStar, fontSize: 14),
         ),
         duration: const Duration(seconds: 5),
@@ -410,10 +409,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // matched here for consistency across the whole
                       // screen rather than guessing at the exact
                       // rendering mechanism blind.
+                      // 2026-08-29: real feedback, live - "make the
+                      // headers larger" - bumped 15 -> 17 on all three
+                      // field labels (this one, Git bare repo path, IP
+                      // address - desktop).
                       labelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
+                          color: kStar,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700),
                       floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
+                          color: kStar,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700),
                       helperText: 'The login username on your desktop - '
                           'what you\'d type to sign in there',
                       helperMaxLines: 2,
@@ -480,20 +487,58 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // desktop terminal command would reference) but
                       // added the plain-language version alongside it
                       // rather than replacing it outright.
-                      labelText: 'Git bare repo path (folder sharing to your phone)',
+                      // 2026-08-29: real feedback, live - "make the
+                      // headers larger... this text in brackets doesn't
+                      // need to be enlarged." labelText can only take a
+                      // single style for the whole string - switched to
+                      // label: with a RichText so "Git bare repo path"
+                      // can go to 17 while the parenthetical stays at
+                      // the original 15.
+                      // 2026-08-29: real feedback, live - "add git
+                      // logo... same colour as other logos, white, not
+                      // the standard git logo colour orange." Official
+                      // Git icon mark (git-scm.com/downloads/logos, CC
+                      // BY 3.0) is a single-color shape - colorFilter
+                      // tints it to kStar at render time instead of
+                      // baking a fixed white into the asset, so it stays
+                      // correct if kStar ever differs from pure white
+                      // under a different skin.
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SvgPicture.asset(
+                            'assets/logos/git-icon.svg',
+                            width: 16,
+                            height: 16,
+                            colorFilter:
+                                ColorFilter.mode(kStar, BlendMode.srcIn),
+                          ),
+                          const SizedBox(width: 6),
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                    text: 'Git bare repo path',
+                                    style: TextStyle(
+                                        color: kStar,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700)),
+                                TextSpan(
+                                    text: ' (folder sharing to your phone)',
+                                    style: TextStyle(
+                                        color: kStar,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       // 2026-08-28: same fix as Desktop username above -
                       // always float, so the grey hint path shows from
                       // the first frame instead of the bold label
                       // sitting inside the box looking like real content.
                       floatingLabelBehavior: FloatingLabelBehavior.always,
-                      labelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
-                      // 2026-08-21: floatingLabelStyle fix - "text must
-                      // be larger than /home/rapi5/Documents/Git/pi5-
-                      // obsidia..." - see the field below for why this
-                      // is needed even though labelStyle already says 18.
-                      floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "what does
                       // this even mean, make it clearer" on "For the
                       // next vault you link". Spells out the actual
@@ -524,8 +569,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // neither - it's a lookup command, not a support
                       // request.
                       suffixIcon: IconButton(
-                        icon: Icon(Icons.info_outline,
-                            color: kTextDim, size: 20),
+                        icon:
+                            Icon(Icons.info_outline, color: kTextDim, size: 20),
                         tooltip: 'How do I find this?',
                         // 2026-08-21: real question, live - "is this
                         // live if the user has a different git bare
@@ -549,23 +594,31 @@ class _SettingsScreenState extends State<SettingsScreen>
                           'Setting the Git bare repo path',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
-                            ('New setup? Just type any path here, e.g. '
-                                    '~/Documents/Git/localsync.git - '
-                                    'it gets created automatically the '
-                                    'first time you pair, nothing to run '
-                                    'yourself',
-                                false),
-                            ('Already have one and want to reuse it? Run '
-                                    'this on the desktop terminal instead',
-                                false),
-                            ('Lists every Git bare repo on the desktop',
-                                true),
+                            (
+                              'New setup? Just type any path here, e.g. '
+                                  '~/Documents/Git/localsync.git - '
+                                  'it gets created automatically the '
+                                  'first time you pair, nothing to run '
+                                  'yourself',
+                              false
+                            ),
+                            (
+                              'Already have one and want to reuse it? Run '
+                                  'this on the desktop terminal instead',
+                              false
+                            ),
+                            ('Lists every Git bare repo on the desktop', true),
                             if (_pathCtrl.text.trim().isNotEmpty)
-                              ('Currently set to: ${_pathCtrl.text.trim()}', false)
+                              (
+                                'Currently set to: ${_pathCtrl.text.trim()}',
+                                false
+                              )
                             else
-                              ('Your real folder is usually the one you '
-                                      'set up first',
-                                  false),
+                              (
+                                'Your real folder is usually the one you '
+                                    'set up first',
+                                false
+                              ),
                           ],
                         ),
                       ),
@@ -592,8 +645,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         backgroundColor: kSurface,
-                        content: Text(
-                            'Fill in Desktop username above first',
+                        content: Text('Fill in Desktop username above first',
                             style: TextStyle(color: kStar, fontSize: 14)),
                         duration: const Duration(seconds: 3),
                       ),
@@ -630,9 +682,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                       animation: _pathSparkleCtrl,
                       builder: (_, __) => Icon(Icons.auto_awesome,
                           color: kGreen.withValues(
-                              alpha: sin(_pathSparkleCtrl.value * pi * 2) *
-                                      0.35 +
-                                  0.65),
+                              alpha:
+                                  sin(_pathSparkleCtrl.value * pi * 2) * 0.35 +
+                                      0.65),
                           size: 15),
                     ),
                     const SizedBox(width: 5),
@@ -678,11 +730,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // always float, so the grey hint IP shows from the
                       // first frame instead of requiring a tap first.
                       floatingLabelBehavior: FloatingLabelBehavior.always,
-                      // 2026-08-28: matched to the other two fields'
-                      // now-consistent 15/15 sizing (see Desktop
-                      // username's own comment above).
+                      // 2026-08-29: real feedback, live - "make the
+                      // headers larger" - bumped 15 -> 17, matching
+                      // Desktop username and Git bare repo path.
                       labelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
+                          color: kStar,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live - "text must be
                       // larger than 172.20.10.11." labelStyle alone
                       // only governs the label's un-floated resting
@@ -695,7 +749,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // the label rendered smaller than the 16px value
                       // text despite labelStyle already saying 18px.
                       floatingLabelStyle: TextStyle(
-                          color: kStar, fontSize: 15, fontWeight: FontWeight.w700),
+                          color: kStar,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700),
                       // 2026-08-21: real feedback, live, two rounds.
                       // First round just reworded "Changes with Tether/
                       // Hotspot" without fixing the real bug - helperText
@@ -770,12 +826,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // the field strips it automatically now,
                                 // but a clear note here means no one
                                 // second-guesses it before saving.
-                                ('Ignore the /28 (or similar) after the '
-                                        'address - only the 4 numbers matter',
-                                    true),
-                                ('IP address changes every switch - re-run '
-                                        'the command',
-                                    false),
+                                (
+                                  'Ignore the /28 (or similar) after the '
+                                      'address - only the 4 numbers matter',
+                                  true
+                                ),
+                                (
+                                  'IP address changes every switch - re-run '
+                                      'the command',
+                                  false
+                                ),
                               ],
                             ),
                           ),
@@ -797,18 +857,13 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 32),
             _buildSkinsCard(),
             const SizedBox(height: 28),
-            // 2026-08-21: real dashboard setup finally done (RevenueCat
-            // Test Store: conflict_picker_unlock product, conflict_picker
-            // entitlement, both attached, "default" offering has a real
-            // Custom package wrapping the product) - "can I see a tap
-            // this for a price and it runs?" Placed here in Settings,
-            // not the real Conflicts screen, so testing the actual free
-            // conflict-picker flow stays completely unaffected. This is
-            // the first place in the whole app a real purchase can
-            // genuinely be attempted (Test Store, not a live App Store
-            // charge - no funded Apple Developer account yet).
-            ConflictPickerUpsell(purchases: context.watch<PurchaseService>()),
-            const SizedBox(height: 28),
+            // 2026-08-29: real feedback, live - "this IAP would appear
+            // in the Conflicts page when there's a conflict... move
+            // this to Conflicts." Moved to conflicts_screen.dart, shown
+            // only when there's a real conflict to resolve - see its
+            // own comment there. This was only ever meant to sit here
+            // temporarily (see the original 2026-08-21 note, removed),
+            // while there was no purchasable Test Store product yet.
             _buildAutoDiscoveryCard(),
             if (_versionLabel != null) ...[
               const SizedBox(height: 20),
@@ -836,7 +891,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+      decoration:
+          BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -857,11 +913,26 @@ class _SettingsScreenState extends State<SettingsScreen>
           // skins, cramped and overflow-prone once the national-flag
           // skins brought the count to 7) - Wrap with a fixed swatch
           // width lets it flow onto multiple lines cleanly instead.
+          // 2026-08-29: real feedback, live - "left aligned, leaving a
+          // nasty right space" - Wrap defaults to WrapAlignment.start,
+          // so a final row that doesn't fill the full width reads as
+          // lopsided. Centering each row fixes that regardless of how
+          // many swatches fit per line.
           Wrap(
+            alignment: WrapAlignment.center,
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final palette in allPalettes)
+              for (final palette in allPalettes) ...[
+                // 2026-08-29: real feedback, live - "add a Customise
+                // button, left of the us skin... user sends me a text
+                // or image, I read it and design it (or have Claude AI
+                // design it)." Placed inline in the same grid, right
+                // before the first flag skin, rather than a separate
+                // section - reads as one more skin choice, not a
+                // different kind of thing bolted on.
+                if (palette.id == 'us')
+                  const SizedBox(width: 84, child: _CustomiseSkinTile()),
                 SizedBox(
                   width: 84,
                   child: _SkinSwatch(
@@ -870,6 +941,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     onTap: () => themeService.select(palette),
                   ),
                 ),
+              ],
             ],
           ),
         ],
@@ -927,7 +999,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: TextButton(
               onPressed: () => _setInterest('no'),
               child: Text(
-                _interestSelected == 'no' ? 'Noted - not for you' : 'Not for me',
+                _interestSelected == 'no'
+                    ? 'Noted - not for you'
+                    : 'Not for me',
                 style: TextStyle(color: kTextDim, fontSize: 12),
               ),
             ),
@@ -1014,7 +1088,8 @@ class _SkinSwatch extends StatelessWidget {
                   child: palette.flagAsset != null
                       ? SvgPicture.asset(palette.flagAsset!, fit: BoxFit.cover)
                       : Center(
-                          child: Icon(Icons.circle, color: palette.accent, size: 10),
+                          child: Icon(Icons.circle,
+                              color: palette.accent, size: 10),
                         ),
                 ),
                 const SizedBox(height: 8),
@@ -1055,6 +1130,110 @@ class _SkinSwatch extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 2026-08-29: real feedback, live - "add a Customise button, left of
+// the us skin... 3x price of most expensive skin... user sends me a
+// text or image, app auto populates or I can read and have Claude AI
+// design it." No skin has an actual price anywhere yet (every "PRO"
+// badge above is a preview of the eventual gate, per _SkinSwatch's own
+// 2026-08-21 comment) - "3x the most expensive skin" has no real
+// number to multiply, so the price shown here is a placeholder until a
+// real one exists. Submission itself reuses the same Codeberg issues
+// channel the website already points contact requests to - text and
+// image attachments both work there natively, no new backend needed
+// for what's described as a manually-designed, not auto-generated,
+// skin.
+class _CustomiseSkinTile extends StatelessWidget {
+  const _CustomiseSkinTile();
+
+  static const _requestUrl = 'https://codeberg.org/kworld/contact/issues/new';
+
+  Future<void> _showInfo(BuildContext context) {
+    return showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Customise your own skin',
+            style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Send a short description or an image of the look you '
+              'want, and it gets designed as a real skin for you.',
+              style: TextStyle(color: kTextMid, fontSize: 13.5, height: 1.4),
+            ),
+            const SizedBox(height: 10),
+            // Placeholder - see this class's own header comment for why.
+            Text('Price: TBD (placeholder)',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: TextStyle(color: kTextDim)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              launchUrl(Uri.parse(_requestUrl),
+                  mode: LaunchMode.externalApplication);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: kGreen),
+            child: Text('Request a skin →',
+                style: TextStyle(color: kVoid, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showInfo(context),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: kVoid,
+          border: Border.all(color: kBorder, width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Container(
+              height: 24,
+              decoration: BoxDecoration(
+                  color: kSurface, border: Border.all(color: kBorder)),
+              child: Center(
+                  child: Icon(Icons.brush_outlined, color: kGreen, size: 14)),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Customise',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: kStar, fontSize: 11, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 3),
+            Text('PRO',
+                style: TextStyle(
+                    color: kTextDim,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1)),
+          ],
+        ),
       ),
     );
   }

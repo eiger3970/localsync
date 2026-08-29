@@ -1,6 +1,6 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
-version: 0.1.0+21
+version: 0.1.0+22
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -80,6 +80,7 @@ flutter:
     - assets/icon/logo_word_with_circle.png
     - assets/pairing/
     - assets/flags/
+    - assets/logos/
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"

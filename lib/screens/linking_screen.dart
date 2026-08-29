@@ -961,7 +961,16 @@ class _IdleViewState extends State<_IdleView>
                         key: _shredKey2,
                         controller: _confirmCtrl,
                         enabled: !_pairing,
-                        showSparkle: _passwordCtrl.text.isNotEmpty,
+                        // 2026-08-29: real feedback, live - "field2
+                        // didn't remove stars once step 3 was
+                        // activated." Was tied only to field 1 having
+                        // text, with no off-condition at all once
+                        // shown - field 3 unlocking (paired &&
+                        // passwordsMatch) is the real "done with this
+                        // step" signal, matching field 1's own
+                        // _field1Done pattern above.
+                        showSparkle: _passwordCtrl.text.isNotEmpty &&
+                            !(_paired && _passwordsMatch),
                         focusNode: _confirmFocusNode,
                       ),
                     ),
