@@ -471,9 +471,23 @@ class _SettingsScreenState extends State<SettingsScreen>
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 2026-08-29: real feedback, live - "git logo in wrong
+                // place... leave header with just text, have the left
+                // image as the git logo." Moved from the label into
+                // this leading-icon slot, replacing the generic
+                // Material glyph - the official Git icon mark
+                // (git-scm.com/downloads/logos, CC BY 3.0), tinted to
+                // kStar via colorFilter rather than baking a fixed
+                // white into the asset, so it stays correct under any
+                // skin.
                 Padding(
                   padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.account_tree, color: kTextMid, size: 22),
+                  child: SvgPicture.asset(
+                    'assets/logos/git-icon.svg',
+                    width: 22,
+                    height: 22,
+                    colorFilter: ColorFilter.mode(kStar, BlendMode.srcIn),
+                  ),
                 ),
                 Expanded(
                   child: TextField(
@@ -498,41 +512,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // logo... same colour as other logos, white, not
                       // the standard git logo colour orange." Official
                       // Git icon mark (git-scm.com/downloads/logos, CC
-                      // BY 3.0) is a single-color shape - colorFilter
-                      // tints it to kStar at render time instead of
-                      // baking a fixed white into the asset, so it stays
-                      // correct if kStar ever differs from pure white
-                      // under a different skin.
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/logos/git-icon.svg',
-                            width: 16,
-                            height: 16,
-                            colorFilter:
-                                ColorFilter.mode(kStar, BlendMode.srcIn),
-                          ),
-                          const SizedBox(width: 6),
-                          RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                    text: 'Git bare repo path',
-                                    style: TextStyle(
-                                        color: kStar,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700)),
-                                TextSpan(
-                                    text: ' (folder sharing to your phone)',
-                                    style: TextStyle(
-                                        color: kStar,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                          ),
-                        ],
+                      // BY 3.0) moved to the field's leading icon slot
+                      // instead (see Icon.account_tree replaced above) -
+                      // "leave header with just text, have the left
+                      // image as the git logo."
+                      label: RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                                text: 'Git bare repo path',
+                                style: TextStyle(
+                                    color: kStar,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700)),
+                            TextSpan(
+                                text: ' (folder sharing to your phone)',
+                                style: TextStyle(
+                                    color: kStar,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
                       // 2026-08-28: same fix as Desktop username above -
                       // always float, so the grey hint path shows from
@@ -786,6 +786,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                           // Git bare repo path doesn't drift the same
                           // way an IP does, so it stays manual).
                           IconButton(
+                            // 2026-08-29: real feedback, live -
+                            // "Satellite needs a little magic stars to
+                            // hint its active." Same sine-wave twinkle
+                            // as "Use suggested path" above (reusing
+                            // _pathSparkleCtrl - same rhythm, one fewer
+                            // controller), a small badge at the corner
+                            // rather than replacing the satellite glyph
+                            // itself. Only while idle - the spinner
+                            // already signals "active" once tapped.
                             icon: _discovering
                                 ? SizedBox(
                                     width: 18,
@@ -793,8 +802,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2, color: kGreen),
                                   )
-                                : Icon(Icons.satellite_alt,
-                                    color: kGreen, size: 20),
+                                : Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Icon(Icons.satellite_alt,
+                                          color: kGreen, size: 20),
+                                      Positioned(
+                                        top: -3,
+                                        right: -3,
+                                        child: AnimatedBuilder(
+                                          animation: _pathSparkleCtrl,
+                                          builder: (_, __) => Icon(
+                                              Icons.auto_awesome,
+                                              color: kGreen.withValues(
+                                                  alpha: sin(_pathSparkleCtrl
+                                                                  .value *
+                                                              pi *
+                                                              2) *
+                                                          0.35 +
+                                                      0.65),
+                                              size: 10),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                             tooltip: 'Find automatically (Wi-Fi only)',
                             onPressed: _discovering ? null : _findDesktop,
                           ),
