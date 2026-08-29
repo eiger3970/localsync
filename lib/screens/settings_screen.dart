@@ -18,7 +18,6 @@ import 'dart:math' show sin, pi;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
@@ -51,13 +50,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   // live pricing test. Loaded once so the card can show which price (if
   // any) was already tapped, rather than always looking untapped.
   String? _interestSelected;
-
-  // 2026-08-28: real feedback, live - a genuinely pushed/merged fix
-  // still read as "not applied" during device testing, traced to the
-  // build number never being bumped (see pubspec.yaml's own comment).
-  // Shown here so which build is actually installed is a glance, not
-  // a guess.
-  String? _versionLabel;
 
   // 2026-08-21: real auto-discovery, item 2 of the IAP build order -
   // scoped to the IP field only, see discovery_service.dart's header
@@ -98,12 +90,6 @@ class _SettingsScreenState extends State<SettingsScreen>
       ..repeat();
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
-    });
-    PackageInfo.fromPlatform().then((info) {
-      if (mounted) {
-        setState(
-            () => _versionLabel = 'v${info.version} (${info.buildNumber})');
-      }
     });
   }
 
@@ -788,12 +774,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                           IconButton(
                             // 2026-08-29: real feedback, live -
                             // "Satellite needs a little magic stars to
-                            // hint its active." Same sine-wave twinkle
-                            // as "Use suggested path" above (reusing
-                            // _pathSparkleCtrl - same rhythm, one fewer
-                            // controller), a small badge at the corner
-                            // rather than replacing the satellite glyph
-                            // itself. Only while idle - the spinner
+                            // hint its active" -> follow-up, live again,
+                            // "needs more twinkly stars." One small
+                            // badge read as too subtle - two stars at
+                            // different sizes/positions/phases (same
+                            // "cluster reads as sparkle, not one static
+                            // glyph" precedent as the password fields'
+                            // own prefixIcon), a fixed phase offset on
+                            // the second star so they don't move in
+                            // lockstep. Only while idle - the spinner
                             // already signals "active" once tapped.
                             icon: _discovering
                                 ? SizedBox(
@@ -808,8 +797,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                       Icon(Icons.satellite_alt,
                                           color: kGreen, size: 20),
                                       Positioned(
-                                        top: -3,
-                                        right: -3,
+                                        top: -4,
+                                        right: -4,
                                         child: AnimatedBuilder(
                                           animation: _pathSparkleCtrl,
                                           builder: (_, __) => Icon(
@@ -821,7 +810,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                                                               2) *
                                                           0.35 +
                                                       0.65),
-                                              size: 10),
+                                              size: 13),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: -2,
+                                        left: -6,
+                                        child: AnimatedBuilder(
+                                          animation: _pathSparkleCtrl,
+                                          builder: (_, __) => Icon(
+                                              Icons.auto_awesome,
+                                              color: kGreen.withValues(
+                                                  alpha: sin((_pathSparkleCtrl
+                                                                      .value +
+                                                                  0.5) *
+                                                              pi *
+                                                              2) *
+                                                          0.35 +
+                                                      0.65),
+                                              size: 8),
                                         ),
                                       ),
                                     ],
@@ -896,13 +903,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             // temporarily (see the original 2026-08-21 note, removed),
             // while there was no purchasable Test Store product yet.
             _buildAutoDiscoveryCard(),
-            if (_versionLabel != null) ...[
-              const SizedBox(height: 20),
-              Center(
-                child: Text(_versionLabel!,
-                    style: TextStyle(color: kTextDim, fontSize: 11)),
-              ),
-            ],
           ],
         ),
       ),

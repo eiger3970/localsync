@@ -386,11 +386,21 @@ class _IdleViewState extends State<_IdleView>
           // real option available here (a live-twinkling animation
           // would be barely noticeable in a snackbar visible only a
           // few seconds anyway).
+          // 2026-08-29: real feedback, live - "FILE SYNC SETUP ->
+          // SETTINGS is messed up... wasting yellow space." A SnackBar
+          // shown via ScaffoldMessenger isn't automatically dismissed
+          // by navigating away from inside its own action - it stays
+          // attached to the ancestor Scaffold and renders on top of
+          // whatever screen comes next. Dismissing explicitly before
+          // the push removes the leftover amber bar from Settings.
           action: SnackBarAction(
             label: '✨ SETTINGS',
             textColor: kVoid,
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()));
+            },
           ),
         ),
       );
