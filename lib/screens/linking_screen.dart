@@ -209,6 +209,13 @@ class _IdleViewState extends State<_IdleView>
   // (moving focus back to field 1 later shouldn't re-earn the sparkle).
   final _confirmFocusNode = FocusNode();
   bool _field1Done = false;
+  // 2026-08-29: real feedback, live - "perhaps a security sign users can
+  // tap on to see the password warning info... this is first time users
+  // so flow must be frictionless." Replaces the always-visible caption
+  // above field 1 (which showed unconditionally, then had to disappear
+  // again once typing started) - now nothing shows at all until tapped,
+  // zero reading required to just get through Stage 2.
+  bool _showPasswordInfo = false;
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -718,13 +725,33 @@ class _IdleViewState extends State<_IdleView>
           // here: Desktop password..." Sparkle belongs on the field
           // itself, not the heading - back to a plain heading, sparkle
           // moved onto field 1 below.
-          Text('2. DESKTOP PASSWORD',
-              style: TextStyle(
-                  color: kGreen,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5)),
-          const SizedBox(height: 14),
+          // 2026-08-29: real feedback, live - "users can tap anywhere on
+          // 2. DESKTOP PASSWORD or the green shield, to open the
+          // warning" - the whole row is one tap target, not just the
+          // small icon, since a first-time user has no reason to expect
+          // a heading is tappable otherwise.
+          InkWell(
+            onTap: () => setState(() => _showPasswordInfo = !_showPasswordInfo),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('2. DESKTOP PASSWORD',
+                      style: TextStyle(
+                          color: kGreen,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5)),
+                  const SizedBox(width: 8),
+                  Icon(Icons.shield_outlined,
+                      size: 16, color: _showPasswordInfo ? kGreen : kTextMid),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           // Stage 2 body - locked until stage 1 is done.
           // 2026-08-29: real feedback, live - the git-install consent no
           // longer gates this unlock at all (it's resolved lazily inside
@@ -737,52 +764,56 @@ class _IdleViewState extends State<_IdleView>
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  // 2026-08-29: real feedback, live - "I don't see the
-                  // password warning below password1 field... the
-                  // keyboard covers the lower phonescreen, maybe hiding
-                  // it. Move it to below 2. DESKTOP PASSWORD [heading]...
-                  // must not move the user's eye targeted on typing
-                  // password field1." Back above field 1 (the on-screen
-                  // keyboard opens the instant field 1 gets focus and
-                  // covers the lower half of the screen, which is where
-                  // "below field 1" put this - it was never visible
-                  // there on a real phone). Fixed-height SizedBox +
-                  // ClipRect + AnimatedSlide instead of the previous
-                  // AnimatedSize: the reserved space here never changes
-                  // size, so field 1 below it can't shift position while
-                  // this slides out of view as typing starts - it
-                  // scrolls up and clips out of its own fixed box rather
-                  // than collapsing the layout around it.
-                  SizedBox(
-                    height: 72,
-                    child: ClipRect(
-                      child: AnimatedSlide(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOut,
-                        offset: _passwordCtrl.text.isEmpty
-                            ? Offset.zero
-                            : const Offset(0, -1),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          // 2026-08-29: real feedback, live - "you appear
-                          // to have lost the password advice, retrieve
-                          // it." When git_install_consent.dart's warning
-                          // box was split into network-setup vs password
-                          // subjects, "Never leaves this device" was
-                          // supposed to relocate here alongside "Never
-                          // stored, anywhere" - only the latter actually
-                          // made it into this caption. Both restored.
-                          child: Text(
-                            'Your key is stored on both devices.\n'
-                            'Your password: never stored, never leaves '
-                            'this device.',
-                            style: TextStyle(
-                                color: kTextMid, fontSize: 13, height: 1.6),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // 2026-08-29: real feedback, live - all three original
+                  // consent-dialog warning lines now show together here
+                  // on tap ("Only for apps you already trust" was left
+                  // behind in git_install_consent.dart earlier today,
+                  // which was the wrong call - it's genuinely about
+                  // trusting an app with your password, same subject as
+                  // the other two). Auto-collapses once typing starts in
+                  // field 1 - once the user's committed to proceeding,
+                  // this shouldn't sit in the way.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.topCenter,
+                    child: (_showPasswordInfo && _passwordCtrl.text.isEmpty)
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: kSurface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: kBorder),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const _PasswordInfoRow(
+                                    icon: Icons.warning_amber_rounded,
+                                    iconColor: Colors.amber,
+                                    text: 'Only for apps you already trust',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _PasswordInfoRow(
+                                    icon: Icons.vpn_key_outlined,
+                                    iconColor: kTextMid,
+                                    text: 'Your key is stored on both devices',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _PasswordInfoRow(
+                                    icon: Icons.lock_outline,
+                                    iconColor: kTextMid,
+                                    text: 'Your password: never stored, '
+                                        'never leaves this device',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
                   ),
                   const SizedBox(height: 16),
                   Padding(
@@ -2425,6 +2456,34 @@ class _ScopeRow extends StatelessWidget {
           Icon(Icons.check_circle_rounded, color: kGreen, size: 20),
         ],
       ),
+    );
+  }
+}
+
+// 2026-08-29: real feedback, live - one row of the tap-to-reveal password
+// info shown under "2. DESKTOP PASSWORD"'s shield icon (see build() above).
+class _PasswordInfoRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String text;
+  const _PasswordInfoRow({
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: iconColor, size: 15),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text,
+              style: TextStyle(color: kTextMid, fontSize: 12.5, height: 1.3)),
+        ),
+      ],
     );
   }
 }
