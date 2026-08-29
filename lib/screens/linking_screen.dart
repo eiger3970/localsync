@@ -31,6 +31,7 @@ import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
+import 'security_info_screen.dart';
 import 'settings_screen.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
@@ -791,6 +792,20 @@ class _IdleViewState extends State<_IdleView>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  _PasswordInfoRow(
+                                    icon: Icons.lock_outline,
+                                    iconColor: kTextMid,
+                                    text: 'Your password: never stored, '
+                                        'never leaves this device',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _PasswordInfoRow(
+                                    icon: Icons.enhanced_encryption_outlined,
+                                    iconColor: kTextMid,
+                                    text: 'Sent encrypted over SSH '
+                                        '(AES-256), never in plain text',
+                                  ),
+                                  const SizedBox(height: 8),
                                   const _PasswordInfoRow(
                                     icon: Icons.warning_amber_rounded,
                                     iconColor: Colors.amber,
@@ -800,14 +815,40 @@ class _IdleViewState extends State<_IdleView>
                                   _PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Your key is stored on both devices',
+                                    text: 'Your pairing key is stored on '
+                                        'both devices',
                                   ),
-                                  const SizedBox(height: 8),
-                                  _PasswordInfoRow(
-                                    icon: Icons.lock_outline,
-                                    iconColor: kTextMid,
-                                    text: 'Your password: never stored, '
-                                        'never leaves this device',
+                                  const SizedBox(height: 10),
+                                  // 2026-08-29: real feedback, live -
+                                  // "line 4 makes no sense... simpler for
+                                  // a noob... link to the security info."
+                                  // A technical "disable SSH password
+                                  // login" tip assumed knowledge a first-
+                                  // time user won't have - a plain link
+                                  // to the existing, already-accessible
+                                  // (education, not this decision) fuller
+                                  // explanation fits better than
+                                  // inventing new jargon here.
+                                  InkWell(
+                                    onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const SecurityInfoScreen())),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                            'Learn more about how this is protected',
+                                            style: TextStyle(
+                                                color: kGreen,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w600)),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.arrow_forward,
+                                            color: kGreen, size: 14),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
