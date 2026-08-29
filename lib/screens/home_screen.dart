@@ -56,9 +56,11 @@ class HomeScreen extends StatelessWidget {
                       : _AppBarRepoStatus(
                           repo: provider.selectedRepo!,
                           allRepos: provider.repos,
-                          onTap: () => _runAndShow(context,
-                              ({bool confirmed = false}) => provider.pullRepository(
-                                  provider.selectedRepo!.id!, confirmed: confirmed),
+                          onTap: () => _runAndShow(
+                              context,
+                              ({bool confirmed = false}) => provider
+                                  .pullRepository(provider.selectedRepo!.id!,
+                                      confirmed: confirmed),
                               repo: provider.selectedRepo),
                           onSelect: provider.selectRepo,
                         ),
@@ -110,223 +112,244 @@ class HomeScreen extends StatelessWidget {
           // between them - net effect shifts the kebab right, closer to
           // Help, exactly as asked.
           const SizedBox(width: 24),
-          Consumer<RepositoryProvider>(
-            builder: (_, provider, __) => PopupMenuButton<String>(
-              color: kSurface,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              icon: Icon(Icons.more_vert, color: kGreen, size: 22),
-              onSelected: (v) {
-                if (v == 'pair') _openPairing(context);
-                if (v == 'link') _openLinking(context);
-                if (v == 'about') _showAbout(context);
-                if (v == 'device_name') _editDeviceName(context, provider);
-                if (v == 'settings') {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                }
-                if (v == 'security') {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SecurityInfoScreen()));
-                }
-                final repo = provider.selectedRepo;
-                if (repo == null) return;
-                if (v == 'commit') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => CommitScreen(repo: repo)),
-                  );
-                }
-                if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
-                if (v == 'conflicts') {
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
-                }
-                if (v == 'delete') _confirmDelete(context, provider, repo);
-              },
-              // 2026-08-18: full menu cleanup per explicit list - one
-              // flat alphabetical order (About, Conflicts, Connection,
-              // Device name, Pair, Pull, Vault), no dividers. Only
-              // exception: Commit stays pinned first since it's what
-              // gets tapped most once set up is done - a stated reason
-              // to deviate from alphabetical, not an arbitrary one (see
-              // house naming rule). One-line explainer under each label
-              // still stands in for a hover tooltip, which doesn't fire
-              // on iOS tap.
-              itemBuilder: (_) {
-                final hasRepo = provider.repos.isNotEmpty;
-                return [
-                  if (hasRepo)
-                    const PopupMenuItem(
-                      value: 'commit',
-                      child: _MenuRow(
-                        icon: Icons.edit_note,
-                        label: 'Commit with message...',
-                      ),
-                    ),
-                  const PopupMenuItem(
-                    value: 'about',
-                    child: _MenuRow(icon: Icons.info_outline, label: 'About'),
-                  ),
-                  if (hasRepo)
-                    const PopupMenuItem(
-                      value: 'conflicts',
-                      child: _MenuRow(
-                        icon: Icons.compare_arrows,
-                        label: 'Conflicts',
-                        subtitle: 'Files with unresolved sync conflicts',
-                      ),
-                    ),
-                  if (hasRepo)
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: _MenuRow(
-                        icon: Icons.link_off,
-                        iconColor: Colors.redAccent,
-                        label: 'Connection of sync - remove',
-                        labelColor: Colors.redAccent,
-                      ),
-                    ),
-                  // 2026-08-18: device-level, not repo-scoped - used as
-                  // the git commit author so a sync conflict can say who
-                  // made a change, not just when (see sync_service.dart's
-                  // _signatureFor). Placeholder in the explainer, not a
-                  // real/pseudonym example - names never go in app UI text.
-                  const PopupMenuItem(
-                    value: 'device_name',
-                    child: _MenuRow(
-                      icon: Icons.smartphone,
-                      label: 'Device name',
-                      subtitle: 'Shown in sync conflicts',
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'pair',
-                    // 2026-08-16: "can the key be pairing_phone_key.svg" -
-                    // real key asset from the pairing gesture, not a
-                    // stand-in Material icon like the rest of this menu -
-                    // this one's kept custom since it's already built and
-                    // matches the pairing screen's own theme.
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          'assets/pairing/pairing_phone_key.svg',
-                          width: 18,
-                          colorFilter:
-                              ColorFilter.mode(kStar, BlendMode.srcIn),
+          // 2026-08-29: real feedback, live - "kebab icon is still too
+          // far left from the help icon" even after the padding tweak
+          // above. PopupMenuButton's icon builds an internal IconButton
+          // that enforces Material's default 48x48 minimum tap target
+          // regardless of the explicit `padding` value - that invisible
+          // extra footprint, not the padding itself, is what was still
+          // pushing Help further away than it looked like it should.
+          // shrinkWrap removes that enforced minimum so the button's
+          // real size actually reflects its icon + padding.
+          Theme(
+            data: Theme.of(context).copyWith(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            child: Consumer<RepositoryProvider>(
+              builder: (_, provider, __) => PopupMenuButton<String>(
+                color: kSurface,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                icon: Icon(Icons.more_vert, color: kGreen, size: 22),
+                onSelected: (v) {
+                  if (v == 'pair') _openPairing(context);
+                  if (v == 'link') _openLinking(context);
+                  if (v == 'about') _showAbout(context);
+                  if (v == 'device_name') _editDeviceName(context, provider);
+                  if (v == 'settings') {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SettingsScreen()));
+                  }
+                  if (v == 'security') {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SecurityInfoScreen()));
+                  }
+                  final repo = provider.selectedRepo;
+                  if (repo == null) return;
+                  if (v == 'commit') {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => CommitScreen(repo: repo)),
+                    );
+                  }
+                  if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
+                  if (v == 'conflicts') {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ConflictsScreen(repo: repo)));
+                  }
+                  if (v == 'delete') _confirmDelete(context, provider, repo);
+                },
+                // 2026-08-18: full menu cleanup per explicit list - one
+                // flat alphabetical order (About, Conflicts, Connection,
+                // Device name, Pair, Pull, Vault), no dividers. Only
+                // exception: Commit stays pinned first since it's what
+                // gets tapped most once set up is done - a stated reason
+                // to deviate from alphabetical, not an arbitrary one (see
+                // house naming rule). One-line explainer under each label
+                // still stands in for a hover tooltip, which doesn't fire
+                // on iOS tap.
+                itemBuilder: (_) {
+                  final hasRepo = provider.repos.isNotEmpty;
+                  return [
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'commit',
+                        child: _MenuRow(
+                          icon: Icons.edit_note,
+                          label: 'Commit with message...',
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('Pair with desktop',
-                                  style:
-                                      TextStyle(color: kStar, fontSize: 14)),
-                              Text('New phone, or lost connection',
-                                  style: TextStyle(
-                                      color: kTextMid, fontSize: 13)),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
+                    const PopupMenuItem(
+                      value: 'about',
+                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
                     ),
-                  ),
-                  // 2026-08-18: renamed from Switch to manual/auto -
-                  // "Pull manually"/"Pull automatically" says the actual
-                  // action, not a generic mode-switch label.
-                  if (hasRepo)
-                    PopupMenuItem(
-                      value: 'toggle_auto',
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'conflicts',
+                        child: _MenuRow(
+                          icon: Icons.compare_arrows,
+                          label: 'Conflicts',
+                          subtitle: 'Files with unresolved sync conflicts',
+                        ),
+                      ),
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: _MenuRow(
+                          icon: Icons.link_off,
+                          iconColor: Colors.redAccent,
+                          label: 'Connection of sync - remove',
+                          labelColor: Colors.redAccent,
+                        ),
+                      ),
+                    // 2026-08-18: device-level, not repo-scoped - used as
+                    // the git commit author so a sync conflict can say who
+                    // made a change, not just when (see sync_service.dart's
+                    // _signatureFor). Placeholder in the explainer, not a
+                    // real/pseudonym example - names never go in app UI text.
+                    const PopupMenuItem(
+                      value: 'device_name',
                       child: _MenuRow(
-                        // 2026-08-21: real feedback, live - "Pull
-                        // manually is not a hand... I'll create the svg
-                        // for this" - Icons.swipe_down_alt didn't read
-                        // as a hand on-device, user is building a
-                        // custom SVG for this themselves. Reverted to
-                        // the original icon in the meantime rather than
-                        // guessing at another Material substitute.
-                        icon: Icons.sync,
-                        label: provider.selectedRepo!.autoSync
-                            ? 'Pull manually'
-                            : 'Pull automatically',
-                        // 2026-08-21: real feedback, live - "change to:
-                        // stop auto pull on app open" - shorter, same
-                        // meaning.
-                        subtitle: provider.selectedRepo!.autoSync
-                            ? 'Stop auto pull on app open'
-                            : 'Pull automatically every time the app opens',
+                        icon: Icons.smartphone,
+                        label: 'Device name',
+                        subtitle: 'Shown in sync conflicts',
                       ),
                     ),
-                  // 2026-08-27: moved here from a standalone AppBar icon -
-                  // "keep help on the title bar... security icon can move
-                  // to the kebab menu" (real feedback, live). Alphabetical
-                  // slot between Pull and Settings, same as everything
-                  // else in this menu. Reuses _StatusIcon's own
-                  // icon/color logic (still a real shield glyph, colored
-                  // by sync/error state) rather than a fixed icon -
-                  // that live-status meaning is exactly what's being
-                  // traded for Help's bar slot, so it's worth keeping
-                  // inside the menu even though it's no longer glanceable
-                  // without opening it.
-                  if (hasRepo)
                     PopupMenuItem(
-                      value: 'security',
+                      value: 'pair',
+                      // 2026-08-16: "can the key be pairing_phone_key.svg" -
+                      // real key asset from the pairing gesture, not a
+                      // stand-in Material icon like the rest of this menu -
+                      // this one's kept custom since it's already built and
+                      // matches the pairing screen's own theme.
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          _StatusIcon(repos: provider.repos),
+                          SvgPicture.asset(
+                            'assets/pairing/pairing_phone_key.svg',
+                            width: 18,
+                            colorFilter:
+                                ColorFilter.mode(kStar, BlendMode.srcIn),
+                          ),
                           const SizedBox(width: 12),
-                          Text('Security', style: TextStyle(color: kStar, fontSize: 14)),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Pair with desktop',
+                                    style:
+                                        TextStyle(color: kStar, fontSize: 14)),
+                                Text('New phone, or lost connection',
+                                    style: TextStyle(
+                                        color: kTextMid, fontSize: 13)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                  // 2026-08-20: real user feedback - "this is difficult
-                  // for users, I need to build this in." Desktop IP
-                  // drifts (USB tether vs hotspot vs plain DHCP
-                  // reassignment) and used to be a build-time constant.
-                  // Now a real screen (settings_screen.dart) - also
-                  // houses Bare repo path, added for genuine multi-repo
-                  // support (bareRepoPath was likewise a build-time
-                  // constant, meaning a second vault could never target
-                  // a different bare repo than the first).
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: _MenuRow(
-                      // 2026-08-21: real feedback, live - "a wrench is
-                      // smaller and minimal, taking less screen space
-                      // and attention" than a cog.
-                      icon: Icons.build_outlined,
-                      label: 'Settings',
-                      // 2026-08-21: real feedback, live - reordered
-                      // alphabetically (Git before IP), same request
-                      // applied to the Settings screen's own field
-                      // order. Follow-up, same day: the natural word-
-                      // wrap split "IP address - desktop" itself across
-                      // both lines ("...IP address -" / "desktop"). A
-                      // literal newline after the comma forces the
-                      // break to always land there instead, keeping
-                      // "IP address - desktop" whole on its own line.
-                      // 2026-08-21: real feedback, live - comma removed,
-                      // the line break already separates the two.
-                      subtitle: 'Git bare repo path\nIP address - desktop',
+                    // 2026-08-18: renamed from Switch to manual/auto -
+                    // "Pull manually"/"Pull automatically" says the actual
+                    // action, not a generic mode-switch label.
+                    if (hasRepo)
+                      PopupMenuItem(
+                        value: 'toggle_auto',
+                        child: _MenuRow(
+                          // 2026-08-21: real feedback, live - "Pull
+                          // manually is not a hand... I'll create the svg
+                          // for this" - Icons.swipe_down_alt didn't read
+                          // as a hand on-device, user is building a
+                          // custom SVG for this themselves. Reverted to
+                          // the original icon in the meantime rather than
+                          // guessing at another Material substitute.
+                          icon: Icons.sync,
+                          label: provider.selectedRepo!.autoSync
+                              ? 'Pull manually'
+                              : 'Pull automatically',
+                          // 2026-08-21: real feedback, live - "change to:
+                          // stop auto pull on app open" - shorter, same
+                          // meaning.
+                          subtitle: provider.selectedRepo!.autoSync
+                              ? 'Stop auto pull on app open'
+                              : 'Pull automatically every time the app opens',
+                        ),
+                      ),
+                    // 2026-08-27: moved here from a standalone AppBar icon -
+                    // "keep help on the title bar... security icon can move
+                    // to the kebab menu" (real feedback, live). Alphabetical
+                    // slot between Pull and Settings, same as everything
+                    // else in this menu. Reuses _StatusIcon's own
+                    // icon/color logic (still a real shield glyph, colored
+                    // by sync/error state) rather than a fixed icon -
+                    // that live-status meaning is exactly what's being
+                    // traded for Help's bar slot, so it's worth keeping
+                    // inside the menu even though it's no longer glanceable
+                    // without opening it.
+                    if (hasRepo)
+                      PopupMenuItem(
+                        value: 'security',
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _StatusIcon(repos: provider.repos),
+                            const SizedBox(width: 12),
+                            Text('Security',
+                                style: TextStyle(color: kStar, fontSize: 14)),
+                          ],
+                        ),
+                      ),
+                    // 2026-08-20: real user feedback - "this is difficult
+                    // for users, I need to build this in." Desktop IP
+                    // drifts (USB tether vs hotspot vs plain DHCP
+                    // reassignment) and used to be a build-time constant.
+                    // Now a real screen (settings_screen.dart) - also
+                    // houses Bare repo path, added for genuine multi-repo
+                    // support (bareRepoPath was likewise a build-time
+                    // constant, meaning a second vault could never target
+                    // a different bare repo than the first).
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: _MenuRow(
+                        // 2026-08-21: real feedback, live - "a wrench is
+                        // smaller and minimal, taking less screen space
+                        // and attention" than a cog.
+                        icon: Icons.build_outlined,
+                        label: 'Settings',
+                        // 2026-08-21: real feedback, live - reordered
+                        // alphabetically (Git before IP), same request
+                        // applied to the Settings screen's own field
+                        // order. Follow-up, same day: the natural word-
+                        // wrap split "IP address - desktop" itself across
+                        // both lines ("...IP address -" / "desktop"). A
+                        // literal newline after the comma forces the
+                        // break to always land there instead, keeping
+                        // "IP address - desktop" whole on its own line.
+                        // 2026-08-21: real feedback, live - comma removed,
+                        // the line break already separates the two.
+                        subtitle: 'Git bare repo path\nIP address - desktop',
+                      ),
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: 'link',
-                    child: _MenuRow(
-                      icon: Icons.phone_iphone,
-                      label: provider.repos.isEmpty
-                          ? 'Vault - set up'
-                          : 'Vault - add another',
-                      subtitle: provider.repos.isEmpty
-                          ? 'Link a $kContainerName to this phone'
-                          : 'Link another $kContainerName to this phone',
+                    PopupMenuItem(
+                      value: 'link',
+                      child: _MenuRow(
+                        icon: Icons.phone_iphone,
+                        label: provider.repos.isEmpty
+                            ? 'Vault - set up'
+                            : 'Vault - add another',
+                        subtitle: provider.repos.isEmpty
+                            ? 'Link a $kContainerName to this phone'
+                            : 'Link another $kContainerName to this phone',
+                      ),
                     ),
-                  ),
-                ];
-              },
+                  ];
+                },
+              ),
             ),
           ),
           // 2026-08-27: the security status shield used to live here -
@@ -389,8 +412,10 @@ class HomeScreen extends StatelessWidget {
           if (provider.repos.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (context.mounted) {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const SyncChoiceScreen()));
+                Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SyncChoiceScreen()));
               }
             });
             return const SizedBox.shrink();
@@ -416,8 +441,10 @@ class HomeScreen extends StatelessWidget {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               provider.clearPendingConflict();
               if (pendingRepo != null && context.mounted) {
-                Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ConflictsScreen(repo: pendingRepo)));
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => ConflictsScreen(repo: pendingRepo)));
               }
             });
           }
@@ -428,11 +455,13 @@ class HomeScreen extends StatelessWidget {
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
           final gestureZone = _SyncGestureZone(
-            onPull: () => _runAndShow(context,
+            onPull: () => _runAndShow(
+                context,
                 ({bool confirmed = false}) =>
                     provider.pullRepository(repo.id!, confirmed: confirmed),
                 repo: repo),
-            onPush: () => _runAndShow(context,
+            onPush: () => _runAndShow(
+                context,
                 ({bool confirmed = false}) =>
                     provider.pushRepository(repo.id!, confirmed: confirmed)),
           );
@@ -464,8 +493,10 @@ class HomeScreen extends StatelessWidget {
                     final ctrl = context.read<LinkingController>();
                     ctrl.reset();
                     ctrl.preferredMode = SyncMode.obsidianVault;
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => const LinkingScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LinkingScreen()));
                   },
                 ),
               ),
@@ -545,8 +576,8 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel',
-                style: TextStyle(color: kTextDim, fontSize: 15)),
+            child:
+                Text('Cancel', style: TextStyle(color: kTextDim, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -583,8 +614,8 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('Device name',
-            style: TextStyle(color: kStar, fontSize: 17)),
+        title:
+            Text('Device name', style: TextStyle(color: kStar, fontSize: 17)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -594,13 +625,12 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text('Cancel',
-                style: TextStyle(color: kTextDim, fontSize: 15)),
+            child:
+                Text('Cancel', style: TextStyle(color: kTextDim, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
-            child: Text('Save',
-                style: TextStyle(color: kStar, fontSize: 15)),
+            child: Text('Save', style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
       ),
@@ -652,7 +682,8 @@ class _MenuRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: TextStyle(color: labelColor ?? kStar, fontSize: 14)),
+              Text(label,
+                  style: TextStyle(color: labelColor ?? kStar, fontSize: 14)),
               if (subtitle != null)
                 Text(subtitle!,
                     style: TextStyle(color: kTextMid, fontSize: 13)),
@@ -846,8 +877,7 @@ void _showFullError(BuildContext context, Repository repo) {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: Text('Sync error',
-          style: TextStyle(color: kStar, fontSize: 17)),
+      title: Text('Sync error', style: TextStyle(color: kStar, fontSize: 17)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -882,8 +912,7 @@ void _showFullError(BuildContext context, Repository repo) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close',
-              style: TextStyle(color: kTextMid, fontSize: 15)),
+          child: Text('Close', style: TextStyle(color: kTextMid, fontSize: 15)),
         ),
         TextButton(
           onPressed: () {
@@ -897,8 +926,8 @@ void _showFullError(BuildContext context, Repository repo) {
             );
           },
           child: Text('TRY AGAIN',
-              style:
-                  TextStyle(color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
+              style: TextStyle(
+                  color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
         ),
       ],
     ),
@@ -922,8 +951,7 @@ void _showAbout(BuildContext context) {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: Text('About',
-          style: TextStyle(color: kStar, fontSize: 17)),
+      title: Text('About', style: TextStyle(color: kStar, fontSize: 17)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -997,8 +1025,7 @@ void _showAbout(BuildContext context) {
             const SizedBox(height: 12),
             TextButton(
               style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.centerLeft),
+                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'LocalSync',
@@ -1099,8 +1126,7 @@ void _showAbout(BuildContext context) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close',
-              style: TextStyle(color: kGreen, fontSize: 15)),
+          child: Text('Close', style: TextStyle(color: kGreen, fontSize: 15)),
         ),
       ],
     ),
@@ -1215,179 +1241,177 @@ class _AppBarRepoStatus extends StatelessWidget {
     // that already sit in this Row.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final reserved =
-            26.0 + (allRepos.length > 1 ? 44.0 : 0.0) + 12.0;
+        final reserved = 26.0 + (allRepos.length > 1 ? 44.0 : 0.0) + 12.0;
         final nameMaxWidth =
             (constraints.maxWidth - reserved).clamp(60.0, constraints.maxWidth);
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-        GestureDetector(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            if (hasError) {
-              _showFullError(context, repo);
-            } else {
-              onTap();
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  // 2026-08-28, follow-up real feedback, live - "possible
-                  // to vertically centre?" The dot used a manual top-2px
-                  // nudge tuned for single-line text only; once the name
-                  // wraps to 2 lines that nudge left it pinned near the
-                  // top instead of centred against the taller block.
-                  // Plain .center cross-axis alignment centres it against
-                  // whatever height the name actually ends up being,
-                  // 1 line or 2, no manual offset needed.
-                  crossAxisAlignment: CrossAxisAlignment.center,
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                if (hasError) {
+                  _showFullError(context, repo);
+                } else {
+                  onTap();
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    isSyncing
-                        ? const _SpinningSync()
-                        : _StatusDot(status: repo.status),
-                    const SizedBox(width: 6),
-                    // 2026-08-28: real feedback, live - "show the full
-                    // name... maybe it needs 2 lines." Fixed 110px cap
-                    // (2026-08-20) replaced with nameMaxWidth, the real
-                    // width LayoutBuilder measured above.
-                    //
-                    // 2026-08-28, follow-up real feedback, live - "too
-                    // much space to the right [[of the name, before the
-                    // kebab]]." ConstrainedBox(maxWidth:) only caps the
-                    // width, it doesn't claim it - a short name (e.g.
-                    // "Files needed on...") sized to its own natural
-                    // content, leaving the outer Row narrower than
-                    // nameMaxWidth. Since the whole widget sits inside a
-                    // Center (home_screen.dart's AppBar title), a
-                    // narrower-than-expected block gets centred off to
-                    // the left of where it visually should sit, reading
-                    // as a lopsided gap before the kebab. SizedBox
-                    // instead of ConstrainedBox makes the name actually
-                    // OCCUPY the full computed width (text left-aligned
-                    // within it, still wrapping/ellipsizing as needed),
-                    // so the Row's real width is deterministic and
-                    // Center behaves symmetrically.
-                    // 2026-08-28: real feedback, live, two rounds - first
-                    // attempt wrapped this in FittedBox(scaleDown) to
-                    // shrink long names instead of truncating, borrowing
-                    // the _SkinSwatch precedent (settings_screen.dart,
-                    // 2026-08-25). Real regression, confirmed live:
-                    // FittedBox is the wrong mechanism for a WRAPPING
-                    // multi-line block (it fits a single already-sized
-                    // block, which is all _SkinSwatch's one-line label
-                    // ever was) - it collapsed this back to effectively
-                    // one line ("Files need..." instead of 2 real lines),
-                    // and centered that shrunk block vertically instead
-                    // of filling the row top-to-bottom. Reverted to the
-                    // plain 2-line wrap + ellipsis this had before that
-                    // attempt - reliably wraps, doesn't shrink, matches
-                    // what was actually working prior to today.
-                    // 2026-08-28, follow-up: real feedback, live - "I
-                    // would expect: Files needed / on phone" (currently
-                    // "Files" / "needed on..."). Flutter's own greedy
-                    // wrap already fits as many whole words as fit per
-                    // line - it wasn't choosing an arbitrary break
-                    // point, "Files needed" together genuinely didn't
-                    // fit within nameMaxWidth at 13px. Dropped to 11px,
-                    // the safest lever to fit more per line (unlike the
-                    // FittedBox attempt above, this doesn't touch the
-                    // wrap mechanism itself, just gives it more room) -
-                    // best-effort, not verified against the real device.
-                    SizedBox(
-                      width: nameMaxWidth,
-                      child: Text(
-                        repo.name,
-                        style: TextStyle(
-                            color: kStar,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            height: 1.2),
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: true,
-                        maxLines: 2,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      // 2026-08-28, follow-up real feedback, live - "possible
+                      // to vertically centre?" The dot used a manual top-2px
+                      // nudge tuned for single-line text only; once the name
+                      // wraps to 2 lines that nudge left it pinned near the
+                      // top instead of centred against the taller block.
+                      // Plain .center cross-axis alignment centres it against
+                      // whatever height the name actually ends up being,
+                      // 1 line or 2, no manual offset needed.
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        isSyncing
+                            ? const _SpinningSync()
+                            : _StatusDot(status: repo.status),
+                        const SizedBox(width: 6),
+                        // 2026-08-28: real feedback, live - "show the full
+                        // name... maybe it needs 2 lines." Fixed 110px cap
+                        // (2026-08-20) replaced with nameMaxWidth, the real
+                        // width LayoutBuilder measured above.
+                        //
+                        // 2026-08-28, follow-up real feedback, live - "too
+                        // much space to the right [[of the name, before the
+                        // kebab]]." ConstrainedBox(maxWidth:) only caps the
+                        // width, it doesn't claim it - a short name (e.g.
+                        // "Files needed on...") sized to its own natural
+                        // content, leaving the outer Row narrower than
+                        // nameMaxWidth. Since the whole widget sits inside a
+                        // Center (home_screen.dart's AppBar title), a
+                        // narrower-than-expected block gets centred off to
+                        // the left of where it visually should sit, reading
+                        // as a lopsided gap before the kebab. SizedBox
+                        // instead of ConstrainedBox makes the name actually
+                        // OCCUPY the full computed width (text left-aligned
+                        // within it, still wrapping/ellipsizing as needed),
+                        // so the Row's real width is deterministic and
+                        // Center behaves symmetrically.
+                        // 2026-08-28: real feedback, live, two rounds - first
+                        // attempt wrapped this in FittedBox(scaleDown) to
+                        // shrink long names instead of truncating, borrowing
+                        // the _SkinSwatch precedent (settings_screen.dart,
+                        // 2026-08-25). Real regression, confirmed live:
+                        // FittedBox is the wrong mechanism for a WRAPPING
+                        // multi-line block (it fits a single already-sized
+                        // block, which is all _SkinSwatch's one-line label
+                        // ever was) - it collapsed this back to effectively
+                        // one line ("Files need..." instead of 2 real lines),
+                        // and centered that shrunk block vertically instead
+                        // of filling the row top-to-bottom. Reverted to the
+                        // plain 2-line wrap + ellipsis this had before that
+                        // attempt - reliably wraps, doesn't shrink, matches
+                        // what was actually working prior to today.
+                        // 2026-08-28, follow-up: real feedback, live - "I
+                        // would expect: Files needed / on phone" (currently
+                        // "Files" / "needed on..."). Flutter's own greedy
+                        // wrap already fits as many whole words as fit per
+                        // line - it wasn't choosing an arbitrary break
+                        // point, "Files needed" together genuinely didn't
+                        // fit within nameMaxWidth at 13px. Dropped to 11px,
+                        // the safest lever to fit more per line (unlike the
+                        // FittedBox attempt above, this doesn't touch the
+                        // wrap mechanism itself, just gives it more room) -
+                        // best-effort, not verified against the real device.
+                        SizedBox(
+                          width: nameMaxWidth,
+                          child: Text(
+                            repo.name,
+                            style: TextStyle(
+                                color: kStar,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2),
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
+                            maxLines: 2,
+                          ),
+                        ),
+                      ],
                     ),
+                    if (hasError)
+                      Text(
+                        // lastError is just the diagnosis now (see the
+                        // 2026-08-20 note on this field in models/
+                        // repository.dart) - no longer a joined multi-line
+                        // blob needing a manual split to get one line.
+                        repo.lastError!,
+                        style: const TextStyle(
+                            color: Colors.redAccent, fontSize: 10),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else if (isSyncing)
+                      Text(repo.syncPhase.label,
+                          style: TextStyle(color: kTextMid, fontSize: 10)),
+                    // 2026-08-28: real feedback, live - "remove the synced
+                    // just now" - dropped the idle-state "synced Xm ago"
+                    // line entirely; error/syncing status above are
+                    // unaffected, only asked to remove this one.
                   ],
                 ),
-                if (hasError)
-                  Text(
-                    // lastError is just the diagnosis now (see the
-                    // 2026-08-20 note on this field in models/
-                    // repository.dart) - no longer a joined multi-line
-                    // blob needing a manual split to get one line.
-                    repo.lastError!,
-                    style:
-                        const TextStyle(color: Colors.redAccent, fontSize: 10),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                else if (isSyncing)
-                  Text(repo.syncPhase.label,
-                      style: TextStyle(color: kTextMid, fontSize: 10)),
-                // 2026-08-28: real feedback, live - "remove the synced
-                // just now" - dropped the idle-state "synced Xm ago"
-                // line entirely; error/syncing status above are
-                // unaffected, only asked to remove this one.
-              ],
+              ),
             ),
-          ),
-        ),
-        // 2026-08-21: real root cause of the "multi-repo display bug"
-        // open since 2026-08-20, found live - this WAS always building
-        // correctly (allRepos.length > 1 genuinely fired, the repo
-        // really was saved) - the actual problem was purely a tap-
-        // target one. padding: EdgeInsets.zero shrank this button's
-        // hit area down to just its 20px icon, sitting immediately
-        // next to the AppBar's kebab PopupMenuButton (default padding,
-        // a much bigger hit area) with zero gap between them - taps
-        // aimed at the visible arrow were landing on the kebab instead.
-        // Not a data/state bug at all, once actually seen on-device.
-        if (allRepos.length > 1) ...[
-          PopupMenuButton<int>(
-            color: kSurface,
-            tooltip: 'Switch $kContainerName',
-            icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
-            onSelected: onSelect,
-            itemBuilder: (_) => [
-              for (final r in allRepos)
-                PopupMenuItem(
-                  value: r.id,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        r.id == repo.id ? Icons.check : null,
-                        color: kGreen,
-                        size: 16,
+            // 2026-08-21: real root cause of the "multi-repo display bug"
+            // open since 2026-08-20, found live - this WAS always building
+            // correctly (allRepos.length > 1 genuinely fired, the repo
+            // really was saved) - the actual problem was purely a tap-
+            // target one. padding: EdgeInsets.zero shrank this button's
+            // hit area down to just its 20px icon, sitting immediately
+            // next to the AppBar's kebab PopupMenuButton (default padding,
+            // a much bigger hit area) with zero gap between them - taps
+            // aimed at the visible arrow were landing on the kebab instead.
+            // Not a data/state bug at all, once actually seen on-device.
+            if (allRepos.length > 1) ...[
+              PopupMenuButton<int>(
+                color: kSurface,
+                tooltip: 'Switch $kContainerName',
+                icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
+                onSelected: onSelect,
+                itemBuilder: (_) => [
+                  for (final r in allRepos)
+                    PopupMenuItem(
+                      value: r.id,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            r.id == repo.id ? Icons.check : null,
+                            color: kGreen,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          _StatusDot(status: r.status),
+                          const SizedBox(width: 8),
+                          Text(r.name,
+                              style: TextStyle(color: kStar, fontSize: 14)),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      _StatusDot(status: r.status),
-                      const SizedBox(width: 8),
-                      Text(r.name,
-                          style: TextStyle(color: kStar, fontSize: 14)),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
+              ),
+              // 2026-08-21: real gap from the fix above - the button's own
+              // hit area now covers the icon plus padding, but nothing
+              // separated that hit area from the AppBar's kebab actions
+              // button sitting immediately to its right. This reserves a
+              // real visual and tap gap between the two.
+              const SizedBox(width: 8),
             ],
-          ),
-          // 2026-08-21: real gap from the fix above - the button's own
-          // hit area now covers the icon plus padding, but nothing
-          // separated that hit area from the AppBar's kebab actions
-          // button sitting immediately to its right. This reserves a
-          // real visual and tap gap between the two.
-          const SizedBox(width: 8),
-        ],
           ],
         );
       },
     );
   }
 }
-
