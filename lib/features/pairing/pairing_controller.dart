@@ -37,23 +37,26 @@ class PairingController extends ChangeNotifier {
     this.sshPort = 22,
   });
 
-  bool         _isRunning = false;
-  StepResult?  _result;
+  bool _isRunning = false;
+  StepResult? _result;
 
-  bool         get isRunning => _isRunning;
-  StepResult?  get result    => _result;
+  bool get isRunning => _isRunning;
+  StepResult? get result => _result;
 
-  // 2026-08-28: real feedback, live - "normies need to be 100% informed"
-  // before this app ever runs a privileged command with their password -
-  // allowAutoInstallGit is the real, explicit choice from a new consent
-  // screen (git_install_consent.dart), asked fresh on every pairing
-  // attempt (2026-08-28 follow-up: no longer remembered - a security
-  // consent, not a convenience prompt), never defaulted silently either
-  // way.
+  // 2026-08-29: real feedback, live - "is the git install consent in the
+  // best position in the workflow?" It used to be resolved upfront by
+  // the caller (a bool passed in), asked on every single attempt before
+  // this controller had any idea whether the desktop even needed git.
+  // Now checks `command -v git` live over the real SSH session first,
+  // and only calls onGitMissing (git_install_consent.dart's dialog, via
+  // the caller) when that check actually comes back missing - no dialog
+  // at all on a desktop that already has git. Returns null from
+  // onGitMissing to mean "cancelled" (real choice, not a nag) - leaves
+  // _result null rather than success or failure.
   Future<void> pairWithPassword(String password,
-      {required bool allowAutoInstallGit}) async {
+      {required Future<bool?> Function() onGitMissing}) async {
     _isRunning = true;
-    _result    = null;
+    _result = null;
     notifyListeners();
 
     // 2026-08-28: real device bug, live - main.dart's desktopUser/
@@ -104,98 +107,120 @@ class PairingController extends ChangeNotifier {
         onPasswordRequest: () => password,
       );
 
-      // Single-quoted, with any embedded single-quote escaped - the value
-      // is our own generated public key line (fixed charset: base64 +
-      // "ssh-ed25519 " prefix + " localsync" suffix), not attacker input,
-      // but escaping costs nothing and avoids relying on that assumption.
-      final escaped = publicKeyLine.replaceAll("'", r"'\''");
-      // 2026-08-28: real feedback, live - "normies need computer with git
-      // ... this needs a better setup." This is the one moment the app
-      // ever has the desktop login password in memory (never stored,
-      // discarded right after this call) - the only point a `sudo`
-      // install can authenticate itself without a second prompt. Assumes
-      // the login password is also the sudo password, true for the
-      // single personal-desktop-account threat model this whole pairing
-      // design already targets (see git_service.dart's cert-check
-      // comment for the same stated assumption). Debian-based only -
-      // macOS's real git install is Xcode Command Line Tools, an
-      // interactive GUI license-accept dartssh2 can't drive headlessly,
-      // so this leaves that path alone rather than half-automate it and
-      // fail confusingly; unsupported-OS case still surfaces as a real,
-      // diagnosable exit code instead of a silent no-op.
-      final escapedPassword = password.replaceAll("'", r"'\''");
-      // 2026-08-28, follow-up: allowAutoInstallGit false (the user chose
-      // "I'll install it myself" on the consent screen) still checks for
-      // git - just never attempts sudo either way. exit 4 is a new,
-      // distinct code for "declined automatic install", separate from
-      // exit 3's "can't automate on this OS at all" and exit 2's
-      // "attempted and failed".
-      final gitCheck = allowAutoInstallGit
-          ? 'if ! command -v git >/dev/null 2>&1; then '
-              '  if command -v apt-get >/dev/null 2>&1; then '
-              "    echo '$escapedPassword' | sudo -S apt-get install -y git >/dev/null 2>&1 || exit 2; "
-              '  else '
-              '    exit 3; '
-              '  fi; '
-              'fi && '
-          : 'command -v git >/dev/null 2>&1 || exit 4 && ';
-      final command = '$gitCheck'
-          'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
-          "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys && "
-          'chmod 600 ~/.ssh/authorized_keys';
+      try {
+        // Single-quoted, with any embedded single-quote escaped - the
+        // value is our own generated public key line (fixed charset:
+        // base64 + "ssh-ed25519 " prefix + " localsync" suffix), not
+        // attacker input, but escaping costs nothing and avoids relying
+        // on that assumption.
+        final escaped = publicKeyLine.replaceAll("'", r"'\''");
+        final escapedPassword = password.replaceAll("'", r"'\''");
 
-      final res = await client.runWithResult(command);
-      client.close();
+        // 2026-08-29: real feedback, live - "is the git install consent
+        // in the best position?" This is the first real command run on
+        // the live SSH session (also where auth actually happens - see
+        // _diagnose() below), and it's the only way to know whether the
+        // desktop even needs git before ever asking about it.
+        final gitPresent =
+            (await client.runWithResult('command -v git >/dev/null 2>&1'))
+                    .exitCode ==
+                0;
 
-      if (res.exitCode == 4) {
-        // 2026-08-28: chose "I'll install it myself" on the consent
-        // screen, and git genuinely isn't there. Real command to run
-        // manually, not a vague "install git" - apt-get is the one
-        // package manager the consent screen's own dropdown already
-        // named as supported.
-        _result = const StepFailure(
-          LinkingError.unclassifiedError,
-          debugDetail: 'git is not installed on the desktop. Run this '
-              'yourself in a terminal on the desktop, then try pairing '
-              'again:\nsudo apt-get install -y git',
-        );
-      } else if (res.exitCode == 3) {
-        // 2026-08-28: this desktop has no git and no apt-get (macOS,
-        // most likely) - the auto-install path above deliberately
-        // doesn't attempt anything there (see its own comment). Real,
-        // specific guidance instead of the generic unclassifiedError
-        // catch-all below.
-        _result = const StepFailure(
-          LinkingError.unclassifiedError,
-          debugDetail: 'git is not installed and could not be installed '
-              'automatically on this desktop. On macOS, install the Xcode '
-              'Command Line Tools (run `git` once in Terminal and accept '
-              'the prompt), then try pairing again.',
-        );
-      } else if (res.exitCode == 2) {
-        _result = const StepFailure(
-          LinkingError.unclassifiedError,
-          debugDetail: 'Automatic git install failed on the desktop '
-              '(sudo password rejected, or apt-get itself failed). '
-              'Install git manually on the desktop, then try pairing again.',
-        );
-      } else if (res.exitCode != 0) {
-        // 2026-08-23: real bug, found while investigating a separate
-        // report - this reached connectionRefused for a command that
-        // ran successfully (real TCP connect, real SSH auth, real
-        // command execution) but returned a non-zero exit code -
-        // nothing to do with the network being unreachable. Genuinely
-        // unclassified (a permissions issue on the desktop's ~/.ssh,
-        // a full disk, etc.) - unclassifiedError with the real stderr
-        // attached is honest about that, rather than sending a user
-        // chasing network troubleshooting for a shell command failure.
-        _result = StepFailure(
-          LinkingError.unclassifiedError,
-          debugDetail: 'Remote command exited ${res.exitCode}: '
-              '${String.fromCharCodes(res.stderr)}',
-        );
-      } else {
-        _result = const StepSuccess(message: 'Paired with desktop');
+        if (!gitPresent) {
+          final decided = await onGitMissing();
+          if (decided == null) {
+            // Cancelled - real choice, not a nag. Leave _result null;
+            // the caller treats that as "stop, don't proceed" without
+            // showing an error.
+            return;
+          }
+          if (!decided) {
+            // 2026-08-28: chose "I'll install it myself" on the consent
+            // screen, and git genuinely isn't there. Real command to run
+            // manually, not a vague "install git" - apt-get is the one
+            // package manager the consent screen's own dropdown already
+            // named as supported.
+            _result = const StepFailure(
+              LinkingError.unclassifiedError,
+              debugDetail: 'git is not installed on the desktop. Run this '
+                  'yourself in a terminal on the desktop, then try pairing '
+                  'again:\nsudo apt-get install -y git',
+            );
+            return;
+          }
+          // 2026-08-28: real feedback, live - "normies need computer
+          // with git ... this needs a better setup." This is the one
+          // moment the app ever has the desktop login password in
+          // memory (never stored, discarded right after this call) -
+          // the only point a `sudo` install can authenticate itself
+          // without a second prompt. Assumes the login password is also
+          // the sudo password, true for the single personal-desktop-
+          // account threat model this whole pairing design already
+          // targets (see git_service.dart's cert-check comment for the
+          // same stated assumption). Debian-based only - macOS's real
+          // git install is Xcode Command Line Tools, an interactive GUI
+          // license-accept dartssh2 can't drive headlessly, so this
+          // leaves that path alone rather than half-automate it and
+          // fail confusingly; unsupported-OS case still surfaces as a
+          // real, diagnosable exit code instead of a silent no-op.
+          final installRes = await client.runWithResult(
+              'if command -v apt-get >/dev/null 2>&1; then '
+              "  echo '$escapedPassword' | sudo -S apt-get install -y git >/dev/null 2>&1; "
+              'else '
+              '  exit 3; '
+              'fi');
+          if (installRes.exitCode == 3) {
+            // 2026-08-28: this desktop has no git and no apt-get
+            // (macOS, most likely) - the auto-install path above
+            // deliberately doesn't attempt anything there (see its own
+            // comment). Real, specific guidance instead of the generic
+            // unclassifiedError catch-all below.
+            _result = const StepFailure(
+              LinkingError.unclassifiedError,
+              debugDetail: 'git is not installed and could not be '
+                  'installed automatically on this desktop. On macOS, '
+                  'install the Xcode Command Line Tools (run `git` once '
+                  'in Terminal and accept the prompt), then try pairing '
+                  'again.',
+            );
+            return;
+          } else if (installRes.exitCode != 0) {
+            _result = const StepFailure(
+              LinkingError.unclassifiedError,
+              debugDetail: 'Automatic git install failed on the desktop '
+                  '(sudo password rejected, or apt-get itself failed). '
+                  'Install git manually on the desktop, then try pairing '
+                  'again.',
+            );
+            return;
+          }
+        }
+
+        final command = 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
+            "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys && "
+            'chmod 600 ~/.ssh/authorized_keys';
+        final res = await client.runWithResult(command);
+
+        if (res.exitCode != 0) {
+          // 2026-08-23: real bug, found while investigating a separate
+          // report - this reached connectionRefused for a command that
+          // ran successfully (real TCP connect, real SSH auth, real
+          // command execution) but returned a non-zero exit code -
+          // nothing to do with the network being unreachable. Genuinely
+          // unclassified (a permissions issue on the desktop's ~/.ssh,
+          // a full disk, etc.) - unclassifiedError with the real stderr
+          // attached is honest about that, rather than sending a user
+          // chasing network troubleshooting for a shell command failure.
+          _result = StepFailure(
+            LinkingError.unclassifiedError,
+            debugDetail: 'Remote command exited ${res.exitCode}: '
+                '${String.fromCharCodes(res.stderr)}',
+          );
+        } else {
+          _result = const StepSuccess(message: 'Paired with desktop');
+        }
+      } finally {
+        client.close();
       }
     } catch (e) {
       _result = StepFailure(_diagnose(e), debugDetail: e.toString());
@@ -220,7 +245,7 @@ class PairingController extends ChangeNotifier {
   // up to 3 attempts total, waiting 2s then 4s between them.
   Future<SSHSocket> _connectWithRetry() async {
     const delays = [Duration(seconds: 2), Duration(seconds: 4)];
-    for (var attempt = 0; ; attempt++) {
+    for (var attempt = 0;; attempt++) {
       try {
         return await SSHSocket.connect(
           desktopIp,

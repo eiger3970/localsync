@@ -246,13 +246,15 @@ class _IdleViewState extends State<_IdleView>
   // KeyPairingTrigger directly, the same widget PairingScreen and this
   // file's own diagnostics-retry flow already use successfully.
   bool _paired = false;
-  // 2026-08-28: real feedback, live - the consent check used to run
-  // inside _pairThenLink() (Stage 3's drag), which meant it appeared
-  // AFTER the password was already typed into Stage 2 - the opposite of
-  // "before you type your password". Resolved here instead, the moment
-  // Stage 1 settles and Stage 2 is about to unlock, then reused by
-  // _pairThenLink() below rather than asked twice.
-  bool? _allowAutoInstallGit;
+  // 2026-08-29: real feedback, live - "is the git install consent in the
+  // best position in the workflow?" It used to be resolved here (Stage
+  // 1 -> 2 boundary), asked unconditionally on every attempt before the
+  // app had any idea whether the desktop even needed git. Moved into
+  // pairWithPassword itself (pairing_controller.dart) instead, which now
+  // checks `command -v git` live over the real SSH session and only
+  // calls back out to showGitInstallConsent (see _pairThenLink below)
+  // when git is actually missing - no more upfront field, no more
+  // dialog on desktops that already have git.
   // 2026-08-28: real feedback, live - a "check Settings first" banner
   // lived on SyncChoiceScreen for one day, reverted same day ("this is
   // the welcome page, it needs warm fuzzy feelings, not technical mumbo
@@ -332,32 +334,14 @@ class _IdleViewState extends State<_IdleView>
     }
   }
 
-  // 2026-08-28: real feedback, live - "Password warning appears after
-  // I've already entered the password, and only after completing step
-  // 3. Introduce the warning when step 2 activates." Stage 1's own drag
-  // is purely ceremonial (see pairing_controller.dart's own comment on
-  // that) - the real moment to ask is right here, before Stage 2's
-  // password fields unlock, not after Stage 3's drag when the password
-  // is already sitting typed in the field. Resolved once here and
-  // reused by _pairThenLink() below, rather than asked twice.
-  //
-  // 2026-08-28, follow-up: real feedback, live - the remembered-choice
-  // behavior ("asked once, not every pairing") surfaced as confusing
-  // twice in a row on a real device ("step 2 activates with no password
-  // warning"), even though it was working as designed. Explicit
-  // decision after being asked directly: ask every single time instead
-  // - a security consent, not a convenience prompt, so the remembered
-  // shortcut traded away more visibility than wanted. No longer reads
-  // or writes DatabaseService's stored choice at all.
+  // 2026-08-29: real feedback, live - the git-install consent no longer
+  // gates this unlock at all (see pairWithPassword/_pairThenLink below) -
+  // Stage 1's drag is purely ceremonial (pairing_controller.dart's own
+  // comment on that still applies) and now just unlocks Stage 2
+  // directly, no dialog in between.
   Future<void> _onKeyPairingSettled() async {
     if (!mounted) return;
-    final decided = await showGitInstallConsent(context);
-    if (decided == null) return; // cancelled - Stage 2 stays locked
-    if (!mounted) return;
-    setState(() {
-      _allowAutoInstallGit = decided;
-      _paired = true;
-    });
+    setState(() => _paired = true);
     // 2026-08-28: real feedback, live - "Step 2 activates but then I
     // have to tap the field, why doesn't the cursor activate ready to
     // type?" Scheduled for after this frame, not called inline here -
@@ -384,13 +368,6 @@ class _IdleViewState extends State<_IdleView>
   // two real actions, no intermediate screen. On failure, shows the
   // error inline on this same screen instead of navigating away.
   Future<void> _pairThenLink() async {
-    // 2026-08-28: consent is now resolved earlier, in
-    // _onKeyPairingSettled() above (Stage 1 -> 2, before any password is
-    // typed) - _allowAutoInstallGit is always set by the time Stage 3's
-    // drag can even fire, since Stage 3 stays locked until _paired is
-    // true, which only happens after that consent step resolves.
-    assert(_allowAutoInstallGit != null);
-
     setState(() {
       _pairing = true;
       _pairingFailure = null;
@@ -407,10 +384,24 @@ class _IdleViewState extends State<_IdleView>
     // instead of pairing against a stale, already-empty snapshot.
     _pairingCtrl.desktopUser = widget.ctrl.desktopUser;
     _pairingCtrl.desktopIp = widget.ctrl.desktopIp;
-    await _pairingCtrl.pairWithPassword(password,
-        allowAutoInstallGit: _allowAutoInstallGit!);
+    // 2026-08-29: real feedback, live - "is the git install consent in
+    // the best position?" No longer resolved upfront - pairWithPassword
+    // checks live over the real SSH session and only calls this back
+    // when the desktop actually turns out to be missing git, so the
+    // dialog no longer appears at all on a desktop that already has it.
+    await _pairingCtrl.pairWithPassword(password, onGitMissing: () async {
+      if (!mounted) return null;
+      return showGitInstallConsent(context);
+    });
     if (!mounted) return;
     final result = _pairingCtrl.result;
+    if (result == null) {
+      // Cancelled the git-install decision mid-attempt - real choice,
+      // not a nag. Stop the spinner and leave the user right back where
+      // they were, same as declining used to leave Stage 2 locked.
+      setState(() => _pairing = false);
+      return;
+    }
     if (result is StepFailure) {
       setState(() {
         _pairing = false;
@@ -712,39 +703,17 @@ class _IdleViewState extends State<_IdleView>
                   letterSpacing: 1.5)),
           const SizedBox(height: 14),
           // Stage 2 body - locked until stage 1 is done.
-          // 2026-08-28: real feedback, live - a real device showed Stage 2
-          // unlocking after cancelling the consent dialog once, then
-          // completing Stage 1 again - the exact chain wasn't reproducible
-          // off-device, so this is a structural fix rather than a traced
-          // one: gating on _paired alone left a path where _paired could
-          // end up true without _allowAutoInstallGit ever actually being
-          // resolved. Now requires both - Stage 2 cannot unlock unless a
-          // real consent choice exists, full stop, regardless of how
-          // _paired got set.
+          // 2026-08-29: real feedback, live - the git-install consent no
+          // longer gates this unlock at all (it's resolved lazily inside
+          // pairWithPassword, only if the desktop turns out to need it) -
+          // back to gating on _paired alone.
           IgnorePointer(
-            ignoring: !(_paired && _allowAutoInstallGit != null),
+            ignoring: !_paired,
             child: AnimatedOpacity(
-              opacity: (_paired && _allowAutoInstallGit != null) ? 1 : 0.3,
+              opacity: _paired ? 1 : 0.3,
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    // 2026-08-25: real feedback, live - first pass ("the
-                    // public key IS stored, on the desktop") was still
-                    // incomplete - it's also stored on the phone itself
-                    // (that's where it was generated, and it stays there
-                    // for future use), not just the desktop. Also asked
-                    // to be less verbose - two short lines instead of
-                    // one long sentence.
-                    child: Text(
-                      'Your key is stored on both devices.\n'
-                      'Your password never is.',
-                      style:
-                          TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -810,11 +779,39 @@ class _IdleViewState extends State<_IdleView>
                             left: -10,
                             top: 14,
                             child: IgnorePointer(
-                              child: Icon(Icons.auto_awesome, color: kGreen, size: 12),
+                              child: Icon(Icons.auto_awesome,
+                                  color: kGreen, size: 12),
                             ),
                           ),
                       ],
                     ),
+                  ),
+                  // 2026-08-29: real feedback, live - "might be better
+                  // positioned below password field1 and scroll up and
+                  // away when user types in password field1." Moved from
+                  // above field 1 (where it sat as a heading-adjacent
+                  // caption) to directly below it, and now collapses
+                  // upward instead of staying put once typing starts -
+                  // AnimatedSize shrinks the space it occupied to zero,
+                  // driven by the same _passwordCtrl listener that
+                  // already triggers rebuilds elsewhere on this screen
+                  // (see initState).
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.topCenter,
+                    child: _passwordCtrl.text.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+                            child: Text(
+                              'Your key is stored on both devices.\n'
+                              'Your password never is.',
+                              style: TextStyle(
+                                  color: kTextMid, fontSize: 13, height: 1.6),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        : const SizedBox(width: double.infinity),
                   ),
                   const SizedBox(height: 12),
                   // 2026-08-25: copy-to-confirm button added then
@@ -1004,14 +1001,10 @@ class _IdleViewState extends State<_IdleView>
                   letterSpacing: 1.5)),
           const SizedBox(height: 14),
           // Stage 3 body - locked until passwords match.
-          // 2026-08-28: same structural fix as Stage 2 above - requires a
-          // real consent choice to exist, not just _paired.
           IgnorePointer(
-            ignoring: !(_paired && _allowAutoInstallGit != null && _passwordsMatch),
+            ignoring: !(_paired && _passwordsMatch),
             child: AnimatedOpacity(
-              opacity: (_paired && _allowAutoInstallGit != null && _passwordsMatch)
-                  ? 1
-                  : 0.3,
+              opacity: (_paired && _passwordsMatch) ? 1 : 0.3,
               duration: const Duration(milliseconds: 200),
               child: Column(
                 children: [
@@ -1087,9 +1080,7 @@ class _IdleViewState extends State<_IdleView>
                         ),
                         DragTarget<bool>(
                           onWillAcceptWithDetails: (_) {
-                            if (!(_paired &&
-                                _allowAutoInstallGit != null &&
-                                _passwordsMatch)) {
+                            if (!(_paired && _passwordsMatch)) {
                               return false;
                             }
                             setState(() => _dragHover = true);
@@ -2398,7 +2389,8 @@ class _SettingsReminder extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.settings_outlined, color: Colors.amber, size: 18),
+              const Icon(Icons.settings_outlined,
+                  color: Colors.amber, size: 18),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -2406,7 +2398,9 @@ class _SettingsReminder extends StatelessWidget {
                   children: [
                     Text('First time? Check your desktop connection',
                         style: TextStyle(
-                            color: kStar, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            color: kStar,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text('Desktop username, IP address, and folder path',
                         style: TextStyle(color: kTextMid, fontSize: 11)),

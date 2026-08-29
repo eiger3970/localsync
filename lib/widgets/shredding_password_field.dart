@@ -4,8 +4,8 @@
 // PairingController) - this widget makes that promise visible instead
 // of just stating it in a caption. Call shred() the moment pairing
 // actually starts (not on submit alone - only once the key registration
-// is genuinely underway) and the typed characters fly apart instead of
-// just clearing, then the field resets for a retry if pairing fails.
+// is genuinely underway) and the typed text fades out instead of just
+// clearing, then the field resets for a retry if pairing fails.
 
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -73,10 +73,6 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   late final double _phaseSeed2;
   bool _obscure = true;
   bool _shredding = false;
-  String _shreddedText = '';
-  List<Offset> _drift = const [];
-  List<double> _rotation = const [];
-  List<double> _delay = const [];
 
   @override
   void initState() {
@@ -84,12 +80,12 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     _ctrl = AnimationController(vsync: this, duration: _duration);
     _phaseSeed1 = _rand.nextDouble();
     _phaseSeed2 = _rand.nextDouble();
-    _sparkleCtrl =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1300))
-          ..repeat();
-    _sparkleCtrl2 =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 1900))
-          ..repeat();
+    _sparkleCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat();
+    _sparkleCtrl2 = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1900))
+      ..repeat();
   }
 
   @override
@@ -105,19 +101,10 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     return sin(phase * pi * 2) * 0.5 + 0.5;
   }
 
-  /// Plays the shred animation on whatever text is currently in the
-  /// field, then clears it. No-op if the field is already empty.
+  /// Fades out whatever text is currently in the field, then clears it.
+  /// No-op if the field is already empty.
   Future<void> shred() async {
-    final text = widget.controller.text;
-    if (text.isEmpty || _shredding) return;
-    _shreddedText = text;
-    _drift = List.generate(
-        text.length,
-        (_) =>
-            Offset(_rand.nextDouble() * 50 - 25, 30 + _rand.nextDouble() * 26));
-    _rotation = List.generate(
-        text.length, (_) => (_rand.nextDouble() * 140 - 70) * pi / 180);
-    _delay = List.generate(text.length, (i) => i / text.length * 0.35);
+    if (widget.controller.text.isEmpty || _shredding) return;
     setState(() => _shredding = true);
     await _ctrl.forward(from: 0);
     widget.controller.clear();
@@ -127,117 +114,86 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Opacity(
-          opacity: _shredding ? 0 : 1,
-          child: TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            obscureText: _obscure,
-            enabled: widget.enabled && !_shredding,
-            style: TextStyle(color: kStar),
-            // 2026-08-16: "this is a strong white as though is a solid
-            // immutable text... should change to a faded text which is
-            // a typical hint" - labelText renders bold and floats above
-            // the field permanently once focused/filled, reading as
-            // fixed content rather than a placeholder. hintText actually
-            // disappears once typing starts, matching a real hint.
-            //
-            // 2026-08-16, follow-up: "too small and dark, I can't read
-            // it" - the theme's shared hintStyle (kTextDim, 12px) is
-            // fine for a lightweight aside but too dim/small to read
-            // comfortably as the only label this field has. Overridden
-            // locally rather than changed in theme.dart, since other
-            // fields' hints weren't flagged and shouldn't shift too.
-            decoration: InputDecoration(
-              hintText: 'Desktop password…',
-              hintStyle: TextStyle(color: kTextMid, fontSize: 14),
-              // 2026-08-25: "stars need more stars" - a single icon read
-              // as too sparse. A small cluster (2 sizes, slight offset)
-              // reads as sparkle rather than one static glyph, still via
-              // prefixIcon so it stays left-of-text with no manual
-              // positioning.
-              // 2026-08-28: real feedback, live - "the fade away blue
-              // stars on the password fields can be removed, it's out
-              // of time." Reverted the fade-to-blue treatment (had its
-              // own real timing/amplitude bugs across several rounds) -
-              // plain hard on/off via widget.showSparkle directly, same
-              // as before that whole detour. The stop-condition itself
-              // (_field1Done in linking_screen.dart) stays - that part
-              // was confirmed working.
-              prefixIcon: widget.showSparkle
-                  ? AnimatedBuilder(
-                      animation: Listenable.merge([_sparkleCtrl, _sparkleCtrl2]),
-                      builder: (_, __) => SizedBox(
-                        width: 28,
-                        // 2026-08-26: real feedback, live, three times now
-                        // - "lower the twinkly stars a little." First
-                        // attempt used top-padding (cancelled out by
-                        // prefixIcon's own centering). Second used
-                        // Transform.translate(0, 5). Third doubled to 10.
-                        // Still "a little" more each time - bumped again
-                        // to 16.
-                        child: Transform.translate(
-                          offset: const Offset(0, 16),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Icon(Icons.auto_awesome,
-                                  color: kGreen.withValues(
-                                      alpha: _twinkle(_sparkleCtrl, _phaseSeed1)),
-                                  size: 16),
-                              Positioned(
-                                left: 14,
-                                top: 2,
-                                child: Icon(Icons.auto_awesome,
-                                    color: kGreen.withValues(
-                                        alpha: _twinkle(_sparkleCtrl2, _phaseSeed2)),
-                                    size: 10),
-                              ),
-                            ],
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, child) => Opacity(opacity: 1 - _ctrl.value, child: child),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: widget.focusNode,
+        obscureText: _obscure,
+        enabled: widget.enabled && !_shredding,
+        style: TextStyle(color: kStar),
+        // 2026-08-16: "this is a strong white as though is a solid
+        // immutable text... should change to a faded text which is
+        // a typical hint" - labelText renders bold and floats above
+        // the field permanently once focused/filled, reading as
+        // fixed content rather than a placeholder. hintText actually
+        // disappears once typing starts, matching a real hint.
+        //
+        // 2026-08-16, follow-up: "too small and dark, I can't read
+        // it" - the theme's shared hintStyle (kTextDim, 12px) is
+        // fine for a lightweight aside but too dim/small to read
+        // comfortably as the only label this field has. Overridden
+        // locally rather than changed in theme.dart, since other
+        // fields' hints weren't flagged and shouldn't shift too.
+        decoration: InputDecoration(
+          hintText: 'Desktop password…',
+          hintStyle: TextStyle(color: kTextMid, fontSize: 14),
+          // 2026-08-25: "stars need more stars" - a single icon read
+          // as too sparse. A small cluster (2 sizes, slight offset)
+          // reads as sparkle rather than one static glyph, still via
+          // prefixIcon so it stays left-of-text with no manual
+          // positioning.
+          // 2026-08-28: real feedback, live - "the fade away blue
+          // stars on the password fields can be removed, it's out
+          // of time." Reverted the fade-to-blue treatment (had its
+          // own real timing/amplitude bugs across several rounds) -
+          // plain hard on/off via widget.showSparkle directly, same
+          // as before that whole detour. The stop-condition itself
+          // (_field1Done in linking_screen.dart) stays - that part
+          // was confirmed working.
+          prefixIcon: widget.showSparkle
+              ? AnimatedBuilder(
+                  animation: Listenable.merge([_sparkleCtrl, _sparkleCtrl2]),
+                  builder: (_, __) => SizedBox(
+                    width: 28,
+                    // 2026-08-26: real feedback, live, three times now
+                    // - "lower the twinkly stars a little." First
+                    // attempt used top-padding (cancelled out by
+                    // prefixIcon's own centering). Second used
+                    // Transform.translate(0, 5). Third doubled to 10.
+                    // Still "a little" more each time - bumped again
+                    // to 16.
+                    child: Transform.translate(
+                      offset: const Offset(0, 16),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Icon(Icons.auto_awesome,
+                              color: kGreen.withValues(
+                                  alpha: _twinkle(_sparkleCtrl, _phaseSeed1)),
+                              size: 16),
+                          Positioned(
+                            left: 14,
+                            top: 2,
+                            child: Icon(Icons.auto_awesome,
+                                color: kGreen.withValues(
+                                    alpha:
+                                        _twinkle(_sparkleCtrl2, _phaseSeed2)),
+                                size: 10),
                           ),
-                        ),
+                        ],
                       ),
-                    )
-                  : null,
-              suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
-            ),
+                    ),
+                  ),
+                )
+              : null,
+          suffixIcon: IconButton(
+            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+            onPressed: () => setState(() => _obscure = !_obscure),
           ),
         ),
-        if (_shredding)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _ctrl,
-                builder: (_, __) => Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                  child: Wrap(
-                    children: List.generate(_shreddedText.length, (i) {
-                      final t = ((_ctrl.value - _delay[i]) / (1 - _delay[i]))
-                          .clamp(0.0, 1.0);
-                      return Transform.translate(
-                        offset: _drift[i] * t,
-                        child: Transform.rotate(
-                          angle: _rotation[i] * t,
-                          child: Opacity(
-                            opacity: 1 - t,
-                            child: Text(_obscure ? '•' : _shreddedText[i],
-                                style: TextStyle(color: kGreen, fontSize: 16)),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
