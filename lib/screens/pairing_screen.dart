@@ -63,42 +63,16 @@ class _PairingScreenState extends State<PairingScreen> {
   // list linking_screen.dart already had. Same counter/scoping as there -
   // see passwordRetryMessage in linking_state.dart.
   int _pairAttempts = 0;
-  // 2026-08-28: real feedback, live - "Introduce the warning when step 2
-  // activates" - LinkingScreen's embedded flow has a real Stage 1 -> 2
-  // gate to hook into; this screen has no such stage split (the password
-  // field is on screen from the very start), so the equivalent here is
-  // resolving consent before the screen's first frame is even
-  // interactive - both fields below stay disabled until this is
-  // non-null, not just gated at submit time.
-  bool? _allowAutoInstallGit;
 
   @override
   void initState() {
     super.initState();
     _ctrl = PairingController(
       desktopUser: widget.desktopUser,
-      desktopIp:   widget.desktopIp,
+      desktopIp: widget.desktopIp,
     );
     _ctrl.addListener(_onChange);
     _passwordCtrl.addListener(_onChange);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveGitConsent());
-  }
-
-  // 2026-08-28: real feedback, live - the remembered-choice behavior
-  // read as confusing/buggy on a real device twice in a row, and after
-  // being asked directly the explicit answer was to ask every single
-  // time - a security consent, not a convenience prompt. No longer
-  // reads or writes DatabaseService's stored choice.
-  Future<void> _resolveGitConsent() async {
-    final decided = await showGitInstallConsent(context);
-    if (!mounted) return;
-    if (decided == null) {
-      // Cancelled - real choice, not a nag. Fields stay disabled;
-      // backing out of this screen entirely is the only way forward,
-      // same as declining leaves LinkingScreen's Stage 2 locked.
-      return;
-    }
-    setState(() => _allowAutoInstallGit = decided);
   }
 
   void _onChange() => setState(() {});
@@ -122,7 +96,8 @@ class _PairingScreenState extends State<PairingScreen> {
       // setup), not just first-time setup. Unconditionally shoving the
       // user into a fresh vault-setup run after a successful re-pair
       // made no sense once a repo already exists.
-      final hasExistingVault = context.read<RepositoryProvider>().repos.isNotEmpty;
+      final hasExistingVault =
+          context.read<RepositoryProvider>().repos.isNotEmpty;
       return Scaffold(
         appBar: AppBar(title: const Text('PAIR WITH DESKTOP')),
         body: _PairedSuccessView(
@@ -162,177 +137,181 @@ class _PairingScreenState extends State<PairingScreen> {
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
         child: SafeArea(
-        child: ContentAboveDragCanvas(
-          // 2026-08-16: "missing the number 2 on the left" (restored -
-          // dropping it two rounds ago was a real regression, not
-          // requested) then "moving phonekey to the right will allow
-          // badge 2 to be on the left of the 2 images" - the badge now
-          // lives inside KeyPairingTrigger itself via leadingBadge, so it
-          // can be pixel-aligned to the key/lock's actual rest row
-          // instead of positioned externally by guesswork.
-          canvas: KeyPairingTrigger(
-            enabled: _allowAutoInstallGit != null &&
-                !_ctrl.isRunning &&
-                _passwordCtrl.text.isNotEmpty,
-            onConfirm: _pair,
-            leadingBadge: const _StepBadge(2),
-          ),
-          content: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  // 2026-08-23: reads the live controller's IP, not
-                  // widget.desktopIp - the latter stays frozen at
-                  // whatever was passed in originally, so it would
-                  // keep showing the stale address even after
-                  // _findAndRetry() corrects it.
-                  'Connect to ${widget.desktopUser}@${_ctrl.desktopIp}',
-                  style: TextStyle(
-                      color: kStar, fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 16),
-                // 2026-08-16: "this is verbose and needs to be
-                // simplified. Can you design an infographic for
-                // this workflow process?" - replaced the
-                // type-once/never-stored paragraph with a 3-step
-                // icon strip. No new asset pipeline needed (reuses
-                // Material icons in the app's existing palette) -
-                // glanceable in one look instead of a sentence to
-                // parse.
-                const _PasswordWorkflowStrip(),
-                const SizedBox(height: 24),
-                // 2026-08-16: "1 is not on same line as text" - badge
-                // was top-aligned against a field whose label sits
-                // vertically centered when empty, not flush with the
-                // top. Center alignment instead.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const _StepBadge(1),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ShreddingPasswordField(
-                        key: _shredKey,
-                        controller: _passwordCtrl,
-                        enabled: _allowAutoInstallGit != null && !_ctrl.isRunning,
-                      ),
-                    ),
-                  ],
-                ),
-                // 2026-08-16: wrapped as one single Keyed block
-                // (rather than loose conditional children) after
-                // finding a real bug elsewhere this session where
-                // an unkeyed conditional sibling shifting list
-                // position confused Flutter's element
-                // reconciliation mid-gesture - defensive fix for
-                // the reported "vertical red line" artifact left
-                // behind after this box disappears on retry.
-                if (result is StepFailure)
-                  Column(
-                    key: const ValueKey('failureBox'),
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: ContentAboveDragCanvas(
+            // 2026-08-16: "missing the number 2 on the left" (restored -
+            // dropping it two rounds ago was a real regression, not
+            // requested) then "moving phonekey to the right will allow
+            // badge 2 to be on the left of the 2 images" - the badge now
+            // lives inside KeyPairingTrigger itself via leadingBadge, so it
+            // can be pixel-aligned to the key/lock's actual rest row
+            // instead of positioned externally by guesswork.
+            canvas: KeyPairingTrigger(
+              enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+              onConfirm: _pair,
+              leadingBadge: const _StepBadge(2),
+            ),
+            content: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    // 2026-08-23: reads the live controller's IP, not
+                    // widget.desktopIp - the latter stays frozen at
+                    // whatever was passed in originally, so it would
+                    // keep showing the stale address even after
+                    // _findAndRetry() corrects it.
+                    'Connect to ${widget.desktopUser}@${_ctrl.desktopIp}',
+                    style: TextStyle(
+                        color: kStar,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  // 2026-08-16: "this is verbose and needs to be
+                  // simplified. Can you design an infographic for
+                  // this workflow process?" - replaced the
+                  // type-once/never-stored paragraph with a 3-step
+                  // icon strip. No new asset pipeline needed (reuses
+                  // Material icons in the app's existing palette) -
+                  // glanceable in one look instead of a sentence to
+                  // parse.
+                  const _PasswordWorkflowStrip(),
+                  const SizedBox(height: 24),
+                  // 2026-08-16: "1 is not on same line as text" - badge
+                  // was top-aligned against a field whose label sits
+                  // vertically centered when empty, not flush with the
+                  // top. Center alignment instead.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(height: 20),
-                      // 2026-08-16: was a bespoke Container using
-                      // kTextDim at 14px for the resolution text -
-                      // direct feedback that it was "too small and
-                      // dark to read." Switched to the same DiagCard
-                      // used everywhere else in the app (kStar, 15px,
-                      // 1.7 line height) instead of inventing a
-                      // dimmer, harder-to-read variant just for this
-                      // screen.
-                      DiagCard(
-                        label: 'WHAT HAPPENED',
-                        text: result.diagnosis,
-                        accent: Colors.redAccent,
+                      const _StepBadge(1),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ShreddingPasswordField(
+                          key: _shredKey,
+                          controller: _passwordCtrl,
+                          enabled: !_ctrl.isRunning,
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      // 2026-08-21: same fix as every other HOW TO FIX
-                      // IT card in the app - "check all text which is
-                      // verbose, change to point form."
-                      // 2026-08-26: connectionRefused now shows the same
-                      // 10-attempt escalating message linking_screen.dart
-                      // uses instead of the generic bulleted checklist -
-                      // see _pairAttempts above.
-                      // 2026-08-26, follow-up: real feedback, live - a
-                      // genuine SSHAuthFailError during pairing classifies
-                      // as pairingPasswordRejected (see pairing_controller
-                      // .dart's own _diagnose()), not connectionRefused,
-                      // and still showed the old static 2-line text.
-                      // isPasswordRetryError covers both - same underlying
-                      // "wrong password" condition, different face
-                      // depending on the desktop's SSH server behavior.
-                      isPasswordRetryError(result.error)
-                          ? DiagCard(
-                              label: 'HOW TO FIX IT',
-                              text: passwordRetryMessage(_pairAttempts),
-                              accent: kGreen,
-                              icon: Icons.lightbulb_outline,
-                            )
-                          : DiagCard(
-                              label: 'HOW TO FIX IT',
-                              text: result.resolution,
-                              accent: kGreen,
-                              icon: Icons.lightbulb_outline,
-                              bulleted: true,
-                            ),
-                      // 2026-08-23: real feedback, live - same auto-
-                      // discovery gap as LinkingScreen's failure view,
-                      // but this is the screen where connectionRefused
-                      // actually happens first for most users (the
-                      // very first line of pairWithPassword is a raw
-                      // socket connect, before password is ever used).
-                      if (result.error == LinkingError.connectionRefused) ...[
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _discovering ? null : _findAndRetry,
-                            icon: _discovering
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2, color: kGreen),
-                                  )
-                                : Icon(Icons.wifi_find, color: kGreen, size: 18),
-                            label: Text(
-                                _discovering
-                                    ? 'LOOKING FOR DESKTOP…'
-                                    : 'FIND DESKTOP AUTOMATICALLY',
-                                style: TextStyle(
-                                    color: kGreen, fontSize: 13, fontWeight: FontWeight.w700)),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: kGreen),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                      // 2026-08-16: guards against both null AND an
-                      // empty/whitespace-only debugDetail - real device
-                      // feedback showed the "Raw error" label with
-                      // nothing underneath it, which a bare null-check
-                      // wouldn't have caught if the underlying
-                      // exception's toString() ever comes back blank.
-                      if (result.debugDetail != null &&
-                          result.debugDetail!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        DiagCard(
-                          label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
-                          text: result.debugDetail!,
-                          accent: Colors.redAccent,
-                          maxLength: 300,
-                        ),
-                      ],
                     ],
                   ),
-              ],
+                  // 2026-08-16: wrapped as one single Keyed block
+                  // (rather than loose conditional children) after
+                  // finding a real bug elsewhere this session where
+                  // an unkeyed conditional sibling shifting list
+                  // position confused Flutter's element
+                  // reconciliation mid-gesture - defensive fix for
+                  // the reported "vertical red line" artifact left
+                  // behind after this box disappears on retry.
+                  if (result is StepFailure)
+                    Column(
+                      key: const ValueKey('failureBox'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        // 2026-08-16: was a bespoke Container using
+                        // kTextDim at 14px for the resolution text -
+                        // direct feedback that it was "too small and
+                        // dark to read." Switched to the same DiagCard
+                        // used everywhere else in the app (kStar, 15px,
+                        // 1.7 line height) instead of inventing a
+                        // dimmer, harder-to-read variant just for this
+                        // screen.
+                        DiagCard(
+                          label: 'WHAT HAPPENED',
+                          text: result.diagnosis,
+                          accent: Colors.redAccent,
+                        ),
+                        const SizedBox(height: 12),
+                        // 2026-08-21: same fix as every other HOW TO FIX
+                        // IT card in the app - "check all text which is
+                        // verbose, change to point form."
+                        // 2026-08-26: connectionRefused now shows the same
+                        // 10-attempt escalating message linking_screen.dart
+                        // uses instead of the generic bulleted checklist -
+                        // see _pairAttempts above.
+                        // 2026-08-26, follow-up: real feedback, live - a
+                        // genuine SSHAuthFailError during pairing classifies
+                        // as pairingPasswordRejected (see pairing_controller
+                        // .dart's own _diagnose()), not connectionRefused,
+                        // and still showed the old static 2-line text.
+                        // isPasswordRetryError covers both - same underlying
+                        // "wrong password" condition, different face
+                        // depending on the desktop's SSH server behavior.
+                        isPasswordRetryError(result.error)
+                            ? DiagCard(
+                                label: 'HOW TO FIX IT',
+                                text: passwordRetryMessage(_pairAttempts),
+                                accent: kGreen,
+                                icon: Icons.lightbulb_outline,
+                              )
+                            : DiagCard(
+                                label: 'HOW TO FIX IT',
+                                text: result.resolution,
+                                accent: kGreen,
+                                icon: Icons.lightbulb_outline,
+                                bulleted: true,
+                              ),
+                        // 2026-08-23: real feedback, live - same auto-
+                        // discovery gap as LinkingScreen's failure view,
+                        // but this is the screen where connectionRefused
+                        // actually happens first for most users (the
+                        // very first line of pairWithPassword is a raw
+                        // socket connect, before password is ever used).
+                        if (result.error == LinkingError.connectionRefused) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _discovering ? null : _findAndRetry,
+                              icon: _discovering
+                                  ? SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: kGreen),
+                                    )
+                                  : Icon(Icons.wifi_find,
+                                      color: kGreen, size: 18),
+                              label: Text(
+                                  _discovering
+                                      ? 'LOOKING FOR DESKTOP…'
+                                      : 'FIND DESKTOP AUTOMATICALLY',
+                                  style: TextStyle(
+                                      color: kGreen,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700)),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: kGreen),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                        // 2026-08-16: guards against both null AND an
+                        // empty/whitespace-only debugDetail - real device
+                        // feedback showed the "Raw error" label with
+                        // nothing underneath it, which a bare null-check
+                        // wouldn't have caught if the underlying
+                        // exception's toString() ever comes back blank.
+                        if (result.debugDetail != null &&
+                            result.debugDetail!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          DiagCard(
+                            label: 'RAW ERROR (TEMPORARY DIAGNOSTIC)',
+                            text: result.debugDetail!,
+                            accent: Colors.redAccent,
+                            maxLength: 300,
+                          ),
+                        ],
+                      ],
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -341,15 +320,18 @@ class _PairingScreenState extends State<PairingScreen> {
   Future<void> _pair() async {
     final password = _passwordCtrl.text;
     if (password.isEmpty) return;
-    // 2026-08-28: consent is resolved in _resolveGitConsent() before this
-    // screen's fields are even enabled (see initState) - always set by
-    // the time a real submit can fire.
-    assert(_allowAutoInstallGit != null);
 
     final shredding = _shredKey.currentState?.shred();
     if (shredding != null) unawaited(shredding);
-    await _ctrl.pairWithPassword(password,
-        allowAutoInstallGit: _allowAutoInstallGit!);
+    // 2026-08-29: real feedback, live - "is the git install consent in
+    // the best position?" No longer resolved upfront (see initState,
+    // which used to gate both fields on this) - pairWithPassword checks
+    // live over the real SSH session and only calls this back when the
+    // desktop actually turns out to be missing git.
+    await _ctrl.pairWithPassword(password, onGitMissing: () async {
+      if (!mounted) return null;
+      return showGitInstallConsent(context);
+    });
     if (mounted && _ctrl.result is StepFailure) {
       setState(() => _pairAttempts++);
     }
@@ -478,7 +460,8 @@ class _PasswordWorkflowStrip extends StatelessWidget {
         // Material key glyph.
         _step(
           SvgPicture.asset('assets/pairing/pairing_phone_key.svg',
-              width: 30, colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
+              width: 30,
+              colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
           'KEY INSTALLED',
         ),
         _arrow(),
@@ -500,7 +483,10 @@ class _PasswordWorkflowStrip extends StatelessWidget {
           Text(label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: kTextMid, fontSize: 11, letterSpacing: 0.6, height: 1.3)),
+                  color: kTextMid,
+                  fontSize: 11,
+                  letterSpacing: 0.6,
+                  height: 1.3)),
         ],
       ),
     );
@@ -600,7 +586,9 @@ class _PairedSuccessView extends StatelessWidget {
           // "now swipe."
           SwapGifSwipeConfirm(
             animatedAssetPath: 'assets/gifs/progress_running.gif',
-            label: hasExistingVault ? 'SWIPE TO CONTINUE' : 'SWIPE TO SET UP VAULT',
+            label: hasExistingVault
+                ? 'SWIPE TO CONTINUE'
+                : 'SWIPE TO SET UP VAULT',
             onConfirm: onContinue,
           ),
         ],

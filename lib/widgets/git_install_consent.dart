@@ -38,10 +38,15 @@ class _GitInstallConsentDialog extends StatefulWidget {
 class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
   bool _showCommand = false;
 
+  // 2026-08-29: real feedback, live - "don't mix up the 2 subjects" (this
+  // dialog's real subject is the git auto-install decision, not password
+  // security). The two password-storage lines moved out entirely - that
+  // reassurance now lives inline under password field 1 on
+  // linking_screen.dart instead, right where the password is actually
+  // typed. Only the line that's genuinely about THIS decision (trusting
+  // an app enough to let it run sudo) stays here.
   static const _warnLines = [
     (Icons.verified_user_outlined, 'Only for apps you already trust'),
-    (Icons.lock_outline, 'Never leaves this device'),
-    (Icons.block, 'Never stored, anywhere'),
   ];
 
   static const _infoLines = [
@@ -52,96 +57,32 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    // 2026-08-29: real feedback, live - "user actions should be the main
+    // part and the warnings a sub info part, moved below the important
+    // user action." AlertDialog always renders `actions` after `content`
+    // at the bottom - swapped to a plain Dialog so the three real
+    // decisions (auto install / install myself / cancel) sit right under
+    // the title, and the warning/info detail (still fully present, none
+    // of it removed) reads as secondary detail underneath rather than a
+    // wall of text blocking the decision.
+    return Dialog(
       backgroundColor: kSurface,
-      title: Text('Before you type your password',
-          style: TextStyle(color: kStar, fontSize: 17, fontWeight: FontWeight.w700)),
-      content: SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.amber, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final (icon, text) in _warnLines) ...[
-                    _ConsentLine(
-                        icon: icon, text: text, iconColor: Colors.amber, color: kStar),
-                    if (text != _warnLines.last.$2) const SizedBox(height: 6),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            for (final (icon, text) in _infoLines) ...[
-              _ConsentLine(icon: icon, text: text, iconColor: kGreen, color: kTextMid),
-              if (text != _infoLines.last.$2) const SizedBox(height: 8),
-            ],
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () => setState(() => _showCommand = !_showCommand),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 2026-08-28: real feedback, live - "arrow points down
-                  // but should point right. Command showing has arrow
-                  // pointing up but should point down." Collapsed = right
-                  // (there's more to reveal to the right/below), expanded
-                  // = down (pointing at the command box that just opened
-                  // directly beneath it) - was backwards (expand_more/
-                  // expand_less, an up/down pair with no "collapsed"
-                  // state at all).
-                  Icon(_showCommand ? Icons.keyboard_arrow_down : Icons.chevron_right,
-                      color: kGreen, size: 18),
-                  const SizedBox(width: 4),
-                  Text('Show the exact command',
-                      style: TextStyle(
-                          color: kGreen, fontSize: 13, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            if (_showCommand) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: kVoid,
-                  border: Border.all(color: kBorder),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text('sudo apt-get install -y git',
-                    style: TextStyle(
-                        color: kStar, fontSize: 13, fontFamily: 'monospace')),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      actions: [
-        // 2026-08-28: real feedback, live - "the button is cut off the
-        // right edge of the phone screen." The old two-button Row inside
-        // AlertDialog's actions overflowed the dialog's real width on a
-        // real device. Stacked full-width instead - guaranteed to fit
-        // regardless of text length or screen width, not just a shorter-
-        // text bet that could overflow again on a narrower phone.
-        Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
           children: [
+            Text('Install git on your desktop?',
+                style: TextStyle(
+                    color: kStar, fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: kGreen),
               child: Text('LocalSync auto install',
-                  style: TextStyle(color: kVoid, fontSize: 14, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      color: kVoid, fontSize: 14, fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 8),
             OutlinedButton(
@@ -155,9 +96,97 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
               onPressed: () => Navigator.pop(context, null),
               child: Text('Cancel', style: TextStyle(color: kTextDim)),
             ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.amber, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (icon, text) in _warnLines) ...[
+                            _ConsentLine(
+                                icon: icon,
+                                text: text,
+                                iconColor: Colors.amber,
+                                color: kStar),
+                            if (text != _warnLines.last.$2)
+                              const SizedBox(height: 6),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final (icon, text) in _infoLines) ...[
+                      _ConsentLine(
+                          icon: icon,
+                          text: text,
+                          iconColor: kGreen,
+                          color: kTextMid),
+                      if (text != _infoLines.last.$2) const SizedBox(height: 8),
+                    ],
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () => setState(() => _showCommand = !_showCommand),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 2026-08-28: real feedback, live - "arrow points down
+                          // but should point right. Command showing has arrow
+                          // pointing up but should point down." Collapsed = right
+                          // (there's more to reveal to the right/below), expanded
+                          // = down (pointing at the command box that just opened
+                          // directly beneath it) - was backwards (expand_more/
+                          // expand_less, an up/down pair with no "collapsed"
+                          // state at all).
+                          Icon(
+                              _showCommand
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                              color: kGreen,
+                              size: 18),
+                          const SizedBox(width: 4),
+                          Text('Show the exact command',
+                              style: TextStyle(
+                                  color: kGreen,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    if (_showCommand) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: kVoid,
+                          border: Border.all(color: kBorder),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('sudo apt-get install -y git',
+                            style: TextStyle(
+                                color: kStar,
+                                fontSize: 13,
+                                fontFamily: 'monospace')),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -186,7 +215,8 @@ class _ConsentLine extends StatelessWidget {
         Icon(icon, color: iconColor, size: 16),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: TextStyle(color: color, fontSize: 13, height: 1.3)),
+          child: Text(text,
+              style: TextStyle(color: color, fontSize: 13, height: 1.3)),
         ),
       ],
     );
