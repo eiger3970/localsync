@@ -978,10 +978,15 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
           const SizedBox(height: 10),
+          // 2026-08-29: real feedback, live - "Real auto-discovery"
+          // implied the existing Wi-Fi discovery (the satellite search
+          // button, already free and working) isn't real, which isn't
+          // true. Reworded around the actual gap this would close -
+          // USB tether reliability - instead of a vague "real" claim.
           Text(
-            'Real auto-discovery: LocalSync finds your desktop on its own, '
-            'no typing an IP or a repo path by hand. Not built yet - would '
-            'you pay for it, and how much?',
+            'Even better auto-discovery: reliable over USB too, not just '
+            'Wi-Fi - no typing an IP or a repo path by hand, ever. Not '
+            'built yet - would you pay for it, and how much?',
             style: TextStyle(color: kStar, fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 14),
