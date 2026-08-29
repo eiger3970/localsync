@@ -339,7 +339,20 @@ class _IdleViewState extends State<_IdleView>
   // Stage 1's drag is purely ceremonial (pairing_controller.dart's own
   // comment on that still applies) and now just unlocks Stage 2
   // directly, no dialog in between.
+  //
+  // 2026-08-29, follow-up: real feedback, live - "most people will be a
+  // 1st time [user] and this is a major friction." The permanent amber
+  // _SettingsReminder banner that used to sit above "1. PAIR YOUR
+  // DEVICE" (visible before the user has done anything at all) is gone -
+  // moved here instead, so it only appears right when Stage 1 actually
+  // completes and Settings turn out to still be empty, not as upfront
+  // clutter. Deliberately non-blocking (Stage 2 still unlocks either
+  // way) rather than a hard stop - pairing_controller.dart's own
+  // desktopNotConfigured error is still the real backstop if this gets
+  // ignored and the user pairs anyway.
   Future<void> _onKeyPairingSettled() async {
+    if (!mounted) return;
+    await _checkSettings();
     if (!mounted) return;
     setState(() => _paired = true);
     // 2026-08-28: real feedback, live - "Step 2 activates but then I
@@ -350,6 +363,23 @@ class _IdleViewState extends State<_IdleView>
     // before that rebuild lands would be racing it.
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _passwordFocusNode.requestFocus());
+    if (_needsSettings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              "Desktop username and IP address aren't set yet - fill them in before pairing will work.",
+              style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
+          backgroundColor: Colors.amber,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'SETTINGS',
+            textColor: kVoid,
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -589,13 +619,6 @@ class _IdleViewState extends State<_IdleView>
               ],
             ),
             const SizedBox(height: 24),
-            if (_needsSettings) ...[
-              _SettingsReminder(
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen())),
-              ),
-              const SizedBox(height: 20),
-            ],
             Text('1. PAIR YOUR DEVICE',
                 style: TextStyle(
                     color: kGreen,
@@ -2375,57 +2398,6 @@ class _PulsingDotsState extends State<_PulsingDots>
 // ── Device glyph (pictogram for source/destination) ──────────────────────────────
 
 // ── Scope checklist row ──────────────────────────────────────────────────────
-
-// 2026-08-28: real feedback, live - moved here from SyncChoiceScreen the
-// same day it was added there (see this class's own callers for the
-// full story). Stage 1's own technical-setup context, unlike the warm
-// first-hello screen, is the right place for a Settings reminder.
-class _SettingsReminder extends StatelessWidget {
-  final VoidCallback onTap;
-  const _SettingsReminder({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: kSurface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.amber, width: 1),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.settings_outlined,
-                  color: Colors.amber, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('First time? Check your desktop connection',
-                        style: TextStyle(
-                            color: kStar,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text('Desktop username, IP address, and folder path',
-                        style: TextStyle(color: kTextMid, fontSize: 11)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: kTextDim, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ScopeRow extends StatelessWidget {
   final String label;
