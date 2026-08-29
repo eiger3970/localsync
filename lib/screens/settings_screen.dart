@@ -944,36 +944,45 @@ class _SettingsScreenState extends State<SettingsScreen>
           // skins, cramped and overflow-prone once the national-flag
           // skins brought the count to 7) - Wrap with a fixed swatch
           // width lets it flow onto multiple lines cleanly instead.
-          // 2026-08-29: real feedback, live - "left aligned, leaving a
-          // nasty right space" - Wrap defaults to WrapAlignment.start,
-          // so a final row that doesn't fill the full width reads as
-          // lopsided. Centering each row fixes that regardless of how
-          // many swatches fit per line.
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final palette in allPalettes) ...[
-                // 2026-08-29: real feedback, live - "add a Customise
-                // button, left of the us skin... user sends me a text
-                // or image, I read it and design it (or have Claude AI
-                // design it)." Placed inline in the same grid, right
-                // before the first flag skin, rather than a separate
-                // section - reads as one more skin choice, not a
-                // different kind of thing bolted on.
-                if (palette.id == 'us')
-                  const SizedBox(width: 84, child: _CustomiseSkinTile()),
-                SizedBox(
-                  width: 84,
-                  child: _SkinSwatch(
-                    palette: palette,
-                    selected: themeService.palette.id == palette.id,
-                    onTap: () => themeService.select(palette),
+          // 2026-08-29: real feedback, live, TWO rounds - "left
+          // aligned, leaving a nasty right space" fixed with
+          // WrapAlignment.center first, confirmed on-device it did
+          // NOTHING. Real cause found on the second pass: the parent
+          // Column uses CrossAxisAlignment.start, which never stretches
+          // its children to the container's full width in the first
+          // place - Wrap was shrink-wrapping to fit its own content, so
+          // there was no extra space inside it for WrapAlignment.center
+          // to center within. SizedBox(width: double.infinity) forces
+          // the Wrap itself to actually span the full width first, so
+          // centering has real room to do something.
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final palette in allPalettes) ...[
+                  // 2026-08-29: real feedback, live - "add a Customise
+                  // button, left of the us skin... user sends me a text
+                  // or image, I read it and design it (or have Claude AI
+                  // design it)." Placed inline in the same grid, right
+                  // before the first flag skin, rather than a separate
+                  // section - reads as one more skin choice, not a
+                  // different kind of thing bolted on.
+                  if (palette.id == 'us')
+                    const SizedBox(width: 84, child: _CustomiseSkinTile()),
+                  SizedBox(
+                    width: 84,
+                    child: _SkinSwatch(
+                      palette: palette,
+                      selected: themeService.palette.id == palette.id,
+                      onTap: () => themeService.select(palette),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
