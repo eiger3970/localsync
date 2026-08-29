@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../constants.dart';
@@ -946,7 +947,20 @@ void _showFullError(BuildContext context, Repository repo) {
 // (git2dart, provider, shared_preferences, etc.) - genuinely "stuff
 // apps need" that a store listing/legal review expects, and needed
 // zero new code to get right.
-void _showAbout(BuildContext context) {
+// 2026-08-29: real feedback, live - "wrong location, should be in
+// About" (the build-number label at the bottom of Settings). That
+// label existed specifically so a genuinely-pushed build could be told
+// apart from a stale one at a glance (see settings_screen.dart's own
+// 2026-08-28 comment on why) - moving it here without fixing what it
+// shows would lose that. The version line below used to read the
+// hardcoded kAppVersion constant ("0.1.0", no build number, never
+// actually reflecting what's installed) - now fetches the real
+// PackageInfo first, same as Settings did, so About shows the same
+// trustworthy "v0.1.0 (24)" instead of a number that can drift from
+// pubspec.yaml unnoticed.
+Future<void> _showAbout(BuildContext context) async {
+  final info = await PackageInfo.fromPlatform();
+  if (!context.mounted) return;
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -961,7 +975,7 @@ void _showAbout(BuildContext context) {
                 style: TextStyle(
                     color: kStar, fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('v$kAppVersion',
+            Text('v${info.version} (${info.buildNumber})',
                 style: TextStyle(color: kTextMid, fontSize: 13)),
             const SizedBox(height: 12),
             Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
