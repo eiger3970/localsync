@@ -56,7 +56,9 @@ import 'vault_folder_service.dart';
 // Plain data only, deliberately - these are the only things that cross
 // the compute() isolate boundary back to the caller.
 
-sealed class SyncResult { const SyncResult(); }
+sealed class SyncResult {
+  const SyncResult();
+}
 
 class SyncOk extends SyncResult {
   final String message;
@@ -92,7 +94,7 @@ class SyncFailed extends SyncResult {
   final LinkingError error;
   final String? debugDetail;
   const SyncFailed(this.error, {this.debugDetail});
-  String get diagnosis  => error.diagnosis;
+  String get diagnosis => error.diagnosis;
   String get resolution => error.resolution;
 }
 
@@ -118,8 +120,8 @@ class SyncNeedsConfirmation extends SyncResult {
     this.modifiedFiles = const [],
   });
 
-  int get filesAdded    => addedFiles.length;
-  int get filesRemoved  => removedFiles.length;
+  int get filesAdded => addedFiles.length;
+  int get filesRemoved => removedFiles.length;
   int get filesModified => modifiedFiles.length;
 
   String get summary {
@@ -138,11 +140,11 @@ class SyncNeedsConfirmation extends SyncResult {
 }
 
 class SyncEvent {
-  final SyncPhase?  phase;
+  final SyncPhase? phase;
   final SyncResult? result;
   const SyncEvent({this.phase, this.result});
-  factory SyncEvent.phase(SyncPhase p)  => SyncEvent(phase: p);
-  factory SyncEvent.done(SyncResult r)  => SyncEvent(result: r);
+  factory SyncEvent.phase(SyncPhase p) => SyncEvent(phase: p);
+  factory SyncEvent.done(SyncResult r) => SyncEvent(result: r);
 }
 
 /// Single source of truth for turning a SyncResult into user-facing text -
@@ -197,7 +199,7 @@ class SyncService {
   final String vaultBookmark;
   final String remoteUser;
   final String remoteHost;
-  final int    remotePort;
+  final int remotePort;
   final String remotePath;
   final String branch;
   final String sshPrivateKeyPath;
@@ -220,9 +222,9 @@ class SyncService {
     required this.sshPrivateKeyPath,
     required this.sshPublicKeyPath,
     required this.deviceName,
-    this.remotePort      = 22,
-    this.branch           = 'main',
-    this.sshPassphrase    = '',
+    this.remotePort = 22,
+    this.branch = 'main',
+    this.sshPassphrase = '',
     VaultFolderService? vaultFolder,
   }) : _vaultFolder = vaultFolder ?? VaultFolderService();
 
@@ -231,20 +233,22 @@ class SyncService {
     required String sshPrivateKeyPath,
     required String sshPublicKeyPath,
     required String deviceName,
-  }) => SyncService(
-    vaultPath:         repo.localPath,
-    vaultBookmark:     repo.vaultBookmark,
-    remoteUser:        repo.remoteUser,
-    remoteHost:        repo.remoteHost,
-    remotePath:        repo.remotePath,
-    remotePort:        repo.remotePort,
-    branch:            'main',
-    sshPrivateKeyPath: sshPrivateKeyPath,
-    sshPublicKeyPath:  sshPublicKeyPath,
-    deviceName:        deviceName,
-  );
+  }) =>
+      SyncService(
+        vaultPath: repo.localPath,
+        vaultBookmark: repo.vaultBookmark,
+        remoteUser: repo.remoteUser,
+        remoteHost: repo.remoteHost,
+        remotePath: repo.remotePath,
+        remotePort: repo.remotePort,
+        branch: 'main',
+        sshPrivateKeyPath: sshPrivateKeyPath,
+        sshPublicKeyPath: sshPublicKeyPath,
+        deviceName: deviceName,
+      );
 
-  String get _remoteUrl => 'ssh://$remoteUser@$remoteHost:$remotePort$remotePath';
+  String get _remoteUrl =>
+      'ssh://$remoteUser@$remoteHost:$remotePort$remotePath';
 
   /// Bring remote changes down. Commits any dirty local tree first
   /// (established app behavior - doesn't block the user on git plumbing
@@ -274,12 +278,14 @@ class SyncService {
     bool confirmed = false,
   }) async* {
     if (vaultBookmark.isEmpty) {
-      yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
+      yield SyncEvent.done(
+          const SyncFailed(LinkingError.vaultFolderAccessLost));
       return;
     }
     final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
     if (resolvedPath == null) {
-      yield SyncEvent.done(const SyncFailed(LinkingError.vaultFolderAccessLost));
+      yield SyncEvent.done(
+          const SyncFailed(LinkingError.vaultFolderAccessLost));
       return;
     }
     yield SyncEvent.phase(phase);
@@ -351,9 +357,24 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
     commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
+    // 2026-08-30: real device bug - "cannot locate remote-tracking branch
+    // origin/main," repeated after git_service.dart's own fix to the
+    // linking-time version of this same pattern. This is the real day-
+    // to-day pull path (an auto-sync on launch can hit it seconds after
+    // a brand new repo is linked, before any push has happened) - a
+    // fresh bare repo has no branches at all until pushed to, but
+    // Branch.lookup ran unconditionally right after fetch(). remote.ls()
+    // checks what's actually there first, same pattern already used in
+    // git_service.dart's getStatus/pullFromBareRepo.
+    final remoteRefs = remote.ls(callbacks: callbacks);
+    final hasRemoteBranch =
+        remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
+    if (!hasRemoteBranch) return const SyncNoChanges();
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
-      repo: repo, name: 'origin/${p.branch}', type: git.GitBranch.remote,
+      repo: repo,
+      name: 'origin/${p.branch}',
+      type: git.GitBranch.remote,
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
@@ -409,9 +430,28 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // clean, p.commitMessage was never used, so don't claim it was).
     final committed = commitDirtyTree(repo, p.commitMessage, p.deviceName);
 
+    // 2026-08-30: same real bug/fix as _pullInIsolate above - a fresh
+    // bare repo has no branches until something is actually pushed to
+    // it, so the unconditional fetch+lookup below threw here too on a
+    // genuinely empty remote. No remote branch means this push IS what
+    // establishes it - nothing to diff/compare against yet, so this
+    // skips straight to the push itself instead of a fetch/lookup that
+    // can only fail.
+    final remoteRefs = remote.ls(callbacks: callbacks);
+    final hasRemoteBranch =
+        remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
+    if (!hasRemoteBranch) {
+      final err = _pushWithRetry(repo, remote, callbacks, p.branch);
+      if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
+      return SyncOk(committed
+          ? 'Pushed as "${p.commitMessage}".'
+          : 'Uploaded notes to desktop.');
+    }
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
-      repo: repo, name: 'origin/${p.branch}', type: git.GitBranch.remote,
+      repo: repo,
+      name: 'origin/${p.branch}',
+      type: git.GitBranch.remote,
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
@@ -472,7 +512,9 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
 /// pull and push so the open/recover/close bracket lives in one place.
 Future<SyncResult> _withRepo(
   _SyncParams p,
-  SyncResult Function(git.Repository repo, git.Remote remote, git.Callbacks callbacks) op,
+  SyncResult Function(
+          git.Repository repo, git.Remote remote, git.Callbacks callbacks)
+      op,
 ) async {
   final callbacks = git.Callbacks(
     credentials: git.Keypair(
@@ -509,15 +551,29 @@ Future<SyncResult> _withRepo(
     try {
       final backedUp = await backupVaultIfNotEmpty(p.vaultPath);
       final repo = git.Repository.init(
-        path: p.vaultPath, initialHead: p.branch, originUrl: p.remoteUrl,
+        path: p.vaultPath,
+        initialHead: p.branch,
+        originUrl: p.remoteUrl,
       );
       try {
         final remote = git.Remote.lookup(repo: repo, name: 'origin');
-        remote.fetch(callbacks: callbacks);
-        final remoteBranch = git.Branch.lookup(
-          repo: repo, name: 'origin/${p.branch}', type: git.GitBranch.remote,
-        );
-        repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
+        // 2026-08-30: same real bug/fix as _pullInIsolate/_pushInIsolate
+        // above - a fresh/empty remote has no branches until pushed to,
+        // so the unconditional fetch+lookup threw here too. An empty
+        // remote here means there's nothing to recover FROM yet - the
+        // freshly re-initted local repo (above) is already correct as-is.
+        final remoteRefs = remote.ls(callbacks: callbacks);
+        final hasRemoteBranch =
+            remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
+        if (hasRemoteBranch) {
+          remote.fetch(callbacks: callbacks);
+          final remoteBranch = git.Branch.lookup(
+            repo: repo,
+            name: 'origin/${p.branch}',
+            type: git.GitBranch.remote,
+          );
+          repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
+        }
       } finally {
         repo.free();
       }
@@ -543,7 +599,8 @@ Future<SyncResult> _withRepo(
       if (repo.index.hasConflicts) {
         String? otherLabel, otherTime;
         try {
-          final mergeHeadOid = git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
+          final mergeHeadOid =
+              git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
           final other = labelForCommit(repo, mergeHeadOid);
           otherLabel = other.label;
           otherTime = other.time.isEmpty ? null : other.time;
@@ -592,8 +649,8 @@ Future<SyncResult> _withRepo(
 /// all, so it can't be wrong the same way.
 bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
-  final parent  = git.Commit.lookup(repo: repo, oid: headOid);
-  final tree    = _stageAndWriteTree(repo);
+  final parent = git.Commit.lookup(repo: repo, oid: headOid);
+  final tree = _stageAndWriteTree(repo);
   if (tree.oid == parent.tree.oid) return false;
   final signature = _signatureFor(deviceName);
   git.Commit.create(
@@ -611,7 +668,8 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
 /// Completes an in-progress merge (from Merge.commit) by staging
 /// whatever is in the working directory now (post-repair) and creating
 /// the merge commit with both parents.
-void finishMergeCommit(git.Repository repo, String deviceName, {String? message}) {
+void finishMergeCommit(git.Repository repo, String deviceName,
+    {String? message}) {
   final localOid = repo.head.target;
   final git.Oid remoteOid;
   try {
@@ -620,17 +678,18 @@ void finishMergeCommit(git.Repository repo, String deviceName, {String? message}
     return; // nothing to finish - not actually mid-merge
   }
 
-  final localCommit  = git.Commit.lookup(repo: repo, oid: localOid);
+  final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
   final remoteCommit = git.Commit.lookup(repo: repo, oid: remoteOid);
-  final tree          = _stageAndWriteTree(repo);
-  final signature      = _signatureFor(deviceName);
+  final tree = _stageAndWriteTree(repo);
+  final signature = _signatureFor(deviceName);
 
   git.Commit.create(
     repo: repo,
     updateRef: 'HEAD',
     author: signature,
     committer: signature,
-    message: message ?? 'Merge conflicts (both sides kept) ${backupTimestamp()}',
+    message:
+        message ?? 'Merge conflicts (both sides kept) ${backupTimestamp()}',
     tree: tree,
     parents: [localCommit, remoteCommit],
   );
@@ -643,7 +702,8 @@ void finishMergeCommit(git.Repository repo, String deviceName, {String? message}
     _diffFileCounts(git.Repository repo, git.Oid oldOid, git.Oid newOid) {
   final oldTree = git.Commit.lookup(repo: repo, oid: oldOid).tree;
   final newTree = git.Commit.lookup(repo: repo, oid: newOid).tree;
-  final diff = git.Diff.treeToTree(repo: repo, oldTree: oldTree, newTree: newTree);
+  final diff =
+      git.Diff.treeToTree(repo: repo, oldTree: oldTree, newTree: newTree);
   final added = <String>[], removed = <String>[], modified = <String>[];
   for (final delta in diff.deltas) {
     switch (delta.status) {
@@ -665,8 +725,11 @@ void finishMergeCommit(git.Repository repo, String deviceName, {String? message}
 /// gone missing), not the ordinary one-note-deleted case, so this only
 /// trips on a handful or more of files disappearing at once.
 bool _isLargeDeletion(
-        ({List<String> added, List<String> removed, List<String> modified})
-            counts) =>
+        ({
+          List<String> added,
+          List<String> removed,
+          List<String> modified
+        }) counts) =>
     counts.removed.length >= 3;
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
@@ -707,9 +770,12 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
     try {
       remote.fetch(callbacks: callbacks);
       final remoteBranch = git.Branch.lookup(
-        repo: repo, name: 'origin/$branch', type: git.GitBranch.remote,
+        repo: repo,
+        name: 'origin/$branch',
+        type: git.GitBranch.remote,
       );
-      final analysis = git.Merge.analysis(repo: repo, theirHead: remoteBranch.target);
+      final analysis =
+          git.Merge.analysis(repo: repo, theirHead: remoteBranch.target);
       if (!analysis.result.contains(git.GitMergeAnalysis.fastForward)) {
         return (error: LinkingError.cannotFastForward, detail: e.toString());
       }
@@ -855,12 +921,14 @@ void _resolveBinaryConflict(
   if (ours != null) {
     final blob = git.Blob.lookup(repo: repo, oid: ours.oid);
     keptBackupName = '$stem - yours - $ts$ext';
-    File('${backupDir.path}/$keptBackupName').writeAsBytesSync(blob.contentBytes);
+    File('${backupDir.path}/$keptBackupName')
+        .writeAsBytesSync(blob.contentBytes);
   }
   if (theirs != null) {
     final blob = git.Blob.lookup(repo: repo, oid: theirs.oid);
     otherBackupName = '$stem - $otherLabel - $ts$ext';
-    File('${backupDir.path}/$otherBackupName').writeAsBytesSync(blob.contentBytes);
+    File('${backupDir.path}/$otherBackupName')
+        .writeAsBytesSync(blob.contentBytes);
   }
 
   // Logged so the Conflicts screen can offer a real choice later - see
@@ -914,7 +982,8 @@ void _resolveBinaryConflict(
     // elsewhere in this file, and the naming standard used throughout
     // the rest of the app. Was "YYYY-MM-DD hh:mm" - readable, but
     // inconsistent with everywhere else.
-    final time = '${t.year}${p2(t.month)}${p2(t.day)}${p2(t.hour)}${p2(t.minute)}';
+    final time =
+        '${t.year}${p2(t.month)}${p2(t.day)}${p2(t.hour)}${p2(t.minute)}';
     return (label: commit.author.name, time: time);
   } catch (_) {
     return (label: 'other device', time: '');

@@ -277,6 +277,21 @@ class GitServiceImpl implements GitService {
         commitDirtyTree(repo, 'Vault contents before linking', deviceName);
 
         final remote = Remote.lookup(repo: repo, name: 'origin');
+        // 2026-08-30: same real device bug as the fresh-clone branch
+        // above, still hitting - "same error connecting to new phone
+        // folder." This is the OTHER path to the same unconditional
+        // Branch.lookup: a retry against a vault folder that already has
+        // local .git state (e.g. an earlier attempt got this far but the
+        // push step never ran) hits this branch, not the fresh-clone one
+        // above - same missing guard, same fix. An empty remote means
+        // there's genuinely nothing to pull; local (just committed above)
+        // is already ready for pushToBareRepo to establish the branch.
+        final remoteRefs = remote.ls(callbacks: _callbacks);
+        final hasRemoteBranch =
+            remoteRefs.any((r) => r.name == 'refs/heads/$defaultBranch');
+        if (!hasRemoteBranch) {
+          return const StepSuccess(message: 'Nothing to pull yet');
+        }
         remote.fetch(callbacks: _callbacks);
 
         final remoteBranch = Branch.lookup(

@@ -406,7 +406,9 @@ class _IdleViewState extends State<_IdleView>
       // 2026-08-28) - going straight there removes the missable-tap step
       // entirely instead of just making the tap target harder to miss.
       Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          context,
+          MaterialPageRoute(
+              builder: (_) => const SettingsScreen(neededForPairing: true)));
     }
   }
 
