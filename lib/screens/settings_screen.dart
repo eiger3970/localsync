@@ -474,6 +474,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   // numbered headers (1/2/3), so this just needs to say
                   // why they're here, not repeat what they are.
                   'Pairing to desktop, needs below filled in to connect.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -627,10 +628,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // 2026-08-30, follow-up - "needs a git logo in the
                     // desktop screen." git-icon.svg (the official Git
                     // mark, unused since this field's icon changed a few
-                    // rounds ago - a real, findable asset, not lost) is a
-                    // flat single-color outline (unlike the laptop SVG
-                    // above), so it tints safely - small, centered over
-                    // where Icons.computer draws its screen area.
+                    // rounds ago - a real, findable asset, not lost) -
+                    // small, centered over where Icons.computer draws its
+                    // screen area.
+                    //
+                    // 2026-08-30, real device bug - "black colour on top
+                    // middle" instead of a visible logo. This SVG has a
+                    // hardcoded fill (#f03c2e, Git's own brand orange-
+                    // red) - a solid silhouette, not a transparent
+                    // outline. kVoid is the app's own near-black
+                    // background color, so tinting the whole silhouette
+                    // to it painted an almost-invisible dark blob against
+                    // the dark background. kStar (light, used for every
+                    // other icon/text on this screen) actually shows up
+                    // against the green computer icon instead.
                     child: SizedBox(
                       width: 22,
                       height: 22,
@@ -645,7 +656,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               width: 9,
                               height: 9,
                               colorFilter:
-                                  ColorFilter.mode(kVoid, BlendMode.srcIn),
+                                  ColorFilter.mode(kStar, BlendMode.srcIn),
                             ),
                           ),
                         ],

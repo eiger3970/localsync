@@ -817,8 +817,19 @@ class _IdleViewState extends State<_IdleView>
                                   PasswordInfoRow(
                                     icon: Icons.lock_outline,
                                     iconColor: kTextMid,
+                                    // 2026-08-30: real device feedback -
+                                    // "never leaves this device, but next
+                                    // line says sent encrypted over SSH,
+                                    // this is a contradiction." Real
+                                    // catch - it IS transmitted (once,
+                                    // live, to authenticate) so "never
+                                    // leaves" was actually false, not
+                                    // just confusingly worded next to the
+                                    // encryption line. What's actually
+                                    // true: never written to disk or
+                                    // logged anywhere.
                                     text: 'Your password: never stored, '
-                                        'never leaves this device',
+                                        'never logged',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(

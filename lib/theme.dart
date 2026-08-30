@@ -210,6 +210,38 @@ const monochromePalette = AppPalette(
   accent: Color(0xFFE0E0E0),
 );
 
+// 2026-08-30: real device feedback - "1 pink for the ladies market and
+// then a blue" - two plain accent-color skins, same "warm/cool terminal
+// phosphor" structure as amberTerminalPalette above (void/surface/border
+// tinted toward the hue, not just the accent swapped in isolation), not
+// flag skins - those are the separate trans/rainbow ones further below.
+const pinkTerminalPalette = AppPalette(
+  id: 'pink_terminal',
+  label: 'Pink terminal',
+  void_: Color(0xFF0A0208),
+  surface: Color(0xFF170A12),
+  border: Color(0xFF2E1524),
+  purple: Color(0xFF6B21D6),
+  blue: Color(0xFF4488FF),
+  star: Color(0xFFFFE8F2),
+  textDim: Color(0xFF5C2E42),
+  textMid: Color(0xFF8F5470),
+  accent: Color(0xFFFF3D9A),
+);
+const blueTerminalPalette = AppPalette(
+  id: 'blue_terminal',
+  label: 'Blue terminal',
+  void_: Color(0xFF02060A),
+  surface: Color(0xFF0A1420),
+  border: Color(0xFF15263D),
+  purple: Color(0xFF6B21D6),
+  blue: Color(0xFF4488FF),
+  star: Color(0xFFE8F3FF),
+  textDim: Color(0xFF2E4A5C),
+  textMid: Color(0xFF5480A0),
+  accent: Color(0xFF2E9CFF),
+);
+
 const italyPalette = AppPalette(
   id: 'italy',
   label: 'Italy (Azzurri)',
@@ -299,6 +331,43 @@ AppPalette _flagSkin({
 // frame (Albania's double-headed eagle - no edge-spanning shape to
 // derive from it at all), a single-colour flagStripes list as a
 // plain accent border instead of a fake pattern.
+// 2026-08-30: real device feedback - "need trans colours, definitely
+// pink for the ladies market... left of Customise." Trans Pride flag
+// (Monica Helms, 1999) - 5 equal horizontal bands, light blue/pink/
+// white/pink/light blue, official colours. Placed directly before
+// usPalette below (and in allPalettes further down) so it lands
+// immediately left of the Customise tile, which already inserts itself
+// right before 'us' - no flagAsset (none sourced yet, same as every
+// other skin here until a real SVG exists - falls back to the plain
+// accent-dot swatch preview).
+final transPalette = _flagSkin(
+    id: 'trans',
+    label: 'Trans Pride',
+    accent: const Color(0xFFF5A9B8),
+    stripes: const [
+      Color(0xFF5BCEFA),
+      Color(0xFFF5A9B8),
+      Color(0xFFFFFFFF),
+      Color(0xFFF5A9B8),
+      Color(0xFF5BCEFA),
+    ]);
+final transBoldPalette = bold(transPalette);
+// 2026-08-30: real device feedback - "your suggestion of also a skin
+// specifically trans and lgbt could be added too." Classic 6-stripe
+// Pride flag (Gilbert Baker, 1978 design as commonly used today).
+final rainbowPalette = _flagSkin(
+    id: 'rainbow',
+    label: 'Rainbow Pride',
+    accent: const Color(0xFFE50000),
+    stripes: const [
+      Color(0xFFE50000),
+      Color(0xFFFF8D00),
+      Color(0xFFFFEE00),
+      Color(0xFF028121),
+      Color(0xFF004CFF),
+      Color(0xFF770088),
+    ]);
+final rainbowBoldPalette = bold(rainbowPalette);
 // 2026-08-22: user-sourced real Wikimedia SVG (assets/flags/us.svg,
 // viewBox 0 0 7410 3900) confirmed the canton is exactly 0.4 width x
 // 7/13 height (2964/7410, 2100/3900) - already correct below - but
@@ -506,6 +575,12 @@ final allPalettes = [
   terminalGreenPalette,
   amberTerminalPalette,
   monochromePalette,
+  pinkTerminalPalette,
+  blueTerminalPalette,
+  transPalette,
+  transBoldPalette,
+  rainbowPalette,
+  rainbowBoldPalette,
   usPalette,
   usBoldPalette,
   canadaPalette,

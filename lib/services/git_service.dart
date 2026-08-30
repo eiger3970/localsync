@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
 import 'sync_service.dart'
@@ -180,11 +182,79 @@ class GitServiceImpl implements GitService {
     }
   }
 
+  // 2026-08-30: real device feedback - "unsure about keeping in cron
+  // job, this is advanced and esoteric industry secrets, not really for
+  // normies... I'm still unclear on the desktop user setup." The bare
+  // repo itself was already automated (above); this was the other real
+  // gap - desktop/localsync_sync.sh (keeps the desktop's own working
+  // copy in sync) still needed manual copy + chmod + a hand-edited
+  // crontab, per docs/desktop-setup.md. Same SSH access pairing already
+  // established does all of that here instead - zero terminal steps.
+  // Best-effort: failure here doesn't fail setup (the bare repo and
+  // pairing already succeeded, which is the real requirement) - caught
+  // and swallowed by the caller, not raised as a LinkingError.
+  Future<void> _ensureDesktopSyncInstalled() async {
+    final socket = await SSHSocket.connect(sshHost, sshPort,
+        timeout: const Duration(seconds: 15));
+    final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+    final client = SSHClient(
+      socket,
+      username: sshUser,
+      identities: SSHKeyPair.fromPem(
+          privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+    );
+    try {
+      final script = await rootBundle.loadString('desktop/localsync_sync.sh');
+      final scriptB64 = base64Encode(utf8.encode(script));
+      final escapedRepo = bareRepoPath.replaceAll("'", r"'\''");
+      // Written to ~/Documents/Scripts/ - the exact path
+      // docs/desktop-setup.md already documents by hand, so a user who
+      // goes looking for it (or runs it manually later) finds it where
+      // the docs said it would be, automated or not.
+      //
+      // $HOME below is deliberately UNQUOTED/double-quoted, not single-
+      // quoted - single quotes suppress shell variable expansion, which
+      // would leave the literal 4 characters "$HOME" in the path
+      // instead of the real home directory (a real bug caught before
+      // this shipped, not guessed at).
+      const remoteDir = r'$HOME/Documents/Scripts';
+      const scriptPath = r'$HOME/Documents/Scripts/localsync_sync.sh';
+      final installCmd = 'mkdir -p "$remoteDir" && '
+          "echo '$scriptB64' | base64 -d > \"$scriptPath\" && "
+          'chmod +x "$scriptPath"';
+      final installRes = await client.runWithResult(installCmd);
+      if (installRes.exitCode != 0) return; // best-effort, see above
+      // grep -v first removes any prior localsync_sync.sh cron line
+      // before re-adding - idempotent on a re-pair, never stacks
+      // duplicate entries. LOCALSYNC_VAULT is left at the script's own
+      // default (~/Documents/LocalSync/vault, per docs) - the desktop's
+      // own working-copy location isn't something the phone's Settings
+      // has ever configured; LOCALSYNC_BARE_REPO is the one value this
+      // phone actually knows and needs to override.
+      final cronCmd = '(crontab -l 2>/dev/null | grep -v localsync_sync.sh; '
+          'echo "*/5 * * * * LOCALSYNC_BARE_REPO=\'$escapedRepo\' '
+          '$scriptPath >> \$HOME/.localsync_sync.log 2>&1") | crontab -';
+      await client.runWithResult(cronCmd);
+    } catch (_) {
+      // Best-effort convenience step - never fails the real setup over
+      // this (e.g. a desktop with no cron at all, Windows via WSL
+      // oddities, etc.). Manual fallback is still fully documented in
+      // docs/desktop-setup.md for exactly this case.
+    } finally {
+      client.close();
+    }
+  }
+
   @override
   Future<StepResult> pullFromBareRepo() async {
     await _ensurePlatformInitialized();
     try {
       await _ensureBareRepoExists();
+      // 2026-08-30: best-effort, every pull (not just first-ever) -
+      // idempotent (see the function's own comment) and keeps the
+      // desktop script current if a future app update changes it, not
+      // just installed once and forgotten.
+      await _ensureDesktopSyncInstalled();
       if (!_isCloned) {
         // Was Repository.clone() until 2026-08-09 - required an empty
         // target directory, but localVaultPath is now the user's own

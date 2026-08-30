@@ -31,7 +31,7 @@ The Git bare repository is the thing both sides (desktop and phone) actually syn
 
 Neither device talks to the other directly, and a second synced copy of the vault's text notes is itself a convenient backup - if one device is lost or fails, the other still has everything (binary attachments aren't covered by this - kept out of scope here deliberately).
 
-The desktop side of the sync (the `git push / pull` step above) can run by hand, or automated via `desktop/localsync_sync.sh` - see [Desktop-side sync automation](#-desktop-side-sync-automation-optional) below. It is not installed on the desktop automatically by anything - it's a file in this repo you copy over and set up yourself, once.
+The desktop side of the sync (the `git push / pull` step above) is automated via `desktop/localsync_sync.sh` - see [Desktop-side sync automation](#-desktop-side-sync-automation) below. As of 2026-08-30 the phone app installs and schedules it itself during pairing; nothing to set up by hand for a normal setup.
 
 If both are already set up (git is installed, SSH is reachable), skip to [Settings values](#settings-values).
 
@@ -130,11 +130,16 @@ This is used once, over the SSH connection, to install the phone's own key into 
 
 Kebab menu → **Add another vault** (or the first-run setup flow upon install, for a first vault). For an Obsidian vault folder that already exists, use **"Already have a vault set up? Link it directly"** on the first screen to skip the from-scratch vault-creation walkthrough.
 
-## 🔁 Desktop-side sync automation (optional)
+## 🔁 Desktop-side sync automation
 
-`desktop/localsync_sync.sh` keeps the desktop's own working copy (a real Obsidian vault open on the desktop, or just a synced folder for Tier 0) up to date against the bare repository - fetch, compare, and either fast-forward or a real three-way merge with the same conflict repair the phone app itself uses (markdown conflict callouts, Kanban-safe, and a back-up-both-keep-ours safety net for any non-text file). Real, tested against local temp repos including a same-run markdown + binary conflict - not yet tested against a live bare repo over real SSH from another machine.
+**Automatic as of 2026-08-30** - the phone app installs `desktop/localsync_sync.sh` to `~/Documents/Scripts/` on the desktop itself, over the same SSH access pairing already sets up, and schedules it to run every 5 minutes via cron (`git_service.dart`'s `_ensureDesktopSyncInstalled()`). Nothing to copy, chmod, or configure by hand for a normal setup - this runs on every successful pull, so it also stays current if a future app update changes the script.
 
-It is **not** installed or run automatically by anything - copy it onto the desktop yourself, once:
+`desktop/localsync_sync.sh` keeps the desktop's own working copy (a real Obsidian vault open on the desktop, or just a synced folder for Tier 0) up to date against the bare repository - fetch, compare, and either fast-forward or a real three-way merge with the same conflict repair the phone app itself uses (markdown conflict callouts, Kanban-safe, and a back-up-both-keep-ours safety net for any non-text file). Real, tested against local temp repos including a same-run markdown + binary conflict; the automated SSH install itself is reasoned carefully but not yet confirmed against a real desktop.
+
+Logs to `~/.localsync_sync.log` - check there first if a scheduled run doesn't seem to be doing anything.
+
+### Manual setup (fallback, or if the automatic install didn't work)
+
 ```
 mkdir -p ~/Documents/Scripts
 cp desktop/localsync_sync.sh ~/Documents/Scripts/
@@ -156,7 +161,6 @@ To run it periodically instead of by hand, add a cron entry (`crontab -e`):
 ```
 */5 * * * * ~/Documents/Scripts/localsync_sync.sh
 ```
-Logs to `~/.localsync_sync.log` by default (`LOCALSYNC_LOG` to change it) - check there first if a scheduled run doesn't seem to be doing anything.
 
 ## 🧪 Before linking a real vault
 
