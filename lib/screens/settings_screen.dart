@@ -388,6 +388,29 @@ class _SettingsScreenState extends State<SettingsScreen>
         backgroundColor: kVoid,
         title: Text('Settings', style: TextStyle(color: kStar)),
       ),
+      // 2026-08-30: real device feedback - "the yellow info bit pushes
+      // down the Save button under the apple number keyboard, so there's
+      // no obvious progress for the user, the user now has to scroll up
+      // and find the Save button." Save used to sit mid-scroll, between
+      // the 3 fields and the Skins card below - any extra content above
+      // it (the new banner, a focused field's own error text, the
+      // keyboard itself) pushed it further out of view with nothing
+      // fixed on screen to reach it. Pinned to the bottom of the Scaffold
+      // instead - Flutter keeps a bottomNavigationBar above the keyboard
+      // automatically, so it's now always visible regardless of scroll
+      // position or which field has focus.
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _save,
+              child: const Text('Save'),
+            ),
+          ),
+        ),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -408,8 +431,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  "Desktop username and IP address aren't set yet - "
-                  'fill them in below before pairing will work.',
+                  // 2026-08-30: real device feedback - "you missed Git
+                  // bare repo path, there's 3 items for the user to
+                  // enter." Was only naming 2 of the 3 required fields.
+                  "Desktop username, IP address, and Git bare repo path "
+                  "aren't all set yet - fill them in below before "
+                  'pairing will work.',
                   style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -428,7 +455,11 @@ class _SettingsScreenState extends State<SettingsScreen>
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.person_outline, color: kTextMid, size: 22),
+                  // 2026-08-30: real device feedback - "the 3 icons
+                  // aren't consistent... I prefer the green." Was
+                  // kTextMid (a muted grey), inconsistent with the git
+                  // bare repo path field's own accent-colored icon.
+                  child: Icon(Icons.person_outline, color: kGreen, size: 22),
                 ),
                 Expanded(
                   child: TextField(
@@ -541,21 +572,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                 GestureDetector(
                   onTap: _useSuggestedPath,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 2, right: 10),
-                    // 2026-08-30: real device bug - "desktop image is just
-                    // a white square." This asset (unlike git-icon.svg)
-                    // isn't a flat tintable outline - it has its own
-                    // baked-in dark background rect + neon-green stroke,
-                    // same as the pairing screen already renders it
-                    // (linking_screen.dart's _DeviceGlyph, no colorFilter
-                    // there either). srcIn tinted the whole opaque shape
-                    // into one flat block - removed, renders with its own
-                    // real colors now.
-                    child: SvgPicture.asset(
-                      'assets/pairing/pairing_laptop_plain.svg',
-                      width: 40,
-                      height: 40,
-                    ),
+                    padding: const EdgeInsets.only(top: 4, right: 10),
+                    // 2026-08-30: real device feedback, two rounds - the
+                    // SVG fix (removing colorFilter) genuinely fixed the
+                    // white-square bug, but then couldn't be made
+                    // consistent with the other two fields' green icons
+                    // without reintroducing it (srcIn on this multi-color
+                    // asset flattens it back to one block, just green
+                    // instead of white). Switched to a plain Material
+                    // glyph, same tradeoff already decided with the user
+                    // 2026-08-18 for the Conflicts screen icon row (see
+                    // this Row's own 2026-08-21 comment below) - same
+                    // size/color as Desktop username and IP address now.
+                    child: Icon(Icons.computer, color: kGreen, size: 22),
                   ),
                 ),
                 Expanded(
@@ -747,7 +776,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 // not a radio-wave glyph), correct for either case.
                 Padding(
                   padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.lan, color: kTextMid, size: 22),
+                  // 2026-08-30: real device feedback - icon color
+                  // consistency across all 3 fields, green preferred.
+                  child: Icon(Icons.lan, color: kGreen, size: 22),
                 ),
                 Expanded(
                   child: TextField(
@@ -928,14 +959,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _save,
-                child: const Text('Save'),
-              ),
             ),
             const SizedBox(height: 32),
             _buildSkinsCard(),
