@@ -395,13 +395,19 @@ class _SettingsScreenState extends State<SettingsScreen>
       // the 3 fields and the Skins card below - any extra content above
       // it (the new banner, a focused field's own error text, the
       // keyboard itself) pushed it further out of view with nothing
-      // fixed on screen to reach it. Pinned to the bottom of the Scaffold
-      // instead - Flutter keeps a bottomNavigationBar above the keyboard
-      // automatically, so it's now always visible regardless of scroll
-      // position or which field has focus.
+      // fixed on screen to reach it. Moved to bottomNavigationBar - but
+      // that alone genuinely does NOT avoid the keyboard on its own
+      // (verified with a real golden-test measurement: still landed
+      // fully behind a simulated keyboard, "still can't access Save"
+      // confirmed the same on a real device). SafeArea only accounts for
+      // the device's own safe-area insets (home indicator etc.), not
+      // MediaQuery.viewInsets (the keyboard) - explicit bottom padding
+      // matching the live keyboard height is what actually pushes this
+      // above it.
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          padding: EdgeInsets.fromLTRB(
+              20, 12, 20, 12 + MediaQuery.of(context).viewInsets.bottom),
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -431,12 +437,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  // 2026-08-30: real device feedback - "you missed Git
-                  // bare repo path, there's 3 items for the user to
-                  // enter." Was only naming 2 of the 3 required fields.
-                  "Desktop username, IP address, and Git bare repo path "
-                  "aren't all set yet - fill them in below before "
-                  'pairing will work.',
+                  // 2026-08-30: real device feedback - "too complicated
+                  // for a new user and wrong order" (naming all 3 fields
+                  // inline read as a checklist to parse, not a plain
+                  // instruction). The 3 fields below now carry their own
+                  // numbered headers (1/2/3), so this just needs to say
+                  // why they're here, not repeat what they are.
+                  'Pairing to desktop, needs below filled in to connect.',
                   style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -450,6 +457,21 @@ class _SettingsScreenState extends State<SettingsScreen>
             // it on-device. New first field, alphabetically ahead of
             // "Git bare repo path" per the 2026-08-21 ordering decision
             // below.
+            //
+            // 2026-08-30: real device feedback - "add 1/2/3 to the
+            // headers, same theme as the FILE SYNC SETUP page." Exact
+            // same style as that screen's own "1. PAIR YOUR DEVICE" step
+            // headers (linking_screen.dart) - visual consistency only,
+            // not the sequential locking that screen also does (flagged
+            // separately - this page is also used to edit one already-
+            // configured field later, which a hard lock would break).
+            Text('1. DESKTOP USERNAME',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -548,6 +570,14 @@ class _SettingsScreenState extends State<SettingsScreen>
             // requested for both this screen's field order and the
             // kebab menu's Settings subtitle (see home_screen.dart) -
             // Git bare repo path now comes before IP address - desktop.
+            const SizedBox(height: 24),
+            Text('2. GIT BARE REPO PATH',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -766,6 +796,13 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 28),
             Divider(color: kBorder, height: 1),
             const SizedBox(height: 28),
+            Text('3. IP ADDRESS - DESKTOP',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
