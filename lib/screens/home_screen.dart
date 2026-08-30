@@ -163,7 +163,19 @@ class HomeScreen extends StatelessWidget {
             child: Consumer<RepositoryProvider>(
               builder: (_, provider, __) => PopupMenuButton<String>(
                 color: kSurface,
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                // 2026-08-30: real device feedback asked for kebab-to-
+                // Help spacing to match Help-to-edge spacing. First
+                // attempt measured PopupMenuButton's own semantic touch-
+                // target box (9dp vs 15dp, looked unbalanced) and widened
+                // padding to compensate - wrong measurement target: the
+                // VISIBLE glyph-to-glyph gap (what the eye actually
+                // judges "balance" by) was already 15dp vs 15dp, exactly
+                // matched, before that change. The touch target is
+                // deliberately asymmetric (larger tap area, same visual
+                // position) - reverted back to the original padding,
+                // then measured the real remaining gap (18dp vs Help's
+                // 15dp) and closed just that small real difference.
+                padding: const EdgeInsets.only(left: 6, right: 3),
                 icon: Icon(Icons.more_vert, color: kGreen, size: 22),
                 onSelected: (v) {
                   if (v == 'pair') _openPairing(context);

@@ -53,8 +53,8 @@ void main() {
     tester.takeException();
 
     final nameRect = tester.getRect(find.text('Files needed on phone'));
-    final kebabRect =
-        tester.getRect(find.byType(PopupMenuButton<String>).first);
+    final kebabRect = tester.getRect(find.byIcon(Icons.more_vert));
+    final helpRect = tester.getRect(find.byIcon(Icons.help_outline));
     final logoRect = tester.getRect(find.byType(Image).first);
     final rowRect =
         tester.getRect(find.byKey(const ValueKey('appBarRepoStatusRow')));
@@ -67,7 +67,10 @@ void main() {
         'nameBoxLeft=${nameRect.left} nameBoxRight=${nameRect.right} '
         'nameBoxWidth=${nameRect.width} '
         'kebabLeft=${kebabRect.left} kebabRight=${kebabRect.right} '
-        'gapBetweenNameBoxAndKebab=${kebabRect.left - nameRect.right}');
+        'helpLeft=${helpRect.left} helpRight=${helpRect.right} '
+        'gapBetweenNameBoxAndKebab=${kebabRect.left - nameRect.right} '
+        'gapKebabToHelp=${helpRect.left - kebabRect.right} '
+        'gapHelpToRightEdge=${screenWidth - helpRect.right}');
 
     await expectLater(
       find.byType(MaterialApp),
