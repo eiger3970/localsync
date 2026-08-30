@@ -300,8 +300,14 @@ class _IdleViewState extends State<_IdleView>
     final path = await db.getBareRepoPath();
     if (!mounted) return;
     setState(() {
-      _needsSettings = (user == null || user.trim().isEmpty) &&
-          (ip == null || ip.trim().isEmpty) &&
+      // 2026-08-30: real bug found reviewing 08-29's own reminder fix -
+      // this was `&&`, so the reminder only fired if user, ip, AND path
+      // were ALL empty. Fill in just one (a normal partial-setup state)
+      // and the whole reactive nudge silently never showed, even though
+      // pairing would still fail. Any one missing means settings are
+      // incomplete - `||` is correct.
+      _needsSettings = (user == null || user.trim().isEmpty) ||
+          (ip == null || ip.trim().isEmpty) ||
           (path == null || path.trim().isEmpty);
     });
   }

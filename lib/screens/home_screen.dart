@@ -39,6 +39,35 @@ class HomeScreen extends StatelessWidget {
         // itself as a Row with an Expanded+Center around it, so it
         // sits centered in the space between LOCALSYNC and the
         // kebab/tick icons rather than immediately after the title.
+        //
+        // 2026-08-30: real root cause found, after 4 rounds of padding/
+        // tap-target tweaks that never actually fixed it - centerTitle
+        // was never set, so it sat on Flutter's platform default, which
+        // is TRUE on iOS. That triggers a DIFFERENT layout algorithm
+        // than this manual Expanded+Center: iOS centered-title mode
+        // squeezes the title's available width down to roughly
+        // `toolbarWidth - 2*max(leadingWidth, actionsWidth)`, far
+        // narrower than the real leftover space - that's what caused
+        // the early wrap (row 1 had real room the box didn't reflect)
+        // and the dead space before the kebab, regardless of any local
+        // padding tweak. Explicit false lets this screen's own manual
+        // centering use the real leftover space instead of competing
+        // with iOS's symmetric-centering math.
+        centerTitle: false,
+        // 2026-08-30: real cause of the LAST 46dp of gap, found via a
+        // Key-tagged measurement, not another guess - even with
+        // centerTitle:false, AppBar reserves its own default 16dp
+        // titleSpacing on both sides of the title (NavigationToolbar.
+        // kMiddleSpacing), on top of everything this screen already
+        // manages manually (the logo, the explicit SizedBox(24) in
+        // actions). Zero removes that invisible double-reservation.
+        titleSpacing: 0,
+        // 2026-08-30, corrected - "object 2 [name] isn't spread right of
+        // object 1 [logo] and left of object 3 [kebab]." The name needs
+        // to actually SPAN the space between the logo and the kebab, not
+        // sit at its own small natural width - Expanded does that, using
+        // the real leftover width (freed up by centerTitle:false and
+        // titleSpacing:0 above), no fixed cap to get wrong again.
         title: Row(
           children: [
             // 2026-08-21: "Logo placement can go in top left of
@@ -50,28 +79,20 @@ class HomeScreen extends StatelessWidget {
             // logo sits inside the "O" of LOCALSYNC in the source art).
             Image.asset('assets/icon/logo_word_with_circle.png', height: 16),
             Expanded(
-              // TEMP DEBUG 2026-08-30: yellow fill shows the real Expanded
-              // bounds this title Row gets from AppBar - remove once the
-              // app-bar/kebab gap is actually diagnosed from a screenshot.
-              child: Container(
-                color: const Color(0x55FFEB3B),
-                child: Center(
-                child: Consumer<RepositoryProvider>(
-                  builder: (_, provider, __) => provider.repos.isEmpty
-                      ? const SizedBox.shrink()
-                      : _AppBarRepoStatus(
-                          repo: provider.selectedRepo!,
-                          allRepos: provider.repos,
-                          onTap: () => _runAndShow(
-                              context,
-                              ({bool confirmed = false}) => provider
-                                  .pullRepository(provider.selectedRepo!.id!,
-                                      confirmed: confirmed),
-                              repo: provider.selectedRepo),
-                          onSelect: provider.selectRepo,
-                        ),
-                ),
-              ),
+              child: Consumer<RepositoryProvider>(
+                builder: (_, provider, __) => provider.repos.isEmpty
+                    ? const SizedBox.shrink()
+                    : _AppBarRepoStatus(
+                        repo: provider.selectedRepo!,
+                        allRepos: provider.repos,
+                        onTap: () => _runAndShow(
+                            context,
+                            ({bool confirmed = false}) => provider
+                                .pullRepository(provider.selectedRepo!.id!,
+                                    confirmed: confirmed),
+                            repo: provider.selectedRepo),
+                        onSelect: provider.selectRepo,
+                      ),
               ),
             ),
           ],
@@ -118,7 +139,15 @@ class HomeScreen extends StatelessWidget {
           // target stacking into a much bigger visual gap than intended
           // between them - net effect shifts the kebab right, closer to
           // Help, exactly as asked.
-          const SizedBox(width: 24),
+          //
+          // 2026-08-30: that 24dp was compensating for the name box
+          // being starved of real width by the titleSpacing/reserved-
+          // constant bugs fixed today - the name area no longer needs
+          // this widened purely to "make room." Measured preview still
+          // showed a visible gap at 24dp, so shrinking to a minimal
+          // real separator now that the underlying bug is actually
+          // fixed, not compensated around.
+          const SizedBox(width: 8),
           // 2026-08-29: real feedback, live - "kebab icon is still too
           // far left from the help icon" even after the padding tweak
           // above. PopupMenuButton's icon builds an internal IconButton
@@ -1248,224 +1277,153 @@ class _AppBarRepoStatus extends StatelessWidget {
     // another pull, which would just fail again the same way.
     final hasError = repo.status == SyncStatus.error && repo.lastError != null;
 
-    // 2026-08-28: real feedback, live - "show the full name of the
-    // path... make the spacing... dynamic for phone sizes." The old
-    // fixed 110px cap (2026-08-20) was a guess tuned to whatever names
-    // were being tested at the time - LayoutBuilder reads the REAL
-    // width this widget was actually given (the Expanded slot between
-    // the logo and the kebab icon in home_screen.dart's AppBar title,
-    // which already varies correctly by screen size) instead of
-    // guessing, so the name gets everything that's really available,
-    // not a hardcoded number. Reserves space for the status dot and,
-    // if present, the multi-repo dropdown - same fixed-width siblings
-    // that already sit in this Row.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final reserved = 26.0 + (allRepos.length > 1 ? 44.0 : 0.0) + 12.0;
-        final nameMaxWidth =
-            (constraints.maxWidth - reserved).clamp(60.0, constraints.maxWidth);
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                if (hasError) {
-                  _showFullError(context, repo);
-                } else {
-                  onTap();
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      // 2026-08-28, follow-up real feedback, live - "possible
-                      // to vertically centre?" The dot used a manual top-2px
-                      // nudge tuned for single-line text only; once the name
-                      // wraps to 2 lines that nudge left it pinned near the
-                      // top instead of centred against the taller block.
-                      // Plain .center cross-axis alignment centres it against
-                      // whatever height the name actually ends up being,
-                      // 1 line or 2, no manual offset needed.
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        isSyncing
-                            ? const _SpinningSync()
-                            : _StatusDot(status: repo.status),
-                        const SizedBox(width: 6),
-                        // 2026-08-28: real feedback, live - "show the full
-                        // name... maybe it needs 2 lines." Fixed 110px cap
-                        // (2026-08-20) replaced with nameMaxWidth, the real
-                        // width LayoutBuilder measured above.
-                        //
-                        // 2026-08-28, follow-up real feedback, live - "too
-                        // much space to the right [[of the name, before the
-                        // kebab]]." ConstrainedBox(maxWidth:) only caps the
-                        // width, it doesn't claim it - a short name (e.g.
-                        // "Files needed on...") sized to its own natural
-                        // content, leaving the outer Row narrower than
-                        // nameMaxWidth. Since the whole widget sits inside a
-                        // Center (home_screen.dart's AppBar title), a
-                        // narrower-than-expected block gets centred off to
-                        // the left of where it visually should sit, reading
-                        // as a lopsided gap before the kebab. SizedBox
-                        // instead of ConstrainedBox makes the name actually
-                        // OCCUPY the full computed width (text left-aligned
-                        // within it, still wrapping/ellipsizing as needed),
-                        // so the Row's real width is deterministic and
-                        // Center behaves symmetrically.
-                        // 2026-08-28: real feedback, live, two rounds - first
-                        // attempt wrapped this in FittedBox(scaleDown) to
-                        // shrink long names instead of truncating, borrowing
-                        // the _SkinSwatch precedent (settings_screen.dart,
-                        // 2026-08-25). Real regression, confirmed live:
-                        // FittedBox is the wrong mechanism for a WRAPPING
-                        // multi-line block (it fits a single already-sized
-                        // block, which is all _SkinSwatch's one-line label
-                        // ever was) - it collapsed this back to effectively
-                        // one line ("Files need..." instead of 2 real lines),
-                        // and centered that shrunk block vertically instead
-                        // of filling the row top-to-bottom. Reverted to the
-                        // plain 2-line wrap + ellipsis this had before that
-                        // attempt - reliably wraps, doesn't shrink, matches
-                        // what was actually working prior to today.
-                        // 2026-08-28, follow-up: real feedback, live - "I
-                        // would expect: Files needed / on phone" (currently
-                        // "Files" / "needed on..."). Flutter's own greedy
-                        // wrap already fits as many whole words as fit per
-                        // line - it wasn't choosing an arbitrary break
-                        // point, "Files needed" together genuinely didn't
-                        // fit within nameMaxWidth at 13px. Dropped to 11px,
-                        // the safest lever to fit more per line (unlike the
-                        // FittedBox attempt above, this doesn't touch the
-                        // wrap mechanism itself, just gives it more room) -
-                        // best-effort, not verified against the real device.
-                        // 2026-08-30: real feedback, live, screenshot-
-                        // confirmed - "kebab too far left" + "folder name
-                        // not displaying correctly" were the same bug, not
-                        // two. This SizedBox reserves nearly the full app-
-                        // bar width (2026-08-28 fix, so long names don't
-                        // get cut off) but Text defaults to left-aligned -
-                        // a SHORT name (e.g. "Files needed on phone")
-                        // clustered at the box's left edge, leaving the
-                        // rest of the reserved width empty and transparent
-                        // between the name and the kebab, which read as
-                        // "kebab too far left." textAlign.center keeps the
-                        // deterministic width (still needed so long names
-                        // wrap/center correctly) but centers short names
-                        // within it instead of hugging the left.
-                        // TEMP DEBUG 2026-08-30: red border shows the real
-                        // nameMaxWidth this box got, so the next screenshot
-                        // shows ground truth instead of a calculated guess.
-                        Container(
-                          width: nameMaxWidth,
-                          decoration:
-                              BoxDecoration(border: Border.all(color: Colors.red, width: 1)),
-                          child: Text(
-                            repo.name,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: kStar,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                height: 1.2),
-                            overflow: TextOverflow.ellipsis,
-                            softWrap: true,
-                            maxLines: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (hasError)
-                      Text(
-                        // lastError is just the diagnosis now (see the
-                        // 2026-08-20 note on this field in models/
-                        // repository.dart) - no longer a joined multi-line
-                        // blob needing a manual split to get one line.
-                        repo.lastError!,
-                        style: const TextStyle(
-                            color: Colors.redAccent, fontSize: 10),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      )
-                    else if (isSyncing)
-                      Text(repo.syncPhase.label,
-                          style: TextStyle(color: kTextMid, fontSize: 10)),
-                    // 2026-08-28: real feedback, live - "remove the synced
-                    // just now" - dropped the idle-state "synced Xm ago"
-                    // line entirely; error/syncing status above are
-                    // unaffected, only asked to remove this one.
-                  ],
-                ),
-              ),
-            ),
-            // 2026-08-21: real root cause of the "multi-repo display bug"
-            // open since 2026-08-20, found live - this WAS always building
-            // correctly (allRepos.length > 1 genuinely fired, the repo
-            // really was saved) - the actual problem was purely a tap-
-            // target one. padding: EdgeInsets.zero shrank this button's
-            // hit area down to just its 20px icon, sitting immediately
-            // next to the AppBar's kebab PopupMenuButton (default padding,
-            // a much bigger hit area) with zero gap between them - taps
-            // aimed at the visible arrow were landing on the kebab instead.
-            // Not a data/state bug at all, once actually seen on-device.
-            if (allRepos.length > 1) ...[
-              // 2026-08-29: real feedback, live - "loads of available
-              // black space left of the kebab icon" even with a real
-              // vault linked and its name showing. Same root cause as
-              // the kebab's own 2026-08-29 fix: this button's icon is
-              // only 20px but PopupMenuButton enforces Material's
-              // default 48x48 minimum tap target regardless, and no
-              // padding override was ever set here either - shrinkWrap
-              // removes that, freeing real width back to the name area
-              // (_AppBarRepoStatus's `reserved` calculation below
-              // assumed this button was ~44px; it was actually ~48+).
-              Theme(
-                data: Theme.of(context).copyWith(
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                child: PopupMenuButton<int>(
-                  color: kSurface,
-                  tooltip: 'Switch $kContainerName',
-                  icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
-                  onSelected: onSelect,
-                  itemBuilder: (_) => [
-                    for (final r in allRepos)
-                      PopupMenuItem(
-                        value: r.id,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              r.id == repo.id ? Icons.check : null,
-                              color: kGreen,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            _StatusDot(status: r.status),
-                            const SizedBox(width: 8),
-                            Text(r.name,
-                                style: TextStyle(color: kStar, fontSize: 14)),
-                          ],
+    // 2026-08-30, corrected - "object 2 [name] isn't spread right of
+    // object 1 [logo] and left of object 3 [kebab]." The name needs to
+    // actually SPAN that space, not sit at a small fixed width with
+    // blank space left over. Expanded on both this Row and the name Text
+    // does that with the real leftover width - no fixed cap, no
+    // computed-constant to get wrong again.
+    return Row(
+      key: const ValueKey('appBarRepoStatusRow'),
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              if (hasError) {
+                _showFullError(context, repo);
+              } else {
+                onTap();
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    // 2026-08-28, follow-up real feedback, live - "possible
+                    // to vertically centre?" The dot used a manual top-2px
+                    // nudge tuned for single-line text only; once the name
+                    // wraps to 2 lines that nudge left it pinned near the
+                    // top instead of centred against the taller block.
+                    // Plain .center cross-axis alignment centres it against
+                    // whatever height the name actually ends up being,
+                    // 1 line or 2, no manual offset needed.
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      isSyncing
+                          ? const _SpinningSync()
+                          : _StatusDot(status: repo.status),
+                      const SizedBox(width: 6),
+                      // 2026-08-30: Expanded spans the real leftover
+                      // width between the logo and the kebab (object 2
+                      // spread between object 1 and object 3) - left-
+                      // aligned by default, so a short name starts right
+                      // after the dot and a long name gets the real
+                      // room to wrap/not truncate.
+                      Expanded(
+                        child: Text(
+                          repo.name,
+                          style: TextStyle(
+                              color: kStar,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2),
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          maxLines: 2,
                         ),
                       ),
-                  ],
-                ),
-              ),
-              // 2026-08-21: real gap from the fix above - the button's own
-              // hit area now covers the icon plus padding, but nothing
-              // separated that hit area from the AppBar's kebab actions
-              // button sitting immediately to its right. This reserves a
-              // real visual and tap gap between the two.
-              const SizedBox(width: 8),
-            ],
-          ],
-        );
-      },
+                    ],
+                  ),
+                  if (hasError)
+                    Text(
+                      // lastError is just the diagnosis now (see the
+                      // 2026-08-20 note on this field in models/
+                      // repository.dart) - no longer a joined multi-line
+                      // blob needing a manual split to get one line.
+                      repo.lastError!,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  else if (isSyncing)
+                    Text(repo.syncPhase.label,
+                        style: TextStyle(color: kTextMid, fontSize: 10)),
+                  // 2026-08-28: real feedback, live - "remove the synced
+                  // just now" - dropped the idle-state "synced Xm ago"
+                  // line entirely; error/syncing status above are
+                  // unaffected, only asked to remove this one.
+                ],
+              ), // closes Column
+            ), // closes Padding
+          ), // closes GestureDetector
+        ), // closes Expanded
+        // dropdown sibling, if a second repo exists.
+        // 2026-08-21: real root cause of the "multi-repo display bug"
+        // open since 2026-08-20, found live - this WAS always building
+        // correctly (allRepos.length > 1 genuinely fired, the repo
+        // really was saved) - the actual problem was purely a tap-
+        // target one. padding: EdgeInsets.zero shrank this button's
+        // hit area down to just its 20px icon, sitting immediately
+        // next to the AppBar's kebab PopupMenuButton (default padding,
+        // a much bigger hit area) with zero gap between them - taps
+        // aimed at the visible arrow were landing on the kebab instead.
+        // Not a data/state bug at all, once actually seen on-device.
+        if (allRepos.length > 1) ...[
+          // 2026-08-29: real feedback, live - "loads of available
+          // black space left of the kebab icon" even with a real
+          // vault linked and its name showing. Same root cause as
+          // the kebab's own 2026-08-29 fix: this button's icon is
+          // only 20px but PopupMenuButton enforces Material's
+          // default 48x48 minimum tap target regardless, and no
+          // padding override was ever set here either - shrinkWrap
+          // removes that, freeing real width back to the name area.
+          // 2026-08-30: name area is now Expanded (see above), so this
+          // no longer needs to be accounted for in any width math -
+          // Expanded automatically leaves it exactly the room it needs.
+          Theme(
+            data: Theme.of(context).copyWith(
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            child: PopupMenuButton<int>(
+              color: kSurface,
+              tooltip: 'Switch $kContainerName',
+              icon: Icon(Icons.arrow_drop_down, color: kTextMid, size: 20),
+              onSelected: onSelect,
+              itemBuilder: (_) => [
+                for (final r in allRepos)
+                  PopupMenuItem(
+                    value: r.id,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          r.id == repo.id ? Icons.check : null,
+                          color: kGreen,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        _StatusDot(status: r.status),
+                        const SizedBox(width: 8),
+                        Text(r.name,
+                            style: TextStyle(color: kStar, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // 2026-08-21: real gap from the fix above - the button's own
+          // hit area now covers the icon plus padding, but nothing
+          // separated that hit area from the AppBar's kebab actions
+          // button sitting immediately to its right. This reserves a
+          // real visual and tap gap between the two.
+          const SizedBox(width: 8),
+        ],
+      ],
     );
   }
 }
