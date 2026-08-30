@@ -208,6 +208,32 @@ if ! git fetch origin 2>&1 | tee -a "$LOG"; then
   die "fetch failed — bare repo unreachable or SSH down"
 fi
 log "Fetched from bare repo"
+
+# 2026-08-30: real bug, confirmed live - "fatal: ambiguous argument
+# 'HEAD': unknown revision or path not in the working tree", every 5
+# minutes for over an hour on a real first-time setup. The bare repo was
+# still genuinely empty ("warning: You appear to have cloned an empty
+# repository") when the bootstrap clone above ran - nothing pushed from
+# the phone yet - so this local clone has zero commits, and the plain
+# `git rev-parse HEAD` two lines below has always assumed at least one
+# exists. Two real states to tell apart before touching HEAD at all:
+if ! git rev-parse HEAD >/dev/null 2>&1; then
+  if ! git rev-parse "origin/$BRANCH" >/dev/null 2>&1; then
+    # Neither side has ever committed anything - genuinely nothing to
+    # sync yet (the common case right after a fresh setup, before the
+    # phone's own first push). Not an error.
+    log "Nothing to sync yet - waiting for the phone to push its first commit"
+    exit 0
+  fi
+  # Remote now has content but this local clone never got any (it was
+  # cloned back when the bare repo was still empty) - adopt the remote's
+  # history directly instead of trying to "merge" against a HEAD that
+  # was never real.
+  git reset --hard "origin/$BRANCH"
+  log "Local clone had no commits yet - adopted origin/$BRANCH directly"
+  exit 0
+fi
+
 export SYNCO_OTHER_LABEL=$(git log -1 --format=%s "origin/$BRANCH" 2>/dev/null || echo "other device")
 export SYNCO_OTHER_TIME=$(git log -1 --format=%cd --date=format:"%Y-%m-%d %H:%M" "origin/$BRANCH" 2>/dev/null || echo "")
 

@@ -231,9 +231,19 @@ class GitServiceImpl implements GitService {
       // own working-copy location isn't something the phone's Settings
       // has ever configured; LOCALSYNC_BARE_REPO is the one value this
       // phone actually knows and needs to override.
+      //
+      // 2026-08-30: real bug, confirmed live - every log line appeared
+      // twice. This cron line redirected stdout to
+      // ~/.localsync_sync.log, but the script's own log() function
+      // already tees every line to that EXACT same default path
+      // (LOG="${LOCALSYNC_LOG:-$HOME/.localsync_sync.log}") - two
+      // independent writers to the same file on every run. Redirecting
+      // to /dev/null instead - the script's own tee is the real logging
+      // path, this redirect only exists so cron doesn't try to email
+      // stray output.
       final cronCmd = '(crontab -l 2>/dev/null | grep -v localsync_sync.sh; '
           'echo "*/5 * * * * LOCALSYNC_BARE_REPO=\'$escapedRepo\' '
-          '$scriptPath >> \$HOME/.localsync_sync.log 2>&1") | crontab -';
+          '$scriptPath >/dev/null 2>&1") | crontab -';
       await client.runWithResult(cronCmd);
     } catch (_) {
       // Best-effort convenience step - never fails the real setup over
