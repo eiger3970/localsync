@@ -997,17 +997,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-            _buildSkinsCard(),
-            const SizedBox(height: 28),
-            // 2026-08-29: real feedback, live - "this IAP would appear
-            // in the Conflicts page when there's a conflict... move
-            // this to Conflicts." Moved to conflicts_screen.dart, shown
-            // only when there's a real conflict to resolve - see its
-            // own comment there. This was only ever meant to sit here
-            // temporarily (see the original 2026-08-21 note, removed),
-            // while there was no purchasable Test Store product yet.
-            _buildAutoDiscoveryCard(),
+            // 2026-08-30: real device feedback - "Skins needs to be
+            // better separated from the 3 steps, which will add
+            // confusion to new users setting up pairing." Both cards
+            // below are unrelated to pairing - simplest real fix is not
+            // showing them at all in that specific context, rather than
+            // just adding a stronger visual break that a new user would
+            // still have to scroll past and wonder about. A normal
+            // Settings visit (neededForPairing false) still sees both.
+            if (!widget.neededForPairing) ...[
+              const SizedBox(height: 32),
+              _buildSkinsCard(),
+              const SizedBox(height: 28),
+              // 2026-08-29: real feedback, live - "this IAP would appear
+              // in the Conflicts page when there's a conflict... move
+              // this to Conflicts." Moved to conflicts_screen.dart, shown
+              // only when there's a real conflict to resolve - see its
+              // own comment there. This was only ever meant to sit here
+              // temporarily (see the original 2026-08-21 note, removed),
+              // while there was no purchasable Test Store product yet.
+              _buildAutoDiscoveryCard(),
+            ],
           ],
         ),
       ),
