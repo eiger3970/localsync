@@ -14,7 +14,7 @@
 // immediately, no app restart - and persist through RepositoryProvider
 // so it survives a relaunch too.
 
-import 'dart:math' show sin, pi;
+import 'dart:math' show sin, pi, Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -42,7 +42,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static final _ipPattern =
       RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
 
@@ -72,7 +72,29 @@ class _SettingsScreenState extends State<SettingsScreen>
   // same sine-wave twinkle ShreddingPasswordField already uses for its
   // password-field prefix icons, just a single icon here instead of a
   // two-star cluster.
-  late final AnimationController _pathSparkleCtrl;
+  //
+  // 2026-08-30: real device feedback - "glowing stars... change to
+  // twinkling," and separately the satellite icon's "alternating stars"
+  // - both were ONE controller (this one, one period, one phase),
+  // exactly the "seesaw, not independent twinkling" pattern
+  // ShreddingPasswordField's own 2026-08-26 comment already diagnosed
+  // and fixed there (two controllers, different non-integer-ratio
+  // periods, random per-instance phase seeds - a single shared phase
+  // reads as smooth/regular breathing, not irregular sparkle). This
+  // screen never got that same fix. Same two-controller technique now,
+  // reused directly rather than re-solving an already-solved problem.
+  final _sparkleRand = Random();
+  late final AnimationController _sparkleCtrl1;
+  late final AnimationController _sparkleCtrl2;
+  late final double _sparklePhase1;
+  late final double _sparklePhase2;
+  late final double _sparklePhase3;
+  late final double _sparklePhase4;
+
+  double _twinkle(AnimationController ctrl, double phaseSeed) {
+    final phase = (ctrl.value + phaseSeed) % 1.0;
+    return sin(phase * pi * 2) * 0.35 + 0.65;
+  }
 
   // 2026-08-28: real feedback, live - "might tier0 users need a folder
   // to store multiple git files in or just the one?" Real gap the
@@ -126,8 +148,15 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
-    _pathSparkleCtrl = AnimationController(
+    _sparklePhase1 = _sparkleRand.nextDouble();
+    _sparklePhase2 = _sparkleRand.nextDouble();
+    _sparklePhase3 = _sparkleRand.nextDouble();
+    _sparklePhase4 = _sparkleRand.nextDouble();
+    _sparkleCtrl1 = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1300))
+      ..repeat();
+    _sparkleCtrl2 = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1900))
       ..repeat();
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
@@ -284,7 +313,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl.dispose();
     _ipCtrl.dispose();
     _pathCtrl.dispose();
-    _pathSparkleCtrl.dispose();
+    _sparkleCtrl1.dispose();
+    _sparkleCtrl2.dispose();
     super.dispose();
   }
 
@@ -488,41 +518,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                     controller: _userCtrl,
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
-                      labelText: 'Desktop username',
-                      // 2026-08-28: real feedback, live - "white text,
-                      // should be faded grey so I know I'm meant to
-                      // type in there... or have the cursor active."
-                      // Without this, an empty/unfocused field rests
-                      // the bold kStar-colored label INSIDE the box
-                      // (Material's default), reading as already-typed
-                      // content, not a label - and hintText stays
-                      // hidden until the label floats up, which only
-                      // happened once tapped. Forcing the label to
-                      // always float to the header position means the
-                      // grey hint is visible inside the box from the
-                      // very first frame, no tap needed first.
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      // 2026-08-28: real feedback, live - "Text is
-                      // higher than the lines: Desktop username is
-                      // above the text box." This field was new, still
-                      // on the original 18/19 sizing while "Git bare
-                      // repo path" right below it had already been
-                      // reduced to 15/15 for its own longer label text -
-                      // matched here for consistency across the whole
-                      // screen rather than guessing at the exact
-                      // rendering mechanism blind.
-                      // 2026-08-29: real feedback, live - "make the
-                      // headers larger" - bumped 15 -> 17 on all three
-                      // field labels (this one, Git bare repo path, IP
-                      // address - desktop).
-                      labelStyle: TextStyle(
-                          color: kStar,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700),
-                      floatingLabelStyle: TextStyle(
-                          color: kStar,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700),
+                      // 2026-08-30: real device feedback - "3 headers in
+                      // green are good, this means the other headers are
+                      // doubling up and can be removed." This field's own
+                      // "Desktop username" label duplicated the new
+                      // "1. DESKTOP USERNAME" step header above it -
+                      // removed (with the styling it needed to read as a
+                      // header, now unused). hintText/helperText stay,
+                      // they carry different information.
                       helperText: 'The login username on your desktop - '
                           'what you\'d type to sign in there',
                       helperMaxLines: 2,
@@ -570,7 +573,13 @@ class _SettingsScreenState extends State<SettingsScreen>
             // requested for both this screen's field order and the
             // kebab menu's Settings subtitle (see home_screen.dart) -
             // Git bare repo path now comes before IP address - desktop.
-            const SizedBox(height: 24),
+            //
+            // 2026-08-30: real device feedback - "space above 2 is too
+            // much, needs to be consistent with space above 3." The
+            // extra SizedBox(24) added for this header on top of the
+            // existing 28+divider+28 above was the mismatch - "3." below
+            // uses that same 28+divider+28 with nothing extra added.
+            // Removed to match.
             Text('2. GIT BARE REPO PATH',
                 style: TextStyle(
                     color: kGreen,
@@ -614,7 +623,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // 2026-08-18 for the Conflicts screen icon row (see
                     // this Row's own 2026-08-21 comment below) - same
                     // size/color as Desktop username and IP address now.
-                    child: Icon(Icons.computer, color: kGreen, size: 22),
+                    //
+                    // 2026-08-30, follow-up - "needs a git logo in the
+                    // desktop screen." git-icon.svg (the official Git
+                    // mark, unused since this field's icon changed a few
+                    // rounds ago - a real, findable asset, not lost) is a
+                    // flat single-color outline (unlike the laptop SVG
+                    // above), so it tints safely - small, centered over
+                    // where Icons.computer draws its screen area.
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(Icons.computer, color: kGreen, size: 22),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: SvgPicture.asset(
+                              'assets/logos/git-icon.svg',
+                              width: 9,
+                              height: 9,
+                              colorFilter:
+                                  ColorFilter.mode(kVoid, BlendMode.srcIn),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -654,16 +690,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // desktop side" meaning on its own, verbosely
                       // spelling it out next to the label was the thing
                       // adding to the confusion, not resolving it.
-                      label: Text('Git bare repo path',
-                          style: TextStyle(
-                              color: kStar,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700)),
-                      // 2026-08-28: same fix as Desktop username above -
-                      // always float, so the grey hint path shows from
-                      // the first frame instead of the bold label
-                      // sitting inside the box looking like real content.
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      // 2026-08-30: real device feedback - label removed,
+                      // duplicated the new "2. GIT BARE REPO PATH" step
+                      // header above it (same reasoning as Desktop
+                      // username below).
                       hintText: '/home/user/Documents/Git/localsync.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
@@ -703,7 +733,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // this same field, just repeated at a glance
                             // instead of on demand.
                             (
-                              'This is the desktop side - a folder path '
+                              'Desktop side - a folder path '
                                   'on your desktop computer, shared to '
                                   'your phone',
                               false
@@ -768,13 +798,24 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // twinkling" - was a static Icon, same sine-wave
                     // opacity twinkle as ShreddingPasswordField's
                     // prefixIcon cluster, just one icon here.
+                    //
+                    // 2026-08-30: real device feedback - "glowing,
+                    // change to twinkling." One controller/one phase
+                    // reads as smooth breathing, not sparkle - averaging
+                    // two independently-drifting controllers gives this
+                    // single icon its own irregular beat pattern instead
+                    // (a lone point needs that combination to read as
+                    // twinkle at all; two separate points, like the
+                    // satellite icon below, can each stay a plain single
+                    // sine and still twinkle relative to each other).
                     AnimatedBuilder(
-                      animation: _pathSparkleCtrl,
+                      animation:
+                          Listenable.merge([_sparkleCtrl1, _sparkleCtrl2]),
                       builder: (_, __) => Icon(Icons.auto_awesome,
                           color: kGreen.withValues(
-                              alpha:
-                                  sin(_pathSparkleCtrl.value * pi * 2) * 0.35 +
-                                      0.65),
+                              alpha: (_twinkle(_sparkleCtrl1, _sparklePhase1) +
+                                      _twinkle(_sparkleCtrl2, _sparklePhase2)) /
+                                  2),
                           size: 15),
                     ),
                     const SizedBox(width: 5),
@@ -824,33 +865,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                         const TextInputType.numberWithOptions(decimal: true),
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
-                      labelText: 'IP address - desktop',
-                      // 2026-08-28: same fix as the two fields above -
-                      // always float, so the grey hint IP shows from the
-                      // first frame instead of requiring a tap first.
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      // 2026-08-29: real feedback, live - "make the
-                      // headers larger" - bumped 15 -> 17, matching
-                      // Desktop username and Git bare repo path.
-                      labelStyle: TextStyle(
-                          color: kStar,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700),
-                      // 2026-08-21: real feedback, live - "text must be
-                      // larger than 172.20.10.11." labelStyle alone
-                      // only governs the label's un-floated resting
-                      // position (before the field has content); once
-                      // it floats to the top - which it always does
-                      // here, since both fields are pre-filled -
-                      // Material silently applies its own ~0.75x shrink
-                      // on top of labelStyle unless floatingLabelStyle
-                      // is set explicitly. That implicit shrink is why
-                      // the label rendered smaller than the 16px value
-                      // text despite labelStyle already saying 18px.
-                      floatingLabelStyle: TextStyle(
-                          color: kStar,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700),
+                      // 2026-08-30: real device feedback - label removed,
+                      // duplicated the new "3. IP ADDRESS - DESKTOP" step
+                      // header above it (same reasoning as the two fields
+                      // above).
                       // 2026-08-21: real feedback, live, two rounds.
                       // First round just reworded "Changes with Tether/
                       // Hotspot" without fixing the real bug - helperText
@@ -909,20 +927,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     children: [
                                       Icon(Icons.satellite_alt,
                                           color: kGreen, size: 20),
+                                      // 2026-08-30: real device feedback -
+                                      // "alternating stars, change to
+                                      // twinkling." Both stars shared one
+                                      // controller with a fixed 0.5 phase
+                                      // offset - a perfectly predictable
+                                      // seesaw (one bright exactly when
+                                      // the other's dim), which is what
+                                      // "alternating" actually described.
+                                      // Each star now gets its own
+                                      // controller/phase (same fix
+                                      // ShreddingPasswordField already
+                                      // has for its own two-star
+                                      // cluster) - independent drift,
+                                      // not a synced seesaw.
                                       Positioned(
                                         top: -4,
                                         right: -4,
                                         child: AnimatedBuilder(
-                                          animation: _pathSparkleCtrl,
+                                          animation: _sparkleCtrl1,
                                           builder: (_, __) => Icon(
                                               Icons.auto_awesome,
                                               color: kGreen.withValues(
-                                                  alpha: sin(_pathSparkleCtrl
-                                                                  .value *
-                                                              pi *
-                                                              2) *
-                                                          0.35 +
-                                                      0.65),
+                                                  alpha: _twinkle(_sparkleCtrl1,
+                                                      _sparklePhase3)),
                                               size: 13),
                                         ),
                                       ),
@@ -930,17 +958,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         bottom: -2,
                                         left: -6,
                                         child: AnimatedBuilder(
-                                          animation: _pathSparkleCtrl,
+                                          animation: _sparkleCtrl2,
                                           builder: (_, __) => Icon(
                                               Icons.auto_awesome,
                                               color: kGreen.withValues(
-                                                  alpha: sin((_pathSparkleCtrl
-                                                                      .value +
-                                                                  0.5) *
-                                                              pi *
-                                                              2) *
-                                                          0.35 +
-                                                      0.65),
+                                                  alpha: _twinkle(_sparkleCtrl2,
+                                                      _sparklePhase4)),
                                               size: 8),
                                         ),
                                       ),

@@ -111,10 +111,21 @@ class _WorkflowStep {
 // - Notes reworded per direct wording, spelling out "(computer/desktop/
 //   laptop)" since "your OTHER device" alone still left room to wonder
 //   what device that even means.
+//
+// 2026-08-30: real device feedback - "Desktop PULL needs to also say
+// the desktop must run synco or update the git bare repository." Both
+// notes were deliberately generic when written ("no desktop app to
+// name" - see the top-of-file comment) - that's no longer true,
+// desktop/localsync_sync.sh (docs/desktop-setup.md) is a real, tested
+// script now (adapted from the user's own synco.sh). Named directly in
+// both notes now, for consistency - push and pull were equally vague
+// before, so both get the same update, not just the one flagged.
 const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'send its data first - phone LocalSync app is after this step.';
+    'send its data first - run desktop/localsync_sync.sh there (or its '
+    'cron job, if set up) before phone LocalSync can pull it.';
 const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'receive the data - not this LocalSync app.';
+    'receive the data - run desktop/localsync_sync.sh there (or its '
+    'cron job, if set up), not this LocalSync app.';
 
 const Map<String, List<_WorkflowStep>> _flowASteps = {
   'both': [
@@ -249,8 +260,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
                           margin: const EdgeInsets.only(top: 20),
                           padding: const EdgeInsets.only(top: 18),
                           decoration: BoxDecoration(
-                              border: Border(
-                                  top: BorderSide(color: kBorder))),
+                              border: Border(top: BorderSide(color: kBorder))),
                           child: _buildWorkflow(_picked!),
                         ),
                 ),
@@ -283,7 +293,8 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
       builder: (context) {
         const gap = 8.0;
         final screenWidth = MediaQuery.of(context).size.width;
-        const horizontalChrome = 10 * 2 + 16 * 2; // insetPadding + contentPadding
+        const horizontalChrome =
+            10 * 2 + 16 * 2; // insetPadding + contentPadding
         final availableWidth = screenWidth - horizontalChrome;
         final segmentWidth = (availableWidth - gap * 2) / 3;
         return Row(
@@ -449,8 +460,8 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
               const SizedBox(height: 5),
               Text(step.note!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: kTextMid, fontSize: 14, height: 1.35)),
+                  style:
+                      TextStyle(color: kTextMid, fontSize: 14, height: 1.35)),
             ],
           ],
         ),
@@ -661,8 +672,8 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        style:
-            ElevatedButton.styleFrom(backgroundColor: kGreen, foregroundColor: kVoid),
+        style: ElevatedButton.styleFrom(
+            backgroundColor: kGreen, foregroundColor: kVoid),
         onPressed: () => Navigator.of(context).pop(),
         child: const Text('GOT IT'),
       ),
