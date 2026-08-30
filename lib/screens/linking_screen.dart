@@ -380,8 +380,15 @@ class _IdleViewState extends State<_IdleView>
     if (_needsSettings) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              "Desktop username and IP address aren't set yet - fill them in before pairing will work.",
+          // 2026-08-30: real device feedback, confirmed live this time
+          // (not just a headless guess) - the ~90-char message plus the
+          // '✨ SETTINGS' action doesn't fit one row, and Material 3's
+          // SnackBar drops the action to its own row below when that
+          // happens (actionOverflowThreshold) - that's what made the
+          // amber block "unnecessary 5 lines tall" instead of 2-3.
+          // Shortened so text+button both fit one row - the SETTINGS
+          // button is where the real detail lives anyway.
+          content: Text("Desktop connection not set up yet",
               style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
           backgroundColor: Colors.amber,
           duration: const Duration(seconds: 6),
