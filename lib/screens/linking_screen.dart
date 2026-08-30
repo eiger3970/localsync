@@ -2372,7 +2372,24 @@ class _FailedViewState extends State<_FailedView> {
             // NOW was confusing, and correctly so: retrying setup
             // without pairing first here would just fail the same way
             // again.
-            _PrimaryButton(label: 'TRY AGAIN', onPressed: ctrl.startLinking),
+            //
+            // 2026-08-30: real device bug - "cancel doesn't let me try a
+            // different folder, takes me to FILE SYNC SETUP 1.1-1.11 for
+            // opening Obsidian." This always called startLinking() (the
+            // Obsidian-vault-from-scratch entry point) regardless of
+            // which mode actually failed - a Tier 0 "FILE SYNC SETUP"
+            // (genericFolder) failure got silently switched into the
+            // Obsidian checklist on retry, since startLinking()'s own
+            // _reset() sets _syncMode back to obsidianVault and nothing
+            // sets it back. Reading ctrl.syncMode HERE, before either
+            // start method's _reset() call wipes it, and re-entering
+            // through the matching entry point instead.
+            _PrimaryButton(
+              label: 'TRY AGAIN',
+              onPressed: ctrl.syncMode == SyncMode.genericFolder
+                  ? ctrl.startLinkingGenericFolder
+                  : ctrl.startLinking,
+            ),
             const SizedBox(height: 12),
             cancelButton,
           ],

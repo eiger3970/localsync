@@ -245,6 +245,20 @@ class GitServiceImpl implements GitService {
               type: GitBranch.remote,
             );
             repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+          } else {
+            // 2026-08-30: real device bug, found after the fix above -
+            // "reference 'refs/heads/main' not found" (a DIFFERENT error
+            // than before - a local ref this time, not the remote-
+            // tracking one). Repository.init() only creates the .git
+            // skeleton - it never commits the folder's actual content,
+            // so a fresh repo with an empty remote had literally zero
+            // commits and no real refs/heads/$defaultBranch to push.
+            // pushToBareRepo (the very next step) pushes exactly that
+            // ref by name - it can't push what was never committed.
+            // commitDirtyTree (same helper the already-cloned branch
+            // below and every day-to-day sync already use) makes the
+            // real first commit here, so there's something to push.
+            commitDirtyTree(repo, 'Initial sync from phone', deviceName);
           }
         } finally {
           repo.free();
