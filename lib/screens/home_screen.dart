@@ -50,7 +50,12 @@ class HomeScreen extends StatelessWidget {
             // logo sits inside the "O" of LOCALSYNC in the source art).
             Image.asset('assets/icon/logo_word_with_circle.png', height: 16),
             Expanded(
-              child: Center(
+              // TEMP DEBUG 2026-08-30: yellow fill shows the real Expanded
+              // bounds this title Row gets from AppBar - remove once the
+              // app-bar/kebab gap is actually diagnosed from a screenshot.
+              child: Container(
+                color: const Color(0x55FFEB3B),
+                child: Center(
                 child: Consumer<RepositoryProvider>(
                   builder: (_, provider, __) => provider.repos.isEmpty
                       ? const SizedBox.shrink()
@@ -66,6 +71,7 @@ class HomeScreen extends StatelessWidget {
                           onSelect: provider.selectRepo,
                         ),
                 ),
+              ),
               ),
             ),
           ],
@@ -1353,8 +1359,13 @@ class _AppBarRepoStatus extends StatelessWidget {
                         // deterministic width (still needed so long names
                         // wrap/center correctly) but centers short names
                         // within it instead of hugging the left.
-                        SizedBox(
+                        // TEMP DEBUG 2026-08-30: red border shows the real
+                        // nameMaxWidth this box got, so the next screenshot
+                        // shows ground truth instead of a calculated guess.
+                        Container(
                           width: nameMaxWidth,
+                          decoration:
+                              BoxDecoration(border: Border.all(color: Colors.red, width: 1)),
                           child: Text(
                             repo.name,
                             textAlign: TextAlign.center,
