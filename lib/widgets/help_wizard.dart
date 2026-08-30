@@ -120,12 +120,20 @@ class _WorkflowStep {
 // script now (adapted from the user's own synco.sh). Named directly in
 // both notes now, for consistency - push and pull were equally vague
 // before, so both get the same update, not just the one flagged.
+//
+// 2026-08-30, corrected same day - "unsure about keeping in cron job,
+// this is advanced and esoteric industry secrets, not really for
+// normies." Right call - mentioning cron at all assumed knowledge a
+// Tier 0 user has no reason to have. git_service.dart's
+// _ensureDesktopSyncInstalled() now installs and schedules the script
+// itself, over the same SSH access pairing already sets up - nothing
+// left to explain about HOW, just that it happens periodically.
 const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'send its data first - run desktop/localsync_sync.sh there (or its '
-    'cron job, if set up) before phone LocalSync can pull it.';
+    'send its data first - happens automatically every few minutes once '
+    "paired, or run it sooner yourself if you don't want to wait.";
 const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'receive the data - run desktop/localsync_sync.sh there (or its '
-    'cron job, if set up), not this LocalSync app.';
+    'receive the data - happens automatically every few minutes once '
+    "paired, or run it sooner yourself if you don't want to wait.";
 
 const Map<String, List<_WorkflowStep>> _flowASteps = {
   'both': [

@@ -245,8 +245,13 @@ class _PairingScreenState extends State<PairingScreen> {
                                   PasswordInfoRow(
                                     icon: Icons.lock_outline,
                                     iconColor: kTextMid,
+                                    // 2026-08-30: real device feedback -
+                                    // contradicted the next line (this is
+                                    // transmitted over SSH once, live) -
+                                    // see linking_screen.dart's matching
+                                    // fix for the full explanation.
                                     text: 'Your password: never stored, '
-                                        'never leaves this device',
+                                        'never logged',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(
