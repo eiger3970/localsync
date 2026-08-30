@@ -79,6 +79,7 @@ class HomeScreen extends StatelessWidget {
             // logo sits inside the "O" of LOCALSYNC in the source art).
             Image.asset('assets/icon/logo_word_with_circle.png', height: 16),
             Expanded(
+              key: const ValueKey('titleExpanded'),
               child: Consumer<RepositoryProvider>(
                 builder: (_, provider, __) => provider.repos.isEmpty
                     ? const SizedBox.shrink()
@@ -147,7 +148,11 @@ class HomeScreen extends StatelessWidget {
           // showed a visible gap at 24dp, so shrinking to a minimal
           // real separator now that the underlying bug is actually
           // fixed, not compensated around.
-          const SizedBox(width: 8),
+          //
+          // 2026-08-30: real feedback, live - "move kebab icon right."
+          // Zero - the dot+text before it already carries enough visual
+          // separation on its own (padding + the name box's own edge).
+          const SizedBox(width: 0),
           // 2026-08-29: real feedback, live - "kebab icon is still too
           // far left from the help icon" even after the padding tweak
           // above. PopupMenuButton's icon builds an internal IconButton
@@ -175,7 +180,7 @@ class HomeScreen extends StatelessWidget {
                 // position) - reverted back to the original padding,
                 // then measured the real remaining gap (18dp vs Help's
                 // 15dp) and closed just that small real difference.
-                padding: const EdgeInsets.only(left: 6, right: 3),
+                padding: const EdgeInsets.only(left: 0, right: 6),
                 icon: Icon(Icons.more_vert, color: kGreen, size: 22),
                 onSelected: (v) {
                   if (v == 'pair') _openPairing(context);
@@ -409,7 +414,7 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.help_outline, color: kGreen),
             tooltip: 'Help',
-            padding: const EdgeInsets.only(left: 6, right: 12),
+            padding: const EdgeInsets.only(left: 0, right: 12),
             constraints: const BoxConstraints(),
             onPressed: () => showHelpWizard(context, 'A'),
           ),
@@ -1309,7 +1314,12 @@ class _AppBarRepoStatus extends StatelessWidget {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              // 2026-08-30: real feedback, live - "object 2 not close
+              // enough to object 3." Dropped the right-side inset - it
+              // was just eating into the name box's real reach toward
+              // the kebab for no visual reason (nothing sits flush
+              // against that edge to justify it).
+              padding: const EdgeInsets.only(left: 6),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1338,6 +1348,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                       Expanded(
                         child: Text(
                           repo.name,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                               color: kStar,
                               fontSize: 11,

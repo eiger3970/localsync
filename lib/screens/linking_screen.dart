@@ -380,41 +380,57 @@ class _IdleViewState extends State<_IdleView>
     if (_needsSettings) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          // 2026-08-30: real device feedback, confirmed live this time
-          // (not just a headless guess) - the ~90-char message plus the
-          // '✨ SETTINGS' action doesn't fit one row, and Material 3's
-          // SnackBar drops the action to its own row below when that
-          // happens (actionOverflowThreshold) - that's what made the
-          // amber block "unnecessary 5 lines tall" instead of 2-3.
-          // Shortened so text+button both fit one row - the SETTINGS
-          // button is where the real detail lives anyway.
-          content: Text("Desktop connection not set up yet",
-              style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
+          // 2026-08-30: real device feedback - "don't remove the text,
+          // keep the previous text. The button must be right of the
+          // text, not 3 lines down." Restored the full message. The
+          // real problem was never the text length - it's that
+          // SnackBar's built-in `action:` slot uses Material 3's
+          // actionOverflowThreshold and drops the action to its own row
+          // below once content needs multiple lines. Building the whole
+          // thing as one Row in `content:` instead (no `action:` at all)
+          // means the button is ALWAYS beside the text, vertically
+          // centered against however many lines it wraps to - never
+          // below it, regardless of message length.
+          content: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  "Desktop username and IP address aren't set yet - fill them in before pairing will work.",
+                  style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 2026-08-29: real feedback, live - "FILE SYNC SETUP ->
+              // SETTINGS is messed up... wasting yellow space." A
+              // SnackBar shown via ScaffoldMessenger isn't automatically
+              // dismissed by navigating away from inside its own
+              // action - it stays attached to the ancestor Scaffold and
+              // renders on top of whatever screen comes next. Dismissing
+              // explicitly before the push removes the leftover amber
+              // bar from Settings.
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: kVoid,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 0),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                },
+                // 2026-08-29: real feedback, live - "SETTINGS needs magic
+                // stars to keep the theme for the user to action by
+                // tapping SETTINGS."
+                child: const Text('✨ SETTINGS',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
           backgroundColor: Colors.amber,
           duration: const Duration(seconds: 6),
-          // 2026-08-29: real feedback, live - "SETTINGS needs magic
-          // stars to keep the theme for the user to action by tapping
-          // SETTINGS." SnackBarAction only takes a plain String label,
-          // no custom child widget - a static sparkle glyph is the
-          // real option available here (a live-twinkling animation
-          // would be barely noticeable in a snackbar visible only a
-          // few seconds anyway).
-          // 2026-08-29: real feedback, live - "FILE SYNC SETUP ->
-          // SETTINGS is messed up... wasting yellow space." A SnackBar
-          // shown via ScaffoldMessenger isn't automatically dismissed
-          // by navigating away from inside its own action - it stays
-          // attached to the ancestor Scaffold and renders on top of
-          // whatever screen comes next. Dismissing explicitly before
-          // the push removes the leftover amber bar from Settings.
-          action: SnackBarAction(
-            label: '✨ SETTINGS',
-            textColor: kVoid,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()));
-            },
-          ),
         ),
       );
     }

@@ -33,7 +33,7 @@ void main() {
 
     final provider = RepositoryProvider();
     await provider.addRepository(const Repository(
-      name: 'Files needed on phone',
+      name: 'Documents Pictures Videos and Backup Files Needed On Phone',
       remoteHost: '172.20.10.11',
       remoteUser: 'rapi5',
       remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
@@ -52,18 +52,21 @@ void main() {
     }
     tester.takeException();
 
-    final nameRect = tester.getRect(find.text('Files needed on phone'));
+    final nameRect = tester.getRect(find.text('Documents Pictures Videos and Backup Files Needed On Phone'));
     final kebabRect = tester.getRect(find.byIcon(Icons.more_vert));
     final helpRect = tester.getRect(find.byIcon(Icons.help_outline));
     final logoRect = tester.getRect(find.byType(Image).first);
     final rowRect =
         tester.getRect(find.byKey(const ValueKey('appBarRepoStatusRow')));
+    final titleExpandedRect =
+        tester.getRect(find.byKey(const ValueKey('titleExpanded')));
     final screenWidth =
         tester.view.physicalSize.width / tester.view.devicePixelRatio;
     // ignore: avoid_print
     print('APPBAR_MEASUREMENTS (logical dp): screenWidth=$screenWidth '
         'logoRight=${logoRect.right} '
         'rowLeft=${rowRect.left} rowRight=${rowRect.right} rowWidth=${rowRect.width} '
+        'titleExpandedLeft=${titleExpandedRect.left} titleExpandedRight=${titleExpandedRect.right} '
         'nameBoxLeft=${nameRect.left} nameBoxRight=${nameRect.right} '
         'nameBoxWidth=${nameRect.width} '
         'kebabLeft=${kebabRect.left} kebabRight=${kebabRect.right} '
