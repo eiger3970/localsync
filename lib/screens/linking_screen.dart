@@ -85,6 +85,24 @@ class LinkingScreen extends StatelessWidget {
             );
           },
         ),
+        // 2026-08-30: real device incident - "somehow tapped section 2
+        // for password... couldn't access settings without reinstalling
+        // the app." This screen's ONLY path to Settings used to be the
+        // one-shot SnackBar shown once when Stage 1's drag settles - miss
+        // it (mis-tap, or it times out) and there was no way back short
+        // of leaving setup entirely, which for a first-time user with no
+        // repos yet bounces straight back into this same screen
+        // (home_screen.dart's empty-repos auto-redirect, see _leaveSetup's
+        // own comment above). A permanent action here means Settings is
+        // always reachable regardless of what happened with the SnackBar.
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+        ],
       ),
       body: Consumer<LinkingController>(
         builder: (_, ctrl, __) {
@@ -378,61 +396,17 @@ class _IdleViewState extends State<_IdleView>
     WidgetsBinding.instance
         .addPostFrameCallback((_) => _passwordFocusNode.requestFocus());
     if (_needsSettings) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          // 2026-08-30: real device feedback - "don't remove the text,
-          // keep the previous text. The button must be right of the
-          // text, not 3 lines down." Restored the full message. The
-          // real problem was never the text length - it's that
-          // SnackBar's built-in `action:` slot uses Material 3's
-          // actionOverflowThreshold and drops the action to its own row
-          // below once content needs multiple lines. Building the whole
-          // thing as one Row in `content:` instead (no `action:` at all)
-          // means the button is ALWAYS beside the text, vertically
-          // centered against however many lines it wraps to - never
-          // below it, regardless of message length.
-          content: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  "Desktop username and IP address aren't set yet - fill them in before pairing will work.",
-                  style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // 2026-08-29: real feedback, live - "FILE SYNC SETUP ->
-              // SETTINGS is messed up... wasting yellow space." A
-              // SnackBar shown via ScaffoldMessenger isn't automatically
-              // dismissed by navigating away from inside its own
-              // action - it stays attached to the ancestor Scaffold and
-              // renders on top of whatever screen comes next. Dismissing
-              // explicitly before the push removes the leftover amber
-              // bar from Settings.
-              TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: kVoid,
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 0),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                },
-                // 2026-08-29: real feedback, live - "SETTINGS needs magic
-                // stars to keep the theme for the user to action by
-                // tapping SETTINGS."
-                child: const Text('✨ SETTINGS',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.amber,
-          duration: const Duration(seconds: 6),
-        ),
-      );
+      // 2026-08-30: real device incident - a SnackBar the user had to
+      // spot and tap got mis-tapped instead (landed on Stage 2's
+      // password field), pairing then failed with settings still empty.
+      // "Why have the user tap SETTINGS, rather than taking the user to
+      // settings?" - direct question, direct answer: there's no real
+      // reason to. Settings already auto-returns here once all 3 fields
+      // are saved (settings_screen.dart's own save handler, built
+      // 2026-08-28) - going straight there removes the missable-tap step
+      // entirely instead of just making the tap target harder to miss.
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
     }
   }
 

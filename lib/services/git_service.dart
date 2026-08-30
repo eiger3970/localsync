@@ -3,7 +3,11 @@ import 'package:dartssh2/dartssh2.dart';
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
 import 'sync_service.dart'
-    show commitDirtyTree, labelForCommit, repairAllConflictsOnDisk, finishMergeCommit;
+    show
+        commitDirtyTree,
+        labelForCommit,
+        repairAllConflictsOnDisk,
+        finishMergeCommit;
 import 'vault_backup.dart';
 
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
@@ -34,14 +38,19 @@ class GitServiceImpl implements GitService {
   static Future<void> _ensurePlatformInitialized() =>
       _platformInit ??= PlatformSpecific.initialize();
 
-  final String bareRepoPath;      // Desktop: whichever bare repo is configured in main.dart's LinkingController
-  final String localVaultPath;    // Phone: Localsync's own Documents dir (see Info.plist notes in STRUCTURE.md)
-  final String sshHost;           // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
+  final String
+      bareRepoPath; // Desktop: whichever bare repo is configured in main.dart's LinkingController
+  final String
+      localVaultPath; // Phone: Localsync's own Documents dir (see Info.plist notes in STRUCTURE.md)
+  final String
+      sshHost; // Desktop's current hotspot-subnet IP, re-check each session (no settings UI yet)
   final int sshPort;
-  final String sshUser;           // rapi5
-  final String sshPrivateKeyPath; // On-device path to the phone's own SSH private key
-  final String sshPublicKeyPath;  // On-device path to the phone's own SSH public key
-  final String sshPassphrase;     // Empty string if the key has no passphrase
+  final String sshUser; // rapi5
+  final String
+      sshPrivateKeyPath; // On-device path to the phone's own SSH private key
+  final String
+      sshPublicKeyPath; // On-device path to the phone's own SSH public key
+  final String sshPassphrase; // Empty string if the key has no passphrase
   // 2026-08-26: added alongside the real merge-and-repair fix below - the
   // reused finishMergeCommit/commitDirtyTree need a real commit author,
   // same as sync_service.dart's own deviceName (see repository_provider
@@ -213,13 +222,30 @@ class GitServiceImpl implements GitService {
         );
         try {
           final remote = Remote.lookup(repo: repo, name: 'origin');
-          remote.fetch(callbacks: _callbacks);
-          final remoteBranch = Branch.lookup(
-            repo: repo,
-            name: 'origin/$defaultBranch',
-            type: GitBranch.remote,
-          );
-          repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+          // 2026-08-30: real device bug - "cannot locate remote-tracking
+          // branch 'origin/main'" on a brand new phone folder. A bare
+          // repo fresh from `git init --bare` (prepareBareRepo above) has
+          // no branches at all until something is pushed to it - fetch()
+          // succeeds either way (there's just nothing to fetch), but the
+          // unconditional Branch.lookup right after it threw here every
+          // time, because there was genuinely no 'origin/main' to find
+          // yet. remote.ls() (already used the same way in getStatus
+          // below) checks what the remote actually has, without needing
+          // a fetch first - an empty remote means there's nothing to
+          // pull, so this repo (already correctly initialized above)
+          // is ready as-is for pushToBareRepo to establish the branch.
+          final remoteRefs = remote.ls(callbacks: _callbacks);
+          final hasRemoteBranch =
+              remoteRefs.any((r) => r.name == 'refs/heads/$defaultBranch');
+          if (hasRemoteBranch) {
+            remote.fetch(callbacks: _callbacks);
+            final remoteBranch = Branch.lookup(
+              repo: repo,
+              name: 'origin/$defaultBranch',
+              type: GitBranch.remote,
+            );
+            repo.reset(oid: remoteBranch.target, resetType: GitReset.hard);
+          }
         } finally {
           repo.free();
         }
