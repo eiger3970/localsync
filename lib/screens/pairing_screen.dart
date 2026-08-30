@@ -64,6 +64,10 @@ class _PairingScreenState extends State<PairingScreen> {
   // list linking_screen.dart already had. Same counter/scoping as there -
   // see passwordRetryMessage in linking_state.dart.
   int _pairAttempts = 0;
+  // 2026-08-30: tap-to-reveal shield beside the password field - see the
+  // Row/AnimatedSize block below for why (matches linking_screen.dart's
+  // Stage 2 password field instead of a permanent info box).
+  bool _showPasswordInfo = false;
 
   @override
   void initState() {
@@ -179,80 +183,19 @@ class _PairingScreenState extends State<PairingScreen> {
                   // parse.
                   const _PasswordWorkflowStrip(),
                   const SizedBox(height: 16),
-                  // 2026-08-30: real device feedback - "password entry
-                  // needs the same password warning as the setup." This
-                  // is the OTHER place a desktop password gets typed
-                  // (re-pairing a phone, or a lost connection - kebab
-                  // menu's "Pair with desktop") - it never had the
-                  // security info box linking_screen.dart's Stage 2
-                  // password field shows (never stored, encrypted over
-                  // SSH, trust warning, pairing key storage). Same
-                  // PasswordInfoRow content (made public there for
-                  // exactly this reuse) - always visible here rather
-                  // than replicating the setup screen's collapse-on-
-                  // type animation, since this screen is a single-step
-                  // flow, not a multi-field one where that mattered.
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: kSurface,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: kBorder),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PasswordInfoRow(
-                          icon: Icons.lock_outline,
-                          iconColor: kTextMid,
-                          text: 'Your password: never stored, '
-                              'never leaves this device',
-                        ),
-                        const SizedBox(height: 8),
-                        PasswordInfoRow(
-                          icon: Icons.enhanced_encryption_outlined,
-                          iconColor: kTextMid,
-                          text: 'Sent encrypted over SSH '
-                              '(AES-256), never in plain text',
-                        ),
-                        const SizedBox(height: 8),
-                        const PasswordInfoRow(
-                          icon: Icons.warning_amber_rounded,
-                          iconColor: Colors.amber,
-                          text: 'Only for apps you already trust',
-                        ),
-                        const SizedBox(height: 8),
-                        PasswordInfoRow(
-                          icon: Icons.vpn_key_outlined,
-                          iconColor: kTextMid,
-                          text: 'Your pairing key is stored on '
-                              'both devices',
-                        ),
-                        const SizedBox(height: 10),
-                        InkWell(
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const SecurityInfoScreen())),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('Full security details',
-                                  style: TextStyle(
-                                      color: kGreen,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 4),
-                              Icon(Icons.chevron_right,
-                                  color: kGreen, size: 16),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  // 2026-08-30, corrected - "don't show permanent text,
+                  // it's an interruption to what the viewer needs to
+                  // see, the password entry field. Have the password
+                  // warning in a security shield icon." A permanent box
+                  // was the wrong call - linking_screen.dart's Stage 2
+                  // password field already solved exactly this with a
+                  // tap-to-reveal shield (2026-08-29, "users can tap...
+                  // the green shield, to open the warning"), collapsed
+                  // by default. Same mechanism here instead of inventing
+                  // a new one: shield icon beside the field (roughly
+                  // where the field's own eye icon sits, per direction),
+                  // AnimatedSize toggle, identical PasswordInfoRow
+                  // content.
                   // 2026-08-16: "1 is not on same line as text" - badge
                   // was top-aligned against a field whose label sits
                   // vertically centered when empty, not flush with the
@@ -269,7 +212,87 @@ class _PairingScreenState extends State<PairingScreen> {
                           enabled: !_ctrl.isRunning,
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: Icon(Icons.shield_outlined,
+                            size: 20,
+                            color: _showPasswordInfo ? kGreen : kTextMid),
+                        tooltip: 'Password security info',
+                        onPressed: () => setState(
+                            () => _showPasswordInfo = !_showPasswordInfo),
+                      ),
                     ],
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    alignment: Alignment.topCenter,
+                    child: !_showPasswordInfo
+                        ? const SizedBox(width: double.infinity)
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: kSurface,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: kBorder),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  PasswordInfoRow(
+                                    icon: Icons.lock_outline,
+                                    iconColor: kTextMid,
+                                    text: 'Your password: never stored, '
+                                        'never leaves this device',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  PasswordInfoRow(
+                                    icon: Icons.enhanced_encryption_outlined,
+                                    iconColor: kTextMid,
+                                    text: 'Sent encrypted over SSH '
+                                        '(AES-256), never in plain text',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const PasswordInfoRow(
+                                    icon: Icons.warning_amber_rounded,
+                                    iconColor: Colors.amber,
+                                    text: 'Only for apps you already trust',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  PasswordInfoRow(
+                                    icon: Icons.vpn_key_outlined,
+                                    iconColor: kTextMid,
+                                    text: 'Your pairing key is stored on '
+                                        'both devices',
+                                  ),
+                                  const SizedBox(height: 10),
+                                  InkWell(
+                                    onTap: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const SecurityInfoScreen())),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('Full security details',
+                                            style: TextStyle(
+                                                color: kGreen,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600)),
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.chevron_right,
+                                            color: kGreen, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                   ),
                   // 2026-08-16: wrapped as one single Keyed block
                   // (rather than loose conditional children) after

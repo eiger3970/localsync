@@ -322,6 +322,15 @@ class HomeScreen extends StatelessWidget {
                           // the original icon in the meantime rather than
                           // guessing at another Material substitute.
                           icon: Icons.sync,
+                          // 2026-08-30: real device feedback - "why anti
+                          // clockwise, is clockwise possible?" Mirrored
+                          // (see _MenuRow's own comment on flipIcon for
+                          // why a mirror, not a rotation, is what
+                          // actually reverses it) - genuinely unverified
+                          // which direction either version reads as on a
+                          // real device, Material icon glyphs don't
+                          // render in this repo's headless test setup.
+                          flipIcon: true,
                           label: provider.selectedRepo!.autoSync
                               ? 'Pull manually'
                               : 'Pull automatically',
@@ -709,6 +718,14 @@ class _MenuRow extends StatelessWidget {
   final String label;
   final Color? labelColor;
   final String? subtitle;
+  // 2026-08-30: real device feedback - "why are arrow anti clockwise, is
+  // clockwise possible?" on Icons.sync (Pull manually/automatically).
+  // Mirroring reverses the apparent rotational direction of a symmetric
+  // 2-arrow loop icon (a reflection flips chirality/spin sense; a
+  // rotation alone wouldn't - sync's own 180-degree rotational symmetry
+  // means rotating it looks identical). Off by default, only this one
+  // row opts in.
+  final bool flipIcon;
   // 2026-08-21: "skins" IAP - iconColor/labelColor used to default to
   // kStar directly in the parameter list, which only worked while
   // kStar was a compile-time const. Now that it's a getter (reads the
@@ -721,14 +738,16 @@ class _MenuRow extends StatelessWidget {
     required this.label,
     this.labelColor,
     this.subtitle,
+    this.flipIcon = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final iconWidget = Icon(icon, color: iconColor ?? kStar, size: 18);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Icon(icon, color: iconColor ?? kStar, size: 18),
+        flipIcon ? Transform.flip(flipX: true, child: iconWidget) : iconWidget,
         const SizedBox(width: 12),
         Expanded(
           child: Column(
