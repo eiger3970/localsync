@@ -634,41 +634,31 @@ class _SettingsScreenState extends State<SettingsScreen>
                     //
                     // 2026-08-30, real device bug round 2 - "black colour
                     // on top middle" (kVoid tint, invisible against the
-                    // dark background), then round 3 - "reverse the git
-                    // logo colour, black branching on white should be
-                    // white branching on black." Two rounds of guessing
-                    // which flat tint would read correctly against
-                    // whatever's visually behind the overlay was the
-                    // actual problem - a tiny logo sitting directly on
-                    // top of another icon has no guaranteed background,
-                    // so any single tint color is a guess. A small badge
-                    // with its OWN fixed background removes that
-                    // ambiguity entirely: the git mark now renders in its
-                    // real, unambiguous brand color (#f03c2e, no tint at
-                    // all) inside a small kVoid circle - always reads the
-                    // same regardless of what's under the computer icon.
+                    // dark background), round 3 - "reverse the git logo
+                    // colour" (tried a badge with the logo's own native
+                    // orange-red instead), round 4 - "just the git logo
+                    // inside the desktop screen and green, don't make
+                    // orange or red as it causes distraction and worry."
+                    // Back to the inside-the-screen placement, tinted
+                    // kGreen this time (matches the computer icon itself
+                    // and every other accent on this screen - no
+                    // orange/red anywhere, explicitly asked for) instead
+                    // of the badge's native brand color.
                     child: SizedBox(
-                      width: 26,
+                      width: 22,
                       height: 22,
                       child: Stack(
-                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
                         children: [
                           Icon(Icons.computer, color: kGreen, size: 22),
-                          Positioned(
-                            right: -2,
-                            bottom: -2,
-                            child: Container(
-                              width: 13,
-                              height: 13,
-                              decoration: BoxDecoration(
-                                color: kVoid,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: kGreen, width: 1),
-                              ),
-                              padding: const EdgeInsets.all(2.5),
-                              child: SvgPicture.asset(
-                                'assets/logos/git-icon.svg',
-                              ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: SvgPicture.asset(
+                              'assets/logos/git-icon.svg',
+                              width: 10,
+                              height: 10,
+                              colorFilter:
+                                  ColorFilter.mode(kGreen, BlendMode.srcIn),
                             ),
                           ),
                         ],
