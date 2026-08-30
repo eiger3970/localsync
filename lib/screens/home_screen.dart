@@ -1339,10 +1339,25 @@ class _AppBarRepoStatus extends StatelessWidget {
                         // FittedBox attempt above, this doesn't touch the
                         // wrap mechanism itself, just gives it more room) -
                         // best-effort, not verified against the real device.
+                        // 2026-08-30: real feedback, live, screenshot-
+                        // confirmed - "kebab too far left" + "folder name
+                        // not displaying correctly" were the same bug, not
+                        // two. This SizedBox reserves nearly the full app-
+                        // bar width (2026-08-28 fix, so long names don't
+                        // get cut off) but Text defaults to left-aligned -
+                        // a SHORT name (e.g. "Files needed on phone")
+                        // clustered at the box's left edge, leaving the
+                        // rest of the reserved width empty and transparent
+                        // between the name and the kebab, which read as
+                        // "kebab too far left." textAlign.center keeps the
+                        // deterministic width (still needed so long names
+                        // wrap/center correctly) but centers short names
+                        // within it instead of hugging the left.
                         SizedBox(
                           width: nameMaxWidth,
                           child: Text(
                             repo.name,
+                            textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: kStar,
                                 fontSize: 11,
