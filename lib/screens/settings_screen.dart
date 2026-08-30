@@ -78,6 +78,39 @@ class _SettingsScreenState extends State<SettingsScreen>
   // "sync-2.git" next, etc.
   int _suggestCount = 0;
 
+  // 2026-08-30: extracted from the old "Use suggested path" text link's
+  // inline onTap so the big laptop icon above the field can trigger the
+  // exact same autofill - one shared handler, two tap targets.
+  void _useSuggestedPath() {
+    final user = _userCtrl.text.trim();
+    if (user.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Text('Fill in Desktop username above first',
+              style: TextStyle(color: kStar, fontSize: 14)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      // 2026-08-28: real feedback, live - "why did you make a weird
+      // default path name?" Dropped the /LocalSync/sync.git subfolder
+      // split in favour of matching this repo's own real naming
+      // convention (lowercase, flat) - and counts taps so a second/
+      // third suggestion this Settings visit doesn't collide with the
+      // first (see _suggestCount's own comment for why that collision
+      // is a real, not hypothetical, gap). Was
+      // '/home/$user/Documents/Git/LocalSync/sync.git' (and vault.git
+      // before that).
+      _suggestCount++;
+      final suffix = _suggestCount == 1 ? '' : '-$_suggestCount';
+      _pathCtrl.text = '/home/$user/Documents/Git/localsync$suffix.git';
+      _pathError = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -466,13 +499,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                 // kStar via colorFilter rather than baking a fixed
                 // white into the asset, so it stays correct under any
                 // skin.
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: SvgPicture.asset(
-                    'assets/logos/git-icon.svg',
-                    width: 22,
-                    height: 22,
-                    colorFilter: ColorFilter.mode(kStar, BlendMode.srcIn),
+                //
+                // 2026-08-30: real device feedback - "too much confusion
+                // with phone and desktop sides... user just sees desktop
+                // or desktop git image and taps auto fill." Swapped the
+                // small git mark for the same laptop glyph the pairing
+                // screen already uses for "this is the desktop side"
+                // (pairing_laptop_plain.svg) - bigger, and now the tap
+                // target for the suggested-path autofill itself (see
+                // _useSuggestedPath below), not just decoration.
+                GestureDetector(
+                  onTap: _useSuggestedPath,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2, right: 10),
+                    child: SvgPicture.asset(
+                      'assets/pairing/pairing_laptop_plain.svg',
+                      width: 40,
+                      height: 40,
+                      colorFilter: ColorFilter.mode(kStar, BlendMode.srcIn),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -502,50 +547,26 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // instead (see Icon.account_tree replaced above) -
                       // "leave header with just text, have the left
                       // image as the git logo."
-                      label: RichText(
-                        text: TextSpan(
-                          children: [
-                            TextSpan(
-                                text: 'Git bare repo path',
-                                style: TextStyle(
-                                    color: kStar,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w700)),
-                            TextSpan(
-                                text: ' (folder sharing to your phone)',
-                                style: TextStyle(
-                                    color: kStar,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700)),
-                          ],
-                        ),
-                      ),
+                      // 2026-08-30: real device feedback - "too much
+                      // confusion with phone and desktop sides... any
+                      // text can be under or in an info tip." The
+                      // "(folder sharing to your phone)" parenthetical
+                      // and the helperText below both moved into the (i)
+                      // dialog instead of sitting always-visible - the
+                      // big laptop icon now carries the "this is the
+                      // desktop side" meaning on its own, verbosely
+                      // spelling it out next to the label was the thing
+                      // adding to the confusion, not resolving it.
+                      label: Text('Git bare repo path',
+                          style: TextStyle(
+                              color: kStar,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700)),
                       // 2026-08-28: same fix as Desktop username above -
                       // always float, so the grey hint path shows from
                       // the first frame instead of the bold label
                       // sitting inside the box looking like real content.
                       floatingLabelBehavior: FloatingLabelBehavior.always,
-                      // 2026-08-21: real feedback, live - "what does
-                      // this even mean, make it clearer" on "For the
-                      // next vault you link". Spells out the actual
-                      // scope (only future links, not existing ones) -
-                      // see RepositoryProvider's own comment on
-                      // setBareRepoPath for the same explanation.
-                      // 2026-08-28: real feedback, live - "what's the
-                      // difference between a Vault and a Folder... Tier
-                      // 0 uses need the word Folder throughout, Vault is
-                      // a term for experts" (and a totally different
-                      // Bitwarden product to a newbie besides). Settings
-                      // isn't mode-scoped - it can't know in advance
-                      // whether the next link will be Tier 0 or Obsidian
-                      // - so "folder" here, being generically true of an
-                      // Obsidian vault too, is the safer plain-language
-                      // default rather than "vault" confusing the far
-                      // more common Tier 0 case.
-                      helperText: 'Applies to a new folder you link - '
-                          'existing links are unaffected',
-                      helperMaxLines: 2,
-                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
                       hintText: '/home/user/Documents/Git/localsync.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
@@ -580,12 +601,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                           'Setting the Git bare repo path',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
+                            // 2026-08-30: moved here from always-visible
+                            // label text and helperText - both explained
+                            // this same field, just repeated at a glance
+                            // instead of on demand.
+                            (
+                              'This is the desktop side - a folder path '
+                                  'on your desktop computer, shared to '
+                                  'your phone',
+                              false
+                            ),
                             (
                               'New setup? Just type any path here, e.g. '
                                   '~/Documents/Git/localsync.git - '
                                   'it gets created automatically the '
                                   'first time you pair, nothing to run '
                                   'yourself',
+                              false
+                            ),
+                            (
+                              'Applies to a new folder you link - '
+                                  'existing links are unaffected',
                               false
                             ),
                             (
@@ -625,38 +661,9 @@ class _SettingsScreenState extends State<SettingsScreen>
             Padding(
               padding: const EdgeInsets.only(left: 32, top: 8),
               child: GestureDetector(
-                onTap: () {
-                  final user = _userCtrl.text.trim();
-                  if (user.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: kSurface,
-                        content: Text('Fill in Desktop username above first',
-                            style: TextStyle(color: kStar, fontSize: 14)),
-                        duration: const Duration(seconds: 3),
-                      ),
-                    );
-                    return;
-                  }
-                  setState(() {
-                    // 2026-08-28: real feedback, live - "why did you
-                    // make a weird default path name?" Dropped the
-                    // /LocalSync/sync.git subfolder split in favour of
-                    // matching this repo's own real naming convention
-                    // (lowercase, flat) - and counts taps so a second/
-                    // third suggestion this Settings visit doesn't
-                    // collide with the first (see _suggestCount's own
-                    // comment for why that collision is a real, not
-                    // hypothetical, gap). Was
-                    // '/home/$user/Documents/Git/LocalSync/sync.git'
-                    // (and vault.git before that).
-                    _suggestCount++;
-                    final suffix = _suggestCount == 1 ? '' : '-$_suggestCount';
-                    _pathCtrl.text =
-                        '/home/$user/Documents/Git/localsync$suffix.git';
-                    _pathError = null;
-                  });
-                },
+                // 2026-08-30: now shared with the big laptop icon above
+                // (_useSuggestedPath) - same action, two tap targets.
+                onTap: _useSuggestedPath,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
