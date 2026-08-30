@@ -166,7 +166,7 @@ class _PairingScreenState extends State<PairingScreen> {
                     // whatever was passed in originally, so it would
                     // keep showing the stale address even after
                     // _findAndRetry() corrects it.
-                    'Connect to ${widget.desktopUser}@${_ctrl.desktopIp}',
+                    'Connect to ${desktopUserAtIp(widget.desktopUser, _ctrl.desktopIp)}',
                     style: TextStyle(
                         color: kStar,
                         fontSize: 16,
@@ -245,13 +245,17 @@ class _PairingScreenState extends State<PairingScreen> {
                                   PasswordInfoRow(
                                     icon: Icons.lock_outline,
                                     iconColor: kTextMid,
-                                    // 2026-08-30: real device feedback -
-                                    // contradicted the next line (this is
-                                    // transmitted over SSH once, live) -
-                                    // see linking_screen.dart's matching
-                                    // fix for the full explanation.
-                                    text: 'Your password: never stored, '
-                                        'never logged',
+                                    // 2026-08-30: real device feedback,
+                                    // round 2 - "stored/logged same
+                                    // difference right?" Fair - swapping
+                                    // one synonym for another wasn't the
+                                    // actual fix, just moved the
+                                    // redundancy. One real claim now:
+                                    // used once, then gone - no
+                                    // persistence claim to clash with the
+                                    // encryption line below at all.
+                                    text: 'Your password: used once to '
+                                        'connect, then discarded',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(

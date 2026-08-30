@@ -32,12 +32,25 @@ class ShreddingPasswordField extends StatefulWidget {
   // linking_screen.dart can call requestFocus() at the exact moment
   // Stage 2 actually becomes usable.
   final FocusNode? focusNode;
+  // 2026-08-30: real device bug, screenshots confirmed - the confirm-
+  // password field (linking_screen.dart) wraps this in its own
+  // AnimatedContainer border that turns red/green to show match state,
+  // but this field's OWN default focused border (theme.dart's
+  // InputDecorationTheme.focusedBorder, kGreen for every text field in
+  // the app) kept drawing too - a visible double ring whenever the two
+  // disagreed (red outside from a mismatch, green inside from just
+  // being focused), reading as one clean border only when they
+  // happened to both be green. False lets a caller that already
+  // provides its own validation border suppress this field's default
+  // one instead of the two competing silently.
+  final bool showOwnBorder;
   const ShreddingPasswordField({
     super.key,
     required this.controller,
     this.enabled = true,
     this.showSparkle = false,
     this.focusNode,
+    this.showOwnBorder = true,
   });
 
   @override
@@ -139,6 +152,10 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
         decoration: InputDecoration(
           hintText: 'Desktop password…',
           hintStyle: TextStyle(color: kTextMid, fontSize: 14),
+          border: widget.showOwnBorder ? null : InputBorder.none,
+          enabledBorder: widget.showOwnBorder ? null : InputBorder.none,
+          focusedBorder: widget.showOwnBorder ? null : InputBorder.none,
+          disabledBorder: widget.showOwnBorder ? null : InputBorder.none,
           // 2026-08-25: "stars need more stars" - a single icon read
           // as too sparse. A small cluster (2 sizes, slight offset)
           // reads as sparkle rather than one static glyph, still via
