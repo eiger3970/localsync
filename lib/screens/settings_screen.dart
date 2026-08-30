@@ -27,7 +27,15 @@ import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  // 2026-08-30: real device feedback - "the yellow warning label is
+  // needed at top, as dumping user in settings needs the info." Auto-
+  // navigating straight here (linking_screen.dart's _onKeyPairingSettled,
+  // replacing the old tap-a-SnackBar step) removed the one place that
+  // explained WHY the user landed here - this restores that explanation,
+  // as a real banner on this screen instead of a since-dismissed SnackBar
+  // on the previous one.
+  final bool neededForPairing;
+  const SettingsScreen({super.key, this.neededForPairing = false});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -385,6 +393,28 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (widget.neededForPairing) ...[
+              // 2026-08-30: real device feedback - "the yellow warning
+              // label is needed at top, as dumping user in settings
+              // needs the info." Same amber treatment the old SnackBar
+              // used, now living on the screen it's actually explaining
+              // instead of a message that could be missed/mis-tapped
+              // before this screen even opened.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  "Desktop username and IP address aren't set yet - "
+                  'fill them in below before pairing will work.',
+                  style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             // 2026-08-28: real feedback, live - found while checking an
             // unrelated UX question: desktopUser was hardcoded in
             // main.dart with no Settings field at all, meaning a real
@@ -512,11 +542,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTap: _useSuggestedPath,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 2, right: 10),
+                    // 2026-08-30: real device bug - "desktop image is just
+                    // a white square." This asset (unlike git-icon.svg)
+                    // isn't a flat tintable outline - it has its own
+                    // baked-in dark background rect + neon-green stroke,
+                    // same as the pairing screen already renders it
+                    // (linking_screen.dart's _DeviceGlyph, no colorFilter
+                    // there either). srcIn tinted the whole opaque shape
+                    // into one flat block - removed, renders with its own
+                    // real colors now.
                     child: SvgPicture.asset(
                       'assets/pairing/pairing_laptop_plain.svg',
                       width: 40,
                       height: 40,
-                      colorFilter: ColorFilter.mode(kStar, BlendMode.srcIn),
                     ),
                   ),
                 ),
