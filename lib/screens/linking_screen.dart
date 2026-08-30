@@ -46,6 +46,19 @@ import 'settings_screen.dart';
 // HomeScreen if there's nothing to pop to - which will show the real
 // home screen once setup succeeded (repos is no longer empty) instead
 // of bouncing back into this screen.
+// 2026-08-30: real device feedback - "the @ sign is the only thing
+// that's showing, user@address wasn't showing." Every one of these 5
+// call sites (here and pairing_screen.dart) built the label as a bare
+// '$user@$ip' interpolation - with both empty (before Settings has been
+// configured, or before the async load finishes on first render), that
+// renders as a lone '@' with nothing around it. Shared here (public, so
+// pairing_screen.dart's own copy of this same label uses the identical
+// fallback) rather than fixed once and left inconsistent elsewhere.
+String desktopUserAtIp(String user, String ip) {
+  if (user.trim().isEmpty && ip.trim().isEmpty) return 'Not set up yet';
+  return '$user@$ip';
+}
+
 void _leaveSetup(BuildContext context) {
   if (Navigator.canPop(context)) {
     Navigator.pop(context);
@@ -688,7 +701,7 @@ class _IdleViewState extends State<_IdleView>
                   color: kTextMid, fontSize: 13, fontWeight: FontWeight.w600),
               textAlign: TextAlign.center),
           lockCaption: Text(
-              'Your computer\n${ctrl.desktopUser}@${ctrl.desktopIp}',
+              'Your computer\n${desktopUserAtIp(ctrl.desktopUser, ctrl.desktopIp)}',
               style: TextStyle(color: kTextMid, fontSize: 13),
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis),
@@ -817,19 +830,19 @@ class _IdleViewState extends State<_IdleView>
                                   PasswordInfoRow(
                                     icon: Icons.lock_outline,
                                     iconColor: kTextMid,
-                                    // 2026-08-30: real device feedback -
-                                    // "never leaves this device, but next
-                                    // line says sent encrypted over SSH,
-                                    // this is a contradiction." Real
-                                    // catch - it IS transmitted (once,
-                                    // live, to authenticate) so "never
-                                    // leaves" was actually false, not
-                                    // just confusingly worded next to the
-                                    // encryption line. What's actually
-                                    // true: never written to disk or
-                                    // logged anywhere.
-                                    text: 'Your password: never stored, '
-                                        'never logged',
+                                    // 2026-08-30: real device feedback,
+                                    // two rounds - "never leaves this
+                                    // device" contradicted the encryption
+                                    // line below (it IS transmitted,
+                                    // once, to authenticate), then
+                                    // "stored/logged same difference
+                                    // right?" - fair, swapping one
+                                    // synonym for another wasn't the real
+                                    // fix. One real claim now: used once,
+                                    // then gone - nothing left to clash
+                                    // with the encryption line at all.
+                                    text: 'Your password: used once to '
+                                        'connect, then discarded',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(
@@ -994,6 +1007,16 @@ class _IdleViewState extends State<_IdleView>
                         key: _shredKey2,
                         controller: _confirmCtrl,
                         enabled: !_pairing,
+                        // 2026-08-30: real device bug, screenshots
+                        // confirmed - this field's own default focused
+                        // border (theme.dart, kGreen) was drawing on top
+                        // of the AnimatedContainer's red/green match-
+                        // state border above, a visible double ring
+                        // whenever they disagreed (red outside, green
+                        // inside while typing). That outer border is the
+                        // real validation signal - this one only needs
+                        // to stop competing with it.
+                        showOwnBorder: false,
                         // 2026-08-29: real feedback, live - "field2
                         // didn't remove stars once step 3 was
                         // activated." Was tied only to field 1 having
@@ -1194,8 +1217,8 @@ class _IdleViewState extends State<_IdleView>
                                       svgAsset:
                                           'assets/pairing/pairing_laptop_plain.svg',
                                       label: 'Your desktop',
-                                      caption:
-                                          '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                      caption: desktopUserAtIp(
+                                          ctrl.desktopUser, ctrl.desktopIp),
                                       accent: true,
                                       width: glyphWidth,
                                       iconSize: glyphIcon,
@@ -1208,8 +1231,8 @@ class _IdleViewState extends State<_IdleView>
                                     svgAsset:
                                         'assets/pairing/pairing_laptop_plain.svg',
                                     label: 'Your desktop',
-                                    caption:
-                                        '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                    caption: desktopUserAtIp(
+                                        ctrl.desktopUser, ctrl.desktopIp),
                                     accent: true,
                                     width: glyphWidth,
                                     iconSize: glyphIcon,
@@ -1219,8 +1242,8 @@ class _IdleViewState extends State<_IdleView>
                                   svgAsset:
                                       'assets/pairing/pairing_laptop_plain.svg',
                                   label: 'Your desktop',
-                                  caption:
-                                      '${ctrl.desktopUser}@${ctrl.desktopIp}',
+                                  caption: desktopUserAtIp(
+                                      ctrl.desktopUser, ctrl.desktopIp),
                                   accent: true,
                                   width: glyphWidth,
                                   iconSize: glyphIcon,
