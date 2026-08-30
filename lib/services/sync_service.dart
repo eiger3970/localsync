@@ -665,6 +665,31 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   return true;
 }
 
+/// Creates the very first commit in a genuinely fresh repo (Repository
+/// .init, zero commits ever made - a brand-new phone folder against a
+/// brand-new empty bare repo). commitDirtyTree can't do this: its first
+/// line unconditionally reads repo.head.target to find a parent commit
+/// to diff the working tree against, which doesn't exist either on a
+/// repo with no commit history at all - same 'reference not found'
+/// error this exists to actually fix, not just relocate. 2026-08-30:
+/// real device bug - this exact gap is why an existing, already-linked
+/// folder synced fine but a genuinely new one kept failing the same way
+/// even after git_service.dart's own remote.ls() guard.
+void createInitialCommit(
+    git.Repository repo, String message, String deviceName) {
+  final tree = _stageAndWriteTree(repo);
+  final signature = _signatureFor(deviceName);
+  git.Commit.create(
+    repo: repo,
+    updateRef: 'HEAD',
+    author: signature,
+    committer: signature,
+    message: message,
+    tree: tree,
+    parents: [],
+  );
+}
+
 /// Completes an in-progress merge (from Merge.commit) by staging
 /// whatever is in the working directory now (post-repair) and creating
 /// the merge commit with both parents.

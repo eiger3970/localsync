@@ -23,6 +23,7 @@ import '../services/database_service.dart';
 import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import 'linking_screen.dart';
+import 'security_info_screen.dart';
 
 class PairingScreen extends StatefulWidget {
   final String desktopUser;
@@ -177,7 +178,81 @@ class _PairingScreenState extends State<PairingScreen> {
                   // glanceable in one look instead of a sentence to
                   // parse.
                   const _PasswordWorkflowStrip(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  // 2026-08-30: real device feedback - "password entry
+                  // needs the same password warning as the setup." This
+                  // is the OTHER place a desktop password gets typed
+                  // (re-pairing a phone, or a lost connection - kebab
+                  // menu's "Pair with desktop") - it never had the
+                  // security info box linking_screen.dart's Stage 2
+                  // password field shows (never stored, encrypted over
+                  // SSH, trust warning, pairing key storage). Same
+                  // PasswordInfoRow content (made public there for
+                  // exactly this reuse) - always visible here rather
+                  // than replicating the setup screen's collapse-on-
+                  // type animation, since this screen is a single-step
+                  // flow, not a multi-field one where that mattered.
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: kSurface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: kBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PasswordInfoRow(
+                          icon: Icons.lock_outline,
+                          iconColor: kTextMid,
+                          text: 'Your password: never stored, '
+                              'never leaves this device',
+                        ),
+                        const SizedBox(height: 8),
+                        PasswordInfoRow(
+                          icon: Icons.enhanced_encryption_outlined,
+                          iconColor: kTextMid,
+                          text: 'Sent encrypted over SSH '
+                              '(AES-256), never in plain text',
+                        ),
+                        const SizedBox(height: 8),
+                        const PasswordInfoRow(
+                          icon: Icons.warning_amber_rounded,
+                          iconColor: Colors.amber,
+                          text: 'Only for apps you already trust',
+                        ),
+                        const SizedBox(height: 8),
+                        PasswordInfoRow(
+                          icon: Icons.vpn_key_outlined,
+                          iconColor: kTextMid,
+                          text: 'Your pairing key is stored on '
+                              'both devices',
+                        ),
+                        const SizedBox(height: 10),
+                        InkWell(
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const SecurityInfoScreen())),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Full security details',
+                                  style: TextStyle(
+                                      color: kGreen,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
+                              const SizedBox(width: 4),
+                              Icon(Icons.chevron_right,
+                                  color: kGreen, size: 16),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // 2026-08-16: "1 is not on same line as text" - badge
                   // was top-aligned against a field whose label sits
                   // vertically centered when empty, not flush with the

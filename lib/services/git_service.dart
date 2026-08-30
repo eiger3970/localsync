@@ -5,6 +5,7 @@ import '../features/linking/linking_state.dart';
 import 'sync_service.dart'
     show
         commitDirtyTree,
+        createInitialCommit,
         labelForCommit,
         repairAllConflictsOnDisk,
         finishMergeCommit;
@@ -255,10 +256,16 @@ class GitServiceImpl implements GitService {
             // commits and no real refs/heads/$defaultBranch to push.
             // pushToBareRepo (the very next step) pushes exactly that
             // ref by name - it can't push what was never committed.
-            // commitDirtyTree (same helper the already-cloned branch
-            // below and every day-to-day sync already use) makes the
-            // real first commit here, so there's something to push.
-            commitDirtyTree(repo, 'Initial sync from phone', deviceName);
+            //
+            // 2026-08-30, corrected - this was commitDirtyTree, which
+            // does NOT work here: its own first line unconditionally
+            // reads repo.head.target to find a parent commit to diff
+            // against, which throws the exact same 'reference not
+            // found' error on a repo with zero commits ever made - the
+            // real reason an already-linked folder synced fine while a
+            // genuinely new one kept failing the same way. This is the
+            // real first commit, no parent to find.
+            createInitialCommit(repo, 'Initial sync from phone', deviceName);
           }
         } finally {
           repo.free();
@@ -288,7 +295,23 @@ class GitServiceImpl implements GitService {
         //    failure - matching linking_state.dart's own note that
         //    ordinary conflicts are supposed to be handled automatically,
         //    not surfaced as a dead-end LinkingError.
-        commitDirtyTree(repo, 'Vault contents before linking', deviceName);
+        //
+        // 2026-08-30: real device bug, still hitting after the fresh-
+        // clone branch's own fix above - a RETRY against a vault folder
+        // that already has local .git state, but from an earlier attempt
+        // that got this far and failed before ever committing (the exact
+        // bug just fixed above), has zero commits here too. Unconditional
+        // commitDirtyTree throws immediately on that (its own first line
+        // reads repo.head.target, same 'reference not found' cause) -
+        // never even reaches the remote.ls() guard below. Checking first
+        // instead of assuming a parent commit always exists.
+        try {
+          repo.head.target;
+          commitDirtyTree(repo, 'Vault contents before linking', deviceName);
+        } catch (_) {
+          createInitialCommit(
+              repo, 'Vault contents before linking', deviceName);
+        }
 
         final remote = Remote.lookup(repo: repo, name: 'origin');
         // 2026-08-30: same real device bug as the fresh-clone branch

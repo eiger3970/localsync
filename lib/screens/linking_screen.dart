@@ -814,27 +814,27 @@ class _IdleViewState extends State<_IdleView>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _PasswordInfoRow(
+                                  PasswordInfoRow(
                                     icon: Icons.lock_outline,
                                     iconColor: kTextMid,
                                     text: 'Your password: never stored, '
                                         'never leaves this device',
                                   ),
                                   const SizedBox(height: 8),
-                                  _PasswordInfoRow(
+                                  PasswordInfoRow(
                                     icon: Icons.enhanced_encryption_outlined,
                                     iconColor: kTextMid,
                                     text: 'Sent encrypted over SSH '
                                         '(AES-256), never in plain text',
                                   ),
                                   const SizedBox(height: 8),
-                                  const _PasswordInfoRow(
+                                  const PasswordInfoRow(
                                     icon: Icons.warning_amber_rounded,
                                     iconColor: Colors.amber,
                                     text: 'Only for apps you already trust',
                                   ),
                                   const SizedBox(height: 8),
-                                  _PasswordInfoRow(
+                                  PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
                                     text: 'Your pairing key is stored on '
@@ -2551,11 +2551,12 @@ class _ScopeRow extends StatelessWidget {
 
 // 2026-08-29: real feedback, live - one row of the tap-to-reveal password
 // info shown under "2. DESKTOP PASSWORD"'s shield icon (see build() above).
-class _PasswordInfoRow extends StatelessWidget {
+class PasswordInfoRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String text;
-  const _PasswordInfoRow({
+  const PasswordInfoRow({
+    super.key,
     required this.icon,
     required this.iconColor,
     required this.text,
