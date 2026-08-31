@@ -110,7 +110,7 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     assetIcon: 'assets/logos/git-branches-only.svg',
                     text: 'No more conflicts.'),
                 const SizedBox(height: 6),
-                Text('Try it — drag your file across.',
+                Text('Try it - drag your file across.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: wInkDim)),
                 const SizedBox(height: 8),
@@ -286,12 +286,14 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                             width: 78, height: 9, color: wTealDark),
                       ),
                     ),
-                    // top-left, not centered - centered used to sit
-                    // right where the dog docks and got hidden behind
-                    // its face once delivered.
+                    // upper-left area of the SCREEN box (which starts
+                    // at x=8, not the container edge) - centered used
+                    // to sit right where the dog docks and got hidden
+                    // behind its face once delivered; flush-left was
+                    // too tight against the screen's own border.
                     Positioned(
-                      left: 2,
-                      top: 2,
+                      left: 14,
+                      top: 6,
                       child: AnimatedOpacity(
                         opacity: delivered ? 1 : 0,
                         duration: const Duration(milliseconds: 250),
@@ -392,7 +394,7 @@ class _TwinkleStarState extends State<_TwinkleStar>
     return FadeTransition(
       opacity: Tween(begin: 0.25, end: 1.0)
           .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
-      child: Icon(Icons.auto_awesome, color: wGold, size: widget.size),
+      child: Icon(Icons.auto_awesome, color: wTealDark, size: widget.size),
     );
   }
 }

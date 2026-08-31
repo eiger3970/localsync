@@ -81,7 +81,7 @@ class SyncFilesPreviewScreen extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'No notes app needed — your files, kept in sync '
+                  'No notes app needed - your files, kept in sync '
                   'between your phone and your desktop, both ways.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 15, color: wInkDim, height: 1.5),

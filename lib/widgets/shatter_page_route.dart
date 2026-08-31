@@ -42,6 +42,18 @@
 // shards and the real content, so what's revealed as shards clear away
 // is clean black, and the real page only appears once the whole
 // overlay finishes (t>=1), not gradually through the cracks.
+//
+// 2026-08-31, fourth revision, direct feedback: "was better before" -
+// the bottom-right impact-origin version (previous revision) was a
+// regression from the fall-away version before it. Reworked again, per
+// explicit direction this time: not shards falling away from a point,
+// but every shard COLLAPSING/CONVERGING toward one point - the phone's
+// position in the preview screens' own illustration (roughly its
+// upper-left area) - shrinking as it arrives, like the whole scene
+// getting pulled back into the phone. Nearer shards reach it soonest,
+// farther ones (the desktop side) take longest, same stagger idea as
+// before but aimed at a destination instead of radiating from an
+// origin.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -97,43 +109,46 @@ class _ShatterPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width / _cols;
     final h = size.height / _rows;
+    // approximate on-screen position of the phone icon in the preview
+    // screens' own PhoneToDesktopFlow illustration (upper-left area of
+    // the centered illustration block) - everything collapses toward
+    // this point rather than falling away from one.
+    final target = Offset(size.width * 0.20, size.height * 0.42);
+    final corners = [
+      const Offset(0, 0),
+      Offset(size.width, 0),
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+    ];
+    final maxDist =
+        corners.map((c) => (c - target).distance).reduce(math.max);
+
     for (var r = 0; r < _rows; r++) {
       for (var c = 0; c < _cols; c++) {
         final fr = r / (_rows - 1);
         final bg = Color.lerp(_bg1, _bg2, fr)!;
-        // impact origin is bottom-right, not center - that's where the
-        // dog sits after a completed swipe-confirm, so the smash
-        // starts where the user's action just happened, not an
-        // arbitrary screen center
-        final cx = c - (_cols - 1);
-        final cy = r - (_rows - 1);
-        final dist = math.sqrt(cx * cx + cy * cy);
-        final maxDist =
-            math.sqrt(math.pow(_cols - 1, 2) + math.pow(_rows - 1, 2));
-        // stagger: shards near the impact origin fall first, the far
-        // corner last - a ripple, not a uniform burst
+        final left = c * w;
+        final top = r * h;
+        final restCenter = Offset(left + w / 2, top + h / 2);
+
+        // stagger: shards nearest the phone collapse into it first
+        // (short trip), the desktop side last (long trip)
+        final dist = (restCenter - target).distance;
         final delay = (dist / maxDist) * 0.4;
         var local = ((t - delay) / (1 - delay)).clamp(0.0, 1.0);
         local = Curves.easeOut.transform(local);
 
-        final left = c * w;
-        final top = r * h;
-        // near-zero horizontal drift + a little per-shard jitter (not
-        // position-scaled) + uniform downward fall = sinking away, not
-        // radiating toward the viewer
-        final jitter = ((c * 7 + r * 13) % 11 - 5) * 2.0;
-        final outX = jitter * local;
-        final outY = 130 * local;
-        final rot = ((c * 5 + r * 3) % 9 - 4) * 0.06 * local;
-        final scale = 1 - 0.97 * local;
         // fully opaque, solid pastel the whole time it's visible - no
         // alpha fade (that read as "faded translucent squares"). It
         // just stops being drawn once it's shrunk to nothing.
+        final scale = 1 - 0.97 * local;
         if (local >= 1 || scale <= 0.02) continue;
 
+        final pos = Offset.lerp(restCenter, target, local)!;
+        final rot = ((c * 5 + r * 3) % 9 - 4) * 0.08 * local;
+
         canvas.save();
-        final center = Offset(left + w / 2 + outX, top + h / 2 + outY);
-        canvas.translate(center.dx, center.dy);
+        canvas.translate(pos.dx, pos.dy);
         canvas.rotate(rot);
         canvas.scale(scale);
         canvas.translate(-w / 2, -h / 2);
