@@ -23,6 +23,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import '../theme.dart' show kGreen;
 import '../models/repository.dart';
 import '../features/linking/linking_controller.dart';
 import 'sync_files_preview_screen.dart';
@@ -394,7 +395,10 @@ class _TwinkleStarState extends State<_TwinkleStar>
     return FadeTransition(
       opacity: Tween(begin: 0.25, end: 1.0)
           .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
-      child: Icon(Icons.auto_awesome, color: wTealDark, size: widget.size),
+      // the real app's own accent green (kGreen, respects the active
+      // skin) - not the welcome flow's own dark teal, which is a
+      // different colour despite being in the same family.
+      child: Icon(Icons.auto_awesome, color: kGreen, size: widget.size),
     );
   }
 }
