@@ -65,6 +65,24 @@
 // real camera has with an object receding away from it toward a
 // vanishing point. Same formula, one variable, looks like distance
 // instead of a drag.
+//
+// 2026-08-31, sixth revision, direct feedback: "looks like some
+// futuristic wizz around... I just need the effect like breaking glass
+// and it fades into the background black screen." Root cause of the
+// "wizz": EVERY shard converging on the exact same point is what reads
+// as a portal/warp-speed effect, not a break - real glass shards don't
+// all fly to one spot. Reverted to each shard falling independently
+// from its OWN rest position (this is what the earlier "much better"
+// version did, before later revisions kept re-introducing a single
+// convergence/origin point) - with a mild leftward/upward drift bias
+// (loosely toward the phone) rather than a literal shared destination.
+// Also restored an alpha fade this time, deliberately - the reason it
+// was removed three revisions ago (reads as "faded translucent
+// squares") no longer applies now that there's a solid black layer
+// underneath: fading now reveals clean black, which is exactly "fades
+// into the background black screen." Increased rotation variety per
+// shard for a more irregular, glass-like break instead of a uniform
+// grid dissolving.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -120,11 +138,11 @@ class _ShatterPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width / _cols;
     final h = size.height / _rows;
-    // approximate on-screen position of the phone icon in the preview
-    // screens' own PhoneToDesktopFlow illustration (upper-left area of
-    // the centered illustration block) - everything collapses toward
-    // this point rather than falling away from one.
-    final target = Offset(size.width * 0.20, size.height * 0.42);
+    // impact-ish origin near the bottom-right (roughly where the dog
+    // sits after a completed swipe-confirm) purely for the stagger
+    // timing - shards do NOT travel toward this point, they just start
+    // cracking away from it first, like a break propagating outward.
+    final origin = Offset(size.width * 0.85, size.height * 0.9);
     final corners = [
       const Offset(0, 0),
       Offset(size.width, 0),
@@ -132,7 +150,7 @@ class _ShatterPainter extends CustomPainter {
       Offset(size.width, size.height),
     ];
     final maxDist =
-        corners.map((c) => (c - target).distance).reduce(math.max);
+        corners.map((c) => (c - origin).distance).reduce(math.max);
 
     for (var r = 0; r < _rows; r++) {
       for (var c = 0; c < _cols; c++) {
@@ -142,35 +160,38 @@ class _ShatterPainter extends CustomPainter {
         final top = r * h;
         final restCenter = Offset(left + w / 2, top + h / 2);
 
-        // stagger: shards nearest the phone collapse into it first
-        // (short trip), the desktop side last (long trip)
-        final dist = (restCenter - target).distance;
-        final delay = (dist / maxDist) * 0.4;
+        final dist = (restCenter - origin).distance;
+        final delay = (dist / maxDist) * 0.35;
         var local = ((t - delay) / (1 - delay)).clamp(0.0, 1.0);
         local = Curves.easeOut.transform(local);
         if (local >= 1) continue;
 
-        // real perspective, not a 2D drag: position AND scale both
-        // shrink by the same 1/depth factor as "depth" increases, the
-        // way an object actually behaves receding away from a camera
-        // toward a vanishing point. Lerping position while separately
-        // shrinking scale (the previous version) reads as being
-        // dragged sideways - this reads as moving away into the
-        // distance, because it's the same math a real camera would see.
-        final depth = 1 + 30 * local;
-        final scale = 1 / depth;
-        if (scale <= 0.02) continue;
-        final pos = target + (restCenter - target) / depth;
-        final rot = ((c * 5 + r * 3) % 9 - 4) * 0.08 * local;
+        // each shard falls from its OWN rest position - not toward a
+        // shared point. A little per-shard randomness plus a gentle
+        // leftward/upward drift bias (loosely "back toward the phone"
+        // without literally converging there) reads as glass falling
+        // away, not a coordinated warp/zoom.
+        final jitterX = ((c * 7 + r * 13) % 17 - 8) * 3.0;
+        final jitterY = ((c * 11 + r * 5) % 13 - 6) * 3.0;
+        final outX = (-30 + jitterX) * local;
+        final outY = (110 + jitterY) * local;
+        final scale = 1 - 0.85 * local;
+        // fade in the back half only - stays solid through the actual
+        // "break" and fades as it recedes, revealing the black layer
+        // underneath, not translucent from the very first frame.
+        final alpha = local < 0.45 ? 1.0 : 1 - (local - 0.45) / 0.55;
+        if (scale <= 0.03 || alpha <= 0.02) continue;
+        final rot = ((c * 53 + r * 17) % 40 - 20) * 0.045;
 
         canvas.save();
-        canvas.translate(pos.dx, pos.dy);
-        canvas.rotate(rot);
+        canvas.translate(
+            restCenter.dx + outX, restCenter.dy + outY);
+        canvas.rotate(rot * local);
         canvas.scale(scale);
         canvas.translate(-w / 2, -h / 2);
         canvas.drawRect(
           Rect.fromLTWH(0, 0, w + 1, h + 1),
-          Paint()..color = bg,
+          Paint()..color = bg.withValues(alpha: alpha),
         );
         canvas.restore();
       }

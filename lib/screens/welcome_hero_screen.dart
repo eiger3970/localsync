@@ -333,11 +333,15 @@ class _PhoneToDesktopDemo extends StatelessWidget {
         // text" affordance idea used elsewhere in the welcome flow.
         if (!delivered) ...[
           const Positioned(
-              top: 56, left: 78, child: _TwinkleStar(size: 12, delayMs: 0)),
+              top: 50, left: 82, child: _TwinkleStar(size: 18, delayMs: 0)),
           const Positioned(
-              top: 108, left: 38, child: _TwinkleStar(size: 8, delayMs: 500)),
+              top: 104, left: 32, child: _TwinkleStar(size: 14, delayMs: 400)),
           const Positioned(
-              top: 116, left: 92, child: _TwinkleStar(size: 7, delayMs: 900)),
+              top: 118, left: 96, child: _TwinkleStar(size: 12, delayMs: 800)),
+          const Positioned(
+              top: 78, left: 34, child: _TwinkleStar(size: 10, delayMs: 200)),
+          const Positioned(
+              top: 62, left: 108, child: _TwinkleStar(size: 11, delayMs: 650)),
         ],
         // above the dashed line, not at the very bottom - that's
         // already where the user's eyes are, they shouldn't have to
@@ -393,7 +397,7 @@ class _TwinkleStarState extends State<_TwinkleStar>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween(begin: 0.25, end: 1.0)
+      opacity: Tween(begin: 0.5, end: 1.0)
           .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
       // the real app's own accent green (kGreen, respects the active
       // skin) - not the welcome flow's own dark teal, which is a
