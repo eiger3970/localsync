@@ -1,6 +1,7 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
-version: 0.1.0+47
+homepage: https://kworld.space
+version: 0.1.0+48
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

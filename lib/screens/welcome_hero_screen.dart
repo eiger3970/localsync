@@ -106,7 +106,7 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     icon: Icons.backup_outlined,
                     text: 'No more backup worries.'),
                 const _HeadlinePoint(
-                    icon: Icons.shield_outlined,
+                    icon: Icons.call_merge,
                     text: 'No more conflicts.'),
                 const SizedBox(height: 6),
                 Text('Try it — drag your file across.',
@@ -311,6 +311,17 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                   child: dog,
                 ),
         ),
+        // twinkling stars hinting the dog is the actionable/draggable
+        // thing - gone once delivered, same "gentle hint, not a wall of
+        // text" affordance idea used elsewhere in the welcome flow.
+        if (!delivered) ...[
+          const Positioned(
+              top: 56, left: 78, child: _TwinkleStar(size: 12, delayMs: 0)),
+          const Positioned(
+              top: 108, left: 38, child: _TwinkleStar(size: 8, delayMs: 500)),
+          const Positioned(
+              top: 116, left: 92, child: _TwinkleStar(size: 7, delayMs: 900)),
+        ],
         if (delivered)
           Positioned(
             left: 0,
@@ -324,6 +335,47 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                     color: wTealDark)),
           ),
       ],
+    );
+  }
+}
+
+class _TwinkleStar extends StatefulWidget {
+  final double size;
+  final int delayMs;
+  const _TwinkleStar({required this.size, required this.delayMs});
+
+  @override
+  State<_TwinkleStar> createState() => _TwinkleStarState();
+}
+
+class _TwinkleStarState extends State<_TwinkleStar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    Future.delayed(Duration(milliseconds: widget.delayMs), () {
+      if (mounted) _ctrl.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween(begin: 0.25, end: 1.0)
+          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
+      child: Icon(Icons.auto_awesome, color: wGold, size: widget.size),
     );
   }
 }
@@ -355,16 +407,26 @@ class _DogWithFile extends StatelessWidget {
           ),
           if (!delivered)
             Positioned(
-              right: -6,
-              bottom: -4,
+              right: -8,
+              bottom: -6,
               child: Container(
-                width: 20,
-                height: 24,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: wTealDark, width: 2),
-                  borderRadius: BorderRadius.circular(3),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: wTealDark.withValues(alpha: 0.25),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2)),
+                  ],
                 ),
+                // an actual file glyph (folded-corner page), not a plain
+                // rectangle - matches the traveler icon used on the
+                // preview screens for the same "this is a file" idea.
+                child: Icon(Icons.insert_drive_file_outlined,
+                    color: wTealDark, size: 14),
               ),
             ),
         ],
@@ -668,10 +730,13 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
   @override
   void initState() {
     super.initState();
+    // Real sync is bi-directional (SyncService has both pull() and
+    // push()) - repeat(reverse: true) makes the traveler go phone-
+    // >desktop then desktop->phone, not just snap back one-way.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat();
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -713,19 +778,16 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
           AnimatedBuilder(
             animation: _ctrl,
             builder: (context, _) {
-              // ease in/out at each end so the traveler doesn't teleport
+              // repeat(reverse: true) already gives a smooth there-and-
+              // back motion with no jump to hide, so no fade needed -
+              // just ease at each end so it doesn't feel mechanical.
               final t = Curves.easeInOut.transform(_ctrl.value);
               final x = 40 + 14 + (pathWidth - 28) * t;
-              // fade in over the first 10% and out over the last 10% of
-              // each lap, so a loop restart never reads as a jump-cut
-              final fade =
-                  (t < 0.1 ? t / 0.1 : (t > 0.9 ? (1 - t) / 0.1 : 1.0))
-                      .clamp(0.0, 1.0);
               return Positioned(
                 left: x,
                 top: 25,
                 child: Opacity(
-                  opacity: fade,
+                  opacity: 1,
                   child: Container(
                     width: 28,
                     height: 28,
