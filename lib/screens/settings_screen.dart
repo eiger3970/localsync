@@ -613,24 +613,26 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTap: _useSuggestedPath,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 4, right: 10),
-                    // 2026-08-30, several rounds of real device feedback -
-                    // ended on "like git logo if possible, but just the
-                    // stroke, solid green." git-icon-stroke.svg traces
-                    // the real git mark's outline (rounded square +
-                    // three-node branch pattern), fill:none so there's no
-                    // solid region for the background to show through.
-                    // Dropped the earlier Icons.computer + tiny-overlay
-                    // combo - at the 10px size that composite needed, the
-                    // mark's detail vanished into an unreadable blob; a
-                    // single 22px glyph matches how the other two field
-                    // icons (person_outline, lan) are already sized.
+                    // 2026-08-31: real feedback, live - restored the
+                    // desktop image ("the whole point of the image is the
+                    // desktop so a user knows they're dealing with desktop
+                    // stuff in number 2") after it had been dropped
+                    // 2026-08-30 for being unreadable combined with a tiny
+                    // git overlay. desktop-git-diamond.svg re-traces the
+                    // same laptop silhouette as pairing_laptop_plain.svg,
+                    // with the real git mark (diamond border + branch
+                    // nodes, geometry measured from the official
+                    // git-scm.com icon) centered in the screen at a size
+                    // that actually holds up at this render size - the
+                    // git mark is "a gentle hint the desktop is having
+                    // some git work done with it," not the primary image.
                     child: SizedBox(
-                      width: 22,
-                      height: 22,
+                      width: 26,
+                      height: 26,
                       child: SvgPicture.asset(
-                        'assets/logos/git-icon-stroke.svg',
-                        width: 22,
-                        height: 22,
+                        'assets/logos/desktop-git-diamond.svg',
+                        width: 26,
+                        height: 26,
                         colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn),
                       ),
                     ),
