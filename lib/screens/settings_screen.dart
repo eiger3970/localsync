@@ -464,7 +464,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.zero,
                 ),
                 child: Text(
                   // 2026-08-30: real device feedback - "too complicated
