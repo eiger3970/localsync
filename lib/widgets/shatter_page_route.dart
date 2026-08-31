@@ -54,6 +54,17 @@
 // farther ones (the desktop side) take longest, same stagger idea as
 // before but aimed at a destination instead of radiating from an
 // origin.
+//
+// 2026-08-31, fifth revision, direct feedback: "looks like it's being
+// pulled, needs to look natural... shrinks into the distance." Real
+// fix: the previous version lerped 2D screen position toward the
+// target and shrank scale as two SEPARATE animations - that's exactly
+// what a sideways drag looks like. Switched to actual perspective
+// math: a single "depth" value grows over time, and BOTH position and
+// scale shrink by the same 1/depth factor - the same relationship a
+// real camera has with an object receding away from it toward a
+// vanishing point. Same formula, one variable, looks like distance
+// instead of a drag.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -137,14 +148,19 @@ class _ShatterPainter extends CustomPainter {
         final delay = (dist / maxDist) * 0.4;
         var local = ((t - delay) / (1 - delay)).clamp(0.0, 1.0);
         local = Curves.easeOut.transform(local);
+        if (local >= 1) continue;
 
-        // fully opaque, solid pastel the whole time it's visible - no
-        // alpha fade (that read as "faded translucent squares"). It
-        // just stops being drawn once it's shrunk to nothing.
-        final scale = 1 - 0.97 * local;
-        if (local >= 1 || scale <= 0.02) continue;
-
-        final pos = Offset.lerp(restCenter, target, local)!;
+        // real perspective, not a 2D drag: position AND scale both
+        // shrink by the same 1/depth factor as "depth" increases, the
+        // way an object actually behaves receding away from a camera
+        // toward a vanishing point. Lerping position while separately
+        // shrinking scale (the previous version) reads as being
+        // dragged sideways - this reads as moving away into the
+        // distance, because it's the same math a real camera would see.
+        final depth = 1 + 30 * local;
+        final scale = 1 / depth;
+        if (scale <= 0.02) continue;
+        final pos = target + (restCenter - target) / depth;
         final rot = ((c * 5 + r * 3) % 9 - 4) * 0.08 * local;
 
         canvas.save();
