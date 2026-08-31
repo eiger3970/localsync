@@ -336,7 +336,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 final hasRefs = refs.isNotEmpty;
                 final refHeaderIndex = entries.length;
                 // 2026-08-26: real feedback, live, from the validated
-                // mockup at claude.ai/code/artifact/27d803c3 - a closing
+                // the design mockup - a closing
                 // line on Delete's scope, same idea as the "resolving
                 // here only updates this phone" banner above but scoped
                 // to this section specifically. One more trailing slot
@@ -710,7 +710,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
   bool get _droppedIsYours => _droppedWho.toLowerCase() == 'yours';
 
   // 2026-08-26: real feedback, live, using the finished mockup at
-  // claude.ai/code/artifact/27d803c3 as the reference - both sides need
+  // the design mockup as the reference - both sides need
   // a device identity, not just the dropped one. "This device" instead
   // of a bare "yours" (never shown to the user verbatim elsewhere either)
   // for the common case of your own edit getting dropped.
@@ -948,7 +948,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                         // about what already happened, not a promise
                         // about what Delete below will do - matches the
                         // finished mockup at
-                        // claude.ai/code/artifact/27d803c3.
+                        // the design mockup.
                         Theme(
                           data: Theme.of(context)
                               .copyWith(dividerColor: Colors.transparent),

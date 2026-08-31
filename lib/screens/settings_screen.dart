@@ -1088,8 +1088,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                 for (final palette in allPalettes) ...[
                   // 2026-08-29: real feedback, live - "add a Customise
                   // button, left of the us skin... user sends me a text
-                  // or image, I read it and design it (or have Claude AI
-                  // design it)." Placed inline in the same grid, right
+                  // or image, I read it and design it." Placed inline in
+                  // the same grid, right
                   // before the first flag skin, rather than a separate
                   // section - reads as one more skin choice, not a
                   // different kind of thing bolted on.
@@ -1305,8 +1305,8 @@ class _SkinSwatch extends StatelessWidget {
 
 // 2026-08-29: real feedback, live - "add a Customise button, left of
 // the us skin... 3x price of most expensive skin... user sends me a
-// text or image, app auto populates or I can read and have Claude AI
-// design it." No skin has an actual price anywhere yet (every "PRO"
+// text or image, app auto populates or I can read and design it."
+// No skin has an actual price anywhere yet (every "PRO"
 // badge above is a preview of the eventual gate, per _SkinSwatch's own
 // 2026-08-21 comment) - "3x the most expensive skin" has no real
 // number to multiply, so the price shown here is a placeholder until a
