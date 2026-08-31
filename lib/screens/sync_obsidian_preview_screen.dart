@@ -75,7 +75,13 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
                     textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 Expanded(
-                  child: Center(child: _PhoneToDesktopGraph()),
+                  child: Center(
+                    child: PhoneToDesktopFlow(
+                      color: wVioletDark,
+                      screenColor: wVioletBg,
+                      travelerIcon: Icons.auto_stories_rounded,
+                    ),
+                  ),
                 ),
                 Text('Links your whole vault.',
                     textAlign: TextAlign.center,
@@ -97,74 +103,3 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
   }
 }
 
-// Phone -> graph -> desktop, same phone/desktop framing as the Files
-// preview and the hero demo, per direct feedback: an illustration that
-// "doesn't inform or remain consistent with the ease of the user
-// syncing device1 to device2." The abstract bi-directional graph stays
-// (deliberately not any one PKM app's actual logo) but now sits
-// properly centered between the two devices instead of floating alone,
-// off-center, with no device context.
-class _PhoneToDesktopGraph extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const MiniPhoneIcon(color: wVioletDark, screenColor: wVioletBg),
-        const SizedBox(width: 10),
-        SizedBox(
-          width: 130,
-          height: 130,
-          child: CustomPaint(painter: _GraphPainter()),
-        ),
-        const SizedBox(width: 10),
-        const MiniDesktopIcon(color: wVioletDark),
-      ],
-    );
-  }
-}
-
-class _GraphPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // coordinates centered around the canvas midpoint (65,65) so this
-    // is genuinely centered within its box, not hand-eyeballed
-    final nodes = <Offset, double>{
-      const Offset(65, 12): 11,
-      const Offset(105, 42): 9,
-      const Offset(35, 55): 12,
-      const Offset(75, 85): 10,
-      const Offset(20, 105): 8,
-      const Offset(112, 100): 8,
-    };
-    final edges = [
-      [const Offset(65, 12), const Offset(105, 42)],
-      [const Offset(65, 12), const Offset(35, 55)],
-      [const Offset(105, 42), const Offset(75, 85)],
-      [const Offset(35, 55), const Offset(75, 85)],
-      [const Offset(35, 55), const Offset(20, 105)],
-      [const Offset(75, 85), const Offset(112, 100)],
-    ];
-
-    final linePaint = Paint()
-      ..color = wVioletDark
-      ..strokeWidth = 2.5;
-    for (final e in edges) {
-      canvas.drawLine(e[0], e[1], linePaint);
-    }
-
-    final fill = Paint()..color = wVioletBg;
-    final stroke = Paint()
-      ..color = wVioletDark
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    nodes.forEach((center, r) {
-      canvas.drawCircle(center, r, fill);
-      canvas.drawCircle(center, r, stroke);
-    });
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}

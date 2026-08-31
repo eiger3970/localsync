@@ -99,16 +99,15 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text(
-                    'No more lost files.\n'
-                    'No more backup worries.\n'
-                    'No more conflicts.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 21,
-                        color: wInk,
-                        height: 1.25)),
+                const _HeadlinePoint(
+                    icon: Icons.insert_drive_file_outlined,
+                    text: 'No more lost files.'),
+                const _HeadlinePoint(
+                    icon: Icons.backup_outlined,
+                    text: 'No more backup worries.'),
+                const _HeadlinePoint(
+                    icon: Icons.shield_outlined,
+                    text: 'No more conflicts.'),
                 const SizedBox(height: 6),
                 Text('Try it — drag your file across.',
                     textAlign: TextAlign.center,
@@ -152,10 +151,37 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 Text('No cloud. No account. Just you.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: wInkDim)),
+                const SizedBox(height: 4),
+                Text('iPhone only. Works with a Linux or Mac desktop.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: wInkDim)),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HeadlinePoint extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _HeadlinePoint({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: wTealDark, size: 18),
+          const SizedBox(width: 8),
+          Text(text,
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, fontSize: 20, color: wInk)),
+        ],
       ),
     );
   }
@@ -611,4 +637,116 @@ class _MiniTrapClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+// Phone -> one traveling item -> desktop, looping automatically. Direct
+// fix for real feedback: "I see 5 images in the middle of the screen,
+// but it doesn't tell me a story" - one clear moving element on a
+// visible path reads as "your stuff moves from phone to desktop" far
+// better than several static icons with no motion cue. Same phone/
+// desktop devices as the hero demo, so it's the same story continued,
+// not a new one.
+class PhoneToDesktopFlow extends StatefulWidget {
+  final Color color;
+  final Color screenColor;
+  final IconData travelerIcon;
+  const PhoneToDesktopFlow({
+    super.key,
+    required this.color,
+    required this.screenColor,
+    required this.travelerIcon,
+  });
+
+  @override
+  State<PhoneToDesktopFlow> createState() => _PhoneToDesktopFlowState();
+}
+
+class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const pathWidth = 130.0;
+    return SizedBox(
+      width: 40 + 14 + pathWidth + 14 + 76,
+      height: 90,
+      child: Stack(
+        alignment: Alignment.centerLeft,
+        children: [
+          Positioned(
+            left: 0,
+            top: 8,
+            child: MiniPhoneIcon(color: widget.color, screenColor: widget.screenColor),
+          ),
+          Positioned(
+            left: 40 + 14,
+            top: 44,
+            child: SizedBox(
+              width: pathWidth,
+              child: Container(
+                height: 2,
+                color: widget.color.withValues(alpha: 0.25),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 16,
+            child: MiniDesktopIcon(color: widget.color),
+          ),
+          AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, _) {
+              // ease in/out at each end so the traveler doesn't teleport
+              final t = Curves.easeInOut.transform(_ctrl.value);
+              final x = 40 + 14 + (pathWidth - 28) * t;
+              // fade in over the first 10% and out over the last 10% of
+              // each lap, so a loop restart never reads as a jump-cut
+              final fade =
+                  (t < 0.1 ? t / 0.1 : (t > 0.9 ? (1 - t) / 0.1 : 1.0))
+                      .clamp(0.0, 1.0);
+              return Positioned(
+                left: x,
+                top: 25,
+                child: Opacity(
+                  opacity: fade,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: widget.color.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2)),
+                        ]),
+                    child: Icon(widget.travelerIcon,
+                        color: widget.color, size: 16),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -73,7 +73,11 @@ class SyncFilesPreviewScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Center(
-                    child: _PhoneToDesktopFiles(),
+                    child: PhoneToDesktopFlow(
+                      color: wTealDark,
+                      screenColor: wTealBg,
+                      travelerIcon: Icons.insert_drive_file_outlined,
+                    ),
                   ),
                 ),
                 Text(
@@ -96,43 +100,3 @@ class SyncFilesPreviewScreen extends StatelessWidget {
   }
 }
 
-// Phone -> [notes, docs, photos] -> desktop, real Flutter widgets in a
-// Row (not hand-placed CustomPaint offsets - that's what caused the
-// off-center bug) - directly echoes WelcomeHeroScreen's phone/desktop
-// demo instead of a disconnected file-tree diagram, per direct
-// feedback: "doesn't inform or remain consistent with the ease of the
-// user syncing device1 to device2."
-class _PhoneToDesktopFiles extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const MiniPhoneIcon(color: wTealDark, screenColor: wTealBg),
-        const SizedBox(width: 14),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _iconChip(Icons.description_outlined),
-            const SizedBox(height: 8),
-            _iconChip(Icons.folder_outlined),
-            const SizedBox(height: 8),
-            _iconChip(Icons.image_outlined),
-          ],
-        ),
-        const SizedBox(width: 14),
-        const MiniDesktopIcon(color: wTealDark),
-      ],
-    );
-  }
-
-  Widget _iconChip(IconData icon) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: const BoxDecoration(color: wTealBg, shape: BoxShape.circle),
-      child: Icon(icon, color: wTealDark, size: 18),
-    );
-  }
-}

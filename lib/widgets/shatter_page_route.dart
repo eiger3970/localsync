@@ -19,6 +19,14 @@
 // downward fall (gravity, not position-dependent expansion), and a
 // much deeper scale-down - shrinking + sinking reads as "falling back
 // into the dark" rather than "exploding at the screen."
+//
+// 2026-08-31, second revision: still "doesn't look like smashing." Real
+// bug, not just a description mismatch - each shard's own motion used
+// Curves.easeIn (slow start, accelerating), which is backwards for an
+// impact. A smash is fast/sudden at the moment of breaking and settles
+// afterward - that's Curves.easeOut, not easeIn. The whole first cut
+// was animating like something gently sinking rather than something
+// that just got hit.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -77,7 +85,7 @@ class _ShatterPainter extends CustomPainter {
         // not a burst
         final delay = (dist / maxDist) * 0.4;
         var local = ((t - delay) / (1 - delay)).clamp(0.0, 1.0);
-        local = Curves.easeIn.transform(local);
+        local = Curves.easeOut.transform(local);
 
         final left = c * w;
         final top = r * h;
