@@ -613,55 +613,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTap: _useSuggestedPath,
                   child: Padding(
                     padding: const EdgeInsets.only(top: 4, right: 10),
-                    // 2026-08-30: real device feedback, two rounds - the
-                    // SVG fix (removing colorFilter) genuinely fixed the
-                    // white-square bug, but then couldn't be made
-                    // consistent with the other two fields' green icons
-                    // without reintroducing it (srcIn on this multi-color
-                    // asset flattens it back to one block, just green
-                    // instead of white). Switched to a plain Material
-                    // glyph, same tradeoff already decided with the user
-                    // 2026-08-18 for the Conflicts screen icon row (see
-                    // this Row's own 2026-08-21 comment below) - same
-                    // size/color as Desktop username and IP address now.
-                    //
-                    // 2026-08-30, follow-up - "needs a git logo in the
-                    // desktop screen." git-icon.svg (the official Git
-                    // mark, unused since this field's icon changed a few
-                    // rounds ago - a real, findable asset, not lost) -
-                    // small, centered over where Icons.computer draws its
-                    // screen area.
-                    //
-                    // 2026-08-30, real device bug round 2 - "black colour
-                    // on top middle" (kVoid tint, invisible against the
-                    // dark background), round 3 - "reverse the git logo
-                    // colour" (tried a badge with the logo's own native
-                    // orange-red instead), round 4 - "just the git logo
-                    // inside the desktop screen and green, don't make
-                    // orange or red as it causes distraction and worry."
-                    // Back to the inside-the-screen placement, tinted
-                    // kGreen this time (matches the computer icon itself
-                    // and every other accent on this screen - no
-                    // orange/red anywhere, explicitly asked for) instead
-                    // of the badge's native brand color.
+                    // 2026-08-30, several rounds of real device feedback -
+                    // ended on "like git logo if possible, but just the
+                    // stroke, solid green." git-icon-stroke.svg traces
+                    // the real git mark's outline (rounded square +
+                    // three-node branch pattern), fill:none so there's no
+                    // solid region for the background to show through.
+                    // Dropped the earlier Icons.computer + tiny-overlay
+                    // combo - at the 10px size that composite needed, the
+                    // mark's detail vanished into an unreadable blob; a
+                    // single 22px glyph matches how the other two field
+                    // icons (person_outline, lan) are already sized.
                     child: SizedBox(
                       width: 22,
                       height: 22,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Icon(Icons.computer, color: kGreen, size: 22),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 5),
-                            child: SvgPicture.asset(
-                              'assets/logos/git-icon.svg',
-                              width: 10,
-                              height: 10,
-                              colorFilter:
-                                  ColorFilter.mode(kGreen, BlendMode.srcIn),
-                            ),
-                          ),
-                        ],
+                      child: SvgPicture.asset(
+                        'assets/logos/git-icon-stroke.svg',
+                        width: 22,
+                        height: 22,
+                        colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn),
                       ),
                     ),
                   ),
