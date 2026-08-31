@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../theme.dart';
 import '../services/purchase_service.dart';
+import '../screens/paywall_obsidian_screen.dart';
 
 class PkmSyncUpsell extends StatefulWidget {
   final PurchaseService purchases;
@@ -31,8 +32,6 @@ class PkmSyncUpsell extends StatefulWidget {
 }
 
 class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
-  bool _busy = false;
-  String? _error;
   Package? _package;
   String? _priceLabel;
   // 2026-08-28: real feedback, live - "smoother" for this exact widget,
@@ -69,34 +68,19 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
     });
   }
 
-  Future<void> _buy() async {
-    final package = _package;
-    if (package == null) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final info = await widget.purchases.purchasePackage(package);
-      final unlocked =
-          info?.entitlements.active.containsKey(kPkmSyncEntitlementId) ??
-              false;
-      if (!mounted) return;
-      if (unlocked) {
-        // Real purchase confirmed - run the actual vault-linking
-        // sequence now, the same one SyncChoiceScreen's "My Obsidian
-        // notes" choice already leads to. Not a lesser/separate path.
-        widget.onUnlocked();
-      } else {
-        setState(() => _error = 'Purchase did not complete - try again.');
-      }
-    } on PurchasesErrorCode catch (_) {
-      if (mounted) setState(() => _error = 'Purchase cancelled or failed.');
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Purchase cancelled or failed.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  // 2026-08-31: this small card stays exactly the quiet, always-visible,
+  // non-naggy nudge it was designed to be - it still just sits there
+  // doing nothing until tapped. Tapping the price now opens the fuller
+  // paywall (benefit list, one clear price) before actually charging,
+  // instead of purchasing inline the instant the card is touched.
+  Future<void> _openPaywall() async {
+    final unlocked = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+          builder: (_) =>
+              PaywallObsidianScreen(purchases: widget.purchases)),
+    );
+    if (unlocked == true) widget.onUnlocked();
   }
 
   @override
@@ -134,16 +118,9 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
                 ),
               ),
               const SizedBox(width: 10),
-              if (_busy)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: kGreen),
-                )
-              else if (_package != null)
+              if (_package != null)
                 OutlinedButton(
-                  onPressed: _buy,
+                  onPressed: _openPaywall,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: kGreen),
                     foregroundColor: kGreen,
@@ -167,11 +144,6 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
                         fontStyle: FontStyle.italic)),
             ],
           ),
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 11.5)),
-          ],
         ],
       ),
     );

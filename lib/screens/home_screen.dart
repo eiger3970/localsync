@@ -21,7 +21,7 @@ import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
 import 'linking_screen.dart';
-import 'sync_choice_screen.dart';
+import 'welcome_hero_screen.dart';
 import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
@@ -477,7 +477,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const SyncChoiceScreen()));
+                        builder: (_) => const WelcomeHeroScreen()));
               }
             });
             return const SizedBox.shrink();
