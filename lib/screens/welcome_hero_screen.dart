@@ -21,6 +21,7 @@
 // flow (LinkingScreen) is untouched.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../models/repository.dart';
 import '../features/linking/linking_controller.dart';
@@ -106,7 +107,7 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     icon: Icons.backup_outlined,
                     text: 'No more backup worries.'),
                 const _HeadlinePoint(
-                    icon: Icons.call_merge,
+                    assetIcon: 'assets/logos/git-branches-only.svg',
                     text: 'No more conflicts.'),
                 const SizedBox(height: 6),
                 Text('Try it — drag your file across.',
@@ -165,9 +166,13 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
 }
 
 class _HeadlinePoint extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  // git-branches-only.svg for the conflicts line - the real app's own
+  // git mark (stroke only, no diamond, per direct request), not a
+  // generic Material icon.
+  final String? assetIcon;
   final String text;
-  const _HeadlinePoint({required this.icon, required this.text});
+  const _HeadlinePoint({this.icon, this.assetIcon, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +181,13 @@ class _HeadlinePoint extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: wTealDark, size: 18),
+          if (assetIcon != null)
+            SvgPicture.asset(assetIcon!,
+                width: 18,
+                height: 18,
+                colorFilter: ColorFilter.mode(wTealDark, BlendMode.srcIn))
+          else
+            Icon(icon, color: wTealDark, size: 18),
           const SizedBox(width: 8),
           Text(text,
               style: TextStyle(
@@ -275,9 +286,12 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                             width: 78, height: 9, color: wTealDark),
                       ),
                     ),
+                    // top-left, not centered - centered used to sit
+                    // right where the dog docks and got hidden behind
+                    // its face once delivered.
                     Positioned(
-                      left: 22,
-                      top: 12,
+                      left: 2,
+                      top: 2,
                       child: AnimatedOpacity(
                         opacity: delivered ? 1 : 0,
                         duration: const Duration(milliseconds: 250),
@@ -322,11 +336,14 @@ class _PhoneToDesktopDemo extends StatelessWidget {
           const Positioned(
               top: 116, left: 92, child: _TwinkleStar(size: 7, delayMs: 900)),
         ],
+        // above the dashed line, not at the very bottom - that's
+        // already where the user's eyes are, they shouldn't have to
+        // search the screen for what just happened.
         if (delivered)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
+            top: 76,
             child: Text('Synced! Just like that.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -731,12 +748,15 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
   void initState() {
     super.initState();
     // Real sync is bi-directional (SyncService has both pull() and
-    // push()) - repeat(reverse: true) makes the traveler go phone-
-    // >desktop then desktop->phone, not just snap back one-way.
+    // push()) - but a single item gliding back and forth read as
+    // "ambiguous" (direct feedback). Now: the item travels to one
+    // device and disappears INTO it, then a different item emerges
+    // from that device and disappears into the other - two distinct
+    // one-way trips, not one item bouncing.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 2800),
+    )..repeat();
   }
 
   @override
@@ -761,13 +781,13 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
           ),
           Positioned(
             left: 40 + 14,
-            top: 44,
+            top: 43,
             child: SizedBox(
               width: pathWidth,
-              child: Container(
-                height: 2,
-                color: widget.color.withValues(alpha: 0.25),
-              ),
+              height: 2,
+              child: CustomPaint(
+                  painter: _ShortDashPainter(
+                      color: widget.color.withValues(alpha: 0.35))),
             ),
           ),
           Positioned(
@@ -778,30 +798,54 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
           AnimatedBuilder(
             animation: _ctrl,
             builder: (context, _) {
-              // repeat(reverse: true) already gives a smooth there-and-
-              // back motion with no jump to hide, so no fade needed -
-              // just ease at each end so it doesn't feel mechanical.
-              final t = Curves.easeInOut.transform(_ctrl.value);
-              final x = 40 + 14 + (pathWidth - 28) * t;
+              const xStart = 54.0; // 40 + 14, item's left edge at rest
+              const xEnd = 156.0; // 40 + 14 + pathWidth - 28
+              final t = _ctrl.value;
+              double local;
+              double dir; // +1 outbound (phone->desktop), -1 return
+              if (t < 0.4) {
+                local = t / 0.4;
+                dir = 1;
+              } else if (t < 0.5) {
+                return const SizedBox.shrink(); // gap between trips
+              } else if (t < 0.9) {
+                local = (t - 0.5) / 0.4;
+                dir = -1;
+              } else {
+                return const SizedBox.shrink(); // gap between trips
+              }
+              local = Curves.easeInOut.transform(local);
+              final x =
+                  dir > 0 ? xStart + (xEnd - xStart) * local : xEnd + (xStart - xEnd) * local;
+              // emerges (grows/fades in) leaving one device, shrinks/
+              // fades out arriving at the other - reads as "disappears
+              // into the device," not a static hover between them
+              const edge = 0.18;
+              final vis = local < edge
+                  ? local / edge
+                  : (local > 1 - edge ? (1 - local) / edge : 1.0);
               return Positioned(
                 left: x,
                 top: 25,
-                child: Opacity(
-                  opacity: 1,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                              color: widget.color.withValues(alpha: 0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2)),
-                        ]),
-                    child: Icon(widget.travelerIcon,
-                        color: widget.color, size: 16),
+                child: Transform.scale(
+                  scale: 0.4 + 0.6 * vis,
+                  child: Opacity(
+                    opacity: vis,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                                color: widget.color.withValues(alpha: 0.3),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2)),
+                          ]),
+                      child: Icon(widget.travelerIcon,
+                          color: widget.color, size: 16),
+                    ),
                   ),
                 ),
               );
@@ -811,4 +855,30 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
       ),
     );
   }
+}
+
+// A real short-dash pattern - what was here before was one continuous
+// solid bar (read as "a nasty long dash," direct feedback), not
+// actually dashed at all.
+class _ShortDashPainter extends CustomPainter {
+  final Color color;
+  const _ShortDashPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2;
+    const dash = 4.0;
+    const gap = 3.0;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(
+          Offset(x, size.height / 2), Offset(x + dash, size.height / 2), paint);
+      x += dash + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
