@@ -101,13 +101,17 @@ class _ShatterPainter extends CustomPainter {
       for (var c = 0; c < _cols; c++) {
         final fr = r / (_rows - 1);
         final bg = Color.lerp(_bg1, _bg2, fr)!;
-        final cx = c - (_cols - 1) / 2;
-        final cy = r - (_rows - 1) / 2;
+        // impact origin is bottom-right, not center - that's where the
+        // dog sits after a completed swipe-confirm, so the smash
+        // starts where the user's action just happened, not an
+        // arbitrary screen center
+        final cx = c - (_cols - 1);
+        final cy = r - (_rows - 1);
         final dist = math.sqrt(cx * cx + cy * cy);
-        final maxDist = math.sqrt(
-            math.pow(_cols / 2, 2) + math.pow(_rows / 2, 2));
-        // stagger: shards near center fall first, edges last - a ripple,
-        // not a burst
+        final maxDist =
+            math.sqrt(math.pow(_cols - 1, 2) + math.pow(_rows - 1, 2));
+        // stagger: shards near the impact origin fall first, the far
+        // corner last - a ripple, not a uniform burst
         final delay = (dist / maxDist) * 0.4;
         var local = ((t - delay) / (1 - delay)).clamp(0.0, 1.0);
         local = Curves.easeOut.transform(local);

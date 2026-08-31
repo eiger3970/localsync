@@ -9,17 +9,41 @@
 // the primary PKM app once it's functional enough, per direct note).
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/purchase_service.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import '../widgets/shatter_page_route.dart';
 import 'linking_screen.dart';
+import 'paywall_obsidian_screen.dart';
 import 'welcome_hero_screen.dart';
 
 class SyncObsidianPreviewScreen extends StatelessWidget {
   const SyncObsidianPreviewScreen({super.key});
 
-  // This is the one real moment the pastel welcome world meets the
-  // app's actual dark UI - shatters into it rather than a plain cut.
-  void _proceed(BuildContext context) {
+  // 2026-08-31: real gap, direct feedback - "I don't see where to pay."
+  // This screen showed a "PRO - from $24.99" badge but never actually
+  // charged anything - confirming the swipe just walked straight into
+  // free setup. Now checks the real entitlement first (skip the
+  // paywall for anyone who already owns it - never re-charge), and
+  // only proceeds into the real pairing flow once actually unlocked.
+  Future<void> _proceed(BuildContext context) async {
+    final purchases = context.read<PurchaseService>();
+    final alreadyOwned =
+        await purchases.hasEntitlement(kPkmSyncEntitlementId);
+    if (!context.mounted) return;
+
+    if (!alreadyOwned) {
+      final unlocked = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => PaywallObsidianScreen(purchases: purchases)),
+      );
+      if (unlocked != true) return; // cancelled/failed - stay put
+    }
+
+    if (!context.mounted) return;
+    // This is the one real moment the pastel welcome world meets the
+    // app's actual dark UI - shatters into it rather than a plain cut.
     Navigator.pushReplacement(
         context, ShatterPageRoute(builder: (_) => const LinkingScreen()));
   }
