@@ -75,7 +75,7 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
                     textAlign: TextAlign.center),
                 const SizedBox(height: 20),
                 Expanded(
-                  child: Center(child: _GraphIllustration()),
+                  child: Center(child: _PhoneToDesktopGraph()),
                 ),
                 Text('Links your whole vault.',
                     textAlign: TextAlign.center,
@@ -97,13 +97,30 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
   }
 }
 
-class _GraphIllustration extends StatelessWidget {
+// Phone -> graph -> desktop, same phone/desktop framing as the Files
+// preview and the hero demo, per direct feedback: an illustration that
+// "doesn't inform or remain consistent with the ease of the user
+// syncing device1 to device2." The abstract bi-directional graph stays
+// (deliberately not any one PKM app's actual logo) but now sits
+// properly centered between the two devices instead of floating alone,
+// off-center, with no device context.
+class _PhoneToDesktopGraph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      height: 200,
-      child: CustomPaint(painter: _GraphPainter()),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const MiniPhoneIcon(color: wVioletDark, screenColor: wVioletBg),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 130,
+          height: 130,
+          child: CustomPaint(painter: _GraphPainter()),
+        ),
+        const SizedBox(width: 10),
+        const MiniDesktopIcon(color: wVioletDark),
+      ],
     );
   }
 }
@@ -111,21 +128,23 @@ class _GraphIllustration extends StatelessWidget {
 class _GraphPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    // coordinates centered around the canvas midpoint (65,65) so this
+    // is genuinely centered within its box, not hand-eyeballed
     final nodes = <Offset, double>{
-      const Offset(75, 15): 12,
-      const Offset(120, 50): 10,
-      const Offset(50, 70): 14,
-      const Offset(95, 105): 11,
-      const Offset(15, 125): 9,
-      const Offset(135, 130): 9,
+      const Offset(65, 12): 11,
+      const Offset(105, 42): 9,
+      const Offset(35, 55): 12,
+      const Offset(75, 85): 10,
+      const Offset(20, 105): 8,
+      const Offset(112, 100): 8,
     };
     final edges = [
-      [const Offset(75, 15), const Offset(120, 50)],
-      [const Offset(75, 15), const Offset(50, 70)],
-      [const Offset(120, 50), const Offset(95, 105)],
-      [const Offset(50, 70), const Offset(95, 105)],
-      [const Offset(50, 70), const Offset(15, 125)],
-      [const Offset(95, 105), const Offset(135, 130)],
+      [const Offset(65, 12), const Offset(105, 42)],
+      [const Offset(65, 12), const Offset(35, 55)],
+      [const Offset(105, 42), const Offset(75, 85)],
+      [const Offset(35, 55), const Offset(75, 85)],
+      [const Offset(35, 55), const Offset(20, 105)],
+      [const Offset(75, 85), const Offset(112, 100)],
     ];
 
     final linePaint = Paint()
@@ -144,14 +163,6 @@ class _GraphPainter extends CustomPainter {
       canvas.drawCircle(center, r, fill);
       canvas.drawCircle(center, r, stroke);
     });
-
-    // small bubble-cluster hint, generic PKM nod (Logseq-style bubbles)
-    canvas.drawCircle(const Offset(200, 155), 7, fill);
-    canvas.drawCircle(const Offset(200, 155), 7, stroke);
-    canvas.drawCircle(const Offset(214, 149), 4.5, fill);
-    canvas.drawCircle(const Offset(214, 149), 4.5, stroke);
-    canvas.drawCircle(const Offset(212, 162), 3.5, fill);
-    canvas.drawCircle(const Offset(212, 162), 3.5, stroke);
   }
 
   @override

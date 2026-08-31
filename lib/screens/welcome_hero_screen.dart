@@ -99,13 +99,16 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Text('No more lost files.\nNo more conflicts.',
+                Text(
+                    'No more lost files.\n'
+                    'No more backup worries.\n'
+                    'No more conflicts.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 23,
+                        fontSize: 21,
                         color: wInk,
-                        height: 1.2)),
+                        height: 1.25)),
                 const SizedBox(height: 6),
                 Text('Try it — drag your file across.',
                     textAlign: TextAlign.center,
@@ -510,4 +513,102 @@ class _PathCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// Small phone/desktop device icons, shared by the preview screens so
+// their illustrations echo this screen's own phone-to-desktop demo
+// instead of standing alone - direct feedback: an illustration that
+// "doesn't inform or remain consistent with the ease of the user
+// syncing device1 to device2."
+class MiniPhoneIcon extends StatelessWidget {
+  final Color color;
+  final Color screenColor;
+  const MiniPhoneIcon({super.key, required this.color, required this.screenColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 74,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: color, width: 2.5),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(5, 7, 5, 0),
+              decoration: BoxDecoration(
+                  color: screenColor, borderRadius: BorderRadius.circular(3)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: color, width: 2)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class MiniDesktopIcon extends StatelessWidget {
+  final Color color;
+  const MiniDesktopIcon({super.key, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 76,
+      height: 58,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 7,
+            top: 0,
+            child: Container(
+              width: 62,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: color, width: 2.5),
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 46,
+            child: ClipPath(
+              clipper: _MiniTrapClipper(),
+              child: Container(width: 76, height: 9, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniTrapClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(size.width * 0.1, 0)
+      ..lineTo(size.width * 0.9, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
