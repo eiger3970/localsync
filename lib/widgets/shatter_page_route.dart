@@ -86,7 +86,12 @@ class _Shard {
 // size at paint time since the route can run at any screen size.
 class _CrackPattern {
   final List<_Shard> shards;
-  _CrackPattern(this.shards);
+  // spoke/ring lines, kept separately from the shards so the impact
+  // flash can draw the crack lines themselves once, instead of
+  // redundantly stroking every shared shard edge twice.
+  final List<Offset> angleDirs;
+  final List<double> radii;
+  _CrackPattern(this.shards, this.angleDirs, this.radii);
 
   static _CrackPattern build() {
     // deterministic "jitter" - a fixed formula, not real randomness, so
@@ -124,7 +129,9 @@ class _CrackPattern {
         shards.add(_Shard(corners, centroid, centroid.distance));
       }
     }
-    return _CrackPattern(shards);
+    final angleDirs =
+        angles.map((a) => Offset(math.cos(a), math.sin(a))).toList();
+    return _CrackPattern(shards, angleDirs, radii);
   }
 }
 
@@ -149,6 +156,25 @@ class _ShatterPainter extends CustomPainter {
       Offset(size.width, size.height),
     ];
     final maxDist = corners.map((c) => (c - impact).distance).reduce(math.max);
+
+    // impact flash - the crack lines themselves, bright, fading fast.
+    // Real glass shows the break pattern for an instant before pieces
+    // actually separate; going straight into falling skipped that
+    // moment entirely.
+    final flashAlpha = (1 - t / 0.1).clamp(0.0, 1.0);
+    if (flashAlpha > 0) {
+      final flashPaint = Paint()
+        ..color = Colors.white.withValues(alpha: flashAlpha * 0.9)
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke;
+      final outerR = _pattern.radii.last * maxDist;
+      for (final dir in _pattern.angleDirs) {
+        canvas.drawLine(impact, impact + dir * outerR, flashPaint);
+      }
+      for (final r in _pattern.radii.skip(1)) {
+        canvas.drawCircle(impact, r * maxDist, flashPaint);
+      }
+    }
 
     var i = 0;
     for (final shard in _pattern.shards) {
@@ -193,6 +219,16 @@ class _ShatterPainter extends CustomPainter {
       }
       path.close();
       canvas.drawPath(path, Paint()..color = bg.withValues(alpha: alpha));
+      // a thin light edge on each piece - real glass shards catch a
+      // highlight along their broken edges; a flat fill with no edge
+      // is what reads as "basic."
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white.withValues(alpha: alpha * 0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
       canvas.restore();
     }
   }

@@ -396,13 +396,23 @@ class _TwinkleStarState extends State<_TwinkleStar>
 
   @override
   Widget build(BuildContext context) {
+    // "not sparkling" - a plain opacity fade doesn't read as a twinkle.
+    // Real sparkle needs a size pulse alongside the brightness pulse,
+    // plus a slow spin - that combination is what actually reads as
+    // "sparkling" rather than "fading."
+    final curved = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
     return FadeTransition(
-      opacity: Tween(begin: 0.5, end: 1.0)
-          .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut)),
-      // the real app's own accent green (kGreen, respects the active
-      // skin) - not the welcome flow's own dark teal, which is a
-      // different colour despite being in the same family.
-      child: Icon(Icons.auto_awesome, color: kGreen, size: widget.size),
+      opacity: Tween(begin: 0.5, end: 1.0).animate(curved),
+      child: ScaleTransition(
+        scale: Tween(begin: 0.6, end: 1.15).animate(curved),
+        child: RotationTransition(
+          turns: Tween(begin: -0.05, end: 0.05).animate(curved),
+          // the real app's own accent green (kGreen, respects the
+          // active skin) - not the welcome flow's own dark teal, which
+          // is a different colour despite being in the same family.
+          child: Icon(Icons.auto_awesome, color: kGreen, size: widget.size),
+        ),
+      ),
     );
   }
 }
