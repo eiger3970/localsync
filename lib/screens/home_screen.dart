@@ -1052,9 +1052,17 @@ Future<void> _showAbout(BuildContext context) async {
             Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 4),
+            // 2026-08-23: real feedback, live - specific tool names
+            // (Flutter, Claude) moved out of this sentence entirely -
+            // "these can be listed in the Credits" - so this line
+            // stays generic ("using tools") and doesn't duplicate what
+            // Credits already states. Flutter added to Credits below,
+            // Claude was already there.
             Text(
-              'Built by kworld.space. Thanks to public education and '
-              'the global community that made these skills possible.',
+              'Built by kworld with real programming skill, using '
+              'tools - AI is a coding tool here, the same as any '
+              'compiler or IDE. Thanks to public education and the '
+              'global community that made these skills possible.',
               style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6),
             ),
             // 2026-08-23: reordered alphabetically (CONTACT, CREDITS,
@@ -1090,7 +1098,7 @@ Future<void> _showAbout(BuildContext context) async {
             // (matches the house naming rule), and re-clusters all
             // three under "P" instead of being scattered across C/M/P.
             Text(
-              'Bash, Blender, C, C++, Codemagic, Dart, Eye of '
+              'Bash, Blender, C, C++, Claude, Codemagic, Dart, Eye of '
               'MATE, Flameshot, Flutter, GIMP, iLoader, Inkscape, '
               'iPhone, Kanban plugin, Logseq, Obsidian, Public library '
               'CHUV, Public library Médiathèque Valais Sion Makerspace '
@@ -1197,16 +1205,6 @@ Future<void> _showAbout(BuildContext context) async {
               child: Text('steamyice42@walletofsatoshi.com',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
-            const SizedBox(height: 20),
-            Text('WEBSITE',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
-            const SizedBox(height: 6),
-            Text('kworld.space',
-                style: TextStyle(color: kGreen, fontSize: 13)),
           ],
         ),
       ),

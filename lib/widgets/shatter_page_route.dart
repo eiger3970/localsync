@@ -27,6 +27,21 @@
 // afterward - that's Curves.easeOut, not easeIn. The whole first cut
 // was animating like something gently sinking rather than something
 // that just got hit.
+//
+// 2026-08-31, third revision, direct feedback: "pieces are faded
+// translucent squares... immediately switch... to the black... screen,
+// but the screen needs to be white with the transition smashing into
+// the black screen." Two real fixes: (1) shards were fading their own
+// ALPHA out (opacity = 1-local) as they shrank - that reads as
+// dissolving/translucent, not solid pieces breaking away. They're now
+// fully opaque the whole time they're drawn, and simply stop being
+// drawn once they've shrunk past visibility - no fade. (2) the overlay
+// used to sit directly on top of the real incoming page, so mid-
+// transition you'd see LinkingScreen's actual (possibly busy) UI
+// bleeding through - now there's a solid black layer between the
+// shards and the real content, so what's revealed as shards clear away
+// is clean black, and the real page only appears once the whole
+// overlay finishes (t>=1), not gradually through the cracks.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -44,11 +59,22 @@ class ShatterPageRoute<T> extends PageRouteBuilder<T> {
                 IgnorePointer(
                   child: AnimatedBuilder(
                     animation: animation,
-                    builder: (context, _) =>
-                        CustomPaint(
-                          size: Size.infinite,
-                          painter: _ShatterPainter(animation.value),
-                        ),
+                    builder: (context, _) {
+                      final t = animation.value;
+                      if (t >= 1) return const SizedBox.shrink();
+                      return Stack(
+                        children: [
+                          // solid black first - what's revealed as
+                          // shards clear is clean black, never the real
+                          // page's own UI bleeding through mid-smash
+                          Container(color: Colors.black),
+                          CustomPaint(
+                            size: Size.infinite,
+                            painter: _ShatterPainter(t),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -69,7 +95,6 @@ class _ShatterPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (t >= 1) return;
     final w = size.width / _cols;
     final h = size.height / _rows;
     for (var r = 0; r < _rows; r++) {
@@ -96,9 +121,11 @@ class _ShatterPainter extends CustomPainter {
         final outX = jitter * local;
         final outY = 130 * local;
         final rot = ((c * 5 + r * 3) % 9 - 4) * 0.06 * local;
-        final scale = 1 - 0.9 * local;
-        final opacity = 1 - local;
-        if (opacity <= 0) continue;
+        final scale = 1 - 0.97 * local;
+        // fully opaque, solid pastel the whole time it's visible - no
+        // alpha fade (that read as "faded translucent squares"). It
+        // just stops being drawn once it's shrunk to nothing.
+        if (local >= 1 || scale <= 0.02) continue;
 
         canvas.save();
         final center = Offset(left + w / 2 + outX, top + h / 2 + outY);
@@ -108,7 +135,7 @@ class _ShatterPainter extends CustomPainter {
         canvas.translate(-w / 2, -h / 2);
         canvas.drawRect(
           Rect.fromLTWH(0, 0, w + 1, h + 1),
-          Paint()..color = bg.withValues(alpha: opacity),
+          Paint()..color = bg,
         );
         canvas.restore();
       }
