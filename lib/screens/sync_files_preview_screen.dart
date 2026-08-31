@@ -73,7 +73,7 @@ class SyncFilesPreviewScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 Expanded(
                   child: Center(
-                    child: _FileTreeIllustration(),
+                    child: _PhoneToDesktopFiles(),
                   ),
                 ),
                 Text(
@@ -96,111 +96,43 @@ class SyncFilesPreviewScreen extends StatelessWidget {
   }
 }
 
-class _FileTreeIllustration extends StatelessWidget {
+// Phone -> [notes, docs, photos] -> desktop, real Flutter widgets in a
+// Row (not hand-placed CustomPaint offsets - that's what caused the
+// off-center bug) - directly echoes WelcomeHeroScreen's phone/desktop
+// demo instead of a disconnected file-tree diagram, per direct
+// feedback: "doesn't inform or remain consistent with the ease of the
+// user syncing device1 to device2."
+class _PhoneToDesktopFiles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      height: 200,
-      child: CustomPaint(painter: _TreePainter()),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const MiniPhoneIcon(color: wTealDark, screenColor: wTealBg),
+        const SizedBox(width: 14),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _iconChip(Icons.description_outlined),
+            const SizedBox(height: 8),
+            _iconChip(Icons.folder_outlined),
+            const SizedBox(height: 8),
+            _iconChip(Icons.image_outlined),
+          ],
+        ),
+        const SizedBox(width: 14),
+        const MiniDesktopIcon(color: wTealDark),
+      ],
     );
   }
-}
 
-class _TreePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final line = Paint()
-      ..color = wTealDark
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    // root -> notes, root -> folder
-    canvas.drawLine(const Offset(90, 30), const Offset(50, 78), line);
-    canvas.drawLine(const Offset(90, 30), const Offset(115, 88), line);
-    // folder -> photo
-    canvas.drawLine(const Offset(115, 122), const Offset(112, 145), line);
-
-    _folder(canvas, const Offset(70, 0), 42, wTealBg, wTealDark);
-    _doc(canvas, const Offset(28, 78), wTealDark);
-    _folder(canvas, const Offset(92, 88), 42, wTealBg, wTealDark);
-    _photo(canvas, const Offset(97, 145));
+  Widget _iconChip(IconData icon) {
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(color: wTealBg, shape: BoxShape.circle),
+      child: Icon(icon, color: wTealDark, size: 18),
+    );
   }
-
-  void _folder(Canvas canvas, Offset o, double w, Color fill, Color stroke) {
-    final h = w * 0.7;
-    final path = Path()
-      ..moveTo(o.dx, o.dy + 8)
-      ..lineTo(o.dx, o.dy + h - 2)
-      ..quadraticBezierTo(o.dx, o.dy + h, o.dx + 4, o.dy + h)
-      ..lineTo(o.dx + w - 4, o.dy + h)
-      ..quadraticBezierTo(o.dx + w, o.dy + h, o.dx + w, o.dy + h - 2)
-      ..lineTo(o.dx + w, o.dy + 14)
-      ..quadraticBezierTo(o.dx + w, o.dy + 10, o.dx + w - 4, o.dy + 10)
-      ..lineTo(o.dx + w * 0.45, o.dy + 10)
-      ..lineTo(o.dx + w * 0.35, o.dy + 3)
-      ..quadraticBezierTo(o.dx + w * 0.3, o.dy, o.dx + w * 0.2, o.dy)
-      ..lineTo(o.dx + 4, o.dy)
-      ..quadraticBezierTo(o.dx, o.dy, o.dx, o.dy + 8)
-      ..close();
-    canvas.drawPath(path, Paint()..color = fill);
-    canvas.drawPath(
-        path,
-        Paint()
-          ..color = stroke
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5
-          ..strokeJoin = StrokeJoin.round);
-  }
-
-  void _doc(Canvas canvas, Offset o, Color stroke) {
-    final r = RRect.fromRectAndRadius(
-        Rect.fromLTWH(o.dx, o.dy, 42, 52), const Radius.circular(5));
-    canvas.drawRRect(r, Paint()..color = Colors.white);
-    canvas.drawRRect(
-        r,
-        Paint()
-          ..color = stroke
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5);
-    final linePaint = Paint()
-      ..color = stroke
-      ..strokeWidth = 2.5;
-    canvas.drawLine(
-        Offset(o.dx + 8, o.dy + 15), Offset(o.dx + 34, o.dy + 15), linePaint);
-    canvas.drawLine(
-        Offset(o.dx + 8, o.dy + 26), Offset(o.dx + 34, o.dy + 26), linePaint);
-    canvas.drawLine(
-        Offset(o.dx + 8, o.dy + 37), Offset(o.dx + 24, o.dy + 37), linePaint);
-  }
-
-  void _photo(Canvas canvas, Offset o) {
-    final r = RRect.fromRectAndRadius(
-        Rect.fromLTWH(o.dx, o.dy, 30, 24), const Radius.circular(4));
-    canvas.drawRRect(r, Paint()..color = Colors.white);
-    canvas.drawRRect(
-        r,
-        Paint()
-          ..color = wInkDim
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2);
-    canvas.drawCircle(Offset(o.dx + 8, o.dy + 8), 2.6, Paint()..color = wInkDim);
-    final mtn = Path()
-      ..moveTo(o.dx + 3, o.dy + 20)
-      ..lineTo(o.dx + 11, o.dy + 11)
-      ..lineTo(o.dx + 17, o.dy + 17)
-      ..lineTo(o.dx + 23, o.dy + 7)
-      ..lineTo(o.dx + 27, o.dy + 20)
-      ..close();
-    canvas.drawPath(
-        mtn,
-        Paint()
-          ..color = wInkDim
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
