@@ -148,9 +148,9 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                 const SizedBox(height: 20),
                 const _Bullet(text: 'Full Obsidian vault sync'),
                 const _Bullet(
-                    text: 'Visual conflict picker — see both, tap to choose'),
+                    text: 'Visual conflict picker - see both, tap to choose'),
                 const _Bullet(
-                    text: 'Real conflict protection — never lose a note'),
+                    text: 'Real conflict protection - never lose a note'),
                 const _Bullet(text: 'Pay once. No subscription, ever.'),
                 const Spacer(),
                 if (_busy)
@@ -174,7 +174,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                               offset: const Offset(0, 4)),
                         ],
                       ),
-                      child: Text('Unlock Obsidian Sync — $_priceLabel',
+                      child: Text('Unlock Obsidian Sync - $_priceLabel',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white,
