@@ -1,6 +1,6 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
-version: 0.1.0+44
+version: 0.1.0+45
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
