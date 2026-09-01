@@ -2355,7 +2355,16 @@ class _FailedViewState extends State<_FailedView> {
   // advertising via mDNS.
   Future<void> _findAndRetry() async {
     setState(() => _discovering = true);
-    final ip = await _discovery.findDesktopIp();
+    // 2026-09-01: real bug - this is a SECOND call site for discovery,
+    // separate from settings_screen.dart's _findDesktop() (which
+    // already got the same-day failsafe fix). Missed applying it here
+    // too - this is the button actually shown right on a failed
+    // pairing attempt, more likely where "still forever" was really
+    // coming from than the Settings screen version.
+    final ip = await Future.any([
+      _discovery.findDesktopIp(),
+      Future.delayed(const Duration(seconds: 5), () => null),
+    ]);
     if (!mounted) return;
     setState(() => _discovering = false);
     if (ip == null) {
