@@ -14,11 +14,35 @@ The Git bare repository itself no longer needs a manual step (2026-08-28) - Loca
 
 This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and similar) and macOS.
 
-**Automated option**: `desktop/setup.yml` is an Ansible playbook that does everything below automatically - git, SSH, the bare repository, and auto-discovery. Real, tested against a live desktop, idempotent (safe to re-run, only changes what's actually missing).
-```
-ansible-playbook desktop/setup.yml
-```
-On macOS it also installs a persistent LaunchDaemon for auto-discovery (survives a reboot, unlike the manual `dns-sd -R` command further down this guide). Windows isn't covered - no native SSH-by-default, no apt/brew equivalent, a genuinely separate problem, not an oversight.
+**Automated option**: does everything below automatically - git, SSH, the bare repository, and auto-discovery. Nothing to install first - just bash, sudo, and the OS's own package manager, all already on the machine. Idempotent (safe to re-run, only changes what's actually missing), real-device tested on this exact Pi.
+
+Three ways to run the same script, pick whichever matches how comfortable you are with a terminal:
+
+1. **Comfortable with a terminal** (Linux or macOS) - one line, no download needed first:
+   ```
+   curl -fsSL https://kworld.space/localsync/setup.sh | bash
+   ```
+   Skip the auto-discovery step: add `-s -- --skip-discovery` before the pipe, i.e. `curl -fsSL https://kworld.space/localsync/setup.sh | bash -s -- --skip-discovery`.
+
+2. **Prefer double-clicking a file** (2026-09-01: real feedback - "terminal is an unknown for some users... a double click install file is needed for GUI only users unfamiliar with CLI or TUI"):
+   - macOS: download [`LocalSync-Setup-Mac.command`](https://kworld.space/localsync/LocalSync-Setup-Mac.command), double-click it in Finder. It opens Terminal and runs the same script - the first time, macOS's Gatekeeper will ask you to confirm you trust it (right-click → Open, instead of double-click, if it refuses the first time).
+   - Linux: download [`LocalSync-Setup-Linux.desktop`](https://kworld.space/localsync/LocalSync-Setup-Linux.desktop). Most Linux file managers block a downloaded `.desktop` file from running until you mark it as trusted - right-click it → Properties → Permissions → "Allow executing file as program" (wording varies by desktop environment), then double-click. Genuinely more friction than macOS here - a real platform difference, not a bug in this file.
+   - Both are thin wrappers, not a separate copy of the logic - they fetch and run the real, current `setup.sh` from this same URL, so they can never go stale on their own.
+
+3. **Already have Ansible and prefer it**: `desktop/setup.yml` does the same steps as a playbook: `ansible-playbook desktop/setup.yml` (skip discovery with `--skip-tags discovery`) - source only, not hosted on the website, since anyone choosing this option already has the repo.
+
+On macOS the script also installs a persistent LaunchDaemon for auto-discovery (survives a reboot, unlike the manual `dns-sd -R` command further down this guide). Windows isn't covered - no native SSH-by-default, no apt/brew equivalent, a genuinely separate problem, not an oversight.
+
+## No desktop computer? A NAS works too
+
+LocalSync's actual requirement is "an always-on, SSH-reachable machine that can run git" - a traditional desktop is the common case, but not the only one:
+
+- **A Raspberry Pi** (this guide's own reference platform) is the cheapest way to get one from scratch - roughly the price of the SPV Stack hardware this same site already sells, optionally paired with an external SSD/enclosure for extra storage.
+- **A NAS** (Synology, QNAP, and similar) already runs a Linux-based OS and is already always-on - often a *better* fit than a laptop that sleeps. Both major brands support this with no new code needed here, since LocalSync just needs SSH + git, the same as any other target:
+  - Synology: DSM → Control Panel → Terminal & SNMP → enable SSH. Install "Git Server" from Package Center for git.
+  - QNAP: QTS → Control Panel → Network & File Services → Telnet/SSH → enable SSH. Install "Git" from App Center.
+  - `desktop/setup.sh` targets Debian/macOS package managers specifically and won't run as-is on DSM/QTS - follow your NAS's own steps above for git+SSH, then just point LocalSync's Settings at the NAS's IP and a path for the bare repo (created the same automatic way on first pairing, over SSH, regardless of what's on the other end).
+- **A bare external SSD/enclosure on its own does not work** - it has no CPU, no OS, no network stack, nothing to SSH into. It only helps as *storage attached to* one of the above.
 
 ```mermaid
 graph LR

@@ -723,4 +723,16 @@ ThemeData buildAppTheme() => ThemeData(
           ),
         ),
       ),
+      // 2026-09-01: real feedback, live - "this button isn't a rounded
+      // corner button" (PkmSyncUpsell's price button, widgets/
+      // pkm_sync_upsell.dart). Only ElevatedButtonThemeData was
+      // rounded above - OutlinedButton is a separate button type with
+      // its own theme slot, unaffected by that change. Matched to the
+      // same 8px so every button type reads consistently.
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
     );

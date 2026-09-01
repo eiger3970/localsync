@@ -582,7 +582,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  borderRadius: BorderRadius.zero,
+                  // 2026-09-01: real feedback - "yellow button missing
+                  // rounded corners" - not a real button, but reads as
+                  // one visually (solid color bar) so it gets the same
+                  // 8px treatment as the button theme.
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   // 2026-08-30: real device feedback - "too complicated
@@ -1312,8 +1316,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // in point text, no rendering change
                                 // needed for this.
                                 (
-                                  '2. Find your interface in the result - '
-                                      'it looks like:\n'
+                                  '2. Find your interface in the '
+                                      'result, looking like:\n'
                                       '"n: eth1: inet 172.20.10.11/28"\n'
                                       '"n: usb0: inet 172.20.10.11/28"',
                                   false
