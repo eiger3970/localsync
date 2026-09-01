@@ -20,7 +20,6 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:app_settings/app_settings.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
@@ -1118,17 +1117,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                                               // 2026-09-01: real
                                               // feedback - "can Don't
                                               // Allow be detected?"
-                                              // Apple exposes no API
-                                              // for that (see
-                                              // pubspec.yaml's
-                                              // app_settings comment) -
-                                              // this sidesteps detection
-                                              // entirely with a direct,
-                                              // official Settings deep
+                                              // Apple exposes no API for
+                                              // that. This sidesteps
+                                              // detection entirely with
+                                              // a direct Settings deep
                                               // link, always offered
                                               // rather than only when
                                               // (unreliably) guessed to
                                               // be needed.
+                                              // 2026-09-01, follow-up:
+                                              // real CI failure - the
+                                              // app_settings package
+                                              // this originally used is
+                                              // Swift-Package-Manager-
+                                              // only, incompatible with
+                                              // this project's CI (SPM
+                                              // deliberately disabled to
+                                              // avoid re-opening the
+                                              // git2dart migration
+                                              // risk). "app-settings:"
+                                              // is iOS's own standard
+                                              // URL scheme for this -
+                                              // url_launcher (already a
+                                              // dependency, already used
+                                              // elsewhere in this file)
+                                              // opens it with no new
+                                              // native plugin at all.
                                               Padding(
                                                 padding:
                                                     const EdgeInsets.only(
@@ -1147,8 +1161,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                                         .centerLeft,
                                                   ),
                                                   onPressed: () =>
-                                                      AppSettings
-                                                          .openAppSettings(),
+                                                      launchUrl(Uri.parse(
+                                                          'app-settings:')),
                                                   child: Text(
                                                     'Open Local Network '
                                                     'settings',
