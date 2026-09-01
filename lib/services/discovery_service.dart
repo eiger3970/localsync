@@ -29,16 +29,16 @@ class DiscoveryService {
   Future<String?> findDesktopIp({Duration timeout = const Duration(seconds: 5)}) async {
     final client = MDnsClient();
     try {
-      await client.start();
-      // 2026-09-01: real bug - only the PTR lookup below had its own
-      // .timeout(); the SRV and A-record lookups nested inside it had
-      // none at all. A device that answers the first mDNS query but
-      // never answers the follow-ups (stale/misconfigured record) hung
-      // this forever - "searches for more than 5 seconds, just forever"
-      // was real, not a UI perception issue. One overall timeout around
-      // the whole lookup chain guarantees the promised bound regardless
-      // of which specific step stalls.
-      return await _lookup(client).timeout(timeout, onTimeout: () => null);
+      // 2026-09-01: real bug, round 2 - the first fix only wrapped the
+      // lookup chain, not client.start() itself. If start() (opening
+      // the multicast socket, joining the group) ever stalls - a real
+      // possibility on iOS if the Local Network permission prompt is
+      // still pending/unanswered - the timeout below never even started
+      // counting, so "still forever" after the first fix would be
+      // explained by this. Timeout now wraps start()+lookup() together,
+      // so nothing inside this function can run unbounded.
+      return await _startAndLookup(client)
+          .timeout(timeout, onTimeout: () => null);
     } on SocketException {
       // No local network reachable at all (e.g. cellular-only, no
       // Wi-Fi/tether) - same "expected, not an error" reasoning as a
@@ -49,7 +49,8 @@ class DiscoveryService {
     }
   }
 
-  Future<String?> _lookup(MDnsClient client) async {
+  Future<String?> _startAndLookup(MDnsClient client) async {
+    await client.start();
     final ptrStream = client.lookup<PtrResourceRecord>(
         ResourceRecordQuery.serverPointer(kMdnsServiceType));
     await for (final ptr in ptrStream) {
