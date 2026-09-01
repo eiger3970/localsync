@@ -301,11 +301,22 @@ extension LinkingErrorDetails on LinkingError {
         // steps below (2-5) stay as-is, confirmed still wanted ("do you
         // still have the other HOW TO FIX IT solutions for other
         // network errors?").
+        // 2026-09-01: real feedback - step 4 told the user to CHECK
+        // sshd's status but not what to do if it comes back "not
+        // found"/inactive. LocalSync can't fix this itself (pairing
+        // needs a working SSH connection to run any remote command,
+        // including installing SSH) - a fresh Debian-based desktop
+        // doesn't ship openssh-server by default (see
+        // docs/desktop-setup.md), so this is a real, expected first-run
+        // state, not an edge case.
         LinkingError.connectionRefused =>
           '1. Re-enter your desktop password - used once, never stored\n'
               '2. Check your desktop is awake\n'
               '3. Connect phone to desktop - hotspot or USB tether\n'
-              '4. On desktop: `sudo systemctl status ssh`\n'
+              '4. On desktop: `sudo systemctl status ssh` - if that '
+              'says "not found" or "inactive": '
+              '`sudo apt install -y openssh-server && '
+              'sudo systemctl enable --now ssh`\n'
               '5. On desktop: `ip addr show` - verify IP matches what is set in this app',
         LinkingError.sshAuthFailed =>
           'Tap PAIR NOW below and enter your desktop login password once - '
