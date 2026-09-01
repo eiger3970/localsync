@@ -324,14 +324,10 @@ class _SettingsScreenState extends State<SettingsScreen>
     // circle processing, needs more info for user." findDesktopIp()
     // already times out at 5s internally, but the bare spinner gave no
     // indication of that - felt indeterminate even though it's bounded.
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: kSurface,
-        content: Text('Searching Wi-Fi for your desktop (up to 5 seconds)…',
-            style: TextStyle(color: kStar, fontSize: 14)),
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    // Follow-up: "text message is good, but is at bottom, possible to
+    // position under [the helper] text" - moved from a bottom SnackBar
+    // to inline text right under the field's own helper text (see the
+    // `helper:` Column above, gated on _discovering).
     final ip = await _discovery.findDesktopIp();
     if (!mounted) return;
     setState(() => _discovering = false);
@@ -884,11 +880,31 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // (i) help dialog - not good enough on its own,
                       // needed to be visible with zero taps, right at
                       // the field itself, every time.
-                      helperText: 'Just the 4 numbers, e.g. 172.20.10.11 - '
-                          'no /28 suffix. Update manually after switching '
-                          'Tether or Hotspot.',
-                      helperMaxLines: 3,
-                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
+                      // 2026-09-01: real feedback - the "searching Wi-Fi"
+                      // status was a bottom SnackBar, disconnected from
+                      // the field it's about. Moved inline, directly
+                      // under this same helper text, instead.
+                      helper: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Just the 4 numbers, e.g. 172.20.10.11 - '
+                            'no /28 suffix. Update manually after switching '
+                            'Tether or Hotspot.',
+                            style: TextStyle(color: kTextMid, fontSize: 13),
+                          ),
+                          if (_discovering)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'Searching Wi-Fi for your desktop '
+                                '(up to 5 seconds)…',
+                                style:
+                                    TextStyle(color: kGreen, fontSize: 13),
+                              ),
+                            ),
+                        ],
+                      ),
                       hintText: 'e.g. 172.20.10.2',
                       errorText: _ipError,
                       suffixIcon: Row(

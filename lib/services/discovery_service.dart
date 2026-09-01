@@ -30,22 +30,15 @@ class DiscoveryService {
     final client = MDnsClient();
     try {
       await client.start();
-      final ptrStream = client
-          .lookup<PtrResourceRecord>(
-              ResourceRecordQuery.serverPointer(kMdnsServiceType))
-          .timeout(timeout, onTimeout: (sink) => sink.close());
-      await for (final ptr in ptrStream) {
-        final srvStream = client.lookup<SrvResourceRecord>(
-            ResourceRecordQuery.service(ptr.domainName));
-        await for (final srv in srvStream) {
-          final ipStream = client.lookup<IPAddressResourceRecord>(
-              ResourceRecordQuery.addressIPv4(srv.target));
-          await for (final ip in ipStream) {
-            return ip.address.address;
-          }
-        }
-      }
-      return null;
+      // 2026-09-01: real bug - only the PTR lookup below had its own
+      // .timeout(); the SRV and A-record lookups nested inside it had
+      // none at all. A device that answers the first mDNS query but
+      // never answers the follow-ups (stale/misconfigured record) hung
+      // this forever - "searches for more than 5 seconds, just forever"
+      // was real, not a UI perception issue. One overall timeout around
+      // the whole lookup chain guarantees the promised bound regardless
+      // of which specific step stalls.
+      return await _lookup(client).timeout(timeout, onTimeout: () => null);
     } on SocketException {
       // No local network reachable at all (e.g. cellular-only, no
       // Wi-Fi/tether) - same "expected, not an error" reasoning as a
@@ -54,5 +47,22 @@ class DiscoveryService {
     } finally {
       client.stop();
     }
+  }
+
+  Future<String?> _lookup(MDnsClient client) async {
+    final ptrStream = client.lookup<PtrResourceRecord>(
+        ResourceRecordQuery.serverPointer(kMdnsServiceType));
+    await for (final ptr in ptrStream) {
+      final srvStream = client.lookup<SrvResourceRecord>(
+          ResourceRecordQuery.service(ptr.domainName));
+      await for (final srv in srvStream) {
+        final ipStream = client.lookup<IPAddressResourceRecord>(
+            ResourceRecordQuery.addressIPv4(srv.target));
+        await for (final ip in ipStream) {
+          return ip.address.address;
+        }
+      }
+    }
+    return null;
   }
 }
