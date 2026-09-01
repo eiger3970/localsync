@@ -1813,6 +1813,14 @@ class _StepChecklistState extends State<_StepChecklist> {
               CheckboxListTile(
                 value: _checked[i],
                 onChanged: (checked) {
+                  // 2026-09-01: real feedback - these manual steps are
+                  // the hardest part of the whole flow (leave the app,
+                  // do something elsewhere, come back) and got zero
+                  // acknowledgement beyond a checkbox filling in. A
+                  // haptic bump on each real tick (not on un-ticking)
+                  // gives a small, immediate "that counted" signal
+                  // without needing to look at the screen at all.
+                  if (checked ?? false) HapticFeedback.mediumImpact();
                   setState(() => _checked[i] = checked ?? false);
                   widget.onChanged?.call(_checked);
                 },
@@ -1896,6 +1904,13 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
     setState(() => _drag = 0);
     if (!reached) return;
 
+    // 2026-09-01: real feedback - same reward gap as the checkbox rows
+    // (see _StepChecklist's own onChanged), but this row had no visual
+    // completion marker at all beyond a strikethrough - the arrow icon
+    // just sat there greyed out (see build() below). Haptic bump here,
+    // green check swapped in below, so a successful swipe reads as
+    // unmistakably "done" the same way a ticked checkbox does.
+    HapticFeedback.mediumImpact();
     setState(() => _done = true);
     if (widget.resilient) {
       _fireResilient();
@@ -1937,8 +1952,21 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  Icon(Icons.keyboard_double_arrow_up_rounded,
-                      color: color, size: 20),
+                  // 2026-09-01: real feedback - swap the swipe-up arrow
+                  // for a green check once done, matching the checkbox
+                  // rows' own green tick instead of just greying out.
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _done
+                        ? Icon(Icons.check_circle,
+                            key: const ValueKey('done'),
+                            color: kGreen,
+                            size: 20)
+                        : Icon(Icons.keyboard_double_arrow_up_rounded,
+                            key: const ValueKey('pending'),
+                            color: color,
+                            size: 20),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
