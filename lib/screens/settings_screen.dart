@@ -247,7 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // 2026-09-01: real feedback - "Move Command for your desktop
             // terminal under the command." Was above the command box;
             // now below it.
-            Text('Command for your desktop terminal:',
+            Text('Command for your desktop terminal',
                 style: TextStyle(color: kTextMid, fontSize: 12)),
             const SizedBox(height: 12),
             for (final (text, indented) in points)
@@ -352,7 +352,27 @@ class _SettingsScreenState extends State<SettingsScreen>
     // position under [the helper] text" - moved from a bottom SnackBar
     // to inline text right under the field's own helper text (see the
     // `helper:` Column above, gated on _discovering).
-    final ip = await _discovery.findDesktopIp();
+    //
+    // 2026-09-01, round 3 - confirmed still "just forever" on a real
+    // device with a fresh delete+reinstall each time (ruling out a
+    // stale build). discovery_service.dart's own Dart-level .timeout()
+    // is confirmed correct on paper, twice over - the remaining
+    // suspect is native, not Dart: ios/Runner/Info.plist's own
+    // 2026-08-21 comment already flags this as unverified - the
+    // multicast_dns package uses raw sockets, not Apple's own Bonjour
+    // API, and on a fresh install (always the case here) iOS may stall
+    // the underlying socket call on an unanswered Local Network
+    // permission prompt - a block below Dart's event loop that no
+    // Future.timeout() can preempt, since it isn't a Dart-level hang.
+    // Cannot verify that without a real device to test on. Instead of
+    // guessing at the native layer a third time: an independent
+    // failsafe at this call site, racing the real call against a hard
+    // timer of its own - even if findDesktopIp() never returns at all,
+    // this screen is now guaranteed to stop waiting at 5s regardless.
+    final ip = await Future.any([
+      _discovery.findDesktopIp(),
+      Future.delayed(const Duration(seconds: 5), () => null),
+    ]);
     if (!mounted) return;
     setState(() => _discovering = false);
     if (ip != null) {
