@@ -33,7 +33,6 @@ for arg in "$@"; do
   esac
 done
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BARE_REPO_DIR="$HOME/Documents/Git/LocalSync"
 BARE_REPO_PATH="$BARE_REPO_DIR/vault.git"
 SSH_PORT=22
@@ -106,8 +105,25 @@ elif [[ "$OS" == debian ]]; then
     sudo apt-get install -y avahi-daemon
     sudo systemctl enable --now avahi-daemon
   fi
+  # 2026-09-01: real bug, caught testing the self-verifying Mac
+  # wrapper - when this script runs from a curl download or a temp
+  # file (not a checkout of this repo), $SCRIPT_DIR/localsync.service
+  # doesn't exist alongside it, so the cp below failed silently.
+  # Written inline instead - matches the macOS branch's own heredoc
+  # pattern below - so this works identically however the script was
+  # actually obtained.
   log "Installing the LocalSync avahi service file"
-  sudo cp "$SCRIPT_DIR/localsync.service" /etc/avahi/services/localsync.service
+  sudo tee /etc/avahi/services/localsync.service >/dev/null <<'SERVICE_EOF'
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <name replace-wildcards="yes">LocalSync on %h</name>
+  <service>
+    <type>_localsync._tcp</type>
+    <port>22</port>
+  </service>
+</service-group>
+SERVICE_EOF
   sudo systemctl restart avahi-daemon
 else
   log "Advertising via Bonjour (persistent LaunchDaemon)"

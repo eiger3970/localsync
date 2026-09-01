@@ -18,16 +18,17 @@ This guide covers Debian-based Linux (Linux Mint, Ubuntu, Raspberry Pi 5, and si
 
 Three ways to run the same script, pick whichever matches how comfortable you are with a terminal:
 
-1. **Comfortable with a terminal** (Linux or macOS) - one line, no download needed first:
+1. **Comfortable with a terminal** (Linux or macOS) - downloads, verifies the SHA256 checksum, then runs (2026-09-01: real feedback - "download needs security and credibility... checksum like Linux Mint" - this is that, without the separate manual-comparison step Mint's own process needs):
    ```
-   curl -fsSL https://kworld.space/localsync/setup.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh -o /tmp/localsync-setup.sh && echo "8585563e2b893827b2ff86dc6722e47757c02e5a12a3b386cee07725573ad0af  /tmp/localsync-setup.sh" | sha256sum -c - && bash /tmp/localsync-setup.sh
    ```
-   Skip the auto-discovery step: add `-s -- --skip-discovery` before the pipe, i.e. `curl -fsSL https://kworld.space/localsync/setup.sh | bash -s -- --skip-discovery`.
+   `sha256sum -c -` refuses to continue (the `&&` chain stops) if the download doesn't match - the same tamper/corruption protection as comparing a published checksum by hand, just automatic. Skip the auto-discovery step: append ` --skip-discovery` after `/tmp/localsync-setup.sh` in the final command.
+
+   Prefer the plain, unverified one-liner anyway? `curl -fsSL https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh | bash` still works the same as always - the checksum version above is the one actually recommended.
 
 2. **Prefer double-clicking a file** (2026-09-01: real feedback - "terminal is an unknown for some users... a double click install file is needed for GUI only users unfamiliar with CLI or TUI"):
-   - macOS: download [`LocalSync-Setup-Mac.command`](https://kworld.space/localsync/LocalSync-Setup-Mac.command), double-click it in Finder. It opens Terminal and runs the same script - the first time, macOS's Gatekeeper will ask you to confirm you trust it (right-click → Open, instead of double-click, if it refuses the first time).
-   - Linux: download [`LocalSync-Setup-Linux.desktop`](https://kworld.space/localsync/LocalSync-Setup-Linux.desktop). Most Linux file managers block a downloaded `.desktop` file from running until you mark it as trusted - right-click it → Properties → Permissions → "Allow executing file as program" (wording varies by desktop environment), then double-click. Genuinely more friction than macOS here - a real platform difference, not a bug in this file.
-   - Both are thin wrappers, not a separate copy of the logic - they fetch and run the real, current `setup.sh` from this same URL, so they can never go stale on their own.
+   - macOS: download [`LocalSync-Setup-Mac.command`](https://kworld.space/localsync/LocalSync-Setup-Mac.command), double-click it in Finder. It opens Terminal and runs the same script - the first time, macOS's Gatekeeper will ask you to confirm you trust it (right-click → Open, instead of double-click, if it refuses the first time). It's a thin, self-verifying wrapper, not a separate copy of the logic - it fetches the real, current `setup.sh` from GitHub (checksummed before running, see above), so it can never go stale or run something tampered with.
+   - Linux: no double-click file - **confirmed live 2026-09-01**, a downloaded `.desktop` launcher got renamed by Firefox to `...desktop.download` on save, since that file type is a recognized Linux executable-launcher and browsers deliberately flag/rename that class of download as a safety measure. That's not fixable across browsers, and a renamed, broken-looking file is worse than no download at all. Use the terminal one-liner above instead - it's one line either way.
 
 3. **Already have Ansible and prefer it**: `desktop/setup.yml` does the same steps as a playbook: `ansible-playbook desktop/setup.yml` (skip discovery with `--skip-tags discovery`) - source only, not hosted on the website, since anyone choosing this option already has the repo.
 
