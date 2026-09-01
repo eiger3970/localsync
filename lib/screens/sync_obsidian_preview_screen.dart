@@ -110,7 +110,8 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
                 Text('Links your whole vault.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, color: wInkDim)),
-                Text('Real conflict protection built in.',
+                Text('Most recent version is kept automatically - '
+                    'sync from either device without wiping the other.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, color: wInkDim)),
                 const SizedBox(height: 24),
