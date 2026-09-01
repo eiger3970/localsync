@@ -707,7 +707,14 @@ ThemeData buildAppTheme() => ThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: kGreen,
           foregroundColor: kVoid,
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          // 2026-09-01: real feedback - "hard rectangles with sharp
+          // corners... thinking of changing all buttons to warm
+          // friendly generic round corners, to work in with the
+          // onboarding pages and paywall style." welcome_hero_screen.dart
+          // already uses 8px for its own buttons - matched here rather
+          // than picking a new value.
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           textStyle: const TextStyle(
             fontSize: 12,

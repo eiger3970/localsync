@@ -29,6 +29,8 @@ import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
 import '../widgets/sparkle_background.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
+import '../widgets/pkm_sync_upsell.dart';
+import '../services/purchase_service.dart';
 import 'home_screen.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
@@ -1403,30 +1405,23 @@ class _IdleViewState extends State<_IdleView>
           // restatement of the choice already made. Also shortens this
           // section, which helps the "hidden behind the keyboard" issue.
           const SizedBox(height: 24),
-          // 2026-09-01: real feedback - "new users don't know what a
-          // vault is, this is for Obsidian users. A new free Tier 0
-          // user would look for wording Desktop sync folder." Checked
-          // what this link actually does before rewording it -
-          // startLinkingExistingVault() switches into Obsidian-note
-          // syncing, it's unrelated to reusing a desktop sync folder
-          // (startLinkingGenericFolder's own folder picker already
-          // covers picking an existing folder, no separate link needed
-          // for that). "Desktop sync folder" wording would describe
-          // the wrong action here - reworded to plainly say what this
-          // link does instead, without the word "vault."
+          // 2026-09-01: real feedback - "this is an upsell as the
+          // onboarding welcome already asked for free or Obsidian...
+          // positioned at the bottom of the page, so no-one will see
+          // this." Also caught a real gap while looking into it:
+          // startLinkingExistingVault() had NO entitlement check at
+          // all - a plain underlined text link let any Tier 0 user
+          // switch into Obsidian sync for free, completely bypassing
+          // PkmSyncUpsell's paid path (home_screen.dart) for the exact
+          // same upgrade. Confirmed with the user this should be a
+          // real paid upsell here too, not just a bigger free link -
+          // same PkmSyncUpsell widget/paywall/entitlement PkmSyncUpsell
+          // already uses on the home screen, so there's one purchase
+          // path for this upgrade, not two.
           if (widget.ctrl.preferredMode != SyncMode.obsidianVault)
-            GestureDetector(
-              onTap: ctrl.startLinkingExistingVault,
-              child: Text(
-                'Want to sync your Obsidian notes instead of plain '
-                    'files? Switch here',
-                style: TextStyle(
-                  color: kTextMid,
-                  fontSize: 13,
-                  decoration: TextDecoration.underline,
-                  decorationColor: kTextMid,
-                ),
-              ),
+            PkmSyncUpsell(
+              purchases: context.watch<PurchaseService>(),
+              onUnlocked: ctrl.startLinkingExistingVault,
             ),
           // 2026-08-27: Tier 0 (docs/product-tiers.md) - free, generic
           // file sync, no PKM awareness at all. Names the app-agnostic

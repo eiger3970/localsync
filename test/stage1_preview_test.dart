@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:localsync/features/linking/linking_controller.dart';
 import 'package:localsync/screens/linking_screen.dart';
 import 'package:localsync/services/repository_provider.dart';
+import 'package:localsync/services/purchase_service.dart';
 
 void main() {
   setUp(() {
@@ -54,6 +55,13 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: ctrl),
           ChangeNotifierProvider(create: (_) => RepositoryProvider()),
+          // 2026-09-01: added alongside PkmSyncUpsell landing on the
+          // file-sync-setup screen (linking_screen.dart) - unconfigured
+          // (no init() call) is deliberate and safe, same as
+          // PurchaseService's own real fallback: getOfferings()
+          // returns null without throwing, which PkmSyncUpsell already
+          // renders as its quiet "coming soon" state.
+          Provider<PurchaseService>.value(value: PurchaseService()),
         ],
         child: const MaterialApp(home: LinkingScreen()),
       ),
@@ -108,6 +116,13 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: ctrl),
           ChangeNotifierProvider(create: (_) => RepositoryProvider()),
+          // 2026-09-01: added alongside PkmSyncUpsell landing on the
+          // file-sync-setup screen (linking_screen.dart) - unconfigured
+          // (no init() call) is deliberate and safe, same as
+          // PurchaseService's own real fallback: getOfferings()
+          // returns null without throwing, which PkmSyncUpsell already
+          // renders as its quiet "coming soon" state.
+          Provider<PurchaseService>.value(value: PurchaseService()),
         ],
         child: const MaterialApp(home: LinkingScreen()),
       ),

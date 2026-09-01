@@ -20,6 +20,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:app_settings/app_settings.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
@@ -438,6 +439,18 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
 
     var ip = await attempt();
+    // 2026-09-01: real device, live - "I had to manually tap the
+    // Satellite a 2nd time" even with the immediate retry above already
+    // shipped. An immediate retry apparently isn't enough - the same
+    // class of bug as the original mDNS hang (a block below Dart's
+    // event loop, see the comment above), just needing real wall-clock
+    // time to settle rather than a Dart-level fix. Giving iOS's
+    // permission subsystem a real pause before retrying, same
+    // reasoning as pairing_controller.dart's own 2s/4s connect-retry
+    // delays for a similar "not ready yet" class of timing issue.
+    if (ip == null && mounted) {
+      await Future.delayed(const Duration(seconds: 2));
+    }
     if (ip == null && mounted) {
       ip = await attempt();
     }
@@ -655,9 +668,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 28),
-            Divider(color: kBorder, height: 1),
-            const SizedBox(height: 28),
+            // 2026-09-01: real feedback - "why is there a horizontal
+            // line... it's an eye distraction, just the space alone is
+            // enough." Reverses the 2026-08-21 call below this section
+            // that added a Divider here - dropped, space-only gap.
+            const SizedBox(height: 40),
             // 2026-08-20: real feedback, live - "looks complicated, less
             // verbose is better." Both labels cut to one short line,
             // same trim already applied elsewhere in this app for the
@@ -941,12 +956,13 @@ class _SettingsScreenState extends State<SettingsScreen>
             // 2026-08-21: real feedback, live - "add a line space above
             // to separate more from the above text, as all the
             // information looks like 1, rather than 2 controls." A
-            // plain SizedBox gap alone wasn't enough separation - added
-            // a visible divider line, same kBorder used for every other
-            // section rule in this app, not just more whitespace.
-            const SizedBox(height: 28),
-            Divider(color: kBorder, height: 1),
-            const SizedBox(height: 28),
+            // plain SizedBox gap alone wasn't enough separation at the
+            // time, so a Divider was added here.
+            // 2026-09-01: real feedback - "why is there a horizontal
+            // line... it's an eye distraction, just the space alone is
+            // enough." Reverses the call above - Divider dropped,
+            // space-only gap.
+            const SizedBox(height: 40),
             Text('3. IP ADDRESS - DESKTOP',
                 style: TextStyle(
                     color: kGreen,
@@ -1050,35 +1066,108 @@ class _SettingsScreenState extends State<SettingsScreen>
                                           // text below it.
                                           padding: const EdgeInsets.only(
                                               bottom: 12),
-                                          child: Text(
-                                            // 2026-09-01: real feedback -
-                                            // "tether" is networking
-                                            // jargon ("normies need the
-                                            // word cable"). Also fixed
-                                            // the direction - the (i)
-                                            // button is a suffixIcon
-                                            // inside the field itself,
-                                            // ABOVE this helper text, not
-                                            // below it.
-                                            'No desktop found on Wi-Fi. On '
-                                            'USB cable, use the (i) '
-                                            'button above instead for the '
-                                            'manual steps.',
-                                            style: TextStyle(
-                                                color: kTextMid,
-                                                fontSize: 13),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                // 2026-09-01: real
+                                                // feedback - "tether" is
+                                                // networking jargon
+                                                // ("normies need the
+                                                // word cable"). Also
+                                                // fixed the direction -
+                                                // the (i) button is a
+                                                // suffixIcon inside the
+                                                // field itself, ABOVE
+                                                // this helper text, not
+                                                // below it.
+                                                'No desktop found on '
+                                                'Wi-Fi. On USB cable, '
+                                                'use the (i) button '
+                                                'above instead for the '
+                                                'manual steps.',
+                                                style: TextStyle(
+                                                    color: kTextMid,
+                                                    fontSize: 13),
+                                              ),
+                                              // 2026-09-01: real device,
+                                              // live - the automatic
+                                              // retry above (with a 2s
+                                              // settle pause) doesn't
+                                              // reliably absorb the
+                                              // "just tapped Allow"
+                                              // case on its own -
+                                              // explicit text is the
+                                              // guaranteed fallback, not
+                                              // a replacement for it.
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.only(
+                                                        top: 6),
+                                                child: Text(
+                                                  'If iOS just asked to '
+                                                  'allow local network '
+                                                  'access, tap Find '
+                                                  'automatically again.',
+                                                  style: TextStyle(
+                                                      color: kTextDim,
+                                                      fontSize: 12.5),
+                                                ),
+                                              ),
+                                              // 2026-09-01: real
+                                              // feedback - "can Don't
+                                              // Allow be detected?"
+                                              // Apple exposes no API
+                                              // for that (see
+                                              // pubspec.yaml's
+                                              // app_settings comment) -
+                                              // this sidesteps detection
+                                              // entirely with a direct,
+                                              // official Settings deep
+                                              // link, always offered
+                                              // rather than only when
+                                              // (unreliably) guessed to
+                                              // be needed.
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.only(
+                                                        top: 2),
+                                                child: TextButton(
+                                                  style: TextButton
+                                                      .styleFrom(
+                                                    padding:
+                                                        EdgeInsets.zero,
+                                                    minimumSize:
+                                                        Size.zero,
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    alignment: Alignment
+                                                        .centerLeft,
+                                                  ),
+                                                  onPressed: () =>
+                                                      AppSettings
+                                                          .openAppSettings(),
+                                                  child: Text(
+                                                    'Open Local Network '
+                                                    'settings',
+                                                    style: TextStyle(
+                                                        color: kGreen,
+                                                        fontSize: 12.5,
+                                                        decoration:
+                                                            TextDecoration
+                                                                .underline),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         )
                                       : const SizedBox(
                                           width: double.infinity,
                                           key: ValueKey('idle')),
                             ),
-                          ),
-                          Text(
-                            'Just the 4 numbers, e.g. 172.20.10.11 - '
-                            'no /28 suffix. Update manually after switching '
-                            'Tether or Hotspot.',
-                            style: TextStyle(color: kTextMid, fontSize: 13),
                           ),
                         ],
                       ),
@@ -1210,20 +1299,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // needed for this.
                                 (
                                   '2. Find your interface in the result - '
-                                      'it looks like "n: eth1: inet '
-                                      '172.20.10.11/28" or "n: usb0: '
-                                      'inet 172.20.10.11/28"',
+                                      'it looks like:\n'
+                                      '"n: eth1: inet 172.20.10.11/28"\n'
+                                      '"n: usb0: inet 172.20.10.11/28"',
                                   false
                                 ),
-                                // 2026-09-01: real feedback - "no need to
-                                // repeat text already under the field
-                                // about the 4 numbers" - that
-                                // /28-suffix detail already lives in the
-                                // field's own always-visible helper text
-                                // above, so restating it here was pure
-                                // duplication.
-                                ('3. Type the IP address into the field '
-                                    'above', false),
+                                // 2026-09-01: real feedback - the
+                                // field's own always-visible "Just the 4
+                                // numbers... no /28 suffix" helper text
+                                // was removed (moved here instead, to
+                                // declutter the field) - folded into
+                                // this step so the detail isn't lost.
+                                (
+                                  '3. Type just the 4 numbers into the '
+                                      'IP address field above (e.g. '
+                                      '172.20.10.11) - no /28 suffix',
+                                  false
+                                ),
                                 (
                                   '4. Changed from USB cable to Wi-Fi '
                                       'Hotspot, or reconnecting later? '
