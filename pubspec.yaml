@@ -1,7 +1,7 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
 homepage: https://kworld.space
-version: 0.1.0+62
+version: 0.1.0+63
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -60,6 +60,19 @@ dependencies:
   # for the native Bonjour API - added the entitlement anyway as the
   # documented-correct, safe precaution.
   multicast_dns: ^0.3.2+7
+  # 2026-09-01: real bug - the satellite search hung indefinitely on a
+  # phone connected via USB cable with Wi-Fi off (confirmed: no iOS
+  # Local Network permission popup ever appeared, meaning the native
+  # multicast socket call itself was stuck before even reaching that
+  # point - a block below Dart's event loop that no Future-level
+  # timeout could preempt, tried twice). mDNS fundamentally needs an
+  # active Wi-Fi interface; this checks that first and skips the
+  # native call entirely when there isn't one, instead of attempting a
+  # call already confirmed able to hang the whole isolate.
+  # connectivity_plus checks OS-level interface type only (a standard,
+  # permission-free query) - unrelated to and can't trigger the same
+  # Local Network device-discovery permission multicast_dns needs.
+  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:

@@ -17,6 +17,7 @@
 // broadcasting.
 
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:multicast_dns/multicast_dns.dart';
 
 const kMdnsServiceType = '_localsync._tcp.local';
@@ -27,6 +28,21 @@ class DiscoveryService {
   /// desktop responder is an expected, common case (not every user
   /// will have set up avahi advertising), not an error condition.
   Future<String?> findDesktopIp({Duration timeout = const Duration(seconds: 5)}) async {
+    // 2026-09-01: real bug, round 3 - confirmed on a real device (USB
+    // cable, Wi-Fi off, no iOS Local Network permission popup ever
+    // appearing) that the native multicast socket call itself can
+    // block below Dart's event loop - not a Dart-level hang, so
+    // neither of the two prior Future.timeout()/Future.any() fixes
+    // could touch it. mDNS fundamentally cannot work without an
+    // active Wi-Fi interface (confirmed elsewhere already - USB
+    // tether is unreliable for multicast on iOS even when it does
+    // something). Checking that first and skipping the native call
+    // entirely, rather than attempting a call already confirmed able
+    // to hang the whole isolate.
+    final connectivity = await Connectivity().checkConnectivity();
+    if (!connectivity.contains(ConnectivityResult.wifi)) {
+      return null;
+    }
     final client = MDnsClient();
     try {
       // 2026-09-01: real bug, round 2 - the first fix only wrapped the
