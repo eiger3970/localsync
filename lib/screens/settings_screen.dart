@@ -66,6 +66,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   // conflict picker.
   final _discovery = DiscoveryService();
   bool _discovering = false;
+  // 2026-09-01: real feedback - "not found" also read as a bottom
+  // SnackBar, disconnected from the field, same fix as _discovering's
+  // own inline message above. Cleared on the next search attempt.
+  bool _notFoundOnWifi = false;
 
   // 2026-08-28: real feedback, live - "Use suggested path" auto_awesome
   // icon read as a static glyph, not the "sparkle" it's meant to imply -
@@ -343,7 +347,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _findDesktop() async {
-    setState(() => _discovering = true);
+    setState(() {
+      _discovering = true;
+      _notFoundOnWifi = false;
+    });
     // 2026-09-01: real feedback - "satellite just searches forever with
     // circle processing, needs more info for user." findDesktopIp()
     // already times out at 5s internally, but the bare spinner gave no
@@ -387,25 +394,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: kSurface,
-        content: Text(
-          // 2026-08-28: real feedback, live - "the satellite is only
-          // for wireless, but my phone is connected via USB, so I just
-          // sat there waiting forever." Auto-discovery is mDNS-based
-          // and works over Wi-Fi hotspot reliably; USB tether is real
-          // but genuinely less reliable for multicast on iOS. The old
-          // message never mentioned USB at all, leaving a USB-connected
-          // tester with no idea to fall back to the manual command
-          // instead of retrying the same search.
-          'No desktop found on Wi-Fi. On USB tether, use the (i) '
-          'button below instead for the manual command.',
-          style: TextStyle(color: kStar, fontSize: 14),
-        ),
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    // 2026-09-01: real feedback - this was also a bottom SnackBar,
+    // "better to smoothly transition in under the satellite" like the
+    // searching message already does - moved inline too (see the
+    // `helper:` Column below, gated on _notFoundOnWifi).
+    setState(() => _notFoundOnWifi = true);
   }
 
   Future<void> _save() async {
@@ -966,6 +959,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                                     TextStyle(color: kGreen, fontSize: 13),
                               ),
                             ),
+                          if (_notFoundOnWifi)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                'No desktop found on Wi-Fi. On USB '
+                                'tether, use the (i) button below '
+                                'instead for the manual steps.',
+                                style:
+                                    TextStyle(color: kTextMid, fontSize: 13),
+                              ),
+                            ),
                         ],
                       ),
                       hintText: 'e.g. 172.20.10.2',
@@ -1056,19 +1060,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // (Hotspot before USB tether, matching how the
                             // user listed it) and indented as sub-items of
                             // "run this command," not flat siblings of it.
+                            // 2026-09-01: real feedback - "i -> Manual ->
+                            // 1 2 3 etc." Reworded as an explicit
+                            // numbered sequence (same _showHelp
+                            // rendering, just numbered text instead of
+                            // bullet dots) instead of a loosely bulleted
+                            // note - a clear step order for the fastest
+                            // path to a working manual connection.
                             onPressed: () => _showHelp(
-                              'Finding the desktop IP address',
+                              'Manual setup',
                               'ip -4 addr show',
                               const [
-                                ('Run this on the desktop terminal', false),
+                                ('1. Run this on the desktop terminal', false),
                                 // 2026-08-21: real bug, live - "they have
                                 // greater than signs" - the unicode arrow
                                 // (→) substituted for the plain "->" the
                                 // user originally typed didn't render
                                 // correctly on-device. Reverted to the
                                 // exact ASCII form asked for the first time.
-                                ('Hotspot Wi-Fi -> look for wlan0', true),
-                                ('USB tether -> look for eth1 or usb0', true),
+                                (
+                                  '2. Find your interface in the result - '
+                                      'Hotspot Wi-Fi is wlan0, USB tether is '
+                                      'eth1 or usb0',
+                                  false
+                                ),
                                 // 2026-08-28: real feedback, live - "the
                                 // keyboard has no means to type in
                                 // 172.20.10.11/28." This command's
@@ -1077,13 +1092,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // but a clear note here means no one
                                 // second-guesses it before saving.
                                 (
-                                  'Ignore the /28 (or similar) after the '
-                                      'address - only the 4 numbers matter',
-                                  true
+                                  '3. Type just the 4 numbers into the IP '
+                                      'address field above - ignore the /28 '
+                                      '(or similar) after it',
+                                  false
                                 ),
                                 (
-                                  'IP address changes every switch - re-run '
-                                      'the command',
+                                  '4. Switched Tether/Hotspot, or '
+                                      'reconnecting later? Re-run this '
+                                      'command - the address can change',
                                   false
                                 ),
                               ],
