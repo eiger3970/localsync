@@ -1,7 +1,7 @@
 name: localsync
 description: Local-first Obsidian sync. No cloud. No subscription.
 homepage: https://kworld.space
-version: 0.1.0+67
+version: 0.1.0+68
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -73,6 +73,19 @@ dependencies:
   # permission-free query) - unrelated to and can't trigger the same
   # Local Network device-discovery permission multicast_dns needs.
   connectivity_plus: ^6.0.5
+  # 2026-09-01: real feedback - "user tapped Don't Allow, can this be
+  # detected?" Apple exposes no public API to read Local Network
+  # permission status (confirmed via Apple's own developer forums,
+  # still an open question there in 2026) - the one known workaround
+  # (probe a UDP broadcast send, inspect the error code) is an
+  # undocumented hack with live 2026 reports of it breaking on recent
+  # iOS/iPadOS versions even with correct entitlements. Not worth
+  # building on. This package sidesteps the whole detection problem:
+  # a plain, official Settings deep-link (AppSettingsType.settings
+  # opens THIS app's Settings page, where the Local Network toggle
+  # lives on iOS 14+) - no permission-status code, nothing that can
+  # silently break on an OS update.
+  app_settings: ^9.0.0
 
 dev_dependencies:
   flutter_test:
