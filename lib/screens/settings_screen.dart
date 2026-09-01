@@ -320,6 +320,18 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _findDesktop() async {
     setState(() => _discovering = true);
+    // 2026-09-01: real feedback - "satellite just searches forever with
+    // circle processing, needs more info for user." findDesktopIp()
+    // already times out at 5s internally, but the bare spinner gave no
+    // indication of that - felt indeterminate even though it's bounded.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Text('Searching Wi-Fi for your desktop (up to 5 seconds)…',
+            style: TextStyle(color: kStar, fontSize: 14)),
+        duration: const Duration(seconds: 5),
+      ),
+    );
     final ip = await _discovery.findDesktopIp();
     if (!mounted) return;
     setState(() => _discovering = false);
@@ -581,7 +593,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // existing 28+divider+28 above was the mismatch - "3." below
             // uses that same 28+divider+28 with nothing extra added.
             // Removed to match.
-            Text('2. GIT BARE REPO PATH',
+            Text('2. DESKTOP SYNC FOLDER (git bare repo path)',
                 style: TextStyle(
                     color: kGreen,
                     fontSize: 11,
