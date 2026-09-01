@@ -416,30 +416,30 @@ class _SettingsScreenState extends State<SettingsScreen>
     // failsafe at this call site, racing the real call against a hard
     // timer of its own - even if findDesktopIp() never returns at all,
     // this screen is now guaranteed to stop waiting at 5s regardless.
-    var ip = await Future.any([
-      _discovery.findDesktopIp(),
-      Future.delayed(const Duration(seconds: 5), () => null),
-    ]);
-    // 2026-09-01: real feedback - "phone to run a scan to find the
-    // desktop IP, without the user having to manually run desktop
-    // actions." mDNS staying null doesn't necessarily mean no desktop
-    // is reachable - it means nothing answered a multicast query,
-    // which is exactly the mechanism confirmed to misbehave on iOS
-    // (see the comment above and discovery_service.dart's own header).
-    // A plain TCP/SSH-auth scan is a genuinely different path that
-    // doesn't depend on multicast working at all - see
-    // scanAndVerifyDesktop()'s own comment for why a real auth
-    // handshake is what confirms a match, not just an open port.
-    // 2026-09-01: real bug, live device - "USB cable connected, IP not
-    // found" for a phone with no prior pairing. A UI-side gate here
-    // that skipped calling this at all for that case (an earlier,
-    // narrower version of this comment) was actually wrong - it threw
-    // away the exact scenario this fix targets. scanAndVerifyDesktop()
-    // itself now handles "no keypair yet" correctly and safely (see
-    // its own header), so no gating is needed at this call site.
+    // 2026-09-01: real device confirmed, live - tapping the satellite
+    // the FIRST time ever (this session) shows iOS's own "Allow
+    // 'LocalSync' to find devices on local networks?" prompt - both
+    // mDNS and the plain TCP scan below are gated behind that same
+    // Local Network permission. The in-flight call that triggered the
+    // prompt still returns null/empty regardless of what the user taps
+    // (confirmed: tapping Allow, then searching a SECOND time, found
+    // the desktop straight away). Rather than tell the user to tap
+    // twice, one silent automatic retry absorbs this - costs nothing
+    // extra once permission is already granted (the retry is as fast
+    // as the first attempt), and turns "ask the user to do it again"
+    // into zero extra taps.
+    Future<String?> attempt() async {
+      final fromMdns = await Future.any([
+        _discovery.findDesktopIp(),
+        Future.delayed(const Duration(seconds: 5), () => null),
+      ]);
+      if (fromMdns != null || !mounted) return fromMdns;
+      return _discovery.scanAndVerifyDesktop(username: _userCtrl.text.trim());
+    }
+
+    var ip = await attempt();
     if (ip == null && mounted) {
-      ip = await _discovery.scanAndVerifyDesktop(
-          username: _userCtrl.text.trim());
+      ip = await attempt();
     }
     if (!mounted) return;
     setState(() => _discovering = false);
