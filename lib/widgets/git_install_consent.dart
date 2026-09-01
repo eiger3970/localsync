@@ -3,14 +3,19 @@
 // 2026-08-28: real feedback, live - "normies need to be 100% informed"
 // before pairing_controller.dart's auto `sudo apt-get install git` step
 // ever runs, using the desktop password with zero disclosure until this.
-// Shown before every real pairing attempt - a security consent, not a
-// convenience prompt, so per explicit direction (2026-08-28, follow-up,
-// after the remembered-choice version read as confusing/buggy on a real
-// device) this is never persisted or skipped based on a prior answer.
 // Explicit per direction: warn against blindly trusting any app with a
 // password, show the literal command rather than a vague description,
-// and give a real manual-install choice alongside the automatic one,
-// not just an accept/decline on automation.
+// and give a real manual-install choice alongside the automatic one.
+//
+// 2026-09-01: real feedback, live - "if users see that, they'll have a
+// heart attack... just a single button click." Real tension with the
+// 2026-08-28 direction above (more disclosure, not less) - resolved by
+// keeping everything that was there, just not all visible by default.
+// One reassuring primary action now; the amber "only trust apps you
+// trust" warning (read as alarming applied to this app itself, not
+// informative) is gone entirely, and the info lines + exact command
+// are still present but tucked behind an optional "Details" toggle
+// instead of confronting every user by default.
 //
 // Returns true (let LocalSync install it), false (I'll install it
 // myself), or null (cancelled - caller should not proceed with pairing
@@ -22,7 +27,6 @@ import '../theme.dart';
 Future<bool?> showGitInstallConsent(BuildContext context) {
   return showDialog<bool>(
     context: context,
-    barrierDismissible: false,
     builder: (_) => const _GitInstallConsentDialog(),
   );
 }
@@ -36,18 +40,7 @@ class _GitInstallConsentDialog extends StatefulWidget {
 }
 
 class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
-  bool _showCommand = false;
-
-  // 2026-08-29: real feedback, live - "don't mix up the 2 subjects" (this
-  // dialog's real subject is the git auto-install decision, not password
-  // security). The two password-storage lines moved out entirely - that
-  // reassurance now lives inline under password field 1 on
-  // linking_screen.dart instead, right where the password is actually
-  // typed. Only the line that's genuinely about THIS decision (trusting
-  // an app enough to let it run sudo) stays here.
-  static const _warnLines = [
-    (Icons.verified_user_outlined, 'Only for apps you already trust'),
-  ];
+  bool _showDetails = false;
 
   static const _infoLines = [
     (Icons.desktop_windows_outlined, 'Debian/Linux only - not Mac or Windows'),
@@ -57,14 +50,6 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // 2026-08-29: real feedback, live - "user actions should be the main
-    // part and the warnings a sub info part, moved below the important
-    // user action." AlertDialog always renders `actions` after `content`
-    // at the bottom - swapped to a plain Dialog so the three real
-    // decisions (auto install / install myself / cancel) sit right under
-    // the title, and the warning/info detail (still fully present, none
-    // of it removed) reads as secondary detail underneath rather than a
-    // wall of text blocking the decision.
     return Dialog(
       backgroundColor: kSurface,
       child: Padding(
@@ -73,117 +58,67 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Install git on your desktop?',
+            Text('Setting up your desktop',
                 style: TextStyle(
                     color: kStar, fontSize: 17, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 10),
+            Text(
+              'LocalSync needs git on your desktop to sync your notes - '
+              'it can install it automatically now, takes a few seconds.',
+              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.4),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: kGreen),
-              child: Text('LocalSync auto install',
+              child: Text('Continue',
                   style: TextStyle(
                       color: kVoid, fontSize: 14, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context, false),
-              style: OutlinedButton.styleFrom(side: BorderSide(color: kBorder)),
-              child: Text('Install git myself',
-                  style: TextStyle(color: kTextMid, fontSize: 14)),
-            ),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: Text('Cancel', style: TextStyle(color: kTextDim)),
-            ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.amber, width: 1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final (icon, text) in _warnLines) ...[
-                            _ConsentLine(
-                                icon: icon,
-                                text: text,
-                                iconColor: Colors.amber,
-                                color: kStar),
-                            if (text != _warnLines.last.$2)
-                              const SizedBox(height: 6),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    for (final (icon, text) in _infoLines) ...[
-                      _ConsentLine(
-                          icon: icon,
-                          text: text,
-                          iconColor: kGreen,
-                          color: kTextMid),
-                      if (text != _infoLines.last.$2) const SizedBox(height: 8),
-                    ],
-                    const SizedBox(height: 12),
-                    InkWell(
-                      onTap: () => setState(() => _showCommand = !_showCommand),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 2026-08-28: real feedback, live - "arrow points down
-                          // but should point right. Command showing has arrow
-                          // pointing up but should point down." Collapsed = right
-                          // (there's more to reveal to the right/below), expanded
-                          // = down (pointing at the command box that just opened
-                          // directly beneath it) - was backwards (expand_more/
-                          // expand_less, an up/down pair with no "collapsed"
-                          // state at all).
-                          Icon(
-                              _showCommand
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.chevron_right,
-                              color: kGreen,
-                              size: 18),
-                          const SizedBox(width: 4),
-                          Text('Show the exact command',
-                              style: TextStyle(
-                                  color: kGreen,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                    if (_showCommand) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: kVoid,
-                          border: Border.all(color: kBorder),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text('sudo apt-get install -y git',
-                            style: TextStyle(
-                                color: kStar,
-                                fontSize: 13,
-                                fontFamily: 'monospace')),
-                      ),
-                    ],
-                  ],
-                ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => setState(() => _showDetails = !_showDetails),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                      _showDetails
+                          ? Icons.keyboard_arrow_down
+                          : Icons.chevron_right,
+                      color: kTextMid,
+                      size: 18),
+                  const SizedBox(width: 4),
+                  Text('Details',
+                      style: TextStyle(color: kTextMid, fontSize: 13)),
+                ],
               ),
             ),
+            if (_showDetails) ...[
+              const SizedBox(height: 8),
+              for (final (icon, text) in _infoLines) ...[
+                _ConsentLine(icon: icon, text: text, color: kTextMid),
+                if (text != _infoLines.last.$2) const SizedBox(height: 8),
+              ],
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: kVoid,
+                  border: Border.all(color: kBorder),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text('sudo apt-get install -y git',
+                    style: TextStyle(
+                        color: kStar, fontSize: 13, fontFamily: 'monospace')),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('I\'ll install it myself instead',
+                    style: TextStyle(color: kTextDim, fontSize: 13)),
+              ),
+            ],
           ],
         ),
       ),
@@ -191,19 +126,13 @@ class _GitInstallConsentDialogState extends State<_GitInstallConsentDialog> {
   }
 }
 
-// 2026-08-28: real feedback, live - "verbose, KISS, use point form and
-// images" - both bullet groups above were two dense paragraphs; this is
-// the shared icon+line row that replaced them, one glance per line
-// instead of a sentence to parse.
 class _ConsentLine extends StatelessWidget {
   final IconData icon;
   final String text;
-  final Color iconColor;
   final Color color;
   const _ConsentLine({
     required this.icon,
     required this.text,
-    required this.iconColor,
     required this.color,
   });
 
@@ -212,7 +141,7 @@ class _ConsentLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: iconColor, size: 16),
+        Icon(icon, color: kGreen, size: 16),
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,

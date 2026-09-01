@@ -2389,6 +2389,14 @@ class _FailedViewState extends State<_FailedView> {
     final failure = ctrl.lastFailure!;
     final isPairingFailure = failure.error == LinkingError.pairingNotComplete ||
         failure.error == LinkingError.sshAuthFailed;
+    // 2026-09-01: real feedback - tapping the mode-switch link on a
+    // never-paired phone (true after every delete+reinstall test cycle)
+    // correctly lands here with pairingNotComplete, but "Something
+    // stopped" + a red WHAT HAPPENED card reads like an error - this
+    // isn't one, it's just the normal first pairing step. sshAuthFailed
+    // stays on the alarming framing - that one IS a real problem (a
+    // previously-installed key got rejected).
+    final isFirstTimePairing = failure.error == LinkingError.pairingNotComplete;
 
     // 2026-08-16: "drag only in bottom left corner, not possible on
     // entire screen?" - reported three times running a Row/Column/
@@ -2405,18 +2413,20 @@ class _FailedViewState extends State<_FailedView> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
-        Text('Something stopped',
+        Text(isFirstTimePairing ? 'Let\'s pair your phone' : 'Something stopped',
             style: TextStyle(
                 color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
         const SizedBox(height: 20),
 
         // What happened
-        DiagCard(
-          label: 'WHAT HAPPENED',
-          text: failure.diagnosis,
-          accent: Colors.redAccent,
-        ),
-        const SizedBox(height: 12),
+        if (!isFirstTimePairing) ...[
+          DiagCard(
+            label: 'WHAT HAPPENED',
+            text: failure.diagnosis,
+            accent: Colors.redAccent,
+          ),
+          const SizedBox(height: 12),
+        ],
 
         // 2026-08-16: "I just told you text is verbose and to use
         // infographics for workflow processes" - for the pairing
