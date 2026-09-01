@@ -207,9 +207,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Command for your desktop terminal:" - the box below had
             // no label at all explaining what it was or where it's
             // meant to be run, just an unmarked monospace string.
-            Text('Command for your desktop terminal:',
-                style: TextStyle(color: kTextMid, fontSize: 12)),
-            const SizedBox(height: 6),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
@@ -246,6 +243,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
             ),
+            const SizedBox(height: 6),
+            // 2026-09-01: real feedback - "Move Command for your desktop
+            // terminal under the command." Was above the command box;
+            // now below it.
+            Text('Command for your desktop terminal:',
+                style: TextStyle(color: kTextMid, fontSize: 12)),
             const SizedBox(height: 12),
             for (final (text, indented) in points)
               Padding(
@@ -279,6 +282,27 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2026-09-01: lightweight sibling of _showHelp - a plain title+message
+  // dialog for fields with a short explanation and no command to run,
+  // instead of always-visible helper text under the field.
+  void _showInfo(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+        content: Text(message,
+            style: TextStyle(color: kTextMid, fontSize: 14, height: 1.4)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -533,14 +557,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // "Desktop username" label duplicated the new
                       // "1. DESKTOP USERNAME" step header above it -
                       // removed (with the styling it needed to read as a
-                      // header, now unused). hintText/helperText stay,
-                      // they carry different information.
-                      helperText: 'The login username on your desktop - '
-                          'what you\'d type to sign in there',
-                      helperMaxLines: 2,
-                      helperStyle: TextStyle(color: kTextMid, fontSize: 13),
+                      // header, now unused).
+                      // 2026-09-01: real feedback - "move grey text
+                      // underneath to an info in right of field." The
+                      // always-visible helperText is gone; same
+                      // explanation now lives behind an (i) button,
+                      // matching the info-icon pattern the other two
+                      // fields already use.
                       hintText: 'e.g. rapi5',
                       errorText: _userError,
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.info_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'What is this?',
+                        onPressed: () => _showInfo(
+                          'Desktop username',
+                          'The login username on your desktop - what '
+                              'you\'d type to sign in there.',
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -718,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         // leads with it instead of assuming a repo
                         // already exists.
                         onPressed: () => _showHelp(
-                          'Setting the Git bare repo path',
+                          'Setting your desktop sync folder',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
                             // 2026-08-30: moved here from always-visible
@@ -732,7 +767,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               false
                             ),
                             (
-                              'New setup? Just type any path here, e.g. '
+                              'Auto setup: just type any path here, e.g. '
                                   '~/Documents/Git/localsync.git - '
                                   'it gets created automatically the '
                                   'first time you pair, nothing to run '
@@ -740,16 +775,23 @@ class _SettingsScreenState extends State<SettingsScreen>
                               false
                             ),
                             (
-                              'Applies to a new folder you link - '
-                                  'existing links are unaffected',
+                              'Applies to a new desktop sync folder you '
+                                  'link to your phone, existing links are '
+                                  'unaffected',
                               false
                             ),
                             (
-                              'Already have one and want to reuse it? Run '
-                                  'this on the desktop terminal instead',
+                              'Manual setup (if auto setup fails, or you '
+                                  'already have a desktop sync folder and '
+                                  'want to reuse it): run this on the '
+                                  'desktop terminal instead',
                               false
                             ),
-                            ('Lists every Git bare repo on the desktop', true),
+                            (
+                              'Lists every desktop sync folder on the '
+                                  'desktop',
+                              true
+                            ),
                             if (_pathCtrl.text.trim().isNotEmpty)
                               (
                                 'Currently set to: ${_pathCtrl.text.trim()}',
@@ -757,8 +799,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               )
                             else
                               (
-                                'Your real folder is usually the one you '
-                                    'set up first',
+                                'If the command above lists more than '
+                                    'one, the one you set up first is '
+                                    'usually the right one',
                                 false
                               ),
                           ],

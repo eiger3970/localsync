@@ -55,7 +55,7 @@ import 'settings_screen.dart';
 // pairing_screen.dart's own copy of this same label uses the identical
 // fallback) rather than fixed once and left inconsistent elsewhere.
 String desktopUserAtIp(String user, String ip) {
-  if (user.trim().isEmpty && ip.trim().isEmpty) return 'Not set up yet';
+  if (user.trim().isEmpty && ip.trim().isEmpty) return '(not set up yet)';
   return '$user@$ip';
 }
 
@@ -1311,19 +1311,29 @@ class _IdleViewState extends State<_IdleView>
                 style: TextStyle(color: kTextMid, fontSize: 13),
                 textAlign: TextAlign.center),
           ],
+          // 2026-09-01: real feedback - "are these options redundant?"
+          // Yes, one of them: both links used to show unconditionally on
+          // both the vault and file-sync screens, so a user who already
+          // chose "Just my files" (SyncMode.genericFolder) to reach this
+          // screen was also offered a link that does exactly that same
+          // thing again. Now each only shows the OTHER path - a real
+          // escape hatch (wrong choice, or already have a vault), not a
+          // restatement of the choice already made. Also shortens this
+          // section, which helps the "hidden behind the keyboard" issue.
           const SizedBox(height: 24),
-          GestureDetector(
-            onTap: ctrl.startLinkingExistingVault,
-            child: Text(
-              'Already have a vault set up? Link it directly',
-              style: TextStyle(
-                color: kTextMid,
-                fontSize: 13,
-                decoration: TextDecoration.underline,
-                decorationColor: kTextMid,
+          if (widget.ctrl.preferredMode != SyncMode.obsidianVault)
+            GestureDetector(
+              onTap: ctrl.startLinkingExistingVault,
+              child: Text(
+                'Already have a vault set up? Link it directly',
+                style: TextStyle(
+                  color: kTextMid,
+                  fontSize: 13,
+                  decoration: TextDecoration.underline,
+                  decorationColor: kTextMid,
+                ),
               ),
             ),
-          ),
           // 2026-08-27: Tier 0 (docs/product-tiers.md) - free, generic
           // file sync, no PKM awareness at all. Names the app-agnostic
           // $kContainerName here, not $kNoteAppName - "no vault needed"
@@ -1334,19 +1344,19 @@ class _IdleViewState extends State<_IdleView>
           // for this whole path is a real next step, not done here (see
           // the SyncMode.genericFolder header comment in
           // repository.dart), this is a working, reachable entry point.
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: ctrl.startLinkingGenericFolder,
-            child: Text(
-              "Just want to sync plain files, no $kContainerName needed? Sync a folder directly",
-              style: TextStyle(
-                color: kTextMid,
-                fontSize: 13,
-                decoration: TextDecoration.underline,
-                decorationColor: kTextMid,
+          if (widget.ctrl.preferredMode != SyncMode.genericFolder)
+            GestureDetector(
+              onTap: ctrl.startLinkingGenericFolder,
+              child: Text(
+                "Just want to sync plain files, no $kContainerName needed? Sync a folder directly",
+                style: TextStyle(
+                  color: kTextMid,
+                  fontSize: 13,
+                  decoration: TextDecoration.underline,
+                  decorationColor: kTextMid,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
