@@ -26,6 +26,12 @@
 // alpha. Deliberately still a plain rect grid, not real crack-pattern
 // geometry - that was already tried (revisions 1-7) and explicitly
 // dropped for being "too complicated."
+//
+// 2026-09-01, eleventh revision: "falls to bottom of screen, but should
+// fall getting smaller into the distance, not up, down, left or right."
+// The y-offset from revision ten WAS the fall - dropped entirely. Pure
+// in-place shrink now, no positional movement in any direction; scale
+// alone carries the whole "receding into the distance" read.
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -106,13 +112,14 @@ class _GlassSmashPainter extends CustomPainter {
         final alpha = 1 - local;
         if (alpha <= 0.02) continue;
 
-        // Fall (accelerating, already baked into easeIn's shape) plus
-        // shrink toward the tile's own center - the actual "receding
-        // into the background" depth cue, not just alpha.
-        final fallY = size.height * 0.5 * local;
-        final scale = 1.0 - 0.5 * local;
+        // 2026-09-01, eleventh revision: "falls to bottom of screen,
+        // but should fall getting smaller into the distance, not up,
+        // down, left or right." No positional movement at all now -
+        // each piece shrinks toward its own center in place. Scale is
+        // the only depth cue; nothing travels anywhere on screen.
+        final scale = 1.0 - 0.7 * local;
         final cx = c * w + w / 2;
-        final cy = r * h + h / 2 + fallY;
+        final cy = r * h + h / 2;
         final tw = (w + 1) * scale;
         final th = (h + 1) * scale;
 

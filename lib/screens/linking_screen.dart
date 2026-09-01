@@ -68,6 +68,88 @@ void _leaveSetup(BuildContext context) {
   }
 }
 
+// 2026-09-01: real feedback - "SSH enabling needs basic simple steps
+// for users to setup." Was only in docs/desktop-setup.md - real steps,
+// moved in-app so someone hitting connectionRefused actually sees them.
+// Two platforms, two different one-time steps, no command in common -
+// simple copyable command boxes per platform rather than forcing this
+// into the single-command _showHelp pattern settings_screen.dart uses.
+void _showSshHelp(BuildContext context) {
+  void copy(BuildContext ctx, String command) {
+    Clipboard.setData(ClipboardData(text: command));
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Text('Command copied', style: TextStyle(color: kStar, fontSize: 14)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget commandBox(BuildContext ctx, String command) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
+      decoration: BoxDecoration(color: kVoid, border: Border.all(color: kBorder)),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SelectableText(command,
+                  maxLines: 1,
+                  style: TextStyle(color: kGreen, fontFamily: 'monospace', fontSize: 13)),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.copy, color: kTextMid, size: 18),
+            tooltip: 'Copy command',
+            onPressed: () => copy(ctx, command),
+          ),
+        ],
+      ),
+    );
+  }
+
+  showDialog(
+    context: context,
+    builder: (dialogCtx) => AlertDialog(
+      backgroundColor: kSurface,
+      title: Text('Turning on SSH', style: TextStyle(color: kStar, fontSize: 16)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This is a one-time step on the desktop, before it can be '
+              'reached at all - it can\'t be done remotely from the phone.',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Text('LINUX', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            commandBox(dialogCtx, 'sudo apt install -y openssh-server && sudo systemctl enable --now ssh'),
+            const SizedBox(height: 16),
+            Text('MAC', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            Text(
+              'System Settings -> General -> Sharing -> turn on Remote Login.',
+              style: TextStyle(color: kTextMid, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogCtx),
+          child: Text('Got it', style: TextStyle(color: kGreen)),
+        ),
+      ],
+    ),
+  );
+}
+
 class LinkingScreen extends StatelessWidget {
   const LinkingScreen({super.key});
 
@@ -1321,11 +1403,23 @@ class _IdleViewState extends State<_IdleView>
           // restatement of the choice already made. Also shortens this
           // section, which helps the "hidden behind the keyboard" issue.
           const SizedBox(height: 24),
+          // 2026-09-01: real feedback - "new users don't know what a
+          // vault is, this is for Obsidian users. A new free Tier 0
+          // user would look for wording Desktop sync folder." Checked
+          // what this link actually does before rewording it -
+          // startLinkingExistingVault() switches into Obsidian-note
+          // syncing, it's unrelated to reusing a desktop sync folder
+          // (startLinkingGenericFolder's own folder picker already
+          // covers picking an existing folder, no separate link needed
+          // for that). "Desktop sync folder" wording would describe
+          // the wrong action here - reworded to plainly say what this
+          // link does instead, without the word "vault."
           if (widget.ctrl.preferredMode != SyncMode.obsidianVault)
             GestureDetector(
               onTap: ctrl.startLinkingExistingVault,
               child: Text(
-                'Already have a vault set up? Link it directly',
+                'Want to sync your Obsidian notes instead of plain '
+                    'files? Switch here',
                 style: TextStyle(
                   color: kTextMid,
                   fontSize: 13,
@@ -2374,6 +2468,22 @@ class _FailedViewState extends State<_FailedView> {
                   side: BorderSide(color: kGreen),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
+              ),
+            ),
+            // 2026-09-01: real feedback - "SSH enabling needs basic
+            // simple steps for users to setup." These steps only ever
+            // lived in docs/desktop-setup.md, which nobody installing
+            // from the App Store reads. connectionRefused is exactly
+            // the failure someone with SSH off would hit, so the steps
+            // belong right here, not just in a repo doc.
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () => _showSshHelp(context),
+                icon: Icon(Icons.help_outline, color: kTextMid, size: 16),
+                label: Text('How do I turn on SSH on my desktop?',
+                    style: TextStyle(color: kTextMid, fontSize: 13)),
               ),
             ),
           ],
