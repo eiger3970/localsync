@@ -430,6 +430,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     // doesn't depend on multicast working at all - see
     // scanAndVerifyDesktop()'s own comment for why a real auth
     // handshake is what confirms a match, not just an open port.
+    // 2026-09-01: real bug, live device - "USB cable connected, IP not
+    // found" for a phone with no prior pairing. A UI-side gate here
+    // that skipped calling this at all for that case (an earlier,
+    // narrower version of this comment) was actually wrong - it threw
+    // away the exact scenario this fix targets. scanAndVerifyDesktop()
+    // itself now handles "no keypair yet" correctly and safely (see
+    // its own header), so no gating is needed at this call site.
     if (ip == null && mounted) {
       ip = await _discovery.scanAndVerifyDesktop(
           username: _userCtrl.text.trim());
@@ -1014,8 +1021,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                               child: _discovering
                                   ? Padding(
                                       key: const ValueKey('discovering'),
+                                      // 2026-09-01: real feedback - "add
+                                      // a line space here" between this
+                                      // and the static helper text below
+                                      // it - 4px read as no gap at all.
                                       padding:
-                                          const EdgeInsets.only(bottom: 4),
+                                          const EdgeInsets.only(bottom: 12),
                                       child: Text(
                                         // 2026-09-01: dropped the "(up
                                         // to 5 seconds)" promise - the
@@ -1033,8 +1044,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   : _notFoundOnWifi
                                       ? Padding(
                                           key: const ValueKey('notFound'),
+                                          // 2026-09-01: real feedback -
+                                          // "add a line space here"
+                                          // before the static helper
+                                          // text below it.
                                           padding: const EdgeInsets.only(
-                                              bottom: 4),
+                                              bottom: 12),
                                           child: Text(
                                             // 2026-09-01: real feedback -
                                             // "tether" is networking
@@ -1182,9 +1197,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // "cable" throughout this dialog and the
                                 // not-found message above - normie
                                 // wording, not networking jargon.
+                                // 2026-09-01: real feedback - name the
+                                // exact line to look for, not just the
+                                // interface name in isolation - showing
+                                // it inside real `ip addr show`-shaped
+                                // output ("n: eth1: inet 172.20.10.11
+                                // /28") gives the eye a concrete pattern
+                                // to match instead of an abstract word.
+                                // _highlightInterfaceNames already
+                                // greens eth1/usb0 wherever they occur
+                                // in point text, no rendering change
+                                // needed for this.
                                 (
                                   '2. Find your interface in the result - '
-                                      'the USB cable will be eth1 or usb0',
+                                      'it looks like "n: eth1: inet '
+                                      '172.20.10.11/28" or "n: usb0: '
+                                      'inet 172.20.10.11/28"',
                                   false
                                 ),
                                 // 2026-09-01: real feedback - "no need to

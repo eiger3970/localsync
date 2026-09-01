@@ -81,23 +81,28 @@ class DiscoveryService {
   // only the real, previously-paired desktop has installed in its
   // authorized_keys. A real SSH auth handshake is a strictly stronger
   // and simpler signal than guessing from a hostname/vendor: any host
-  // that accepts it IS the paired desktop, full stop. This only ever
-  // helps a phone that has already paired once (see the empty-keypair
-  // check below) - a first-time pairing still needs the existing
-  // password-based flow (features/pairing/) regardless of which IP is
-  // typed in, since no host has this phone's key yet either way.
+  // that accepts it IS the paired desktop, full stop.
+  //
+  // 2026-09-01: real bug, live device - "USB cable connected, IP not
+  // found" on a phone with no prior successful pairing. The original
+  // version bailed out before even scanning if no local keypair
+  // existed, which meant a genuinely new user got zero benefit from
+  // this even on a cable link with only one real candidate on the
+  // other end. Fixed: the port-22 scan (stage 1, no key/pairing needed
+  // at all) now always runs. Auth-verification (stage 2) still needs a
+  // key and is skipped cleanly if none exists yet, rather than the
+  // whole function bailing. If verification can't run or nothing
+  // verifies, but exactly ONE host answered on port 22, there's no
+  // real ambiguity to guess wrong on - a personal iPhone hotspot/cable
+  // link realistically has only the desktop listening on 22 - so that
+  // single candidate is returned unverified (stage 3). More than one
+  // open host with nothing verified stays a real "can't tell which"
+  // case and correctly falls through to Manual setup.
   Future<String?> scanAndVerifyDesktop({
     required String username,
     Duration portTimeout = const Duration(milliseconds: 400),
     Duration authTimeout = const Duration(seconds: 3),
   }) async {
-    if (username.isEmpty) return null;
-
-    final privateKeyFile = File(await SshKeyPaths.privateKeyPath());
-    if (!await privateKeyFile.exists()) return null;
-    final identities =
-        SSHKeyPair.fromPem(await privateKeyFile.readAsString());
-
     final localIps = <String>{
       for (final iface in await NetworkInterface.list(
           type: InternetAddressType.IPv4, includeLoopback: false))
@@ -137,21 +142,36 @@ class DiscoveryService {
     }));
     if (open.isEmpty) return null;
 
-    // Stage 2: real SSH key auth against each host with 22 open.
-    for (final ip in open) {
-      SSHSocket? socket;
-      try {
-        socket = await SSHSocket.connect(ip, 22, timeout: authTimeout);
-        final client =
-            SSHClient(socket, username: username, identities: identities);
-        await client.authenticated.timeout(authTimeout);
-        client.close();
-        return ip;
-      } catch (_) {
-        socket?.close();
-        continue;
+    // Stage 2: real SSH key auth against each host with 22 open - only
+    // possible once this phone actually has a keypair (from a prior
+    // pairing attempt) and a username to try it with.
+    if (username.isNotEmpty) {
+      final privateKeyFile = File(await SshKeyPaths.privateKeyPath());
+      if (await privateKeyFile.exists()) {
+        final identities =
+            SSHKeyPair.fromPem(await privateKeyFile.readAsString());
+        for (final ip in open) {
+          SSHSocket? socket;
+          try {
+            socket = await SSHSocket.connect(ip, 22, timeout: authTimeout);
+            final client = SSHClient(socket,
+                username: username, identities: identities);
+            await client.authenticated.timeout(authTimeout);
+            client.close();
+            return ip;
+          } catch (_) {
+            socket?.close();
+            continue;
+          }
+        }
       }
     }
+
+    // Stage 3: no verified match - either no keypair yet (first
+    // pairing) or none of the open hosts accepted this one. A single
+    // open candidate is still worth returning unverified; see the
+    // header comment for why that's safe here.
+    if (open.length == 1) return open.first;
     return null;
   }
 
