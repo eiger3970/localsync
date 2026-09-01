@@ -157,6 +157,21 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 Text('iPhone only. Works with a Linux or Mac desktop.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11, color: wInkDim)),
+                const SizedBox(height: 4),
+                // 2026-09-01: real feedback - "users need this
+                // information upfront... so 2 devices needed,
+                // connection Wi-Fi or cable and install desktop file."
+                // Someone could otherwise go through this whole screen,
+                // pick a path, even pay for the Obsidian one, before
+                // discovering a one-time desktop step exists at all -
+                // this says it plainly before any of that.
+                Text(
+                  'Needs your phone + a desktop (or NAS), connected by '
+                  'Wi-Fi or cable, and a one-time setup file run once on '
+                  'the desktop.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: wInkDim),
+                ),
               ],
             ),
           ),

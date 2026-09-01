@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LocalSync Desktop Setup
+Comment=Sets up git, SSH, and the sync folder for LocalSync
+Exec=x-terminal-emulator -e bash -c "curl -fsSL https://kworld.space/localsync/setup.sh | bash; echo; read -p 'Press Enter to close this window...'"
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;
