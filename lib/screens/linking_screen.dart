@@ -645,8 +645,11 @@ class _IdleViewState extends State<_IdleView>
               children: [
                 Icon(Icons.shield_outlined, color: kTextMid, size: 16),
                 const SizedBox(width: 6),
-                Text('No other files on this phone are read or changed.',
-                    style: TextStyle(color: kTextMid, fontSize: 13)),
+                Flexible(
+                  child: Text(
+                      'No other files on this phone are read or changed.',
+                      style: TextStyle(color: kTextMid, fontSize: 13)),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -655,9 +658,12 @@ class _IdleViewState extends State<_IdleView>
               children: [
                 Icon(Icons.schedule_outlined, color: kTextMid, size: 16),
                 const SizedBox(width: 6),
-                Text(
-                  'This runs once. Larger vaults may take a few minutes.',
-                  style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                Flexible(
+                  child: Text(
+                    'This runs once. Larger vaults may take a few minutes.',
+                    style:
+                        TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+                  ),
                 ),
               ],
             ),

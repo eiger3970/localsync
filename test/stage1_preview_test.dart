@@ -4,12 +4,37 @@
 // instead of guessing pixel values blind. Run with:
 //   flutter test test/stage1_preview_test.dart --update-goldens
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:localsync/features/linking/linking_controller.dart';
 import 'package:localsync/screens/linking_screen.dart';
+import 'package:localsync/services/repository_provider.dart';
 
 void main() {
+  setUp(() {
+    // Desktop settings pre-filled (matches this test's real intent: an
+    // already-configured user re-confirming pairing, not a first-timer -
+    // an empty-settings user correctly gets redirected to SettingsScreen
+    // by the deliberate 2026-08-30 fix in _onKeyPairingSettled, which
+    // isn't what this test is checking).
+    SharedPreferences.setMockInitialValues({
+      'db_desktop_user': 'rapi5',
+      'db_desktop_ip': '172.20.10.11',
+      'db_bare_repo_path':
+          '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
+    });
+    // Same gap as appbar_preview_test.dart: something in this screen's
+    // init touches path_provider (real plugin, no test-env
+    // implementation) - irrelevant to this visual capture, just needs to
+    // not throw.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (MethodCall call) async => '/tmp');
+  });
+
   testWidgets('capture real Stage 1 screen', (tester) async {
     // iPhone 13/14-ish logical size.
     tester.view.physicalSize = const Size(1170, 2532);
@@ -25,8 +50,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: ctrl,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: ctrl),
+          ChangeNotifierProvider(create: (_) => RepositoryProvider()),
+        ],
         child: const MaterialApp(home: LinkingScreen()),
       ),
     );
@@ -76,8 +104,11 @@ void main() {
     );
 
     await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: ctrl,
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: ctrl),
+          ChangeNotifierProvider(create: (_) => RepositoryProvider()),
+        ],
         child: const MaterialApp(home: LinkingScreen()),
       ),
     );
