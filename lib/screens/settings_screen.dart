@@ -187,7 +187,13 @@ class _SettingsScreenState extends State<SettingsScreen>
   // network-interface lines are genuinely sub-items of "run this
   // command," not siblings of it, so points now carry an indent flag
   // (record: (text, indented)) rather than one flat list.
-  void _showHelp(String title, String command, List<(String, bool)> points) {
+  // 2026-09-01: real feedback - Manual setup's points already carry
+  // their own "1.", "2." numbering inline (see its call site), so the
+  // generic "•" bullet in front of each one was pure duplication. Other
+  // callers (e.g. "Setting your desktop sync folder") are still plain
+  // prose points and keep their bullets.
+  void _showHelp(String title, String command, List<(String, bool)> points,
+      {bool showBullets = true}) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -266,20 +272,26 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // was the actual complaint, not the arrow text
                     // fixed last round. Plain "•" text for both levels,
                     // no icon glyph that can be misread as an arrow.
-                    SizedBox(
-                      width: 16,
-                      child: Text('•',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: kTextMid,
-                              fontSize: indented ? 12 : 15,
-                              height: 1.35)),
-                    ),
-                    const SizedBox(width: 4),
+                    // 2026-09-01: skipped entirely when showBullets is
+                    // false (numbered lists already carry their own
+                    // "1.", "2." inline - a bullet in front is noise).
+                    if (showBullets)
+                      SizedBox(
+                        width: 16,
+                        child: Text('•',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: kTextMid,
+                                fontSize: indented ? 12 : 15,
+                                height: 1.35)),
+                      ),
+                    if (showBullets) const SizedBox(width: 4),
                     Expanded(
-                      child: Text(text,
-                          style: TextStyle(
-                              color: kTextMid, fontSize: 13, height: 1.35)),
+                      child: Text.rich(
+                        _highlightInterfaceNames(text),
+                        style: TextStyle(
+                            color: kTextMid, fontSize: 13, height: 1.35),
+                      ),
                     ),
                   ],
                 ),
@@ -294,6 +306,34 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
     );
+  }
+
+  // 2026-09-01: real feedback - step 2 of Manual setup ("find your
+  // interface in the result") is the genuinely hard step, since it
+  // means scanning raw `ip -4 addr show` output for one of three short
+  // names. Bolding wlan0/eth1/usb0 wherever they appear in a help-dialog
+  // bullet gives the eye something to scan for instead of reading the
+  // whole sentence.
+  static final _interfaceNamePattern = RegExp(r'wlan0|eth1|usb0');
+
+  TextSpan _highlightInterfaceNames(String text) {
+    final spans = <TextSpan>[];
+    var last = 0;
+    for (final match in _interfaceNamePattern.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(0),
+        style: TextStyle(
+            color: kGreen, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+      ));
+      last = match.end;
+    }
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last)));
+    }
+    return TextSpan(children: spans);
   }
 
   // 2026-09-01: lightweight sibling of _showHelp - a plain title+message
@@ -376,10 +416,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     // failsafe at this call site, racing the real call against a hard
     // timer of its own - even if findDesktopIp() never returns at all,
     // this screen is now guaranteed to stop waiting at 5s regardless.
-    final ip = await Future.any([
+    var ip = await Future.any([
       _discovery.findDesktopIp(),
       Future.delayed(const Duration(seconds: 5), () => null),
     ]);
+    // 2026-09-01: real feedback - "phone to run a scan to find the
+    // desktop IP, without the user having to manually run desktop
+    // actions." mDNS staying null doesn't necessarily mean no desktop
+    // is reachable - it means nothing answered a multicast query,
+    // which is exactly the mechanism confirmed to misbehave on iOS
+    // (see the comment above and discovery_service.dart's own header).
+    // A plain TCP/SSH-auth scan is a genuinely different path that
+    // doesn't depend on multicast working at all - see
+    // scanAndVerifyDesktop()'s own comment for why a real auth
+    // handshake is what confirms a match, not just an open port.
+    if (ip == null && mounted) {
+      ip = await _discovery.scanAndVerifyDesktop(
+          username: _userCtrl.text.trim());
+    }
     if (!mounted) return;
     setState(() => _discovering = false);
     if (ip != null) {
@@ -943,33 +997,74 @@ class _SettingsScreenState extends State<SettingsScreen>
                       helper: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 2026-09-01: real feedback - "this No desktop
+                          // text is now the most important text for the
+                          // user" - moved ABOVE the static helper text
+                          // (was below it) so it appears at the top and
+                          // pushes the static text down, instead of
+                          // getting appended underneath where it could
+                          // be missed. AnimatedSize growing this first
+                          // child is what produces the "push down"
+                          // effect - Column relayout does the rest.
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 200),
+                            alignment: Alignment.topLeft,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: _discovering
+                                  ? Padding(
+                                      key: const ValueKey('discovering'),
+                                      padding:
+                                          const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        // 2026-09-01: dropped the "(up
+                                        // to 5 seconds)" promise - the
+                                        // mDNS attempt is still bounded
+                                        // at 5s, but a null result now
+                                        // falls through to
+                                        // scanAndVerifyDesktop()'s own
+                                        // subnet scan, which can run
+                                        // longer.
+                                        'Searching for your desktop…',
+                                        style: TextStyle(
+                                            color: kGreen, fontSize: 13),
+                                      ),
+                                    )
+                                  : _notFoundOnWifi
+                                      ? Padding(
+                                          key: const ValueKey('notFound'),
+                                          padding: const EdgeInsets.only(
+                                              bottom: 4),
+                                          child: Text(
+                                            // 2026-09-01: real feedback -
+                                            // "tether" is networking
+                                            // jargon ("normies need the
+                                            // word cable"). Also fixed
+                                            // the direction - the (i)
+                                            // button is a suffixIcon
+                                            // inside the field itself,
+                                            // ABOVE this helper text, not
+                                            // below it.
+                                            'No desktop found on Wi-Fi. On '
+                                            'USB cable, use the (i) '
+                                            'button above instead for the '
+                                            'manual steps.',
+                                            style: TextStyle(
+                                                color: kTextMid,
+                                                fontSize: 13),
+                                          ),
+                                        )
+                                      : const SizedBox(
+                                          width: double.infinity,
+                                          key: ValueKey('idle')),
+                            ),
+                          ),
                           Text(
                             'Just the 4 numbers, e.g. 172.20.10.11 - '
                             'no /28 suffix. Update manually after switching '
                             'Tether or Hotspot.',
                             style: TextStyle(color: kTextMid, fontSize: 13),
                           ),
-                          if (_discovering)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Searching Wi-Fi for your desktop '
-                                '(up to 5 seconds)…',
-                                style:
-                                    TextStyle(color: kGreen, fontSize: 13),
-                              ),
-                            ),
-                          if (_notFoundOnWifi)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'No desktop found on Wi-Fi. On USB '
-                                'tether, use the (i) button below '
-                                'instead for the manual steps.',
-                                style:
-                                    TextStyle(color: kTextMid, fontSize: 13),
-                              ),
-                            ),
                         ],
                       ),
                       hintText: 'e.g. 172.20.10.2',
@@ -1071,39 +1166,45 @@ class _SettingsScreenState extends State<SettingsScreen>
                               'Manual setup',
                               'ip -4 addr show',
                               const [
-                                ('1. Run this on the desktop terminal', false),
-                                // 2026-08-21: real bug, live - "they have
-                                // greater than signs" - the unicode arrow
-                                // (→) substituted for the plain "->" the
-                                // user originally typed didn't render
-                                // correctly on-device. Reverted to the
-                                // exact ASCII form asked for the first time.
+                                (
+                                  '1. Run this command on the desktop '
+                                      'terminal',
+                                  false
+                                ),
+                                // 2026-09-01: real feedback - "customer
+                                // isn't using wireless rather usb cable"
+                                // (this dialog is a fallback, only ever
+                                // reached after the Wi-Fi search already
+                                // failed) - dropped the wlan0/Hotspot
+                                // alternative as noise for someone who's
+                                // definitely on a USB cable at this
+                                // point. "tether" also replaced with
+                                // "cable" throughout this dialog and the
+                                // not-found message above - normie
+                                // wording, not networking jargon.
                                 (
                                   '2. Find your interface in the result - '
-                                      'Hotspot Wi-Fi is wlan0, USB tether is '
-                                      'eth1 or usb0',
+                                      'the USB cable will be eth1 or usb0',
                                   false
                                 ),
-                                // 2026-08-28: real feedback, live - "the
-                                // keyboard has no means to type in
-                                // 172.20.10.11/28." This command's
-                                // output includes a /prefix like that -
-                                // the field strips it automatically now,
-                                // but a clear note here means no one
-                                // second-guesses it before saving.
+                                // 2026-09-01: real feedback - "no need to
+                                // repeat text already under the field
+                                // about the 4 numbers" - that
+                                // /28-suffix detail already lives in the
+                                // field's own always-visible helper text
+                                // above, so restating it here was pure
+                                // duplication.
+                                ('3. Type the IP address into the field '
+                                    'above', false),
                                 (
-                                  '3. Type just the 4 numbers into the IP '
-                                      'address field above - ignore the /28 '
-                                      '(or similar) after it',
-                                  false
-                                ),
-                                (
-                                  '4. Switched Tether/Hotspot, or '
-                                      'reconnecting later? Re-run this '
-                                      'command - the address can change',
+                                  '4. Changed from USB cable to Wi-Fi '
+                                      'Hotspot, or reconnecting later? '
+                                      'Re-run this command - the address '
+                                      'can change',
                                   false
                                 ),
                               ],
+                              showBullets: false,
                             ),
                           ),
                         ],

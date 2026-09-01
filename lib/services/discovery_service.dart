@@ -19,6 +19,8 @@
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:multicast_dns/multicast_dns.dart';
+import 'package:dartssh2/dartssh2.dart';
+import 'ssh_key_paths.dart';
 
 const kMdnsServiceType = '_localsync._tcp.local';
 
@@ -63,6 +65,94 @@ class DiscoveryService {
     } finally {
       client.stop();
     }
+  }
+
+  // 2026-09-01: real feedback - mDNS's own native multicast call is the
+  // one confirmed able to hang below Dart's event loop (see
+  // findDesktopIp()'s header comment) - not something a fallback using
+  // the SAME mechanism could ever fix. This is a genuinely different
+  // path: plain TCP connect() probes, which go through the normal Dart
+  // socket API a Future.timeout() can actually preempt.
+  //
+  // Disambiguating "which host is actually the desktop" doesn't need a
+  // vendor/MAC lookup (not reliably possible from an iOS app anyway -
+  // Apple doesn't expose the local ARP table to third-party apps,
+  // unlike a desktop OS) - the phone already holds a private key that
+  // only the real, previously-paired desktop has installed in its
+  // authorized_keys. A real SSH auth handshake is a strictly stronger
+  // and simpler signal than guessing from a hostname/vendor: any host
+  // that accepts it IS the paired desktop, full stop. This only ever
+  // helps a phone that has already paired once (see the empty-keypair
+  // check below) - a first-time pairing still needs the existing
+  // password-based flow (features/pairing/) regardless of which IP is
+  // typed in, since no host has this phone's key yet either way.
+  Future<String?> scanAndVerifyDesktop({
+    required String username,
+    Duration portTimeout = const Duration(milliseconds: 400),
+    Duration authTimeout = const Duration(seconds: 3),
+  }) async {
+    if (username.isEmpty) return null;
+
+    final privateKeyFile = File(await SshKeyPaths.privateKeyPath());
+    if (!await privateKeyFile.exists()) return null;
+    final identities =
+        SSHKeyPair.fromPem(await privateKeyFile.readAsString());
+
+    final localIps = <String>{
+      for (final iface in await NetworkInterface.list(
+          type: InternetAddressType.IPv4, includeLoopback: false))
+        for (final addr in iface.addresses) addr.address,
+    };
+    if (localIps.isEmpty) return null;
+
+    // Real subnet masks aren't available cross-platform from dart:io -
+    // iOS has no public API for them - so this assumes /24 off each
+    // local address, which comfortably covers both a typical home/
+    // office LAN and Apple Personal Hotspot's own 172.20.10.0/28 (a
+    // subset of that /24).
+    final candidates = <String>{};
+    for (final ip in localIps) {
+      final parts = ip.split('.');
+      if (parts.length != 4) continue;
+      final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+      for (var i = 1; i <= 254; i++) {
+        final candidate = '$prefix.$i';
+        if (!localIps.contains(candidate)) candidates.add(candidate);
+      }
+    }
+
+    // Stage 1: cheap parallel TCP connect probe on port 22 - rules out
+    // the ~250 addresses with nothing listening in well under a second,
+    // before spending time on any real SSH handshake.
+    final open = <String>[];
+    await Future.wait(candidates.map((ip) async {
+      try {
+        final socket = await Socket.connect(ip, 22, timeout: portTimeout);
+        socket.destroy();
+        open.add(ip);
+      } catch (_) {
+        // Closed/filtered/unreachable - the overwhelming common case
+        // for a /24 scan, not an error worth surfacing.
+      }
+    }));
+    if (open.isEmpty) return null;
+
+    // Stage 2: real SSH key auth against each host with 22 open.
+    for (final ip in open) {
+      SSHSocket? socket;
+      try {
+        socket = await SSHSocket.connect(ip, 22, timeout: authTimeout);
+        final client =
+            SSHClient(socket, username: username, identities: identities);
+        await client.authenticated.timeout(authTimeout);
+        client.close();
+        return ip;
+      } catch (_) {
+        socket?.close();
+        continue;
+      }
+    }
+    return null;
   }
 
   Future<String?> _startAndLookup(MDnsClient client) async {
