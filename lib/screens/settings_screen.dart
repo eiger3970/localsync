@@ -1318,7 +1318,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 (
                                   '2. Find your interface in the '
                                       'result, looking like:\n'
-                                      '"n: eth1: inet 172.20.10.11/28"\n'
+                                      '"n: eth1: inet 172.20.10.11/28" or\n'
                                       '"n: usb0: inet 172.20.10.11/28"',
                                   false
                                 ),

@@ -1162,6 +1162,11 @@ Future<void> _showAbout(BuildContext context) async {
             // text-URL pattern as CONTACT above, not a new in-app
             // markdown renderer - that's real scope (mermaid support,
             // asset bundling) this doesn't need yet.
+            // 2026-09-02: repointed from the Codeberg markdown doc to
+            // the real kworld.space/localsync page, live as of today -
+            // a one-click "Download for Mac" button + checksummed
+            // terminal command, not a wall of prose a new user has to
+            // read through to find the actual download.
             Text('SETUP GUIDE',
                 style: TextStyle(
                     color: kTextDim,
@@ -1171,7 +1176,7 @@ Future<void> _showAbout(BuildContext context) async {
             const SizedBox(height: 6),
             Text(
               'Desktop-side setup (git, SSH, the bare repo) - '
-              'codeberg.org/kworld/localsync/src/branch/main/docs/desktop-setup.md',
+              'kworld.space/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
