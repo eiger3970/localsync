@@ -23,6 +23,7 @@ const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
 const _kDesktopIpKey          = 'db_desktop_ip';
 const _kDesktopUserKey        = 'db_desktop_user';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
+const _kDesktopVaultPathKey   = 'db_desktop_vault_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
 
@@ -191,6 +192,35 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kBareRepoPathKey, path);
+  }
+
+  // ── Desktop vault path override ────────────────────────────────────────────
+  // 2026-09-02: real gap found, live - "this all needs to be available
+  // to a user installing the app, so I can do it without you." Until
+  // now, the desktop's own working-copy Obsidian vault location
+  // (git_service.dart's _ensureDesktopSyncInstalled()) had no Settings
+  // field at all - it always used the auto-installed cron job's own
+  // built-in default (~/Documents/LocalSync/vault), so reconnecting to
+  // an EXISTING desktop vault (real notes, not a fresh empty folder)
+  // required a manual crontab edit with terminal access. Same override
+  // pattern as bareRepoPath/desktopIp: null means "no override, the
+  // cron job's own default is used," a real value means the user typed
+  // their existing desktop vault's path in from Settings.
+  static String? _webDesktopVaultPath;
+
+  Future<String?> getDesktopVaultPath() async {
+    if (kIsWeb) return _webDesktopVaultPath;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_kDesktopVaultPathKey);
+  }
+
+  Future<void> setDesktopVaultPath(String path) async {
+    if (kIsWeb) {
+      _webDesktopVaultPath = path;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kDesktopVaultPathKey, path);
   }
 
   // ── Auto-discovery interest capture ────────────────────────────────────────

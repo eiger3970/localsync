@@ -83,6 +83,14 @@ class RepositoryProvider extends ChangeNotifier {
   Future<String?> getBareRepoPath() => _db.getBareRepoPath();
   Future<void> setBareRepoPath(String path) => _db.setBareRepoPath(path);
 
+  // ── Desktop vault path override ────────────────────────────────────────────
+  // See database_service.dart's getDesktopVaultPath/setDesktopVaultPath -
+  // same reasoning as Bare repo path above: lets a user reconnecting to
+  // an existing desktop vault set it from Settings, no manual crontab
+  // edit required.
+  Future<String?> getDesktopVaultPath() => _db.getDesktopVaultPath();
+  Future<void> setDesktopVaultPath(String path) => _db.setDesktopVaultPath(path);
+
   // ── Auto-discovery interest capture ────────────────────────────────────────
   // See database_service.dart's getAutoDiscoveryInterest/
   // setAutoDiscoveryInterest - same one-place-for-app-state reasoning.

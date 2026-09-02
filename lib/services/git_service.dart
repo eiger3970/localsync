@@ -61,6 +61,19 @@ class GitServiceImpl implements GitService {
   // source this from).
   final String deviceName;
 
+  // 2026-09-02: real gap found, live - "this all needs to be available
+  // to a user installing the app, so I can do it without you." Until
+  // now, syncing the DESKTOP's own existing Obsidian vault (not just
+  // the phone) needed a manual crontab edit setting LOCALSYNC_VAULT by
+  // hand - the phone's Settings had no field for it at all, only
+  // bareRepoPath. Null means "no override, desktop_sync_service.dart's
+  // own default (~/Documents/LocalSync/vault) is used" - same fallback
+  // pattern as bareRepoPath/desktopIp before they got real Settings
+  // fields. A real value means the user typed their EXISTING desktop
+  // vault's path in, so the auto-installed cron job (below) keeps
+  // syncing INTO it instead of a fresh empty folder.
+  final String? desktopVaultPath;
+
   /// Branch name on the bare repo. The codebase's own error-resolution text
   /// disagreed with itself (some strings said "main", one said "master") -
   /// making this a constructor param instead of hardcoding avoids guessing
@@ -79,6 +92,7 @@ class GitServiceImpl implements GitService {
     this.sshPort = 22,
     this.defaultBranch = 'main',
     this.sshPassphrase = '',
+    this.desktopVaultPath,
   });
 
   String get _remoteUrl => 'ssh://$sshUser@$sshHost:$sshPort$bareRepoPath';
@@ -226,11 +240,24 @@ class GitServiceImpl implements GitService {
       if (installRes.exitCode != 0) return; // best-effort, see above
       // grep -v first removes any prior localsync_sync.sh cron line
       // before re-adding - idempotent on a re-pair, never stacks
-      // duplicate entries. LOCALSYNC_VAULT is left at the script's own
-      // default (~/Documents/LocalSync/vault, per docs) - the desktop's
-      // own working-copy location isn't something the phone's Settings
-      // has ever configured; LOCALSYNC_BARE_REPO is the one value this
-      // phone actually knows and needs to override.
+      // duplicate entries. LOCALSYNC_BARE_REPO is the one value this
+      // phone always knows and needs to override.
+      //
+      // 2026-09-02: real gap found, live - "this all needs to be
+      // available to a user installing the app, so I can do it without
+      // you." LOCALSYNC_VAULT used to always be left at the script's own
+      // default (~/Documents/LocalSync/vault) - fine for a genuinely
+      // fresh setup, but a user reconnecting to an EXISTING desktop
+      // vault (their real Obsidian notes) had no way to point the cron
+      // job at it except a manual crontab edit. desktopVaultPath is now
+      // a real Settings field (see settings_screen.dart's "DESKTOP
+      // VAULT PATH" field / database_service.dart's
+      // get/setDesktopVaultPath) - only added to the cron line when the
+      // user actually set one, so a fresh setup with nothing typed in
+      // still gets the script's own safe default untouched.
+      final vaultEnv = (desktopVaultPath != null && desktopVaultPath!.trim().isNotEmpty)
+          ? "LOCALSYNC_VAULT='${desktopVaultPath!.trim().replaceAll("'", r"'\''")}' "
+          : '';
       //
       // 2026-08-30: real bug, confirmed live - every log line appeared
       // twice. This cron line redirected stdout to
@@ -242,7 +269,7 @@ class GitServiceImpl implements GitService {
       // path, this redirect only exists so cron doesn't try to email
       // stray output.
       final cronCmd = '(crontab -l 2>/dev/null | grep -v localsync_sync.sh; '
-          'echo "*/5 * * * * LOCALSYNC_BARE_REPO=\'$escapedRepo\' '
+          'echo "*/5 * * * * LOCALSYNC_BARE_REPO=\'$escapedRepo\' $vaultEnv'
           '$scriptPath >/dev/null 2>&1") | crontab -';
       await client.runWithResult(cronCmd);
     } catch (_) {

@@ -108,6 +108,11 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         _linkingController.updateBareRepoPath(saved.trim());
       }
     });
+    DatabaseService().getDesktopVaultPath().then((saved) {
+      if (saved != null && saved.trim().isNotEmpty) {
+        _linkingController.updateDesktopVaultPath(saved.trim());
+      }
+    });
     _lifecycleObserver = LocalSyncLifecycleObserver(
       linkingController: _linkingController,
     );
