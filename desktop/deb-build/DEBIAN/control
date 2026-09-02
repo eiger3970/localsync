@@ -1,0 +1,17 @@
+Package: localsync-desktop-setup
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: kworld <access@kworld.space>
+Depends: bash
+Description: LocalSync desktop setup (git, SSH, bare repo, auto-discovery)
+ Runs LocalSync's one-time desktop setup: installs git and SSH access if
+ missing, creates the git bare repository LocalSync syncs your Obsidian
+ vault through, and enables mDNS/Avahi auto-discovery so the phone app
+ can find this machine automatically.
+ .
+ This package does not install a persistent application - it runs the
+ setup once, during installation, the same as the terminal one-liner or
+ the macOS double-click wrapper on kworld.space/localsync. Safe to
+ install again later; every step it performs is idempotent.

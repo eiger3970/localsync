@@ -1,0 +1,53 @@
+#!/bin/bash
+# LocalSync desktop setup - .deb postinst wrapper around setup.sh.
+#
+# 2026-09-02: real gap found - setup.sh builds paths off $HOME and
+# assumes it's run by a normal logged-in user (using sudo only for the
+# steps that actually need root). A .deb's postinst always runs AS root,
+# where $HOME is /root - running setup.sh unmodified here would silently
+# create the bare repo and SSH-adjacent files under /root/ instead of
+# the real desktop user's home. This detects the real invoking user
+# (however the package was installed - sudo dpkg -i, gdebi, or a GUI
+# installer via pkexec, which sets different environment variables) and
+# overrides $HOME before calling the same setup.sh everything else uses,
+# so this can never drift into its own separate copy of the logic.
+set -uo pipefail
+
+REAL_USER="${SUDO_USER:-}"
+if [[ -z "$REAL_USER" && -n "${PKEXEC_UID:-}" ]]; then
+  REAL_USER="$(id -un "$PKEXEC_UID" 2>/dev/null || true)"
+fi
+if [[ -z "$REAL_USER" ]]; then
+  REAL_USER="$(logname 2>/dev/null || true)"
+fi
+
+if [[ -z "$REAL_USER" || "$REAL_USER" == "root" ]]; then
+  echo "localsync-desktop-setup: couldn't determine your normal user" >&2
+  echo "account automatically (installed as root with no login session" >&2
+  echo "detected) - skipping setup entirely rather than guessing, since" >&2
+  echo "running it now would put the bare repo under /root instead of" >&2
+  echo "your own home directory. Finish setup yourself, as your normal" >&2
+  echo "user (not root):" >&2
+  echo "  bash /usr/share/localsync/setup.sh" >&2
+  exit 0
+fi
+
+REAL_HOME="$(getent passwd "$REAL_USER" | cut -d: -f6)"
+if [[ -z "$REAL_HOME" || ! -d "$REAL_HOME" ]]; then
+  echo "localsync-desktop-setup: resolved user '$REAL_USER' but not a real home directory - aborting the bare-repo step." >&2
+  exit 0
+fi
+
+# setup.sh's own `sudo` calls are no-ops when already root (this
+# script), so running the whole thing here - with HOME overridden to
+# the real user's - correctly puts the bare repo under their home
+# instead of /root, while git/SSH/avahi installation still happens with
+# the root privileges this postinst already has.
+HOME="$REAL_HOME" bash /usr/share/localsync/setup.sh
+
+# Anything setup.sh created under the real user's home was created by
+# this script running as root - fix ownership so the user (not root)
+# actually owns their own bare repo.
+if [[ -d "$REAL_HOME/Documents/Git/LocalSync" ]]; then
+  chown -R "$REAL_USER:$REAL_USER" "$REAL_HOME/Documents/Git/LocalSync"
+fi
