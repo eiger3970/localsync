@@ -1,17 +1,41 @@
-# localsync
+# LocalSync
 
-A new Flutter project.
+Local-first sync for your Obsidian vault, directly between your iPhone and
+your own desktop - no cloud, no subscription, no third party ever sees your
+notes.
 
-## Getting Started
+- **Website:** https://kworld.space/localsync
+- **Get the app:** search "LocalSync" on the App Store (iPhone only for now)
+- **Desktop setup file / one-line install:** https://kworld.space/localsync
 
-This project is a starting point for a Flutter application.
+## What this repo is
 
-A few resources to get you started if this is your first Flutter project:
+This is LocalSync's source - the Flutter/iOS app, plus the desktop setup
+scripts under `desktop/` that the app and the website both point people to.
+If you just want to install and use LocalSync, you don't need anything in
+this repo directly - use the website link above.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+This repo is useful if you want to:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Verify what `desktop/setup.sh` actually does before running it
+- Read or audit the source
+- Report a bug or request a feature
+
+[Codeberg](https://codeberg.org/kworld/localsync) is the canonical
+repository - this GitHub copy is a mirror, kept in sync automatically, used
+for CI (the App Store build pipeline needs a macOS runner).
+
+## Desktop setup
+
+See [docs/desktop-setup.md](docs/desktop-setup.md) for the full guide - git,
+SSH, and auto-discovery, covered by one terminal command or a double-click
+file for Mac/Linux.
+
+## Support
+
+Open an issue at https://codeberg.org/kworld/localsync/issues.
+
+## License
+
+Not yet set - a real license file is still an open item, not a deliberate
+choice to withhold one.
