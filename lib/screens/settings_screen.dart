@@ -917,7 +917,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             ),
                             (
                               '2. Phone: copy one of the listed paths '
-                                  'into the Desktop sync folder field',
+                                  'into the Settings page, DESKTOP SYNC '
+                                  'FOLDER field',
                               false
                             ),
                             if (_pathCtrl.text.trim().isNotEmpty)
