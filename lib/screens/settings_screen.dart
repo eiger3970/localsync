@@ -844,59 +844,62 @@ class _SettingsScreenState extends State<SettingsScreen>
                         // first pairing, that's now the actual answer -
                         // leads with it instead of assuming a repo
                         // already exists.
+                        // 2026-09-02: real feedback, live - "remove
+                        // Setting your desktop sync folder so 2 and 3
+                        // manual setup is similar and consistent in
+                        // style." Retitled to match step 3's dialog
+                        // ("Manual setup"), points renumbered inline
+                        // instead of bulleted prose, same trim as that
+                        // dialog got on 2026-09-01.
+                        // 2026-09-02: real feedback, live - "step 1
+                        // makes no sense" (both dialogs) - the numbered
+                        // list had been mixing an auto-setup explanation
+                        // in with the manual fallback steps, and
+                        // restating "run this command" that the command
+                        // box above already labels. Auto setup is now
+                        // an un-numbered lead line (context, not a
+                        // step); the numbered list is only the genuine
+                        // manual steps, same shape as step 3's dialog.
+                        // 2026-09-02: real feedback, live - "isn't step
+                        // 2 optimised? there's already the magic star
+                        // option for a suggested path, some redundancy."
+                        // Right - the ✨ "Use suggested path" tap target
+                        // sits right on this field already (plus the
+                        // laptop icon above it), so explaining "just
+                        // type any path" here in prose duplicated
+                        // something already visible and one tap away.
+                        // Dropped the lead line entirely - this dialog's
+                        // real, distinct job is finding/reusing an
+                        // EXISTING folder, which the numbered list below
+                        // already covers on its own.
                         onPressed: () => _showHelp(
-                          'Setting your desktop sync folder',
+                          'Manual setup',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
-                            // 2026-08-30: moved here from always-visible
-                            // label text and helperText - both explained
-                            // this same field, just repeated at a glance
-                            // instead of on demand.
                             (
-                              'Desktop side - a folder path '
-                                  'on your desktop computer, shared to '
-                                  'your phone',
+                              '1. Find every existing desktop sync '
+                                  "folder in the command's output",
                               false
                             ),
                             (
-                              'Auto setup: just type any path here, e.g. '
-                                  '~/Documents/Git/localsync.git - '
-                                  'it gets created automatically the '
-                                  'first time you pair, nothing to run '
-                                  'yourself',
+                              '2. Copy one of the listed paths into '
+                                  'the Desktop sync folder field',
                               false
-                            ),
-                            (
-                              'Applies to a new desktop sync folder you '
-                                  'link to your phone, existing links are '
-                                  'unaffected',
-                              false
-                            ),
-                            (
-                              'Manual setup (if auto setup fails, or you '
-                                  'already have a desktop sync folder and '
-                                  'want to reuse it): run this on the '
-                                  'desktop terminal instead',
-                              false
-                            ),
-                            (
-                              'Lists every desktop sync folder on the '
-                                  'desktop',
-                              true
                             ),
                             if (_pathCtrl.text.trim().isNotEmpty)
                               (
-                                'Currently set to: ${_pathCtrl.text.trim()}',
+                                '3. Currently set to: '
+                                    '${_pathCtrl.text.trim()}',
                                 false
                               )
                             else
                               (
-                                'If the command above lists more than '
-                                    'one, the one you set up first is '
-                                    'usually the right one',
+                                '3. More than one listed? The one you '
+                                    'set up first is usually right',
                                 false
                               ),
                           ],
+                          showBullets: false,
                         ),
                       ),
                     ),
@@ -1284,15 +1287,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // bullet dots) instead of a loosely bulleted
                             // note - a clear step order for the fastest
                             // path to a working manual connection.
+                            // 2026-09-02: real feedback, live - "step 1
+                            // makes no sense" - it just restated what
+                            // the command box directly above (labeled
+                            // "Command for your desktop terminal")
+                            // already says. Dropped, renumbered - the
+                            // numbered list is now only the parts that
+                            // command box doesn't already cover.
                             onPressed: () => _showHelp(
                               'Manual setup',
                               'ip -4 addr show',
                               const [
-                                (
-                                  '1. Run this command on the desktop '
-                                      'terminal',
-                                  false
-                                ),
                                 // 2026-09-01: real feedback - "customer
                                 // isn't using wireless rather usb cable"
                                 // (this dialog is a fallback, only ever
@@ -1316,8 +1321,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // in point text, no rendering change
                                 // needed for this.
                                 (
-                                  '2. Find your interface in the '
-                                      'result, looking like:\n'
+                                  '1. Find your interface in the '
+                                      "command's output, looking like:\n"
                                       '"n: eth1: inet 172.20.10.11/28" or\n'
                                       '"n: usb0: inet 172.20.10.11/28"',
                                   false
@@ -1329,13 +1334,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // declutter the field) - folded into
                                 // this step so the detail isn't lost.
                                 (
-                                  '3. Type just the 4 numbers into the '
-                                      'IP address field above (e.g. '
+                                  '2. Type just the 4 numbers into the '
+                                      'IP address field (e.g. '
                                       '172.20.10.11) - no /28 suffix',
                                   false
                                 ),
                                 (
-                                  '4. Changed from USB cable to Wi-Fi '
+                                  '3. Changed from USB cable to Wi-Fi '
                                       'Hotspot, or reconnecting later? '
                                       'Re-run this command - the address '
                                       'can change',
