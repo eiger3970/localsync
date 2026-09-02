@@ -878,7 +878,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           [
                             (
                               '1. Find every existing desktop sync '
-                                  "folder in the command's output",
+                                  "folder in the desktop command's "
+                                  'output',
                               false
                             ),
                             (
@@ -1322,7 +1323,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // needed for this.
                                 (
                                   '1. Find your interface in the '
-                                      "command's output, looking like:\n"
+                                      "desktop command's output, looking "
+                                      'like:\n'
                                       '"n: eth1: inet 172.20.10.11/28" or\n'
                                       '"n: usb0: inet 172.20.10.11/28"',
                                   false
