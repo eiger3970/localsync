@@ -288,7 +288,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                     if (showBullets) const SizedBox(width: 4),
                     Expanded(
                       child: Text.rich(
-                        _highlightInterfaceNames(text),
+                        _buildStepSpan(text),
                         style: TextStyle(
                             color: kTextMid, fontSize: 13, height: 1.35),
                       ),
@@ -315,6 +315,33 @@ class _SettingsScreenState extends State<SettingsScreen>
   // bullet gives the eye something to scan for instead of reading the
   // whole sentence.
   static final _interfaceNamePattern = RegExp(r'wlan0|eth1|usb0');
+
+  // 2026-09-02: real feedback, live - "add a small image of a desktop
+  // and phone left of Desktop and Phone words... replacing the word
+  // might be too much." Icon alongside the word, not instead of it -
+  // matches "1. Desktop: ..." / "2. Phone: ..." at the start of a step
+  // and inserts a small icon right before that word; anything else
+  // (steps with no device prefix, or the rest of the sentence) still
+  // goes through the existing eth1/usb0 highlighting untouched.
+  static final _deviceStepPattern = RegExp(r'^(\d+\. )(Desktop|Phone): ');
+
+  TextSpan _buildStepSpan(String text) {
+    final match = _deviceStepPattern.firstMatch(text);
+    if (match == null) return _highlightInterfaceNames(text);
+    final prefix = match.group(1)!;
+    final device = match.group(2)!;
+    final rest = text.substring(match.end);
+    final icon = device == 'Desktop' ? Icons.computer : Icons.smartphone;
+    return TextSpan(children: [
+      TextSpan(text: prefix),
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Icon(icon, size: 14, color: kTextMid),
+      ),
+      TextSpan(text: ' $device: '),
+      _highlightInterfaceNames(rest),
+    ]);
+  }
 
   TextSpan _highlightInterfaceNames(String text) {
     final spans = <TextSpan>[];
@@ -876,27 +903,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                           'Manual setup',
                           "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
                           [
+                            // 2026-09-02: real feedback, live - "mass
+                            // switching from Desktop and Phone, I want
+                            // this cleared up... Phone: bla / Desktop:
+                            // bla." Every step now says outright which
+                            // device it happens on, instead of leaving
+                            // that to be inferred from field names or
+                            // context a dialog doesn't carry.
                             (
-                              '1. Find every existing desktop sync '
-                                  "folder in the desktop command's "
-                                  'output',
+                              '1. Desktop: find every existing sync '
+                                  "folder in the command's output",
                               false
                             ),
                             (
-                              '2. Copy one of the listed paths into '
-                                  'the Desktop sync folder field',
+                              '2. Phone: copy one of the listed paths '
+                                  'into the Desktop sync folder field',
                               false
                             ),
                             if (_pathCtrl.text.trim().isNotEmpty)
                               (
-                                '3. Currently set to: '
+                                '3. Phone: currently set to '
                                     '${_pathCtrl.text.trim()}',
                                 false
                               )
                             else
                               (
-                                '3. More than one listed? The one you '
-                                    'set up first is usually right',
+                                '3. Phone: more than one listed? The '
+                                    'one you set up first is usually '
+                                    'right',
                                 false
                               ),
                           ],
@@ -1321,9 +1355,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // greens eth1/usb0 wherever they occur
                                 // in point text, no rendering change
                                 // needed for this.
+                                // 2026-09-02: real feedback, live - "mass
+                                // switching from Desktop and Phone, I
+                                // want this cleared up... Phone: bla /
+                                // Desktop: bla." Every step now says
+                                // outright which device it happens on.
                                 (
-                                  '1. Find your interface in the '
-                                      "desktop command's output, looking "
+                                  '1. Desktop: find your interface in '
+                                      'the command\'s output, looking '
                                       'like:\n'
                                       '"n: eth1: inet 172.20.10.11/28" or\n'
                                       '"n: usb0: inet 172.20.10.11/28"',
@@ -1336,16 +1375,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // declutter the field) - folded into
                                 // this step so the detail isn't lost.
                                 (
-                                  '2. Type just the 4 numbers into the '
-                                      'IP address field (e.g. '
+                                  '2. Phone: type just the 4 numbers '
+                                      'into the IP address field (e.g. '
                                       '172.20.10.11) - no /28 suffix',
                                   false
                                 ),
                                 (
-                                  '3. Changed from USB cable to Wi-Fi '
-                                      'Hotspot, or reconnecting later? '
-                                      'Re-run this command - the address '
-                                      'can change',
+                                  '3. Desktop: changed from USB cable to '
+                                      'Wi-Fi Hotspot, or reconnecting '
+                                      'later? Re-run this command - the '
+                                      'address can change',
                                   false
                                 ),
                               ],
