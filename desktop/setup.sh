@@ -54,66 +54,73 @@ if [[ "$OS" != "debian" && "$OS" != "macos" ]]; then
   exit 1
 fi
 
-# ── Git ──────────────────────────────────────────────────────────────────
-if command -v git >/dev/null 2>&1; then
-  log "git already installed - skipping"
-elif [[ "$OS" == debian ]]; then
-  log "Installing git"
-  sudo apt-get update && sudo apt-get install -y git
-else
-  echo "git isn't detected. On macOS, git installs alongside the Xcode" >&2
-  echo "Command Line Tools, which need an interactive prompt this script" >&2
-  echo "can't complete automatically - run 'git --version' once by hand" >&2
-  echo "to trigger the install prompt, then re-run this script." >&2
-fi
-
-# ── SSH access ───────────────────────────────────────────────────────────
-if [[ "$OS" == debian ]]; then
-  if systemctl is-active --quiet ssh 2>/dev/null; then
-    log "SSH already running - skipping"
+# 2026-09-02: real feedback, live - "I see a lot of notepad text,
+# starting with git already installed. User needs to see the answer at
+# top, not how the sausage is made." Fair - the step-by-step
+# install/skip log used to be the FIRST thing in the file, with the
+# actual answer (which path to use) buried at the bottom. Everything
+# that does real system work is now one function, its output captured
+# instead of printed live, so it can be placed AFTER the answer instead
+# of before it. sudo's own password prompt still works normally here -
+# it talks to the controlling terminal directly, not through stdout, so
+# capturing stdout doesn't hide or break it.
+run_technical_setup() {
+  # ── Git ────────────────────────────────────────────────────────────────
+  if command -v git >/dev/null 2>&1; then
+    log "git already installed - skipping"
+  elif [[ "$OS" == debian ]]; then
+    log "Installing git"
+    sudo apt-get update && sudo apt-get install -y git
   else
-    log "Installing and enabling openssh-server"
-    sudo apt-get install -y openssh-server
-    sudo systemctl enable --now ssh
+    echo "git isn't detected. On macOS, git installs alongside the Xcode" >&2
+    echo "Command Line Tools, which need an interactive prompt this script" >&2
+    echo "can't complete automatically - run 'git --version' once by hand" >&2
+    echo "to trigger the install prompt, then re-run this script." >&2
   fi
-else
-  log "Enabling Remote Login (macOS)"
-  sudo systemsetup -setremotelogin on
-fi
 
-# ── Git bare repository ──────────────────────────────────────────────────
-if [[ -d "$BARE_REPO_PATH" ]]; then
-  log "Bare repo already exists at $BARE_REPO_PATH - skipping"
-else
-  log "Creating the bare repo at $BARE_REPO_PATH"
-  mkdir -p "$BARE_REPO_DIR"
-  git init --bare "$BARE_REPO_PATH"
-fi
-echo
-echo "Git bare repo path (enter this into LocalSync's Settings):"
-echo "  $BARE_REPO_PATH"
-echo
-
-# ── Auto-discovery (optional) ────────────────────────────────────────────
-if [[ "$SKIP_DISCOVERY" == true ]]; then
-  log "Skipping auto-discovery setup (--skip-discovery)"
-elif [[ "$OS" == debian ]]; then
-  if systemctl is-active --quiet avahi-daemon 2>/dev/null; then
-    log "avahi-daemon already running"
+  # ── SSH access ─────────────────────────────────────────────────────────
+  if [[ "$OS" == debian ]]; then
+    if systemctl is-active --quiet ssh 2>/dev/null; then
+      log "SSH already running - skipping"
+    else
+      log "Installing and enabling openssh-server"
+      sudo apt-get install -y openssh-server
+      sudo systemctl enable --now ssh
+    fi
   else
-    log "Installing and enabling avahi-daemon"
-    sudo apt-get install -y avahi-daemon
-    sudo systemctl enable --now avahi-daemon
+    log "Enabling Remote Login (macOS)"
+    sudo systemsetup -setremotelogin on
   fi
-  # 2026-09-01: real bug, caught testing the self-verifying Mac
-  # wrapper - when this script runs from a curl download or a temp
-  # file (not a checkout of this repo), $SCRIPT_DIR/localsync.service
-  # doesn't exist alongside it, so the cp below failed silently.
-  # Written inline instead - matches the macOS branch's own heredoc
-  # pattern below - so this works identically however the script was
-  # actually obtained.
-  log "Installing the LocalSync avahi service file"
-  sudo tee /etc/avahi/services/localsync.service >/dev/null <<'SERVICE_EOF'
+
+  # ── Git bare repository ────────────────────────────────────────────────
+  if [[ -d "$BARE_REPO_PATH" ]]; then
+    log "Bare repo already exists at $BARE_REPO_PATH - skipping"
+  else
+    log "Creating the bare repo at $BARE_REPO_PATH"
+    mkdir -p "$BARE_REPO_DIR"
+    git init --bare "$BARE_REPO_PATH"
+  fi
+
+  # ── Auto-discovery (optional) ─────────────────────────────────────────
+  if [[ "$SKIP_DISCOVERY" == true ]]; then
+    log "Skipping auto-discovery setup (--skip-discovery)"
+  elif [[ "$OS" == debian ]]; then
+    if systemctl is-active --quiet avahi-daemon 2>/dev/null; then
+      log "avahi-daemon already running"
+    else
+      log "Installing and enabling avahi-daemon"
+      sudo apt-get install -y avahi-daemon
+      sudo systemctl enable --now avahi-daemon
+    fi
+    # 2026-09-01: real bug, caught testing the self-verifying Mac
+    # wrapper - when this script runs from a curl download or a temp
+    # file (not a checkout of this repo), $SCRIPT_DIR/localsync.service
+    # doesn't exist alongside it, so the cp below failed silently.
+    # Written inline instead - matches the macOS branch's own heredoc
+    # pattern below - so this works identically however the script was
+    # actually obtained.
+    log "Installing the LocalSync avahi service file"
+    sudo tee /etc/avahi/services/localsync.service >/dev/null <<'SERVICE_EOF'
 <?xml version="1.0" standalone='no'?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
@@ -124,11 +131,11 @@ elif [[ "$OS" == debian ]]; then
   </service>
 </service-group>
 SERVICE_EOF
-  sudo systemctl restart avahi-daemon
-else
-  log "Advertising via Bonjour (persistent LaunchDaemon)"
-  PLIST=/Library/LaunchDaemons/space.kworld.localsync.discovery.plist
-  sudo tee "$PLIST" >/dev/null <<PLIST_EOF
+    sudo systemctl restart avahi-daemon
+  else
+    log "Advertising via Bonjour (persistent LaunchDaemon)"
+    PLIST=/Library/LaunchDaemons/space.kworld.localsync.discovery.plist
+    sudo tee "$PLIST" >/dev/null <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -151,9 +158,17 @@ else
 </dict>
 </plist>
 PLIST_EOF
-  sudo launchctl unload "$PLIST" 2>/dev/null || true
-  sudo launchctl load "$PLIST"
-fi
+    sudo launchctl unload "$PLIST" 2>/dev/null || true
+    sudo launchctl load "$PLIST"
+  fi
+}
+
+TECH_LOG=$(run_technical_setup 2>&1)
+
+# ── The answer, first ────────────────────────────────────────────────────
+echo "Git bare repo path (enter this into LocalSync's Settings):"
+echo "  $BARE_REPO_PATH"
+echo
 
 # ── Existing LocalSync folders ───────────────────────────────────────────
 # 2026-09-02: real feedback, live - "make it optimised so I just
@@ -177,7 +192,6 @@ fi
 # "Desktop sync", "Desktop conflicting edit", or "Initial sync from
 # phone" - the app's own fixed commit-message conventions) or empty
 # repos, and just counts everything else instead of listing it.
-echo
 echo "Desktop sync folders:"
 echo
 FOUND_MATCH=false
@@ -218,6 +232,11 @@ else
   echo "time setup. Use this path in LocalSync's Settings on your phone:"
 fi
 echo "  $BARE_REPO_PATH"
+
+# ── Setup details, last - not the headline, just for reference ──────────
+echo
+echo "Setup details:"
+echo "$TECH_LOG" | sed 's/^/  /'
 
 echo
 log "Done."
