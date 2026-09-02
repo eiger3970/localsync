@@ -29,7 +29,7 @@
 # run - a deliberate fail-closed default, not a bug.
 
 set -uo pipefail
-EXPECTED_SHA256="8585563e2b893827b2ff86dc6722e47757c02e5a12a3b386cee07725573ad0af"
+EXPECTED_SHA256="9b78c5d274dbc5e10a82467cde130f1dfcb782e8ba86379a2ccf44a582d2eceb"
 SCRIPT_URL="https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh"
 
 echo "LocalSync desktop setup"
