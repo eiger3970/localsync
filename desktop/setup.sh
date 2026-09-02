@@ -168,24 +168,56 @@ fi
 # switched phones, or - like right now - a desktop with old test
 # pairings on it already); a genuinely first-time setup can ignore
 # this and use the path printed above.
+# 2026-09-02: real feedback, live - "that will give me and users a
+# heart attack. Can this text file be beautified, to see the most
+# pertinent information." Fair - dumping every .git folder on the
+# machine (most of them unrelated dev projects) read as an alarming
+# wall of text, not something reassuring. Now filters to only genuine
+# LocalSync candidates (a real sync's message always starts with
+# "Desktop sync", "Desktop conflicting edit", or "Initial sync from
+# phone" - the app's own fixed commit-message conventions) or empty
+# repos, and just counts everything else instead of listing it.
 echo
-log "Existing LocalSync-style folders on this desktop:"
-for d in $(find "$HOME/Documents/Git" -maxdepth 3 -name '*.git' -type d 2>/dev/null); do
-  echo "  $d"
-  info=$(git --git-dir="$d" log -1 --format='    last sync: %ad - %s' --date=short 2>/dev/null)
-  if [[ -n "$info" ]]; then
-    echo "$info"
+echo "Desktop sync folders:"
+echo
+FOUND_MATCH=false
+UNRELATED_COUNT=0
+while IFS= read -r -d '' d; do
+  msg=$(git --git-dir="$d" log -1 --format='%s' 2>/dev/null)
+  when=$(git --git-dir="$d" log -1 --format='%ad' --date=short 2>/dev/null)
+  if [[ -z "$msg" ]]; then
+    echo "  $d"
+    echo "    empty - safe to use"
+    FOUND_MATCH=true
+  elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
+    echo "  $d"
+    echo "    last used $when - $msg"
+    FOUND_MATCH=true
   else
-    echo "    (empty, safe to use)"
+    UNRELATED_COUNT=$((UNRELATED_COUNT + 1))
   fi
-done
+done < <(find "$HOME/Documents/Git" -maxdepth 3 -name '*.git' -type d -print0 2>/dev/null)
+
+if [[ "$UNRELATED_COUNT" -eq 1 ]]; then
+  echo
+  echo "  (1 other folder here looks like an unrelated project, not"
+  echo "  LocalSync data, so it's skipped above.)"
+elif [[ "$UNRELATED_COUNT" -gt 1 ]]; then
+  echo
+  echo "  ($UNRELATED_COUNT other folders here look like unrelated"
+  echo "  projects, not LocalSync data, so they're skipped above.)"
+fi
+
 echo
-echo "If one of those is yours (a real LocalSync sync reads like"
-echo '"Desktop sync 2026-..." or "Initial sync from phone," not an'
-echo "unrelated project commit), type its path into LocalSync's"
-echo "Settings -> 2. DESKTOP SYNC FOLDER field on your phone. If you're"
-echo "not sure, the path printed above ($BARE_REPO_PATH) is a safe,"
-echo "empty default - nothing to mix up."
+if [[ "$FOUND_MATCH" == true ]]; then
+  echo "If one of the folders above is yours, type its path into"
+  echo "LocalSync's Settings -> 2. DESKTOP SYNC FOLDER field on your"
+  echo "phone. Not sure? This path is a safe, empty default:"
+else
+  echo "No previous LocalSync folders found here - normal for a first"
+  echo "time setup. Use this path in LocalSync's Settings on your phone:"
+fi
+echo "  $BARE_REPO_PATH"
 
 echo
 log "Done."
