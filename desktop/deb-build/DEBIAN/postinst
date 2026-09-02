@@ -64,15 +64,15 @@ RESULT_DIR="$REAL_HOME"
 [[ -d "$REAL_HOME/Desktop" ]] && RESULT_DIR="$REAL_HOME/Desktop"
 RESULT_FILE="$RESULT_DIR/LocalSync setup result.txt"
 
+# 2026-09-02: real feedback, live - "that will give me and users a
+# heart attack." The repeated "====" banner read as an error/warning,
+# not a calm status note - dropped it, this is just a pointer to where
+# the same output above is saved, nothing alarming.
 HOME="$REAL_HOME" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RESULT_FILE"
 {
   echo
-  echo "=================================================================="
-  echo "This full setup result is also saved here, for LocalSync's Settings"
-  echo "-> 2. DESKTOP SYNC FOLDER -> i -> Manual setup step, in case this"
-  echo "installer window is already gone by the time you check your phone:"
-  echo "  $RESULT_FILE"
-  echo "=================================================================="
+  echo "(This is also saved to $RESULT_FILE, in case this window is"
+  echo "gone by the time you check LocalSync's Settings on your phone.)"
 } | tee -a "$RESULT_FILE"
 
 # Anything setup.sh (or the result file above) created under the real
