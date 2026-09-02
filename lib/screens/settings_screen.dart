@@ -49,6 +49,15 @@ class _SettingsScreenState extends State<SettingsScreen>
   late final TextEditingController _userCtrl;
   late final TextEditingController _ipCtrl;
   late final TextEditingController _pathCtrl;
+  // 2026-09-02: real gap found, live - "this all needs to be available
+  // to a user installing the app, so I can do it without you." Fourth
+  // field, same override pattern as the 3 above - see
+  // database_service.dart's getDesktopVaultPath/setDesktopVaultPath.
+  // Optional (no error state): blank means "no override, the
+  // auto-installed desktop sync job keeps using its own safe default
+  // folder" - same as before this field existed, not a broken/invalid
+  // state.
+  late final TextEditingController _vaultPathCtrl;
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -152,6 +161,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
+    _vaultPathCtrl =
+        TextEditingController(text: ctrl.desktopVaultPath ?? '');
     _sparklePhase1 = _sparkleRand.nextDouble();
     _sparklePhase2 = _sparkleRand.nextDouble();
     _sparklePhase3 = _sparkleRand.nextDouble();
@@ -435,6 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl.dispose();
     _ipCtrl.dispose();
     _pathCtrl.dispose();
+    _vaultPathCtrl.dispose();
     _sparkleCtrl1.dispose();
     _sparkleCtrl2.dispose();
     super.dispose();
@@ -541,6 +553,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     final ip = _ipCtrl.text.trim().split('/').first;
     _ipCtrl.text = ip;
     final path = _pathCtrl.text.trim();
+    final vaultPath = _vaultPathCtrl.text.trim();
     setState(() {
       // 2026-08-28: same "can't be empty" validation as the bare repo
       // path below - an empty desktopUser would mean every SSH
@@ -573,6 +586,10 @@ class _SettingsScreenState extends State<SettingsScreen>
       await provider.setBareRepoPath(path);
       linkingCtrl.updateBareRepoPath(path);
     }
+    // 2026-09-02: optional field, no error state to gate on - blank is
+    // a valid, meaningful value (see the field's own comment above).
+    await provider.setDesktopVaultPath(vaultPath);
+    linkingCtrl.updateDesktopVaultPath(vaultPath);
     if (_userError != null || _ipError != null || _pathError != null) return;
     if (mounted) Navigator.pop(context);
   }
@@ -1446,6 +1463,88 @@ class _SettingsScreenState extends State<SettingsScreen>
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // 2026-09-02: real gap found, live - "this all needs to be
+            // available to a user installing the app, so I can do it
+            // without you." Until this field existed, reconnecting the
+            // DESKTOP's own sync job to an existing real vault (not the
+            // phone's) needed a manual crontab edit with terminal
+            // access - not something a real end user could do. Same
+            // header/field style as 1-3 above, but optional (no
+            // required-field validation, no amber warning banner
+            // gating on it) - a fresh setup that leaves this blank
+            // still works exactly as before, using the sync job's own
+            // safe empty-folder default.
+            const SizedBox(height: 40),
+            Text('4. DESKTOP VAULT PATH (optional)',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, right: 10),
+                  child: Icon(Icons.folder_open, color: kGreen, size: 22),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _vaultPathCtrl,
+                    style: TextStyle(color: kStar, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '/home/user/Documents/Obsidian/MyVault '
+                          '(leave blank for a fresh folder)',
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.info_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'What is this?',
+                        onPressed: () => _showHelp(
+                          'Desktop vault path',
+                          'find ~/Documents -maxdepth 3 -iname "*.obsidian" '
+                              '-type d | sed \'s#/.obsidian\$##\'',
+                          [
+                            (
+                              'Reconnecting to a desktop that already '
+                                  'has your real notes on it? Leave this '
+                                  'blank and the sync job creates a '
+                                  'fresh, empty folder instead - your '
+                                  'existing notes stay untouched but '
+                                  'stop being the ones syncing.',
+                              false
+                            ),
+                            (
+                              '1. Desktop: run the command above - it '
+                                  'lists every folder Obsidian has '
+                                  'already opened as a vault',
+                              false
+                            ),
+                            (
+                              '2. Phone: recognise your real vault\'s '
+                                  'folder in that list',
+                              false
+                            ),
+                            (
+                              '3. Phone: copy that exact path into this '
+                                  'DESKTOP VAULT PATH field, then Save',
+                              false
+                            ),
+                            if (_vaultPathCtrl.text.trim().isNotEmpty)
+                              (
+                                '4. Phone: currently set to '
+                                    '${_vaultPathCtrl.text.trim()}',
+                                false
+                              ),
+                          ],
+                          showBullets: false,
+                        ),
                       ),
                     ),
                   ),

@@ -51,6 +51,15 @@ class LinkingController extends ChangeNotifier {
   // set a different target *before* linking a new vault, so a second,
   // genuinely separate vault can sync to its own separate bare repo.
   String bareRepoPath;
+  // 2026-09-02: real gap found, live - "this all needs to be available
+  // to a user installing the app, so I can do it without you." Same
+  // override pattern as bareRepoPath above (see database_service.dart's
+  // getDesktopVaultPath/setDesktopVaultPath) - lets a user reconnecting
+  // to an EXISTING desktop vault point the auto-installed desktop sync
+  // cron job (git_service.dart's _ensureDesktopSyncInstalled) at it,
+  // without a manual crontab edit. Null/empty means "no override, the
+  // cron job's own safe default is used" - same as a fresh setup today.
+  String? desktopVaultPath;
   final int sshPort;
 
   final IosAppService _iosApps;
@@ -60,6 +69,7 @@ class LinkingController extends ChangeNotifier {
     required this.desktopUser,
     required this.desktopIp,
     required this.bareRepoPath,
+    this.desktopVaultPath,
     this.sshPort = 22,
     IosAppService? iosApps,
     VaultFolderService? vaultFolder,
@@ -90,6 +100,13 @@ class LinkingController extends ChangeNotifier {
   /// remotePath they were saved with).
   void updateBareRepoPath(String path) {
     bareRepoPath = path;
+    notifyListeners();
+  }
+
+  /// Overwrites [desktopVaultPath] and notifies listeners - same
+  /// contract as [updateDesktopIp].
+  void updateDesktopVaultPath(String path) {
+    desktopVaultPath = path;
     notifyListeners();
   }
 
@@ -414,6 +431,7 @@ class LinkingController extends ChangeNotifier {
           sshPublicKeyPath: _publicKeyPath!,
           sshPort: sshPort,
           deviceName: deviceName,
+          desktopVaultPath: desktopVaultPath,
         );
         final result = await git.pullFromBareRepo();
         if (result case StepFailure()) {
