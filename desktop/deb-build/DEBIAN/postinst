@@ -43,11 +43,42 @@ fi
 # the real user's - correctly puts the bare repo under their home
 # instead of /root, while git/SSH/avahi installation still happens with
 # the root privileges this postinst already has.
-HOME="$REAL_HOME" bash /usr/share/localsync/setup.sh
+#
+# 2026-09-02: real feedback, live - "a desktop user with no terminal
+# experience won't have the terminal open. How will the deb file run
+# the output to them?" Real gap - a .deb installed through a GUI
+# installer runs this postinst entirely in the background; its stdout
+# (including setup.sh's own existing-folder scan) lands in an
+# installer log a non-technical user would never think to check, not
+# a visible window. Reliably popping a terminal open AS the logged-in
+# user from a root-context postinst is fragile across different
+# display servers/desktop environments - no guaranteed DISPLAY or
+# session-bus access without extra plumbing this can't assume exists,
+# and a popup that silently fails on someone's actual setup is worse
+# than being upfront it doesn't happen. Instead: `tee` the same output
+# to a plain text file somewhere guaranteed findable (Desktop if one
+# exists, otherwise straight in the home folder) - works regardless of
+# whether the installer shows any output at all, and it's just a file
+# a file manager double-click opens, no terminal needed to read it.
+RESULT_DIR="$REAL_HOME"
+[[ -d "$REAL_HOME/Desktop" ]] && RESULT_DIR="$REAL_HOME/Desktop"
+RESULT_FILE="$RESULT_DIR/LocalSync setup result.txt"
 
-# Anything setup.sh created under the real user's home was created by
-# this script running as root - fix ownership so the user (not root)
-# actually owns their own bare repo.
+HOME="$REAL_HOME" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RESULT_FILE"
+{
+  echo
+  echo "=================================================================="
+  echo "This full setup result is also saved here, for LocalSync's Settings"
+  echo "-> 2. DESKTOP SYNC FOLDER -> i -> Manual setup step, in case this"
+  echo "installer window is already gone by the time you check your phone:"
+  echo "  $RESULT_FILE"
+  echo "=================================================================="
+} | tee -a "$RESULT_FILE"
+
+# Anything setup.sh (or the result file above) created under the real
+# user's home was created by this script running as root - fix
+# ownership so the user (not root) actually owns it.
+chown "$REAL_USER:$REAL_USER" "$RESULT_FILE"
 if [[ -d "$REAL_HOME/Documents/Git/LocalSync" ]]; then
   chown -R "$REAL_USER:$REAL_USER" "$REAL_HOME/Documents/Git/LocalSync"
 fi
