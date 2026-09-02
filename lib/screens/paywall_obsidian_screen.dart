@@ -182,7 +182,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                               fontSize: 16)),
                     ),
                   )
-                else if (_checked)
+                else if (_checked) ...[
                   // No real product configured yet (no funded Apple
                   // Developer account/RevenueCat product) - a quiet,
                   // honest state instead of a fake price on a dead
@@ -198,6 +198,32 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                         style: TextStyle(
                             color: wInkDim, fontStyle: FontStyle.italic)),
                   ),
+                  // 2026-09-02: real feedback, live - "I can't get past
+                  // the paywall to setup my obsidian... make the
+                  // paywall allow me through for the setup testing."
+                  // There's genuinely no purchase to make yet (see
+                  // above), so real device testing of the actual
+                  // Obsidian vault-linking flow is otherwise completely
+                  // blocked. TEMPORARY - labeled honestly, visible only
+                  // in this already-"no product configured" state (so
+                  // it can never appear alongside a real, purchasable
+                  // price), and does exactly what a real purchase would
+                  // do: pop(true). Must come out before a real App
+                  // Store product/launch - remove this whole button
+                  // once kPkmSyncEntitlementId has a real, purchasable
+                  // RevenueCat product and this branch can go back to
+                  // being a dead end.
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context, true),
+                    child: Text('Skip for testing (no product configured yet)',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: wInkDim,
+                            fontSize: 11,
+                            decoration: TextDecoration.underline)),
+                  ),
+                ],
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Text(_error!,

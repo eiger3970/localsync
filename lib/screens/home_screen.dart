@@ -619,7 +619,7 @@ class HomeScreen extends StatelessWidget {
         // sync connection only, names the actual vault folder by its
         // real name, and says directly that it stays untouched.
         title: Text('Remove sync connection',
-            style: TextStyle(color: kStar, fontSize: 17)),
+            style: TextStyle(color: kStar, fontSize: 16)),
         content: Text(
           // 2026-08-28: was always "$kGenericAppLabel $kContainerName"
           // ("PKM vault") regardless of the actual repo - wrong for a
@@ -677,7 +677,7 @@ class HomeScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
         title:
-            Text('Device name', style: TextStyle(color: kStar, fontSize: 17)),
+            Text('Device name', style: TextStyle(color: kStar, fontSize: 16)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -949,7 +949,7 @@ void _showFullError(BuildContext context, Repository repo) {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: Text('Sync error', style: TextStyle(color: kStar, fontSize: 17)),
+      title: Text('Sync error', style: TextStyle(color: kStar, fontSize: 16)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1036,7 +1036,7 @@ Future<void> _showAbout(BuildContext context) async {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: Text('About', style: TextStyle(color: kStar, fontSize: 17)),
+      title: Text('About', style: TextStyle(color: kStar, fontSize: 16)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
