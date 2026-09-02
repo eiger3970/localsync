@@ -372,8 +372,14 @@ class _SettingsScreenState extends State<SettingsScreen>
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
         title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+        // 2026-09-02: real feedback, live - "text size isn't consistent
+        // in app and Settings and Settings information text." This
+        // dialog's body was 14 while _showHelp's own body text (the
+        // Manual setup dialogs) is 13 - same role, same context (an
+        // info dialog opened from an (i) button in Settings), different
+        // size depending on which one you happened to open.
         content: Text(message,
-            style: TextStyle(color: kTextMid, fontSize: 14, height: 1.4)),
+            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
