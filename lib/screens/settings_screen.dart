@@ -905,9 +905,29 @@ class _SettingsScreenState extends State<SettingsScreen>
                         // real, distinct job is finding/reusing an
                         // EXISTING folder, which the numbered list below
                         // already covers on its own.
+                        // 2026-09-02: real feedback, live - "if I sync
+                        // to a wrong folder, syncing can wipe or mess
+                        // up data... tell me how you find the correct
+                        // path, so a user can know how to do this from
+                        // the app." Fair - the old command just listed
+                        // bare folder NAMES, on a real machine that
+                        // also matches every unrelated project's own
+                        // .git folder, with zero way to tell which one
+                        // is actually yours short of guessing. This
+                        // version shows each one's last sync date and
+                        // message (or "empty, safe to use") - real
+                        // LocalSync syncs read as "Desktop sync
+                        // 2026-..." or "Initial sync from phone," not
+                        // "fix: typo in README," so a genuine LocalSync
+                        // folder is recognisable, not a coin flip.
                         onPressed: () => _showHelp(
                           'Manual setup',
-                          "find ~/Documents/Git -maxdepth 3 -name '*.git' -type d",
+                          'for d in \$(find ~/Documents/Git -maxdepth 3 '
+                              "-name '*.git' -type d); do echo \"\$d\"; "
+                              "git --git-dir=\"\$d\" log -1 --format='  "
+                              "last sync: %ad - %s' --date=short "
+                              '2>/dev/null || echo "  (empty, safe to '
+                              'use)"; done',
                           [
                             // 2026-09-02: real feedback, live - "mass
                             // switching from Desktop and Phone, I want
@@ -918,26 +938,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // context a dialog doesn't carry.
                             (
                               '1. Desktop: find every existing sync '
-                                  "folder in the command's output",
+                                  "folder, with its last sync date and "
+                                  'message (or "empty, safe to use" if '
+                                  "it's never been used)",
                               false
                             ),
                             (
-                              '2. Phone: copy one of the listed paths '
-                                  'into the Settings page, DESKTOP SYNC '
-                                  'FOLDER field',
+                              '2. Phone: recognise the one that\'s '
+                                  "yours - a real LocalSync folder's "
+                                  'last message reads like "Desktop '
+                                  'sync 2026-..." or "Initial sync from '
+                                  'phone," not an unrelated project '
+                                  "commit. If you're not sure, pick an "
+                                  'empty one instead - nothing to mix '
+                                  'up',
+                              false
+                            ),
+                            (
+                              '3. Phone: copy that path into the '
+                                  'Settings page, DESKTOP SYNC FOLDER '
+                                  'field',
                               false
                             ),
                             if (_pathCtrl.text.trim().isNotEmpty)
                               (
-                                '3. Phone: currently set to '
+                                '4. Phone: currently set to '
                                     '${_pathCtrl.text.trim()}',
-                                false
-                              )
-                            else
-                              (
-                                '3. Phone: more than one listed? The '
-                                    'one you set up first is usually '
-                                    'right',
                                 false
                               ),
                           ],
