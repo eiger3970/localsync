@@ -237,15 +237,28 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                   IconButton(
                     icon: Icon(Icons.copy, color: kTextMid, size: 18),
-                    tooltip: 'Copy command',
+                    tooltip: 'Copy to phone clipboard',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: command));
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: kSurface,
-                          content: Text('Command copied',
+                          // 2026-09-02: real feedback, live - "update
+                          // the text to reflect copying phone text
+                          // can't be pasted on a desktop." "Command
+                          // copied" on its own reads as "now go paste
+                          // it" - there's nowhere on the desktop that
+                          // works, no shared clipboard between the two
+                          // devices. Says outright where this copy
+                          // actually lands and what it's actually for.
+                          content: Text(
+                              'Copied to phone clipboard - paste it '
+                              'somewhere you can reach from your '
+                              'desktop (a notes app, a message to '
+                              "yourself, an SSH client) - it won't "
+                              'paste directly into a desktop terminal',
                               style: TextStyle(color: kStar, fontSize: 14)),
-                          duration: const Duration(seconds: 2),
+                          duration: const Duration(seconds: 4),
                         ),
                       );
                     },
@@ -257,7 +270,15 @@ class _SettingsScreenState extends State<SettingsScreen>
             // 2026-09-01: real feedback - "Move Command for your desktop
             // terminal under the command." Was above the command box;
             // now below it.
-            Text('Command for your desktop terminal',
+            // 2026-09-02: real feedback, live - same "can't paste on
+            // desktop" gap applies here too - says outright that typing
+            // it there by hand is the real path, copy only helps if
+            // there's somewhere reachable from the desktop to paste
+            // into first.
+            Text(
+                'Command for your desktop terminal - type it there '
+                "(there's no shared clipboard between your phone and "
+                'desktop)',
                 style: TextStyle(color: kTextMid, fontSize: 12)),
             const SizedBox(height: 12),
             for (final (text, indented) in points)

@@ -155,5 +155,37 @@ PLIST_EOF
   sudo launchctl load "$PLIST"
 fi
 
+# ── Existing LocalSync folders ───────────────────────────────────────────
+# 2026-09-02: real feedback, live - "make it optimised so I just
+# download the website deb file, rather than type out that long
+# command showing on the phone." This is the exact same logic the
+# app's own "Manual setup" dialog (Settings -> 2. DESKTOP SYNC FOLDER
+# -> i) walks a user through typing into a terminal by hand - folded
+# in here instead, so it runs automatically as part of the one
+# desktop setup step (.deb, .command, or this script directly), no
+# separate command to relay from the phone at all. Only matters for
+# reconnecting to a PREVIOUS pairing's real data (reinstalled the app,
+# switched phones, or - like right now - a desktop with old test
+# pairings on it already); a genuinely first-time setup can ignore
+# this and use the path printed above.
+echo
+log "Existing LocalSync-style folders on this desktop:"
+for d in $(find "$HOME/Documents/Git" -maxdepth 3 -name '*.git' -type d 2>/dev/null); do
+  echo "  $d"
+  info=$(git --git-dir="$d" log -1 --format='    last sync: %ad - %s' --date=short 2>/dev/null)
+  if [[ -n "$info" ]]; then
+    echo "$info"
+  else
+    echo "    (empty, safe to use)"
+  fi
+done
+echo
+echo "If one of those is yours (a real LocalSync sync reads like"
+echo '"Desktop sync 2026-..." or "Initial sync from phone," not an'
+echo "unrelated project commit), type its path into LocalSync's"
+echo "Settings -> 2. DESKTOP SYNC FOLDER field on your phone. If you're"
+echo "not sure, the path printed above ($BARE_REPO_PATH) is a safe,"
+echo "empty default - nothing to mix up."
+
 echo
 log "Done."
