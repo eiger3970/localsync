@@ -203,148 +203,142 @@ class _SettingsScreenState extends State<SettingsScreen>
   // generic "•" bullet in front of each one was pure duplication. Other
   // callers (e.g. "Setting your desktop sync folder") are still plain
   // prose points and keep their bullets.
+  // 2026-09-03: real feedback, live - "command position is wrong, keep
+  // exactly where it's needed in text, for example, you need to run
+  // this command (show command here) steps text continues here." A
+  // separate boxed command element - even positioned right at the step
+  // that references it (the previous attempt at this fix) - still
+  // isn't what "inline" meant: the command needs to sit inside that
+  // step's own sentence, not beside it in its own component. Points are
+  // back to plain `(String, bool)` text; a caller embeds the command by
+  // writing the literal token `_cmdToken` at the exact spot in a step's
+  // sentence where it belongs (see call sites) - _buildStepSpan splits
+  // the sentence there and substitutes the real command as inline
+  // monospace text plus a small inline copy icon, so reading the step
+  // never has to look anywhere else.
+  static const _cmdToken = '{{cmd}}';
+
+  // 2026-09-03: real feedback, live - "be consistent, IP address, sync
+  // folder and vault folder paths, only the top result shown clearly...
+  // then the user has the option for the full command with the full raw
+  // data output in a 2nd command offered in an i if a user wants
+  // details." All three dialogs' primary commands now print only the
+  // single best answer - the full/raw list moved to an optional second
+  // command, revealed by a "Show full details" toggle instead of always
+  // being on screen. Needs local state (which toggle got tapped) that
+  // survives rebuilds within the still-open dialog - showDialog's own
+  // builder only runs once, so a plain StatefulBuilder wrapping the
+  // AlertDialog is enough without a whole new StatefulWidget class.
   void _showHelp(String title, String command, List<(String, bool)> points,
-      {bool showBullets = true}) {
+      {bool showBullets = true, String? detailsCommand, String? detailsIntro}) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 2026-09-03: real feedback, live - "the user needs to enter
-            // a command, then position so the most pertinent step is at
-            // top... I have doubts the command should be at the top."
-            // Same "answer first, process last" principle already
-            // applied to the setup script's own output file (see
-            // git_service.dart/setup.sh history) - the points list is
-            // what someone actually needs to read and act on (which
-            // folder, which path); the raw command is how to get there,
-            // useful mainly as a reference while running it. Reordered
-            // for every _showHelp dialog, not just this one, since
-            // they all shared the same command-first layout.
-            for (final (text, indented) in points)
-              Padding(
-                padding: EdgeInsets.only(bottom: 6, left: indented ? 20 : 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2026-08-21: real feedback, live - "still have
-                    // greater than signs, use bullet point dots."
-                    // Icons.chevron_right renders as a ">" shape - that
-                    // was the actual complaint, not the arrow text
-                    // fixed last round. Plain "•" text for both levels,
-                    // no icon glyph that can be misread as an arrow.
-                    // 2026-09-01: skipped entirely when showBullets is
-                    // false (numbered lists already carry their own
-                    // "1.", "2." inline - a bullet in front is noise).
-                    if (showBullets)
-                      SizedBox(
-                        width: 16,
-                        child: Text('•',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: kTextMid,
-                                fontSize: indented ? 12 : 15,
-                                height: 1.35)),
-                      ),
-                    if (showBullets) const SizedBox(width: 4),
-                    Expanded(
-                      child: Text.rich(
-                        _buildStepSpan(text),
-                        style: TextStyle(
-                            color: kTextMid, fontSize: 13, height: 1.35),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            // 2026-08-21: real feedback, live - "an easy copy to the
-            // command, which is confusing to type out... if UX can be
-            // made easier, great." Long-press-to-select already worked
-            // via SelectableText, but that's not discoverable - a
-            // one-tap copy button is the obvious affordance. Doesn't
-            // solve pasting into the desktop terminal itself (no shared
-            // clipboard between phone and desktop), but removes any
-            // need to type the command out by hand somewhere it CAN be
-            // pasted (a notes app, an SSH client, etc).
-            //
-            // 2026-08-28: real feedback, live - "be clearer like:
-            // Command for your desktop terminal:" - the box below had
-            // no label at all explaining what it was or where it's
-            // meant to be run, just an unmarked monospace string.
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(left: 10, top: 4, bottom: 4),
-              decoration: BoxDecoration(
-                  color: kVoid, border: Border.all(color: kBorder)),
-              child: Row(
+      builder: (_) {
+        var showDetails = false;
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            backgroundColor: kSurface,
+            title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+            // 2026-09-03: real overflow, caught previewing this dialog -
+            // a long inline command wraps across many lines within its
+            // step, and the vault-path dialog's full step list is
+            // taller than a phone screen leaves for an AlertDialog,
+            // which doesn't scroll its content by default. Wrapped in
+            // SingleChildScrollView so a long dialog scrolls instead of
+            // clipping/overflowing.
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: SelectableText(command,
-                          maxLines: 1,
-                          style: TextStyle(
-                              color: kGreen,
-                              fontFamily: 'monospace',
-                              fontSize: 13)),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.copy, color: kTextMid, size: 18),
-                    tooltip: 'Copy to phone clipboard',
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: command));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: kSurface,
-                          // 2026-09-02: real feedback, live - "update
-                          // the text to reflect copying phone text
-                          // can't be pasted on a desktop." "Command
-                          // copied" on its own reads as "now go paste
-                          // it" - there's nowhere on the desktop that
-                          // works, no shared clipboard between the two
-                          // devices. Says outright where this copy
-                          // actually lands and what it's actually for.
-                          content: Text(
-                              'Copied to phone clipboard - paste it '
-                              'somewhere you can reach from your '
-                              'desktop (a notes app, a message to '
-                              "yourself, an SSH client) - it won't "
-                              'paste directly into a desktop terminal',
-                              style: TextStyle(color: kStar, fontSize: 14)),
-                          duration: const Duration(seconds: 4),
+                  for (final point in points)
+                    _buildStepPoint(point, command, showBullets),
+                  if (detailsCommand != null) ...[
+                    const SizedBox(height: 2),
+                    InkWell(
+                      onTap: () => setState(() => showDetails = !showDetails),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.info_outline,
+                                color: kTextDim, size: 15),
+                            const SizedBox(width: 5),
+                            Text(
+                                showDetails
+                                    ? 'Hide full details'
+                                    : 'Show full details',
+                                style: TextStyle(
+                                    color: kTextDim,
+                                    fontSize: 12.5,
+                                    decoration: TextDecoration.underline)),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                    if (showDetails)
+                      _buildStepPoint(
+                          (
+                            '${detailsIntro ?? "Full details:"}\n'
+                                '\n$_cmdToken',
+                            false
+                          ),
+                          detailsCommand,
+                          false),
+                  ],
                 ],
               ),
             ),
-            const SizedBox(height: 6),
-            // 2026-09-01: real feedback - "Move Command for your desktop
-            // terminal under the command." Was above the command box;
-            // now below it.
-            // 2026-09-02: real feedback, live - same "can't paste on
-            // desktop" gap applies here too - says outright that typing
-            // it there by hand is the real path, copy only helps if
-            // there's somewhere reachable from the desktop to paste
-            // into first.
-            Text(
-                'Command for your desktop terminal - type it there '
-                "(there's no shared clipboard between your phone and "
-                'desktop)',
-                style: TextStyle(color: kTextMid, fontSize: 12)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Got it', style: TextStyle(color: kGreen)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Got it', style: TextStyle(color: kGreen)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 2026-08-21: real feedback, live - "still have greater than signs,
+  // use bullet point dots." Icons.chevron_right renders as a ">" shape -
+  // that was the actual complaint, not the arrow text fixed last round.
+  // Plain "•" text for both levels, no icon glyph that can be misread
+  // as an arrow.
+  // 2026-09-01: skipped entirely when showBullets is false (numbered
+  // lists already carry their own "1.", "2." inline - a bullet in
+  // front is noise).
+  Widget _buildStepPoint(
+      (String, bool) point, String command, bool showBullets) {
+    final (text, indented) = point;
+    return Padding(
+      padding: EdgeInsets.only(bottom: 6, left: indented ? 20 : 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showBullets)
+            SizedBox(
+              width: 16,
+              child: Text('•',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: indented ? 12 : 15,
+                      height: 1.35)),
+            ),
+          if (showBullets) const SizedBox(width: 4),
+          Expanded(
+            // 2026-09-03: SelectableText.rich, not the plain Text.rich
+            // this used to be - a WidgetSpan copy icon (below) covers
+            // the one-tap case, but long-press-to-select on the inline
+            // command itself only works if the whole span is
+            // selectable.
+            child: SelectableText.rich(
+              _buildStepSpan(text, command),
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.35),
+            ),
           ),
         ],
       ),
@@ -368,9 +362,66 @@ class _SettingsScreenState extends State<SettingsScreen>
   // goes through the existing eth1/usb0 highlighting untouched.
   static final _deviceStepPattern = RegExp(r'^(\d+\. )(Desktop|Phone): ');
 
-  TextSpan _buildStepSpan(String text) {
+  // 2026-09-03: real feedback, live - "just fucking inline command."
+  // Splits a step's text on `_cmdToken` and substitutes the real
+  // command as inline monospace text (still run through
+  // _highlightInterfaceNames on the non-command segments either side)
+  // plus a small tappable copy icon right next to it - same copy
+  // affordance the old standalone box had, now inline instead of
+  // requiring the eye to leave the sentence.
+  List<InlineSpan> _spansWithCommand(String text, String command) {
+    final idx = text.indexOf(_cmdToken);
+    if (idx < 0) return [_highlightInterfaceNames(text)];
+    final before = text.substring(0, idx);
+    final after = text.substring(idx + _cmdToken.length);
+    return [
+      if (before.isNotEmpty) _highlightInterfaceNames(before),
+      TextSpan(
+        text: command,
+        style: TextStyle(
+            color: kGreen, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+      ),
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: command));
+              // 2026-09-02: real feedback, live - "update the text to
+              // reflect copying phone text can't be pasted on a
+              // desktop." "Command copied" on its own reads as "now go
+              // paste it" - there's nowhere on the desktop that works,
+              // no shared clipboard between the two devices. Says
+              // outright where this copy actually lands and what it's
+              // actually for.
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: kSurface,
+                  content: Text(
+                      'Copied to phone clipboard - paste it '
+                      'somewhere you can reach from your '
+                      'desktop (a notes app, a message to '
+                      "yourself, an SSH client) - it won't "
+                      'paste directly into a desktop terminal',
+                      style: TextStyle(color: kStar, fontSize: 14)),
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            },
+            child: Icon(Icons.copy, color: kTextMid, size: 15),
+          ),
+        ),
+      ),
+      if (after.isNotEmpty) ..._spansWithCommand(after, command),
+    ];
+  }
+
+  TextSpan _buildStepSpan(String text, String command) {
     final match = _deviceStepPattern.firstMatch(text);
-    if (match == null) return _highlightInterfaceNames(text);
+    if (match == null) {
+      return TextSpan(children: _spansWithCommand(text, command));
+    }
     final prefix = match.group(1)!;
     final device = match.group(2)!;
     final rest = text.substring(match.end);
@@ -382,7 +433,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         child: Icon(icon, size: 14, color: kTextMid),
       ),
       TextSpan(text: ' $device: '),
-      _highlightInterfaceNames(rest),
+      ..._spansWithCommand(rest, command),
     ]);
   }
 
@@ -1092,8 +1143,54 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // command box doesn't already cover.
                             onPressed: () => _showHelp(
                               'Manual setup',
-                              'ip -4 addr show',
-                              const [
+                              // 2026-09-03: real feedback, live - "why
+                              // not sort this so eth1/usb0 lines are at
+                              // the top... show the ip address all
+                              // cleaned up, with just what the user
+                              // needs to enter... or perhaps no raw data
+                              // and just the output the user needs."
+                              // Raw `ip -4 addr show` on a real machine
+                              // is genuinely bad - this Pi's own output
+                              // includes 6 unrelated Docker bridge
+                              // interfaces plus loopback, none of them
+                              // eth1/usb0, all noise a non-technical
+                              // user would have to read past. This awk
+                              // filter keeps only lines inside an eth1/
+                              // usb0 block and prints just the bare IP
+                              // (no /28 suffix, no interface name, no
+                              // MAC/MTU/docker clutter) - exactly the 4
+                              // numbers the Phone field wants, with a
+                              // plain-English fallback if neither
+                              // interface is up.
+                              'echo; r=\$(ip -4 addr show | awk '
+                                  "'\$0 ~ /^[0-9]+: (eth1|usb0):/{f=1;"
+                                  'next} /^[0-9]+:/{f=0} f && /inet /'
+                                  "{split(\$2,a,\"/\"); print a[1]}'); "
+                                  'if [ -z "\$r" ]; then echo "No eth1 or '
+                                  'usb0 connection found - check the '
+                                  'cable or hotspot is connected"; else '
+                                  'echo "\$r"; fi',
+                              [
+                                // 2026-09-03: real feedback, live - "the
+                                // app setup steps can say, refer to the
+                                // desktop program (whatever the name of
+                                // the file is)." The desktop setup file
+                                // (kworld.space/localsync - a .deb on
+                                // Linux, a .command on macOS) now detects
+                                // and prints this exact answer as part of
+                                // its own one-time run, saved to "LocalSync
+                                // setup result.txt" on the Desktop -
+                                // pointing there first means most people
+                                // never need the manual steps below at all.
+                                (
+                                  'Already ran the LocalSync desktop '
+                                      'setup file (kworld.space/'
+                                      'localsync)? Check "LocalSync '
+                                      'setup result.txt" on your Desktop '
+                                      'first - it already has this '
+                                      'answer, nothing to type',
+                                  false
+                                ),
                                 // 2026-09-01: real feedback - "customer
                                 // isn't using wireless rather usb cable"
                                 // (this dialog is a fallback, only ever
@@ -1105,28 +1202,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // "cable" throughout this dialog and the
                                 // not-found message above - normie
                                 // wording, not networking jargon.
-                                // 2026-09-01: real feedback - name the
-                                // exact line to look for, not just the
-                                // interface name in isolation - showing
-                                // it inside real `ip addr show`-shaped
-                                // output ("n: eth1: inet 172.20.10.11
-                                // /28") gives the eye a concrete pattern
-                                // to match instead of an abstract word.
-                                // _highlightInterfaceNames already
-                                // greens eth1/usb0 wherever they occur
-                                // in point text, no rendering change
-                                // needed for this.
+                                // 2026-09-03: real feedback, live - "just
+                                // fucking inline command" - a boxed
+                                // command element, even positioned right
+                                // above this step, still wasn't what
+                                // "inline" meant. The command now sits
+                                // inside this step's own sentence via
+                                // _cmdToken.
                                 // 2026-09-02: real feedback, live - "mass
                                 // switching from Desktop and Phone, I
                                 // want this cleared up... Phone: bla /
                                 // Desktop: bla." Every step now says
                                 // outright which device it happens on.
                                 (
-                                  '1. Desktop: find your interface in '
-                                      'the command\'s output, looking '
-                                      'like:\n'
-                                      '"n: eth1: inet 172.20.10.11/28" or\n'
-                                      '"n: usb0: inet 172.20.10.11/28"',
+                                  '1. Desktop: run this Terminal command:'
+                                      '\n\n$_cmdToken\n'
+                                      '\nIt shows your desktop\'s IP '
+                                      'address, already cleaned up - '
+                                      'just the number, nothing else to '
+                                      'read',
                                   false
                                 ),
                                 // 2026-09-01: real feedback - the
@@ -1135,10 +1229,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // was removed (moved here instead, to
                                 // declutter the field) - folded into
                                 // this step so the detail isn't lost.
+                                // 2026-09-03: real feedback, live - now
+                                // that the command's own output is
+                                // already just the 4 numbers (see above),
+                                // the "no /28 suffix" caveat has nothing
+                                // left to warn about - dropped, this step
+                                // is just "type it in" now.
                                 (
-                                  '2. Phone: type just the 4 numbers '
-                                      'into the IP address field (e.g. '
-                                      '172.20.10.11) - no /28 suffix',
+                                  '2. Phone: type that into the IP '
+                                      'address field',
                                   false
                                 ),
                                 (
@@ -1150,6 +1249,21 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 ),
                               ],
                               showBullets: false,
+                              // 2026-09-03: real feedback, live - "be
+                              // consistent... only the top result shown
+                              // clearly... then the user has the option
+                              // for the full command with the full raw
+                              // data output in a 2nd command offered in
+                              // an i." Same pattern as the other two
+                              // dialogs below - the filtered command
+                              // above is the answer; this is the
+                              // unfiltered `ip -4 addr show` for
+                              // troubleshooting if the filter itself
+                              // ever seems wrong (e.g. neither eth1 nor
+                              // usb0 matched but something IS connected).
+                              detailsCommand: 'ip -4 addr show',
+                              detailsIntro: 'Full details - every '
+                                  'network interface, unfiltered:',
                             ),
                           ),
                         ],
@@ -1384,13 +1498,131 @@ class _SettingsScreenState extends State<SettingsScreen>
                         // folder is recognisable, not a coin flip.
                         onPressed: () => _showHelp(
                           'Manual setup',
-                          'for d in \$(find ~/Documents/Git -maxdepth 3 '
-                              "-name '*.git' -type d); do echo \"\$d\"; "
-                              "git --git-dir=\"\$d\" log -1 --format='  "
-                              "last sync: %ad - %s' --date=short "
-                              '2>/dev/null || echo "  (empty, safe to '
-                              'use)"; done',
+                          // 2026-09-03: real bug, caught by the user
+                          // actually running this in a terminal - "too
+                          // verbose and eyebleed." `-name '*.git'` also
+                          // matches the plain hidden `.git` folder every
+                          // normal project has (any name ending in
+                          // ".git" includes ".git" itself), so this was
+                          // listing every software repo under
+                          // ~/Documents/Git, not just real LocalSync
+                          // bare sync folders (which are always named
+                          // `something.git` as their own visible
+                          // directory, never the bare hidden name).
+                          // `! -name '.git'` excludes exactly that one
+                          // literal name and nothing else.
+                          //
+                          // 2026-09-03: real feedback, live - "needs a
+                          // line break or line separator from command,
+                          // so user easily reads results... it's all
+                          // gobble de gook until output is clean." The
+                          // command text and its real terminal output
+                          // ran together with nothing between them -
+                          // leading `echo;` prints one blank line before
+                          // the results start, so there's a visible
+                          // break between "the command I typed" and
+                          // "what it printed."
+                          //
+                          // 2026-09-03: real feedback, live - "can the
+                          // command 1 output be sorted better, is there
+                          // some sort of priority?" There wasn't - `find`
+                          // returns filesystem traversal order, nothing
+                          // to do with relevance. Restructured to a
+                          // sort-then-print two-pass (same shape as the
+                          // vault-path command's own score-then-sort),
+                          // keyed on each repo's last-commit unix
+                          // timestamp (`%at`, sorts correctly as a plain
+                          // number - the previous single-pass loop
+                          // couldn't sort at all, since it printed each
+                          // repo as it found it instead of after seeing
+                          // them all) - most recently used first, empty
+                          // repos (timestamp 0) sink to the bottom as
+                          // the least-likely-to-be-your-real-folder
+                          // fallback option.
+                          //
+                          // 2026-09-03: real feedback, live - "needs Top
+                          // entry at the top, not the bottom." Sorting
+                          // alone still made someone read the whole list
+                          // to find the best guess - a summary line (same
+                          // info the #1 list item already has, just
+                          // repeated first) now prints before the full
+                          // list, so the answer is visible without
+                          // reading past the first two lines. Worded as
+                          // "Best path to use:" rather than "Top entry:"
+                          // per the very next round of feedback - "Top
+                          // entry" was still an unexplained technical
+                          // label, this says outright what to do with
+                          // it.
+                          //
+                          // 2026-09-03: real feedback, live - "be
+                          // consistent... only the top result shown
+                          // clearly... then the user has the option for
+                          // the full command with the full raw data
+                          // output in a 2nd command offered in an i."
+                          // The full sorted list moved out of this
+                          // primary command entirely (now just the
+                          // "Best path to use" summary, no trailing
+                          // `while` loop) - it's the `detailsCommand`
+                          // below, behind the "Show full details" toggle.
+                          'echo; results=\$(for d in \$(find '
+                              '~/Documents/Git -maxdepth 3 '
+                              "-name '*.git' ! -name '.git' -type d); do "
+                              't=\$(git --git-dir="\$d" log -1 '
+                              '--format=%at 2>/dev/null); echo '
+                              '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn'
+                              '); top_t=\$(echo "\$results" | head -1 | '
+                              "cut -d'|' -f1); top_d=\$(echo \"\$results\" "
+                              "| head -1 | cut -d'|' -f2); "
+                              'if [ "\$top_t" = "0" ]; then echo "Best '
+                              'path to use: \$top_d (empty, safe to '
+                              'use)"; '
+                              'else top_msg=\$(git --git-dir="\$top_d" '
+                              "log -1 --format='%ad - %s' --date=short "
+                              '2>/dev/null); echo "Best path to use: '
+                              '\$top_d"; '
+                              'echo "  last sync: \$top_msg"; fi',
                           [
+                            // 2026-09-03: real feedback, live - "the app
+                            // setup steps can say, refer to the desktop
+                            // program (whatever the name of the file
+                            // is)." The desktop setup file (kworld.space/
+                            // localsync) now detects and prints this
+                            // exact answer as part of its own one-time
+                            // run, saved to "LocalSync setup result.txt"
+                            // on the Desktop - pointing there first means
+                            // most people never need the manual steps
+                            // below at all.
+                            (
+                              'Already ran the LocalSync desktop setup '
+                                  'file (kworld.space/localsync)? Check '
+                                  '"LocalSync setup result.txt" on your '
+                                  'Desktop first - it already has this '
+                                  'answer, nothing to type',
+                              false
+                            ),
+                            // 2026-09-03: real feedback, live - "which
+                            // step asks for the command, fix it." No
+                            // step here ever actually said to run it -
+                            // the command just appeared, detached,
+                            // somewhere else in the dialog. Added an
+                            // explicit step 1 for it (renumbered the
+                            // rest). Followed by "just fucking inline
+                            // command" - the command sits inside this
+                            // step's own sentence via _cmdToken, not in
+                            // a separate box beside it. Followed by
+                            // "better with inline command, but this is
+                            // too much for a noob" - "Terminal" now says
+                            // outright what kind of command this is and
+                            // where it runs, and a blank line above/
+                            // below separates "what to do" from "the
+                            // exact command" instead of running them
+                            // into one dense sentence.
+                            (
+                              '1. Desktop: run this Terminal command:\n'
+                                  '\n$_cmdToken\n'
+                                  '\n"Best path to use" is the answer',
+                              false
+                            ),
                             // 2026-09-02: real feedback, live - "mass
                             // switching from Desktop and Phone, I want
                             // this cleared up... Phone: bla / Desktop:
@@ -1398,15 +1630,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // device it happens on, instead of leaving
                             // that to be inferred from field names or
                             // context a dialog doesn't carry.
+                            //
+                            // 2026-09-03: real feedback, live - "is
+                            // there some sort of priority?" Now that the
+                            // command sorts by recency, the top result
+                            // is the best first guess - same "the top
+                            // result is..." framing the vault-path
+                            // dialog's own step 2 already uses.
                             (
-                              '1. Desktop: find every existing sync '
-                                  "folder, with its last sync date and "
-                                  'message (or "empty, safe to use" if '
-                                  "it's never been used)",
-                              false
-                            ),
-                            (
-                              '2. Phone: recognise the one that\'s '
+                              '2. Phone: the top result is probably '
                                   "yours - a real LocalSync folder's "
                                   'last message reads like "Desktop '
                                   'sync 2026-..." or "Initial sync from '
@@ -1430,6 +1662,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                               ),
                           ],
                           showBullets: false,
+                          detailsCommand: 'echo; for d in \$(find '
+                              '~/Documents/Git -maxdepth 3 '
+                              "-name '*.git' ! -name '.git' -type d); do "
+                              't=\$(git --git-dir="\$d" log -1 '
+                              '--format=%at 2>/dev/null); echo '
+                              '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn '
+                              "| while IFS='|' read -r t d; do "
+                              'echo "\$d"; if [ "\$t" = "0" ]; then echo '
+                              '"  (empty, safe to use)"; else '
+                              "git --git-dir=\"\$d\" log -1 --format='  "
+                              "last sync: %ad - %s' --date=short "
+                              '2>/dev/null; fi; done',
+                          detailsIntro: 'Full details - every existing '
+                              'sync folder, most recently used first:',
                         ),
                       ),
                     ),
@@ -1550,7 +1796,144 @@ class _SettingsScreenState extends State<SettingsScreen>
                           // day before) scored 95% - not a false
                           // 100%-vs-0%, an honest reflection of real
                           // ambiguity when two candidates are close.
-                          'find ~/Documents -maxdepth 3 -iname "*.obsidian" '
+                          //
+                          // 2026-09-03: real feedback, live - "needs a
+                          // line break or line separator from command,
+                          // so user easily reads results... it's all
+                          // gobble de gook until output is clean." Same
+                          // fix as the sync-folder command - leading
+                          // `echo;` prints one blank line before this
+                          // pipeline's real output starts.
+                          //
+                          // 2026-09-03: real feedback, live - "be
+                          // consistent... only the top result shown
+                          // clearly... then the user has the option for
+                          // the full command with the full raw data
+                          // output in a 2nd command offered in an i."
+                          // `| head -1` keeps just the winning candidate
+                          // (same scoring pipeline, one line changed) -
+                          // the full ranked list of all candidates moved
+                          // to `detailsCommand` below.
+                          'echo; find ~/Documents -maxdepth 3 -iname '
+                              '"*.obsidian" '
+                              '-type d | sed \'s#/.obsidian\$##\' | while '
+                              'read -r v; do n=\$(find "\$v" -iname "*.md" '
+                              '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
+                              '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
+                              'sort -rn | head -1); e=\${e%.*}; echo '
+                              '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
+                              '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
+                              'if(\$2+0>maxn)maxn=\$2+0; '
+                              'if(\$3+0>maxe)maxe=\$3+0} '
+                              'END{for(i=1;i<=NR;i++){'
+                              'ns=(maxn>0)?n[i]/maxn:0; '
+                              'age=(maxe-e[i])/86400; '
+                              'rs=(age<=0)?1:1/(1+age/14); '
+                              'sc=int(100*(0.4*ns+0.6*rs)); '
+                              'if(sc>100)sc=100; '
+                              'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
+                              '-t\'|\' -k2 -rn | head -1 | while '
+                              'IFS=\'|\' read -r path score notes epoch; '
+                              'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
+                              '2>/dev/null || echo unknown); echo '
+                              '"Best vault to use: \$path"; echo '
+                              '"  ~\${score}% likely your real vault '
+                              '(\$notes notes, last edited \$d)"; done',
+                          [
+                            // 2026-09-03: real feedback, live - "the app
+                            // setup steps can say, refer to the desktop
+                            // program (whatever the name of the file
+                            // is)." The desktop setup file (kworld.space/
+                            // localsync) now detects and prints this
+                            // exact answer as part of its own one-time
+                            // run, saved to "LocalSync setup result.txt"
+                            // on the Desktop - pointing there first means
+                            // most people never need the manual steps
+                            // below at all.
+                            (
+                              'Already ran the LocalSync desktop setup '
+                                  'file (kworld.space/localsync)? Check '
+                                  '"LocalSync setup result.txt" on your '
+                                  'Desktop first - it already has this '
+                                  'answer, nothing to type',
+                              false
+                            ),
+                            // 2026-09-03: real feedback, live - "you have
+                            // reversed the instruction, focus on the
+                            // negative rather than the positive action I
+                            // need to do... a recovery of my existing
+                            // phone and desktop folders, so the sync
+                            // doesn't lose any data." Led with the
+                            // leave-it-blank/fresh-folder case first,
+                            // which is backwards for someone actually
+                            // trying to reconnect to real existing data -
+                            // now leads with the recovery action itself
+                            // and its no-data-loss outcome, with the
+                            // blank/fresh-folder option mentioned last as
+                            // the alternative, not the headline.
+                            // 2026-09-03: real feedback, live - "clean up
+                            // step 4." Tightened the lead line (dropped
+                            // "and keep syncing your real notes," which
+                            // just restated "it becomes the one syncing
+                            // from now on" two clauses later) and step 3
+                            // (dropped "DESKTOP VAULT PATH" - the user is
+                            // already looking at that exact field, "this
+                            // field" says the same thing without
+                            // reprinting its own name back at them).
+                            // 2026-09-03: real feedback, live - "too
+                            // verbose... make point form." Was one dense
+                            // sentence; same three facts, one per line.
+                            (
+                              "Enter your existing vault's folder path "
+                                  'below to recover it - nothing is lost',
+                              false
+                            ),
+                            (
+                              'It becomes the one syncing from now on',
+                              false
+                            ),
+                            (
+                              'Leave this field blank only for a fresh, '
+                                  'empty folder instead',
+                              false
+                            ),
+                            // 2026-09-03: real feedback, live - "step 1,
+                            // run the command (show command here)" then
+                            // "just fucking inline command" - a boxed
+                            // element positioned right above this step
+                            // still wasn't "inline." The command now
+                            // sits inside this step's own sentence via
+                            // _cmdToken.
+                            //
+                            // 2026-09-03, earlier: "work that into the
+                            // step 4 walkthrough." The command output is
+                            // sorted highest-likelihood first now - step
+                            // 1 says so, step 2 says "top" instead of
+                            // "highest %" since sorting already put it
+                            // there.
+                            (
+                              '1. Desktop: run this Terminal command:'
+                                  '\n\n$_cmdToken\n'
+                                  '\nIt\'s your real vault, scored '
+                                  'against every other folder Obsidian '
+                                  'has opened',
+                              false
+                            ),
+                            (
+                              '2. Phone: copy that exact path into this '
+                                  'field, then Save',
+                              false
+                            ),
+                            if (_vaultPathCtrl.text.trim().isNotEmpty)
+                              (
+                                '3. Phone: currently set to '
+                                    '${_vaultPathCtrl.text.trim()}',
+                                false
+                              ),
+                          ],
+                          showBullets: false,
+                          detailsCommand: 'echo; find ~/Documents '
+                              '-maxdepth 3 -iname "*.obsidian" '
                               '-type d | sed \'s#/.obsidian\$##\' | while '
                               'read -r v; do n=\$(find "\$v" -iname "*.md" '
                               '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
@@ -1574,69 +1957,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '"\$path"; echo "  ~\${score}% likely your '
                               'real vault (\$notes notes, last edited '
                               '\$d)"; done',
-                          [
-                            // 2026-09-03: real feedback, live - "you have
-                            // reversed the instruction, focus on the
-                            // negative rather than the positive action I
-                            // need to do... a recovery of my existing
-                            // phone and desktop folders, so the sync
-                            // doesn't lose any data." Led with the
-                            // leave-it-blank/fresh-folder case first,
-                            // which is backwards for someone actually
-                            // trying to reconnect to real existing data -
-                            // now leads with the recovery action itself
-                            // and its no-data-loss outcome, with the
-                            // blank/fresh-folder option mentioned last as
-                            // the alternative, not the headline.
-                            // 2026-09-03: real feedback, live - "clean up
-                            // step 4." Tightened the lead line (dropped
-                            // "and keep syncing your real notes," which
-                            // just restated "it becomes the one syncing
-                            // from now on" two clauses later) and step 3
-                            // (dropped "DESKTOP VAULT PATH" - the user is
-                            // already looking at that exact field, "this
-                            // field" says the same thing without
-                            // reprinting its own name back at them).
-                            (
-                              'To recover your existing setup, enter '
-                                  "that vault's folder path below - "
-                                  'nothing is lost, and it becomes the '
-                                  'one syncing from now on. Leave this '
-                                  'blank only for a fresh, empty folder '
-                                  'instead.',
-                              false
-                            ),
-                            // 2026-09-03: real feedback, live - "work
-                            // that into the step 4 walkthrough." The
-                            // command output is sorted highest-likelihood
-                            // first now - step 1 says so, step 2 says
-                            // "top" instead of "highest %" since sorting
-                            // already put it there.
-                            (
-                              '1. Desktop: run the command above - it '
-                                  'lists every folder Obsidian has '
-                                  'already opened as a vault',
-                              false
-                            ),
-                            (
-                              '2. Phone: the top result is your real '
-                                  'vault - not an old backup further '
-                                  'down',
-                              false
-                            ),
-                            (
-                              '3. Phone: copy that exact path into this '
-                                  'field, then Save',
-                              false
-                            ),
-                            if (_vaultPathCtrl.text.trim().isNotEmpty)
-                              (
-                                '4. Phone: currently set to '
-                                    '${_vaultPathCtrl.text.trim()}',
-                                false
-                              ),
-                          ],
-                          showBullets: false,
+                          detailsIntro: 'Full details - every folder '
+                              'Obsidian has opened, ranked:',
                         ),
                       ),
                     ),

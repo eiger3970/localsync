@@ -166,6 +166,46 @@ PLIST_EOF
 TECH_LOG=$(run_technical_setup 2>&1)
 
 # ── The answer, first ────────────────────────────────────────────────────
+# 2026-09-03: real feedback, live - "these commands are impossible to
+# read and type into desktop terminal, too long. Can these commands be
+# installed on the website deb file?" The app's own "Manual setup"
+# dialogs (Settings -> each field's (i) button) walk a user through
+# typing a long one-liner into a terminal by hand for the IP address and
+# vault path fields too - the same problem the 2026-09-02 fix below
+# already solved for the sync-folder field alone. Folded the other two
+# in here as well, so every Settings field this desktop can answer gets
+# answered by running this ONE script (.deb, .command, or by hand) -
+# nothing left to relay from the phone at all except pairing itself.
+
+echo "Desktop username (enter this into LocalSync's Settings):"
+echo "  $(whoami)"
+echo
+
+# 2026-09-03: matches the app's own IP dialog exactly (same eth1/usb0
+# filter, same reasoning: this Pi alone has 6 unrelated Docker bridge
+# interfaces plus loopback that raw `ip addr`/`ifconfig` would otherwise
+# surface). Linux-only for now, same scope the app's dialog already has
+# - it has never attempted macOS interface names (different naming
+# entirely for USB tethering/Personal Hotspot), so this doesn't invent
+# unverified behavior for a platform nobody's confirmed it against yet.
+echo "Desktop IP address (enter this into LocalSync's Settings) - only"
+echo "needed if the phone's auto-discovery can't find this desktop on"
+echo "its own, and can change if you switch between USB cable and Wi-Fi"
+echo "Hotspot:"
+if [[ "$OS" == debian ]]; then
+  IP_RESULT=$(ip -4 addr show 2>/dev/null | awk '$0 ~ /^[0-9]+: (eth1|usb0):/{f=1;next} /^[0-9]+:/{f=0} f && /inet /{split($2,a,"/"); print a[1]}')
+  if [[ -z "$IP_RESULT" ]]; then
+    echo "  No eth1 or usb0 connection found - connect the phone's USB"
+    echo "  cable or turn on its Wi-Fi Hotspot, then re-run this script"
+  else
+    echo "  $IP_RESULT"
+  fi
+else
+  echo "  Not auto-detected on macOS yet - use LocalSync's Settings ->"
+  echo "  2. IP ADDRESS - DESKTOP -> (i) -> Manual setup on your phone"
+fi
+echo
+
 echo "Git bare repo path (enter this into LocalSync's Settings):"
 echo "  $BARE_REPO_PATH"
 echo
@@ -232,6 +272,39 @@ else
   echo "time setup. Use this path in LocalSync's Settings on your phone:"
 fi
 echo "  $BARE_REPO_PATH"
+
+# ── Desktop vault path ────────────────────────────────────────────────────
+# 2026-09-03: same scoring the app's own "Desktop vault path" dialog
+# uses (60% weight on how recently a candidate was edited, 40% on note
+# count, both relative to whichever candidate wins each measure) - one
+# plain-language answer instead of making someone compare raw numbers
+# across every folder Obsidian has ever opened.
+echo
+echo "Desktop vault path (enter this into LocalSync's Settings, only if"
+echo "you're recovering an existing vault - leave blank on your phone"
+echo "for a fresh, empty folder instead):"
+VAULT_RESULT=$(find "$HOME/Documents" -maxdepth 3 -iname "*.obsidian" -type d 2>/dev/null | sed 's#/.obsidian$##' | while read -r v; do
+  n=$(find "$v" -iname "*.md" 2>/dev/null | wc -l)
+  e=$(find "$v" -iname "*.md" -printf '%T@\n' 2>/dev/null | sort -rn | head -1)
+  e=${e%.*}
+  echo "$v|$n|${e:-0}"
+done | awk -F'|' '{p[NR]=$1;n[NR]=$2;e[NR]=$3; if($2+0>maxn)maxn=$2+0; if($3+0>maxe)maxe=$3+0} END{for(i=1;i<=NR;i++){ns=(maxn>0)?n[i]/maxn:0; age=(maxe-e[i])/86400; rs=(age<=0)?1:1/(1+age/14); sc=int(100*(0.4*ns+0.6*rs)); if(sc>100)sc=100; print p[i]"|"sc"|"n[i]"|"e[i]}}' | sort -t'|' -k2 -rn)
+if [[ -z "$VAULT_RESULT" ]]; then
+  echo "  No Obsidian vaults found under $HOME/Documents - normal for a"
+  echo "  first-time setup, leave this field blank on your phone"
+else
+  VAULT_COUNT=$(echo "$VAULT_RESULT" | wc -l)
+  echo "$VAULT_RESULT" | head -1 | while IFS='|' read -r path score notes epoch; do
+    d=$(date -d "@$epoch" +%Y-%m-%d 2>/dev/null || echo unknown)
+    echo "  $path"
+    echo "    ~${score}% likely your real vault ($notes notes, last edited $d)"
+  done
+  if [[ "$VAULT_COUNT" -gt 1 ]]; then
+    echo
+    echo "  ($((VAULT_COUNT - 1)) other, lower-scored candidate(s) also"
+    echo "  found - the path above is the best match)"
+  fi
+fi
 
 # ── Setup details, last - not the headline, just for reference ──────────
 echo

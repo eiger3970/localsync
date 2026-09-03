@@ -1,5 +1,5 @@
 Package: localsync-desktop-setup
-Version: 1.0.0
+Version: 1.0.1
 Section: utils
 Priority: optional
 Architecture: all
@@ -9,7 +9,10 @@ Description: LocalSync desktop setup (git, SSH, bare repo, auto-discovery)
  Runs LocalSync's one-time desktop setup: installs git and SSH access if
  missing, creates the git bare repository LocalSync syncs your Obsidian
  vault through, and enables mDNS/Avahi auto-discovery so the phone app
- can find this machine automatically.
+ can find this machine automatically. Also detects and prints this
+ desktop's username, IP address, and any existing Obsidian vault - every
+ answer LocalSync's Settings screen needs, with nothing to type from a
+ long command by hand.
  .
  This package does not install a persistent application - it runs the
  setup once, during installation, the same as the terminal one-liner or
