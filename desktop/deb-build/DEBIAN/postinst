@@ -13,6 +13,28 @@
 # so this can never drift into its own separate copy of the logic.
 set -uo pipefail
 
+# 2026-09-03: real gap found - this postinst ran the bundled setup.sh
+# with no integrity check at all, unlike LocalSync-Setup-Mac.command
+# (which verifies its own downloaded copy before running) and the
+# terminal curl|sha256sum|bash command. A tampered .deb - repackaged
+# with a modified setup.sh, same postinst otherwise - would run as
+# root with nothing catching it. This closes that gap the same way the
+# other two paths already do: refuse to run setup.sh if it doesn't
+# match the published hash.
+# MAINTENANCE: EXPECTED_SHA256 must be updated (sha256sum setup.sh)
+# here, in LocalSync-Setup-Mac.command, in the website's
+# local_sync.tsx, and in docs/desktop-setup.md together whenever
+# setup.sh's content changes, or this check fails for everyone.
+EXPECTED_SHA256="a88f0eda5aeebc1ac4ab8d9ca8dea7f1a4de5687b73d3b2108b67bd0aeecc901"
+ACTUAL_SHA256="$(sha256sum /usr/share/localsync/setup.sh | cut -d' ' -f1)"
+if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+  echo "localsync-desktop-setup: checksum mismatch on the bundled setup.sh - refusing to run it." >&2
+  echo "  Expected: $EXPECTED_SHA256" >&2
+  echo "  Actual:   $ACTUAL_SHA256" >&2
+  echo "This .deb may have been tampered with or corrupted. Do not run it manually - re-download from kworld.space/localsync or the official Codeberg repo." >&2
+  exit 1
+fi
+
 REAL_USER="${SUDO_USER:-}"
 if [[ -z "$REAL_USER" && -n "${PKEXEC_UID:-}" ]]; then
   REAL_USER="$(id -un "$PKEXEC_UID" 2>/dev/null || true)"
