@@ -8,8 +8,10 @@
 // as-is for consistency, not a new custom slider.
 
 import 'package:flutter/material.dart';
+import '../services/database_service.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import '../widgets/shatter_page_route.dart';
+import 'desktop_setup_prompt_screen.dart';
 import 'linking_screen.dart';
 import 'welcome_hero_screen.dart';
 
@@ -18,9 +20,23 @@ class SyncFilesPreviewScreen extends StatelessWidget {
 
   // This is the one real moment the pastel welcome world meets the
   // app's actual dark UI - shatters into it rather than a plain cut.
-  void _proceed(BuildContext context) {
+  //
+  // 2026-09-03: real gap found, live - "there's nothing to tell me
+  // what to do on the app... where does the user know to download and
+  // run the desktop file?" Shatters into DesktopSetupPromptScreen
+  // instead of straight to LinkingScreen the first time only - it
+  // handles its own onward navigation once continued/skipped, and
+  // marks itself seen so a returning user (or someone pairing a second
+  // device) goes straight through as before.
+  Future<void> _proceed(BuildContext context) async {
+    final seen = await DatabaseService().getSeenDesktopSetupPrompt();
+    if (!context.mounted) return;
     Navigator.pushReplacement(
-        context, ShatterPageRoute(builder: (_) => const LinkingScreen()));
+        context,
+        ShatterPageRoute(
+            builder: (_) => seen
+                ? const LinkingScreen()
+                : const DesktopSetupPromptScreen()));
   }
 
   @override

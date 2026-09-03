@@ -26,6 +26,7 @@ const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kDesktopVaultPathKey   = 'db_desktop_vault_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
+const _kSeenDesktopSetupPromptKey = 'db_seen_desktop_setup_prompt';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -271,6 +272,33 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kSelectedSkinKey, id);
+  }
+
+  // ── Seen the desktop-setup prompt ──────────────────────────────────────────
+  // 2026-09-03: real gap found, live - "there's nothing to tell me what
+  // to do on the app... the desktop file is only ever mentioned
+  // reactively, after a failed pairing attempt, or in Settings dialogs
+  // that assume it's already been run." New DesktopSetupPromptScreen
+  // shows once, right after choosing a tier, before pairing even
+  // starts - "show once, not on every re-pair" per direct feedback, so
+  // this flag (false/missing = never seen it) is what both preview
+  // screens check before deciding whether to route through it or
+  // straight to LinkingScreen as before.
+  static bool _webSeenDesktopSetupPrompt = false;
+
+  Future<bool> getSeenDesktopSetupPrompt() async {
+    if (kIsWeb) return _webSeenDesktopSetupPrompt;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kSeenDesktopSetupPromptKey) ?? false;
+  }
+
+  Future<void> setSeenDesktopSetupPrompt() async {
+    if (kIsWeb) {
+      _webSeenDesktopSetupPrompt = true;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kSeenDesktopSetupPromptKey, true);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────
