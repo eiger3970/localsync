@@ -81,7 +81,7 @@ class PairingController extends ChangeNotifier {
       // same session - a bad IP used to discard a valid username too).
       final missing = [
         if (desktopUser.trim().isEmpty) 'Desktop username',
-        if (desktopIp.trim().isEmpty) 'IP address - desktop',
+        if (desktopIp.trim().isEmpty) 'Desktop IP address',
       ].join(', ');
       _result = StepFailure(LinkingError.desktopNotConfigured,
           debugDetail: 'Empty in Settings: $missing');

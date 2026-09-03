@@ -747,335 +747,14 @@ class _SettingsScreenState extends State<SettingsScreen>
             // enough." Reverses the 2026-08-21 call below this section
             // that added a Divider here - dropped, space-only gap.
             const SizedBox(height: 40),
-            // 2026-08-20: real feedback, live - "looks complicated, less
-            // verbose is better." Both labels cut to one short line,
-            // same trim already applied elsewhere in this app for the
-            // same complaint.
-            // 2026-08-20: real bug, live - label/helper text rendered
-            // smaller than the input text itself (Material's default
-            // InputDecoration sizing), backwards from what's readable.
-            // Explicit styles here match this app's established
-            // kStar/kTextMid readability fixes rather than trusting
-            // the theme's small defaults for these two roles.
-            // 2026-08-21: real feedback, live - labels still read as
-            // body text next to a full-screen field, not as section
-            // headers. Bumped to the 18px/w700 size already used for
-            // section headers elsewhere (see home_screen.dart's
-            // _SectionTitle-equivalent header text). Renamed "Desktop
-            // IP" -> "IP address - desktop" (matches user's own
-            // requested wording, applied everywhere this string
-            // appears - see home_screen.dart's Settings menu subtitle).
-            // "Bare repo path" -> "Git bare repo path" - user's own
-            // notes (Knowledge_base_Raspberry_Pi.md, Knowledge_base_
-            // obsidian.md) consistently say "Git bare repo", never
-            // "bare repository", confirmed by grep before renaming
-            // rather than guessed. Icons are built-in Material glyphs,
-            // not custom SVG - same tradeoff already decided with the
-            // user on 2026-08-18 for the Conflicts screen's icon row
-            // (real risk of an invisible SVG rendering bug with no way
-            // to preview before a sideload) - ask if genuine custom
-            // icon art is wanted instead, budget the same iteration
-            // cost as the pairing-screen SVGs took.
-            // 2026-08-21: real feedback, live - "alphabetical" ordering
-            // requested for both this screen's field order and the
-            // kebab menu's Settings subtitle (see home_screen.dart) -
-            // Git bare repo path now comes before IP address - desktop.
-            //
-            // 2026-08-30: real device feedback - "space above 2 is too
-            // much, needs to be consistent with space above 3." The
-            // extra SizedBox(24) added for this header on top of the
-            // existing 28+divider+28 above was the mismatch - "3." below
-            // uses that same 28+divider+28 with nothing extra added.
-            // Removed to match.
-            Text('2. DESKTOP SYNC FOLDER (git bare repo path)',
-                style: TextStyle(
-                    color: kGreen,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 2026-08-29: real feedback, live - "git logo in wrong
-                // place... leave header with just text, have the left
-                // image as the git logo." Moved from the label into
-                // this leading-icon slot, replacing the generic
-                // Material glyph - the official Git icon mark
-                // (git-scm.com/downloads/logos, CC BY 3.0), tinted to
-                // kStar via colorFilter rather than baking a fixed
-                // white into the asset, so it stays correct under any
-                // skin.
-                //
-                // 2026-08-30: real device feedback - "too much confusion
-                // with phone and desktop sides... user just sees desktop
-                // or desktop git image and taps auto fill." Swapped the
-                // small git mark for the same laptop glyph the pairing
-                // screen already uses for "this is the desktop side"
-                // (pairing_laptop_plain.svg) - bigger, and now the tap
-                // target for the suggested-path autofill itself (see
-                // _useSuggestedPath below), not just decoration.
-                GestureDetector(
-                  onTap: _useSuggestedPath,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4, right: 10),
-                    // 2026-08-31: real feedback, live - restored the
-                    // desktop image ("the whole point of the image is the
-                    // desktop so a user knows they're dealing with desktop
-                    // stuff in number 2") after it had been dropped
-                    // 2026-08-30 for being unreadable combined with a tiny
-                    // git overlay. desktop-git-diamond.svg re-traces the
-                    // same laptop silhouette as pairing_laptop_plain.svg,
-                    // with the real git mark (diamond border + branch
-                    // nodes, geometry measured from the official
-                    // git-scm.com icon) centered in the screen at a size
-                    // that actually holds up at this render size - the
-                    // git mark is "a gentle hint the desktop is having
-                    // some git work done with it," not the primary image.
-                    child: SizedBox(
-                      width: 26,
-                      height: 26,
-                      child: SvgPicture.asset(
-                        'assets/logos/desktop-git-diamond.svg',
-                        width: 26,
-                        height: 26,
-                        colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _pathCtrl,
-                    style: TextStyle(color: kStar, fontSize: 14),
-                    decoration: InputDecoration(
-                      // 2026-08-28: real feedback, live - "Git bare repo
-                      // path... big word for newbies, need to add
-                      // something basic." Kept the real technical name
-                      // (still matches docs/desktop-setup.md and what a
-                      // desktop terminal command would reference) but
-                      // added the plain-language version alongside it
-                      // rather than replacing it outright.
-                      // 2026-08-29: real feedback, live - "make the
-                      // headers larger... this text in brackets doesn't
-                      // need to be enlarged." labelText can only take a
-                      // single style for the whole string - switched to
-                      // label: with a RichText so "Git bare repo path"
-                      // can go to 17 while the parenthetical stays at
-                      // the original 15.
-                      // 2026-08-29: real feedback, live - "add git
-                      // logo... same colour as other logos, white, not
-                      // the standard git logo colour orange." Official
-                      // Git icon mark (git-scm.com/downloads/logos, CC
-                      // BY 3.0) moved to the field's leading icon slot
-                      // instead (see Icon.account_tree replaced above) -
-                      // "leave header with just text, have the left
-                      // image as the git logo."
-                      // 2026-08-30: real device feedback - "too much
-                      // confusion with phone and desktop sides... any
-                      // text can be under or in an info tip." The
-                      // "(folder sharing to your phone)" parenthetical
-                      // and the helperText below both moved into the (i)
-                      // dialog instead of sitting always-visible - the
-                      // big laptop icon now carries the "this is the
-                      // desktop side" meaning on its own, verbosely
-                      // spelling it out next to the label was the thing
-                      // adding to the confusion, not resolving it.
-                      // 2026-08-30: real device feedback - label removed,
-                      // duplicated the new "2. GIT BARE REPO PATH" step
-                      // header above it (same reasoning as Desktop
-                      // username below).
-                      hintText: '/home/user/Documents/Git/localsync.git',
-                      errorText: _pathError,
-                      // 2026-08-21: real feedback, live - "circle with
-                      // i" instead of a "?" - Icons.info_outline reads
-                      // as reference info, Icons.help_outline reads as
-                      // "something's wrong, ask for help." This is
-                      // neither - it's a lookup command, not a support
-                      // request.
-                      suffixIcon: IconButton(
-                        icon:
-                            Icon(Icons.info_outline, color: kTextDim, size: 20),
-                        tooltip: 'How do I find this?',
-                        // 2026-08-21: real question, live - "is this
-                        // live if the user has a different git bare
-                        // repo or is this hard coded text?" It WAS
-                        // hardcoded to this developer's own repo name
-                        // (Md_files_bare.git) - wrong for any other
-                        // real vault. Now reads the field's own live
-                        // text at the moment the dialog opens instead.
-                        // 2026-08-28: real feedback, live - "how do I
-                        // create a new LocalSync git folder? Can the app
-                        // walk me through?" This help dialog only ever
-                        // covered finding an EXISTING bare repo - no
-                        // help at all for the much more common first-
-                        // time case, someone with nothing to find yet.
-                        // Since git_service.dart's _ensureBareRepoExists()
-                        // (2026-08-28) creates the path automatically on
-                        // first pairing, that's now the actual answer -
-                        // leads with it instead of assuming a repo
-                        // already exists.
-                        // 2026-09-02: real feedback, live - "remove
-                        // Setting your desktop sync folder so 2 and 3
-                        // manual setup is similar and consistent in
-                        // style." Retitled to match step 3's dialog
-                        // ("Manual setup"), points renumbered inline
-                        // instead of bulleted prose, same trim as that
-                        // dialog got on 2026-09-01.
-                        // 2026-09-02: real feedback, live - "step 1
-                        // makes no sense" (both dialogs) - the numbered
-                        // list had been mixing an auto-setup explanation
-                        // in with the manual fallback steps, and
-                        // restating "run this command" that the command
-                        // box above already labels. Auto setup is now
-                        // an un-numbered lead line (context, not a
-                        // step); the numbered list is only the genuine
-                        // manual steps, same shape as step 3's dialog.
-                        // 2026-09-02: real feedback, live - "isn't step
-                        // 2 optimised? there's already the magic star
-                        // option for a suggested path, some redundancy."
-                        // Right - the ✨ "Use suggested path" tap target
-                        // sits right on this field already (plus the
-                        // laptop icon above it), so explaining "just
-                        // type any path" here in prose duplicated
-                        // something already visible and one tap away.
-                        // Dropped the lead line entirely - this dialog's
-                        // real, distinct job is finding/reusing an
-                        // EXISTING folder, which the numbered list below
-                        // already covers on its own.
-                        // 2026-09-02: real feedback, live - "if I sync
-                        // to a wrong folder, syncing can wipe or mess
-                        // up data... tell me how you find the correct
-                        // path, so a user can know how to do this from
-                        // the app." Fair - the old command just listed
-                        // bare folder NAMES, on a real machine that
-                        // also matches every unrelated project's own
-                        // .git folder, with zero way to tell which one
-                        // is actually yours short of guessing. This
-                        // version shows each one's last sync date and
-                        // message (or "empty, safe to use") - real
-                        // LocalSync syncs read as "Desktop sync
-                        // 2026-..." or "Initial sync from phone," not
-                        // "fix: typo in README," so a genuine LocalSync
-                        // folder is recognisable, not a coin flip.
-                        onPressed: () => _showHelp(
-                          'Manual setup',
-                          'for d in \$(find ~/Documents/Git -maxdepth 3 '
-                              "-name '*.git' -type d); do echo \"\$d\"; "
-                              "git --git-dir=\"\$d\" log -1 --format='  "
-                              "last sync: %ad - %s' --date=short "
-                              '2>/dev/null || echo "  (empty, safe to '
-                              'use)"; done',
-                          [
-                            // 2026-09-02: real feedback, live - "mass
-                            // switching from Desktop and Phone, I want
-                            // this cleared up... Phone: bla / Desktop:
-                            // bla." Every step now says outright which
-                            // device it happens on, instead of leaving
-                            // that to be inferred from field names or
-                            // context a dialog doesn't carry.
-                            (
-                              '1. Desktop: find every existing sync '
-                                  "folder, with its last sync date and "
-                                  'message (or "empty, safe to use" if '
-                                  "it's never been used)",
-                              false
-                            ),
-                            (
-                              '2. Phone: recognise the one that\'s '
-                                  "yours - a real LocalSync folder's "
-                                  'last message reads like "Desktop '
-                                  'sync 2026-..." or "Initial sync from '
-                                  'phone," not an unrelated project '
-                                  "commit. If you're not sure, pick an "
-                                  'empty one instead - nothing to mix '
-                                  'up',
-                              false
-                            ),
-                            (
-                              '3. Phone: copy that path into the '
-                                  'Settings page, DESKTOP SYNC FOLDER '
-                                  'field',
-                              false
-                            ),
-                            if (_pathCtrl.text.trim().isNotEmpty)
-                              (
-                                '4. Phone: currently set to '
-                                    '${_pathCtrl.text.trim()}',
-                                false
-                              ),
-                          ],
-                          showBullets: false,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            // 2026-08-28: real feedback, live - "as simple as suggesting
-            // a path... handhold the new customer." Now that
-            // desktopUser is a real Settings field (not hardcoded), a
-            // real suggestion can be built from it instead of asking the
-            // user to type an absolute path from scratch. Linux
-            // convention (/home/<user>/...) since that's this app's
-            // primary documented platform - macOS users (~/Users/...
-            // instead) still need to adjust it themselves, noted in the
-            // snackbar-free case below rather than guessing the OS.
-            Padding(
-              padding: const EdgeInsets.only(left: 32, top: 8),
-              child: GestureDetector(
-                // 2026-08-30: now shared with the big laptop icon above
-                // (_useSuggestedPath) - same action, two tap targets.
-                onTap: _useSuggestedPath,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 2026-08-28: real feedback, live - "stars aren't
-                    // twinkling" - was a static Icon, same sine-wave
-                    // opacity twinkle as ShreddingPasswordField's
-                    // prefixIcon cluster, just one icon here.
-                    //
-                    // 2026-08-30: real device feedback - "glowing,
-                    // change to twinkling." One controller/one phase
-                    // reads as smooth breathing, not sparkle - averaging
-                    // two independently-drifting controllers gives this
-                    // single icon its own irregular beat pattern instead
-                    // (a lone point needs that combination to read as
-                    // twinkle at all; two separate points, like the
-                    // satellite icon below, can each stay a plain single
-                    // sine and still twinkle relative to each other).
-                    AnimatedBuilder(
-                      animation:
-                          Listenable.merge([_sparkleCtrl1, _sparkleCtrl2]),
-                      builder: (_, __) => Icon(Icons.auto_awesome,
-                          color: kGreen.withValues(
-                              alpha: (_twinkle(_sparkleCtrl1, _sparklePhase1) +
-                                      _twinkle(_sparkleCtrl2, _sparklePhase2)) /
-                                  2),
-                          size: 15),
-                    ),
-                    const SizedBox(width: 5),
-                    Text('Use suggested path',
-                        style: TextStyle(
-                            color: kGreen,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ),
-            ),
-            // 2026-08-21: real feedback, live - "add a line space above
-            // to separate more from the above text, as all the
-            // information looks like 1, rather than 2 controls." A
-            // plain SizedBox gap alone wasn't enough separation at the
-            // time, so a Divider was added here.
-            // 2026-09-01: real feedback - "why is there a horizontal
-            // line... it's an eye distraction, just the space alone is
-            // enough." Reverses the call above - Divider dropped,
-            // space-only gap.
-            const SizedBox(height: 40),
-            Text('3. IP ADDRESS - DESKTOP',
+            // 2026-09-03: real feedback, live - "move step 3 to step 2,
+            // move step 2 to step 3, rename step 3 DESKTOP - IP
+            // ADDRESS." Reverses the 2026-08-21 alphabetical-order call
+            // (git bare repo path before IP address) - deliberate new
+            // preference, not a bug fix. Renamed to match the "DESKTOP
+            // ..." prefix every other step here already uses (was the
+            // only one starting with the field name instead).
+            Text('2. DESKTOP IP ADDRESS',
                 style: TextStyle(
                     color: kGreen,
                     fontSize: 11,
@@ -1481,6 +1160,334 @@ class _SettingsScreenState extends State<SettingsScreen>
             // still works exactly as before, using the sync job's own
             // safe empty-folder default.
             const SizedBox(height: 40),
+            // 2026-08-20: real feedback, live - "looks complicated, less
+            // verbose is better." Both labels cut to one short line,
+            // same trim already applied elsewhere in this app for the
+            // same complaint.
+            // 2026-08-20: real bug, live - label/helper text rendered
+            // smaller than the input text itself (Material's default
+            // InputDecoration sizing), backwards from what's readable.
+            // Explicit styles here match this app's established
+            // kStar/kTextMid readability fixes rather than trusting
+            // the theme's small defaults for these two roles.
+            // 2026-08-21: real feedback, live - labels still read as
+            // body text next to a full-screen field, not as section
+            // headers. Bumped to the 18px/w700 size already used for
+            // section headers elsewhere (see home_screen.dart's
+            // _SectionTitle-equivalent header text). Renamed "Desktop
+            // IP" -> "IP address - desktop" (matches user's own
+            // requested wording, applied everywhere this string
+            // appears - see home_screen.dart's Settings menu subtitle).
+            // "Bare repo path" -> "Git bare repo path" - user's own
+            // notes (Knowledge_base_Raspberry_Pi.md, Knowledge_base_
+            // obsidian.md) consistently say "Git bare repo", never
+            // "bare repository", confirmed by grep before renaming
+            // rather than guessed. Icons are built-in Material glyphs,
+            // not custom SVG - same tradeoff already decided with the
+            // user on 2026-08-18 for the Conflicts screen's icon row
+            // (real risk of an invisible SVG rendering bug with no way
+            // to preview before a sideload) - ask if genuine custom
+            // icon art is wanted instead, budget the same iteration
+            // cost as the pairing-screen SVGs took.
+            // 2026-08-21: real feedback, live - "alphabetical" ordering
+            // requested for both this screen's field order and the
+            // kebab menu's Settings subtitle (see home_screen.dart) -
+            // Git bare repo path now comes before IP address - desktop.
+            //
+            // 2026-08-30: real device feedback - "space above 2 is too
+            // much, needs to be consistent with space above 3." The
+            // extra SizedBox(24) added for this header on top of the
+            // existing 28+divider+28 above was the mismatch - "3." below
+            // uses that same 28+divider+28 with nothing extra added.
+            // Removed to match.
+            Text('3. DESKTOP SYNC FOLDER (git bare repo path)',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 2026-08-29: real feedback, live - "git logo in wrong
+                // place... leave header with just text, have the left
+                // image as the git logo." Moved from the label into
+                // this leading-icon slot, replacing the generic
+                // Material glyph - the official Git icon mark
+                // (git-scm.com/downloads/logos, CC BY 3.0), tinted to
+                // kStar via colorFilter rather than baking a fixed
+                // white into the asset, so it stays correct under any
+                // skin.
+                //
+                // 2026-08-30: real device feedback - "too much confusion
+                // with phone and desktop sides... user just sees desktop
+                // or desktop git image and taps auto fill." Swapped the
+                // small git mark for the same laptop glyph the pairing
+                // screen already uses for "this is the desktop side"
+                // (pairing_laptop_plain.svg) - bigger, and now the tap
+                // target for the suggested-path autofill itself (see
+                // _useSuggestedPath below), not just decoration.
+                GestureDetector(
+                  onTap: _useSuggestedPath,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 10),
+                    // 2026-08-31: real feedback, live - restored the
+                    // desktop image ("the whole point of the image is the
+                    // desktop so a user knows they're dealing with desktop
+                    // stuff in number 2") after it had been dropped
+                    // 2026-08-30 for being unreadable combined with a tiny
+                    // git overlay. desktop-git-diamond.svg re-traces the
+                    // same laptop silhouette as pairing_laptop_plain.svg,
+                    // with the real git mark (diamond border + branch
+                    // nodes, geometry measured from the official
+                    // git-scm.com icon) centered in the screen at a size
+                    // that actually holds up at this render size - the
+                    // git mark is "a gentle hint the desktop is having
+                    // some git work done with it," not the primary image.
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: SvgPicture.asset(
+                        'assets/logos/desktop-git-diamond.svg',
+                        width: 26,
+                        height: 26,
+                        colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _pathCtrl,
+                    style: TextStyle(color: kStar, fontSize: 14),
+                    decoration: InputDecoration(
+                      // 2026-08-28: real feedback, live - "Git bare repo
+                      // path... big word for newbies, need to add
+                      // something basic." Kept the real technical name
+                      // (still matches docs/desktop-setup.md and what a
+                      // desktop terminal command would reference) but
+                      // added the plain-language version alongside it
+                      // rather than replacing it outright.
+                      // 2026-08-29: real feedback, live - "make the
+                      // headers larger... this text in brackets doesn't
+                      // need to be enlarged." labelText can only take a
+                      // single style for the whole string - switched to
+                      // label: with a RichText so "Git bare repo path"
+                      // can go to 17 while the parenthetical stays at
+                      // the original 15.
+                      // 2026-08-29: real feedback, live - "add git
+                      // logo... same colour as other logos, white, not
+                      // the standard git logo colour orange." Official
+                      // Git icon mark (git-scm.com/downloads/logos, CC
+                      // BY 3.0) moved to the field's leading icon slot
+                      // instead (see Icon.account_tree replaced above) -
+                      // "leave header with just text, have the left
+                      // image as the git logo."
+                      // 2026-08-30: real device feedback - "too much
+                      // confusion with phone and desktop sides... any
+                      // text can be under or in an info tip." The
+                      // "(folder sharing to your phone)" parenthetical
+                      // and the helperText below both moved into the (i)
+                      // dialog instead of sitting always-visible - the
+                      // big laptop icon now carries the "this is the
+                      // desktop side" meaning on its own, verbosely
+                      // spelling it out next to the label was the thing
+                      // adding to the confusion, not resolving it.
+                      // 2026-08-30: real device feedback - label removed,
+                      // duplicated the new "2. GIT BARE REPO PATH" step
+                      // header above it (same reasoning as Desktop
+                      // username below).
+                      hintText: '/home/user/Documents/Git/localsync.git',
+                      errorText: _pathError,
+                      // 2026-08-21: real feedback, live - "circle with
+                      // i" instead of a "?" - Icons.info_outline reads
+                      // as reference info, Icons.help_outline reads as
+                      // "something's wrong, ask for help." This is
+                      // neither - it's a lookup command, not a support
+                      // request.
+                      suffixIcon: IconButton(
+                        icon:
+                            Icon(Icons.info_outline, color: kTextDim, size: 20),
+                        tooltip: 'How do I find this?',
+                        // 2026-08-21: real question, live - "is this
+                        // live if the user has a different git bare
+                        // repo or is this hard coded text?" It WAS
+                        // hardcoded to this developer's own repo name
+                        // (Md_files_bare.git) - wrong for any other
+                        // real vault. Now reads the field's own live
+                        // text at the moment the dialog opens instead.
+                        // 2026-08-28: real feedback, live - "how do I
+                        // create a new LocalSync git folder? Can the app
+                        // walk me through?" This help dialog only ever
+                        // covered finding an EXISTING bare repo - no
+                        // help at all for the much more common first-
+                        // time case, someone with nothing to find yet.
+                        // Since git_service.dart's _ensureBareRepoExists()
+                        // (2026-08-28) creates the path automatically on
+                        // first pairing, that's now the actual answer -
+                        // leads with it instead of assuming a repo
+                        // already exists.
+                        // 2026-09-02: real feedback, live - "remove
+                        // Setting your desktop sync folder so 2 and 3
+                        // manual setup is similar and consistent in
+                        // style." Retitled to match step 3's dialog
+                        // ("Manual setup"), points renumbered inline
+                        // instead of bulleted prose, same trim as that
+                        // dialog got on 2026-09-01.
+                        // 2026-09-02: real feedback, live - "step 1
+                        // makes no sense" (both dialogs) - the numbered
+                        // list had been mixing an auto-setup explanation
+                        // in with the manual fallback steps, and
+                        // restating "run this command" that the command
+                        // box above already labels. Auto setup is now
+                        // an un-numbered lead line (context, not a
+                        // step); the numbered list is only the genuine
+                        // manual steps, same shape as step 3's dialog.
+                        // 2026-09-02: real feedback, live - "isn't step
+                        // 2 optimised? there's already the magic star
+                        // option for a suggested path, some redundancy."
+                        // Right - the ✨ "Use suggested path" tap target
+                        // sits right on this field already (plus the
+                        // laptop icon above it), so explaining "just
+                        // type any path" here in prose duplicated
+                        // something already visible and one tap away.
+                        // Dropped the lead line entirely - this dialog's
+                        // real, distinct job is finding/reusing an
+                        // EXISTING folder, which the numbered list below
+                        // already covers on its own.
+                        // 2026-09-02: real feedback, live - "if I sync
+                        // to a wrong folder, syncing can wipe or mess
+                        // up data... tell me how you find the correct
+                        // path, so a user can know how to do this from
+                        // the app." Fair - the old command just listed
+                        // bare folder NAMES, on a real machine that
+                        // also matches every unrelated project's own
+                        // .git folder, with zero way to tell which one
+                        // is actually yours short of guessing. This
+                        // version shows each one's last sync date and
+                        // message (or "empty, safe to use") - real
+                        // LocalSync syncs read as "Desktop sync
+                        // 2026-..." or "Initial sync from phone," not
+                        // "fix: typo in README," so a genuine LocalSync
+                        // folder is recognisable, not a coin flip.
+                        onPressed: () => _showHelp(
+                          'Manual setup',
+                          'for d in \$(find ~/Documents/Git -maxdepth 3 '
+                              "-name '*.git' -type d); do echo \"\$d\"; "
+                              "git --git-dir=\"\$d\" log -1 --format='  "
+                              "last sync: %ad - %s' --date=short "
+                              '2>/dev/null || echo "  (empty, safe to '
+                              'use)"; done',
+                          [
+                            // 2026-09-02: real feedback, live - "mass
+                            // switching from Desktop and Phone, I want
+                            // this cleared up... Phone: bla / Desktop:
+                            // bla." Every step now says outright which
+                            // device it happens on, instead of leaving
+                            // that to be inferred from field names or
+                            // context a dialog doesn't carry.
+                            (
+                              '1. Desktop: find every existing sync '
+                                  "folder, with its last sync date and "
+                                  'message (or "empty, safe to use" if '
+                                  "it's never been used)",
+                              false
+                            ),
+                            (
+                              '2. Phone: recognise the one that\'s '
+                                  "yours - a real LocalSync folder's "
+                                  'last message reads like "Desktop '
+                                  'sync 2026-..." or "Initial sync from '
+                                  'phone," not an unrelated project '
+                                  "commit. If you're not sure, pick an "
+                                  'empty one instead - nothing to mix '
+                                  'up',
+                              false
+                            ),
+                            (
+                              '3. Phone: copy that path into the '
+                                  'Settings page, DESKTOP SYNC FOLDER '
+                                  'field',
+                              false
+                            ),
+                            if (_pathCtrl.text.trim().isNotEmpty)
+                              (
+                                '4. Phone: currently set to '
+                                    '${_pathCtrl.text.trim()}',
+                                false
+                              ),
+                          ],
+                          showBullets: false,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // 2026-08-28: real feedback, live - "as simple as suggesting
+            // a path... handhold the new customer." Now that
+            // desktopUser is a real Settings field (not hardcoded), a
+            // real suggestion can be built from it instead of asking the
+            // user to type an absolute path from scratch. Linux
+            // convention (/home/<user>/...) since that's this app's
+            // primary documented platform - macOS users (~/Users/...
+            // instead) still need to adjust it themselves, noted in the
+            // snackbar-free case below rather than guessing the OS.
+            Padding(
+              padding: const EdgeInsets.only(left: 32, top: 8),
+              child: GestureDetector(
+                // 2026-08-30: now shared with the big laptop icon above
+                // (_useSuggestedPath) - same action, two tap targets.
+                onTap: _useSuggestedPath,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 2026-08-28: real feedback, live - "stars aren't
+                    // twinkling" - was a static Icon, same sine-wave
+                    // opacity twinkle as ShreddingPasswordField's
+                    // prefixIcon cluster, just one icon here.
+                    //
+                    // 2026-08-30: real device feedback - "glowing,
+                    // change to twinkling." One controller/one phase
+                    // reads as smooth breathing, not sparkle - averaging
+                    // two independently-drifting controllers gives this
+                    // single icon its own irregular beat pattern instead
+                    // (a lone point needs that combination to read as
+                    // twinkle at all; two separate points, like the
+                    // satellite icon below, can each stay a plain single
+                    // sine and still twinkle relative to each other).
+                    AnimatedBuilder(
+                      animation:
+                          Listenable.merge([_sparkleCtrl1, _sparkleCtrl2]),
+                      builder: (_, __) => Icon(Icons.auto_awesome,
+                          color: kGreen.withValues(
+                              alpha: (_twinkle(_sparkleCtrl1, _sparklePhase1) +
+                                      _twinkle(_sparkleCtrl2, _sparklePhase2)) /
+                                  2),
+                          size: 15),
+                    ),
+                    const SizedBox(width: 5),
+                    Text('Use suggested path',
+                        style: TextStyle(
+                            color: kGreen,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+            // 2026-08-21: real feedback, live - "add a line space above
+            // to separate more from the above text, as all the
+            // information looks like 1, rather than 2 controls." A
+            // plain SizedBox gap alone wasn't enough separation at the
+            // time, so a Divider was added here.
+            // 2026-09-01: real feedback - "why is there a horizontal
+            // line... it's an eye distraction, just the space alone is
+            // enough." Reverses the call above - Divider dropped,
+            // space-only gap.
+            const SizedBox(height: 40),
             Text('4. DESKTOP VAULT PATH (optional)',
                 style: TextStyle(
                     color: kGreen,
@@ -1511,13 +1518,27 @@ class _SettingsScreenState extends State<SettingsScreen>
                           'find ~/Documents -maxdepth 3 -iname "*.obsidian" '
                               '-type d | sed \'s#/.obsidian\$##\'',
                           [
+                            // 2026-09-03: real feedback, live - "you have
+                            // reversed the instruction, focus on the
+                            // negative rather than the positive action I
+                            // need to do... a recovery of my existing
+                            // phone and desktop folders, so the sync
+                            // doesn't lose any data." Led with the
+                            // leave-it-blank/fresh-folder case first,
+                            // which is backwards for someone actually
+                            // trying to reconnect to real existing data -
+                            // now leads with the recovery action itself
+                            // and its no-data-loss outcome, with the
+                            // blank/fresh-folder option mentioned last as
+                            // the alternative, not the headline.
                             (
-                              'Reconnecting to a desktop that already '
-                                  'has your real notes on it? Leave this '
-                                  'blank and the sync job creates a '
-                                  'fresh, empty folder instead - your '
-                                  'existing notes stay untouched but '
-                                  'stop being the ones syncing.',
+                              'To recover your existing setup and keep '
+                                  'syncing your real notes, enter that '
+                                  "vault's folder path below - nothing "
+                                  'is lost, and it becomes the one '
+                                  'syncing from now on. Leave this blank '
+                                  'only if you want a fresh, empty '
+                                  'folder instead.',
                               false
                             ),
                             (
