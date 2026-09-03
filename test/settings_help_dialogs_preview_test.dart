@@ -21,6 +21,7 @@ Future<void> _openDialogAndCapture(
   required int index,
   required String goldenName,
   String? detailsGoldenName,
+  String? commandGoldenName,
 }) async {
   // pumpAndSettle() never returns here - the screen's own sparkle/
   // twinkle icons (AnimatedBuilder on a repeating AnimationController,
@@ -43,6 +44,38 @@ Future<void> _openDialogAndCapture(
     find.byType(AlertDialog),
     matchesGoldenFile('goldens/$goldenName'),
   );
+
+  // 2026-09-03: real feedback, live - "the long command gives people
+  // eye bleed, tuck away in a dropdown." Same ensureVisible-then-tap-
+  // then-ensureVisible-then-capture pattern as the "Show full details"
+  // toggle below - proves the primary command is genuinely hidden by
+  // default (the golden above has none) and that tapping "Show command"
+  // actually reveals it, not just that the collapsed state looks right.
+  if (commandGoldenName != null) {
+    final showCmdFinder = find.text('Show command');
+    await tester.ensureVisible(showCmdFinder);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(showCmdFinder);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.ensureVisible(find.text('Hide command'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await expectLater(
+      find.byType(AlertDialog),
+      matchesGoldenFile('goldens/$commandGoldenName'),
+    );
+
+    // Collapse it again before any "Show full details" capture below,
+    // so that golden reflects a realistic state (command still hidden,
+    // only the secondary details expanded) rather than both open at
+    // once - not a state a real user demoing "full details" would be in.
+    await tester.tap(find.text('Hide command'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+  }
 
   // 2026-09-03: real feedback, live - "show me the new toggle." Taps
   // the "Show full details" row the StatefulBuilder in _showHelp adds
@@ -126,6 +159,7 @@ void main() {
       tooltip: 'How do I find this?',
       index: 0,
       goldenName: 'settings_help_ip_address.png',
+      commandGoldenName: 'settings_help_ip_address_command.png',
       detailsGoldenName: 'settings_help_ip_address_details.png',
     );
 
@@ -136,6 +170,7 @@ void main() {
       tooltip: 'How do I find this?',
       index: 1,
       goldenName: 'settings_help_sync_folder.png',
+      commandGoldenName: 'settings_help_sync_folder_command.png',
       detailsGoldenName: 'settings_help_sync_folder_details.png',
     );
 
@@ -146,6 +181,7 @@ void main() {
       tooltip: 'What is this?',
       index: 1,
       goldenName: 'settings_help_vault_path.png',
+      commandGoldenName: 'settings_help_vault_path_command.png',
       detailsGoldenName: 'settings_help_vault_path_details.png',
     );
   });

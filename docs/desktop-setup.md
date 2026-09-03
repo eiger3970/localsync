@@ -128,20 +128,19 @@ In LocalSync's Settings, tap the 📡 icon next to **IP address - desktop** to s
 
 ## ⚙️ Settings values
 
-LocalSync's kebab menu → **Settings** needs two things, both with a ⓘ help button in the app itself showing the same commands:
+LocalSync's kebab menu → **Settings** has four fields. If you ran the automated setup file above, its output already answers all four - username, IP address, sync folder, and vault path - nothing to look up separately. Each field's ⓘ button also shows the same answer as a fallback:
 
-**IP address - desktop**
-```
-# Debian-based Linux
-ip -4 addr show
-```
-```
-# macOS
-ipconfig getifaddr en0
-```
-Look for the address on whichever interface the phone actually connects through - USB tethering and Wi-Fi hotspot show up as different interfaces, and the address changes when switching between them.
+<img src="images/settings-ip-address.png" width="280" alt="IP address Settings dialog, showing the desktop's IP address ready to enter">
 
-**Git bare repo path** - the exact absolute path from step 3 above (written out in full, not with `~`).
+**IP address - desktop** - or tap the 📡 icon to auto-find it instead of typing.
+
+<img src="images/settings-sync-folder.png" width="280" alt="Desktop sync folder Settings dialog, showing the best path to use">
+
+**Git bare repo path** - "Best path to use" if you're reconnecting to an existing sync; leave blank for a fresh one.
+
+<img src="images/settings-vault-path.png" width="280" alt="Desktop vault path Settings dialog, showing the best-scoring vault candidate">
+
+**Desktop vault path** (optional) - only needed to reconnect the desktop's own Obsidian vault to an existing sync.
 
 ## 🤝 4. Phone pairing
 

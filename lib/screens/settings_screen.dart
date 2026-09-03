@@ -229,12 +229,28 @@ class _SettingsScreenState extends State<SettingsScreen>
   // survives rebuilds within the still-open dialog - showDialog's own
   // builder only runs once, so a plain StatefulBuilder wrapping the
   // AlertDialog is enough without a whole new StatefulWidget class.
-  void _showHelp(String title, String command, List<(String, bool)> points,
+  // 2026-09-03: real feedback, live - "the long command gives people eye
+  // bleed, so tuck away in a dropdown for users who want to see the
+  // details." Yesterday's fix put the command inline in its step's own
+  // sentence instead of a separate box (see _cmdToken/_spansWithCommand
+  // above) - correct positioning, but for the two genuinely long
+  // commands (sync folder, vault path) still means a wall of green text
+  // is on screen by default. `_kCommandToggle` marks the spot in a
+  // dialog's points list where the command should be hidden behind a
+  // "Show command" row instead of always visible - same toggle
+  // mechanism as `detailsCommand` below, reused rather than duplicated
+  // (`_buildStepPoint((_cmdToken, false), command, false)` renders just
+  // the command, since _spansWithCommand finds the token with nothing
+  // else around it).
+  static const _kCommandToggle = Object();
+
+  void _showHelp(String title, String command, List<Object> points,
       {bool showBullets = true, String? detailsCommand, String? detailsIntro}) {
     showDialog(
       context: context,
       builder: (_) {
         var showDetails = false;
+        var showCommand = false;
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
             backgroundColor: kSurface,
@@ -252,7 +268,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   for (final point in points)
-                    _buildStepPoint(point, command, showBullets),
+                    if (identical(point, _kCommandToggle))
+                      _buildCommandToggleRow(command, showCommand,
+                          () => setState(() => showCommand = !showCommand))
+                    else
+                      _buildStepPoint(
+                          point as (String, bool), command, showBullets),
                   if (detailsCommand != null) ...[
                     const SizedBox(height: 2),
                     InkWell(
@@ -342,6 +363,40 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // 2026-09-03: real feedback, live - "the long command gives people
+  // eye bleed, tuck away in a dropdown." Same toggle affordance as the
+  // "Show full details" row below, just for the primary command - one
+  // tap reveals it via _buildStepPoint((_cmdToken, false), ...), which
+  // renders as just the command (no surrounding step text to strip out,
+  // since _spansWithCommand finds the token alone in that string).
+  Widget _buildCommandToggleRow(
+      String command, bool showCommand, VoidCallback onToggle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: onToggle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.terminal, color: kTextDim, size: 15),
+                const SizedBox(width: 5),
+                Text(showCommand ? 'Hide command' : 'Show command',
+                    style: TextStyle(
+                        color: kTextDim,
+                        fontSize: 12.5,
+                        decoration: TextDecoration.underline)),
+              ],
+            ),
+          ),
+        ),
+        if (showCommand) _buildStepPoint((_cmdToken, false), command, false),
+      ],
     );
   }
 
@@ -1183,14 +1238,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // pointing there first means most people
                                 // never need the manual steps below at all.
                                 (
-                                  'Already ran the LocalSync desktop '
-                                      'setup file (kworld.space/'
-                                      'localsync)? Check "LocalSync '
-                                      'setup result.txt" on your Desktop '
-                                      'first - it already has this '
-                                      'answer, nothing to type',
+                                  'Ran the desktop setup file already? '
+                                      'Check "LocalSync setup result.txt" '
+                                      '- already has this',
                                   false
                                 ),
+                                // 2026-09-03: real feedback, live - "add
+                                // text OR above 1., so users know to use
+                                // the desktop file or this manual
+                                // setup." The two paths sat back to back
+                                // with nothing saying they're
+                                // alternatives, not sequential steps.
+                                ('OR, do this manually:', false),
                                 // 2026-09-01: real feedback - "customer
                                 // isn't using wireless rather usb cable"
                                 // (this dialog is a fallback, only ever
@@ -1208,21 +1267,24 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // above this step, still wasn't what
                                 // "inline" meant. The command now sits
                                 // inside this step's own sentence via
-                                // _cmdToken.
+                                // _cmdToken. Followed by "the long
+                                // command gives people eye bleed, tuck
+                                // away in a dropdown" - the command
+                                // itself is gone from this step's text
+                                // now, revealed via the _kCommandToggle
+                                // row right after instead of always on
+                                // screen.
                                 // 2026-09-02: real feedback, live - "mass
                                 // switching from Desktop and Phone, I
                                 // want this cleared up... Phone: bla /
                                 // Desktop: bla." Every step now says
                                 // outright which device it happens on.
                                 (
-                                  '1. Desktop: run this Terminal command:'
-                                      '\n\n$_cmdToken\n'
-                                      '\nIt shows your desktop\'s IP '
-                                      'address, already cleaned up - '
-                                      'just the number, nothing else to '
-                                      'read',
+                                  '1. Desktop: run this Terminal command - '
+                                      'it shows your desktop\'s IP address',
                                   false
                                 ),
+                                _kCommandToggle,
                                 // 2026-09-01: real feedback - the
                                 // field's own always-visible "Just the 4
                                 // numbers... no /28 suffix" helper text
@@ -1593,13 +1655,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // most people never need the manual steps
                             // below at all.
                             (
-                              'Already ran the LocalSync desktop setup '
-                                  'file (kworld.space/localsync)? Check '
-                                  '"LocalSync setup result.txt" on your '
-                                  'Desktop first - it already has this '
-                                  'answer, nothing to type',
+                              'Ran the desktop setup file already? '
+                                  'Check "LocalSync setup result.txt" '
+                                  '- already has this',
                               false
                             ),
+                            ('OR, do this manually:', false),
                             // 2026-09-03: real feedback, live - "which
                             // step asks for the command, fix it." No
                             // step here ever actually said to run it -
@@ -1610,19 +1671,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // command" - the command sits inside this
                             // step's own sentence via _cmdToken, not in
                             // a separate box beside it. Followed by
-                            // "better with inline command, but this is
-                            // too much for a noob" - "Terminal" now says
-                            // outright what kind of command this is and
-                            // where it runs, and a blank line above/
-                            // below separates "what to do" from "the
-                            // exact command" instead of running them
-                            // into one dense sentence.
+                            // "the long command gives people eye bleed,
+                            // tuck away in a dropdown" - command dropped
+                            // from this step's own text, revealed via
+                            // the _kCommandToggle row after it instead.
                             (
-                              '1. Desktop: run this Terminal command:\n'
-                                  '\n$_cmdToken\n'
-                                  '\n"Best path to use" is the answer',
+                              '1. Desktop: run this Terminal command - '
+                                  '"Best path to use" is the answer',
                               false
                             ),
+                            _kCommandToggle,
                             // 2026-09-02: real feedback, live - "mass
                             // switching from Desktop and Phone, I want
                             // this cleared up... Phone: bla / Desktop:
@@ -1851,13 +1909,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // most people never need the manual steps
                             // below at all.
                             (
-                              'Already ran the LocalSync desktop setup '
-                                  'file (kworld.space/localsync)? Check '
-                                  '"LocalSync setup result.txt" on your '
-                                  'Desktop first - it already has this '
-                                  'answer, nothing to type',
+                              'Ran the desktop setup file already? '
+                                  'Check "LocalSync setup result.txt" '
+                                  '- already has this',
                               false
                             ),
+                            ('OR, do this manually:', false),
                             // 2026-09-03: real feedback, live - "you have
                             // reversed the instruction, focus on the
                             // negative rather than the positive action I
@@ -1883,27 +1940,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // 2026-09-03: real feedback, live - "too
                             // verbose... make point form." Was one dense
                             // sentence; same three facts, one per line.
+                            // 2026-09-03: real feedback, live - "way too
+                            // verbose." "It becomes the one syncing from
+                            // now on" was cut - implied by entering a
+                            // path into this exact field, not new
+                            // information once said explicitly.
                             (
                               "Enter your existing vault's folder path "
                                   'below to recover it - nothing is lost',
                               false
                             ),
                             (
-                              'It becomes the one syncing from now on',
-                              false
-                            ),
-                            (
-                              'Leave this field blank only for a fresh, '
-                                  'empty folder instead',
+                              'Leave blank only for a fresh, empty '
+                                  'folder instead',
                               false
                             ),
                             // 2026-09-03: real feedback, live - "step 1,
                             // run the command (show command here)" then
                             // "just fucking inline command" - a boxed
                             // element positioned right above this step
-                            // still wasn't "inline." The command now
-                            // sits inside this step's own sentence via
-                            // _cmdToken.
+                            // still wasn't "inline." The command sat
+                            // inside this step's own sentence via
+                            // _cmdToken. Followed by "the long command
+                            // gives people eye bleed, tuck away in a
+                            // dropdown" - command dropped from this
+                            // step's own text, revealed via the
+                            // _kCommandToggle row after it instead.
                             //
                             // 2026-09-03, earlier: "work that into the
                             // step 4 walkthrough." The command output is
@@ -1912,13 +1974,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // "highest %" since sorting already put it
                             // there.
                             (
-                              '1. Desktop: run this Terminal command:'
-                                  '\n\n$_cmdToken\n'
-                                  '\nIt\'s your real vault, scored '
-                                  'against every other folder Obsidian '
-                                  'has opened',
+                              '1. Desktop: run this Terminal command - '
+                                  'it\'s your real vault, scored against '
+                                  'every other folder Obsidian has opened',
                               false
                             ),
+                            _kCommandToggle,
                             (
                               '2. Phone: copy that exact path into this '
                                   'field, then Save',
