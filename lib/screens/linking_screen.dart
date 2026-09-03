@@ -128,6 +128,40 @@ void _showSshHelp(BuildContext context) {
               'reached at all - it can\'t be done remotely from the phone.',
               style: TextStyle(color: kTextMid, fontSize: 13),
             ),
+            const SizedBox(height: 12),
+            // 2026-09-03: real gap found - "where does the user know to
+            // download and run the desktop file in the install?" This
+            // dialog (reached after a failed pairing attempt) was the
+            // only in-app place a user hitting SSH-off would land, and
+            // it only ever offered the manual per-platform SSH commands
+            // below - never mentioned the desktop setup file
+            // (kworld.space/localsync) that does SSH AND git AND the
+            // bare repo AND auto-discovery in one run. A first-time
+            // user with a genuinely fresh desktop would hit this dialog
+            // and still not know the easier path exists.
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                  color: kVoid,
+                  border: Border.all(color: kGreen.withValues(alpha: 0.4))),
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                      text: 'Easier: the ',
+                      style: TextStyle(color: kTextMid, fontSize: 13)),
+                  TextSpan(
+                      text: 'LocalSync desktop setup file',
+                      style: TextStyle(
+                          color: kGreen, fontWeight: FontWeight.w600, fontSize: 13)),
+                  TextSpan(
+                      text: ' (kworld.space/localsync) turns on SSH, '
+                          'installs git, and creates the sync folder all '
+                          'in one run. The steps below are the manual '
+                          'fallback, only SSH.',
+                      style: TextStyle(color: kTextMid, fontSize: 13)),
+                ]),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('LINUX', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
             const SizedBox(height: 6),
