@@ -214,6 +214,54 @@ class _SettingsScreenState extends State<SettingsScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-09-03: real feedback, live - "the user needs to enter
+            // a command, then position so the most pertinent step is at
+            // top... I have doubts the command should be at the top."
+            // Same "answer first, process last" principle already
+            // applied to the setup script's own output file (see
+            // git_service.dart/setup.sh history) - the points list is
+            // what someone actually needs to read and act on (which
+            // folder, which path); the raw command is how to get there,
+            // useful mainly as a reference while running it. Reordered
+            // for every _showHelp dialog, not just this one, since
+            // they all shared the same command-first layout.
+            for (final (text, indented) in points)
+              Padding(
+                padding: EdgeInsets.only(bottom: 6, left: indented ? 20 : 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 2026-08-21: real feedback, live - "still have
+                    // greater than signs, use bullet point dots."
+                    // Icons.chevron_right renders as a ">" shape - that
+                    // was the actual complaint, not the arrow text
+                    // fixed last round. Plain "•" text for both levels,
+                    // no icon glyph that can be misread as an arrow.
+                    // 2026-09-01: skipped entirely when showBullets is
+                    // false (numbered lists already carry their own
+                    // "1.", "2." inline - a bullet in front is noise).
+                    if (showBullets)
+                      SizedBox(
+                        width: 16,
+                        child: Text('•',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: kTextMid,
+                                fontSize: indented ? 12 : 15,
+                                height: 1.35)),
+                      ),
+                    if (showBullets) const SizedBox(width: 4),
+                    Expanded(
+                      child: Text.rich(
+                        _buildStepSpan(text),
+                        style: TextStyle(
+                            color: kTextMid, fontSize: 13, height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
             // 2026-08-21: real feedback, live - "an easy copy to the
             // command, which is confusing to type out... if UX can be
             // made easier, great." Long-press-to-select already worked
@@ -291,43 +339,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 "(there's no shared clipboard between your phone and "
                 'desktop)',
                 style: TextStyle(color: kTextMid, fontSize: 12)),
-            const SizedBox(height: 12),
-            for (final (text, indented) in points)
-              Padding(
-                padding: EdgeInsets.only(bottom: 6, left: indented ? 20 : 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2026-08-21: real feedback, live - "still have
-                    // greater than signs, use bullet point dots."
-                    // Icons.chevron_right renders as a ">" shape - that
-                    // was the actual complaint, not the arrow text
-                    // fixed last round. Plain "•" text for both levels,
-                    // no icon glyph that can be misread as an arrow.
-                    // 2026-09-01: skipped entirely when showBullets is
-                    // false (numbered lists already carry their own
-                    // "1.", "2." inline - a bullet in front is noise).
-                    if (showBullets)
-                      SizedBox(
-                        width: 16,
-                        child: Text('•',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: kTextMid,
-                                fontSize: indented ? 12 : 15,
-                                height: 1.35)),
-                      ),
-                    if (showBullets) const SizedBox(width: 4),
-                    Expanded(
-                      child: Text.rich(
-                        _buildStepSpan(text),
-                        style: TextStyle(
-                            color: kTextMid, fontSize: 13, height: 1.35),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
         actions: [
@@ -1515,8 +1526,54 @@ class _SettingsScreenState extends State<SettingsScreen>
                         tooltip: 'What is this?',
                         onPressed: () => _showHelp(
                           'Desktop vault path',
+                          // 2026-09-03: real feedback, live - "step 2,
+                          // how?" Fair - "recognise your real vault's
+                          // folder" had nothing to go on, the old command
+                          // just listed bare paths with zero
+                          // distinguishing info. Same gap the sync-folder
+                          // dialog's own command already solved (shows
+                          // last-sync date/message).
+                          // 2026-09-03: real feedback, live - "don't have
+                          // the user read with eye bleed... likelihood
+                          // xx% this is your real vault, based on the
+                          // most notes, most recent edit date and not an
+                          // old backup." The first fix (raw note count +
+                          // date per candidate) still made the user do
+                          // the comparison themselves across 5 lines -
+                          // this computes an actual score per candidate
+                          // (60% weight on recency, 40% on note count,
+                          // relative to whichever candidate wins each
+                          // measure) and prints one plain-language line.
+                          // Verified against this Pi's real 5 candidates
+                          // before writing this: the true vault scored
+                          // 100%, a genuinely-close backup (edited the
+                          // day before) scored 95% - not a false
+                          // 100%-vs-0%, an honest reflection of real
+                          // ambiguity when two candidates are close.
                           'find ~/Documents -maxdepth 3 -iname "*.obsidian" '
-                              '-type d | sed \'s#/.obsidian\$##\'',
+                              '-type d | sed \'s#/.obsidian\$##\' | while '
+                              'read -r v; do n=\$(find "\$v" -iname "*.md" '
+                              '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
+                              '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
+                              'sort -rn | head -1); e=\${e%.*}; echo '
+                              '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
+                              '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
+                              'if(\$2+0>maxn)maxn=\$2+0; '
+                              'if(\$3+0>maxe)maxe=\$3+0} '
+                              'END{for(i=1;i<=NR;i++){'
+                              'ns=(maxn>0)?n[i]/maxn:0; '
+                              'age=(maxe-e[i])/86400; '
+                              'rs=(age<=0)?1:1/(1+age/14); '
+                              'sc=int(100*(0.4*ns+0.6*rs)); '
+                              'if(sc>100)sc=100; '
+                              'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
+                              '-t\'|\' -k2 -rn | while '
+                              'IFS=\'|\' read -r path score notes epoch; '
+                              'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
+                              '2>/dev/null || echo unknown); echo '
+                              '"\$path"; echo "  ~\${score}% likely your '
+                              'real vault (\$notes notes, last edited '
+                              '\$d)"; done',
                           [
                             // 2026-09-03: real feedback, live - "you have
                             // reversed the instruction, focus on the
@@ -1531,16 +1588,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // and its no-data-loss outcome, with the
                             // blank/fresh-folder option mentioned last as
                             // the alternative, not the headline.
+                            // 2026-09-03: real feedback, live - "clean up
+                            // step 4." Tightened the lead line (dropped
+                            // "and keep syncing your real notes," which
+                            // just restated "it becomes the one syncing
+                            // from now on" two clauses later) and step 3
+                            // (dropped "DESKTOP VAULT PATH" - the user is
+                            // already looking at that exact field, "this
+                            // field" says the same thing without
+                            // reprinting its own name back at them).
                             (
-                              'To recover your existing setup and keep '
-                                  'syncing your real notes, enter that '
-                                  "vault's folder path below - nothing "
-                                  'is lost, and it becomes the one '
-                                  'syncing from now on. Leave this blank '
-                                  'only if you want a fresh, empty '
-                                  'folder instead.',
+                              'To recover your existing setup, enter '
+                                  "that vault's folder path below - "
+                                  'nothing is lost, and it becomes the '
+                                  'one syncing from now on. Leave this '
+                                  'blank only for a fresh, empty folder '
+                                  'instead.',
                               false
                             ),
+                            // 2026-09-03: real feedback, live - "work
+                            // that into the step 4 walkthrough." The
+                            // command output is sorted highest-likelihood
+                            // first now - step 1 says so, step 2 says
+                            // "top" instead of "highest %" since sorting
+                            // already put it there.
                             (
                               '1. Desktop: run the command above - it '
                                   'lists every folder Obsidian has '
@@ -1548,13 +1619,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                               false
                             ),
                             (
-                              '2. Phone: recognise your real vault\'s '
-                                  'folder in that list',
+                              '2. Phone: the top result is your real '
+                                  'vault - not an old backup further '
+                                  'down',
                               false
                             ),
                             (
                               '3. Phone: copy that exact path into this '
-                                  'DESKTOP VAULT PATH field, then Save',
+                                  'field, then Save',
                               false
                             ),
                             if (_vaultPathCtrl.text.trim().isNotEmpty)
