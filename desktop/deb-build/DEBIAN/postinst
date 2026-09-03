@@ -25,7 +25,7 @@ set -uo pipefail
 # here, in LocalSync-Setup-Mac.command, in the website's
 # local_sync.tsx, and in docs/desktop-setup.md together whenever
 # setup.sh's content changes, or this check fails for everyone.
-EXPECTED_SHA256="a88f0eda5aeebc1ac4ab8d9ca8dea7f1a4de5687b73d3b2108b67bd0aeecc901"
+EXPECTED_SHA256="976e5a4e6b68c7de09575b10e63d1d2c3a0eb0e0fcdacf18201db2b1f3772d62"
 ACTUAL_SHA256="$(sha256sum /usr/share/localsync/setup.sh | cut -d' ' -f1)"
 if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
   echo "localsync-desktop-setup: checksum mismatch on the bundled setup.sh - refusing to run it." >&2
