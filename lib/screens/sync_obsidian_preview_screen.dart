@@ -10,9 +10,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/database_service.dart';
 import '../services/purchase_service.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import '../widgets/shatter_page_route.dart';
+import 'desktop_setup_prompt_screen.dart';
 import 'linking_screen.dart';
 import 'paywall_obsidian_screen.dart';
 import 'welcome_hero_screen.dart';
@@ -44,8 +46,22 @@ class SyncObsidianPreviewScreen extends StatelessWidget {
     if (!context.mounted) return;
     // This is the one real moment the pastel welcome world meets the
     // app's actual dark UI - shatters into it rather than a plain cut.
+    //
+    // 2026-09-03: real gap found, live - "there's nothing to tell me
+    // what to do on the app... where does the user know to download and
+    // run the desktop file?" Shatters into DesktopSetupPromptScreen
+    // instead of straight to LinkingScreen the first time only - both
+    // tiers get the identical prompt (paid tier just reaches it one
+    // step later, after the paywall above), same "minimal friction"
+    // answer given when asked whether they should differ.
+    final seenPrompt = await DatabaseService().getSeenDesktopSetupPrompt();
+    if (!context.mounted) return;
     Navigator.pushReplacement(
-        context, ShatterPageRoute(builder: (_) => const LinkingScreen()));
+        context,
+        ShatterPageRoute(
+            builder: (_) => seenPrompt
+                ? const LinkingScreen()
+                : const DesktopSetupPromptScreen()));
   }
 
   @override
