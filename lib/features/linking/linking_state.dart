@@ -399,7 +399,7 @@ extension LinkingErrorDetails on LinkingError {
               'Tap TRY AGAIN - most causes here are one-off, not a real network or pairing problem.',
         LinkingError.desktopNotConfigured =>
           'Go to Settings and fill in Desktop username and '
-              'IP address - desktop, then try pairing again.',
+              'Desktop IP address, then try pairing again.',
       };
 }
 

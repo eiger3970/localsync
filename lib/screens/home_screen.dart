@@ -394,7 +394,11 @@ class HomeScreen extends StatelessWidget {
                         // "IP address - desktop" whole on its own line.
                         // 2026-08-21: real feedback, live - comma removed,
                         // the line break already separates the two.
-                        subtitle: 'Git bare repo path\nIP address - desktop',
+                        // 2026-09-03: real feedback, live - reverses the
+                        // alphabetical order above (deliberate new
+                        // preference, not a bug) - matches the Settings
+                        // screen's own field order swap and rename.
+                        subtitle: 'Desktop IP address\nGit bare repo path',
                       ),
                     ),
                     PopupMenuItem(
