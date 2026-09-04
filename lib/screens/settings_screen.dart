@@ -890,21 +890,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // shows the actual workflow (action happens on that
                     // other device, then connects here) rather than a
                     // mascot alone.
-                    // 2026-09-04: real feedback, live, three rounds -
+                    // 2026-09-04: real feedback, live, four rounds -
                     // "shouldn't the image of desktop pointing to phone
                     // also include phone pointing to scanning the qr
                     // code?"; then "visuals are wrong or out of order"
                     // (desktop -> phone -> scanner read as "desktop,
                     // then a phone, then some separate scanner device" -
-                    // fixed to desktop -> the code -> phone scanning it);
-                    // then "add the phone scanning as a 3rd step" -
-                    // qr_code_scanner's own icon (a phone-shaped frame
-                    // with scan corners) apparently reads too close to
-                    // qr_code right before it to register as its own,
-                    // distinct third beat. Swapped the third icon for an
-                    // unambiguous phone_iphone instead - three visually
-                    // distinct shapes now (desktop, code, phone), same
-                    // correct order as before.
+                    // fixed to desktop -> the code -> phone scanning
+                    // it); then "add the phone scanning as a 3rd step"
+                    // (qr_code_scanner's icon read too close to qr_code
+                    // right before it - swapped for an unambiguous
+                    // phone_iphone, three distinct illustrative shapes);
+                    // then "Settings is unclear where to scan from...
+                    // perhaps the qrscan icons in steps 3 and 4 aren't
+                    // needed [if] the top yellow banner needs a 4th
+                    // visual being the qrscan icon and with twinkly
+                    // stars, so the user taps it to scan." Right - two
+                    // per-field scan buttons that both fill the SAME
+                    // four fields was the actual confusion, not a
+                    // discoverability problem either field's own icon
+                    // could fix (removed both, see the fields' own
+                    // comments below). This 4th icon is the one real
+                    // difference from the first three: they're
+                    // illustration (what happens), this is the actual
+                    // button (do it now) - sparkle cluster (same
+                    // twinkle technique as the satellite/auto-discover
+                    // button above) marks that difference visually.
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -918,6 +929,53 @@ class _SettingsScreenState extends State<SettingsScreen>
                         Icon(Icons.arrow_forward, color: kVoid, size: 18),
                         const SizedBox(width: 8),
                         Icon(Icons.phone_iphone, color: kVoid, size: 32),
+                        const SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: kVoid, size: 18),
+                        const SizedBox(width: 8),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () =>
+                                _scanInto(_pathCtrl, 'DESKTOP SETUP'),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(Icons.qr_code_scanner,
+                                      color: kVoid, size: 32),
+                                  Positioned(
+                                    top: -4,
+                                    right: -4,
+                                    child: AnimatedBuilder(
+                                      animation: _sparkleCtrl1,
+                                      builder: (_, __) => Icon(
+                                          Icons.auto_awesome,
+                                          color: kVoid.withValues(
+                                              alpha: _twinkle(_sparkleCtrl1,
+                                                  _sparklePhase3)),
+                                          size: 13),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: -2,
+                                    left: -6,
+                                    child: AnimatedBuilder(
+                                      animation: _sparkleCtrl2,
+                                      builder: (_, __) => Icon(
+                                          Icons.auto_awesome,
+                                          color: kVoid.withValues(
+                                              alpha: _twinkle(_sparkleCtrl2,
+                                                  _sparklePhase4)),
+                                          size: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -1647,16 +1705,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // "something's wrong, ask for help." This is
                       // neither - it's a lookup command, not a support
                       // request.
+                      // 2026-09-04: real feedback, live - "settings is
+                      // unclear where to scan from... as the scan
+                      // autopopulates the entire Settings page, perhaps
+                      // the qrscan icons in steps 3 and 4 aren't needed
+                      // [if] the top yellow banner [has] a 4th visual
+                      // being the qrscan icon." Right - two identical
+                      // per-field scan buttons that both do the exact
+                      // same whole-page fill was the actual confusion
+                      // (why two buttons for one action?), not a
+                      // discoverability problem this field's own icon
+                      // could fix. Removed - the banner's own scan icon
+                      // (see above) is the one, unambiguous place to
+                      // tap now.
                       suffixIcon: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: Icon(Icons.qr_code_scanner,
-                                color: kTextDim, size: 20),
-                            tooltip: 'Scan QR code',
-                            onPressed: () => _scanInto(
-                                _pathCtrl, 'DESKTOP SYNC FOLDER'),
-                          ),
                           IconButton(
                         icon:
                             Icon(Icons.info_outline, color: kTextDim, size: 20),
@@ -1990,16 +2054,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                     decoration: InputDecoration(
                       hintText: '/home/user/Documents/Obsidian/MyVault '
                           '(leave blank for a fresh folder)',
+                      // 2026-09-04: real feedback, live - see the sync-
+                      // folder field's matching comment above. Same fix:
+                      // removed, the banner's own scan icon is now the
+                      // one place to tap.
                       suffixIcon: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: Icon(Icons.qr_code_scanner,
-                                color: kTextDim, size: 20),
-                            tooltip: 'Scan QR code',
-                            onPressed: () => _scanInto(
-                                _vaultPathCtrl, 'DESKTOP VAULT PATH'),
-                          ),
                           IconButton(
                         icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),

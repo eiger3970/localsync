@@ -110,22 +110,15 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 const _HeadlinePoint(
                     assetIcon: 'assets/logos/git-branches-only.svg',
                     text: 'No more conflicts.'),
-                // 2026-09-04: real feedback, live - "Try it... is under
-                // No more conflicts, maybe move to above the dashed
-                // line." It was already structurally above the demo
-                // (which contains the dashed drag-path), but a tight
-                // 6px gap after the headlines and an equally tight 8px
-                // gap before the demo made it read as a fourth headline
-                // bullet, not a caption introducing the demo below.
-                // Widened the gap above (visually detaches it from "No
-                // more conflicts"), same tight gap below stays - it now
-                // reads as glued to the demo it describes, not the
-                // headline above it.
+                // 2026-09-04: real feedback, live, two rounds - "Try
+                // it... is under No more conflicts, maybe move to above
+                // the dashed line" (fixed by widening the gap above so
+                // it read as a caption for the demo, not a fourth
+                // headline bullet); then "this can go under the dashed
+                // line" - moved below the demo entirely instead, so it
+                // labels the drag-path directly underneath it rather
+                // than introducing it from above.
                 const SizedBox(height: 22),
-                Text('Try it - drag your file across.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: wInkDim)),
-                const SizedBox(height: 8),
                 SizedBox(
                   height: 172,
                   child: _PhoneToDesktopDemo(
@@ -133,6 +126,10 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     onDelivered: () => setState(() => _delivered = true),
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text('Try it - drag your file across.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: wInkDim)),
                 const SizedBox(height: 8),
                 Expanded(
                   child: ListView(
