@@ -129,6 +129,17 @@ class _SettingsScreenState extends State<SettingsScreen>
   // system Camera app, which the field then silently rejects (embedded
   // newline mid-path). A QR code sidesteps this - one atomic string,
   // no wrap point to misinterpret.
+  // 2026-09-04: real gap, live - "this is where the desktop file that
+  // shows all the setup autom wtih qr scanner et al should run." The
+  // desktop setup script now generates one combined QR encoding all
+  // four Settings values at once (magic first line "localsync-setup-v1"
+  // so a real LocalSync QR can be told apart from an unrelated one
+  // someone might scan by mistake) - filling every field from one scan
+  // instead of four separate ones is the actual point, given the user's
+  // own framing: "critical data, if I don't have the correct data I
+  // could lose all my data." Falls back to filling just the field that
+  // opened the scanner for a plain (non-combined) value, unchanged from
+  // before.
   Future<void> _scanInto(
       TextEditingController controller, String fieldLabel) async {
     final result = await Navigator.push<String>(
@@ -137,6 +148,29 @@ class _SettingsScreenState extends State<SettingsScreen>
           builder: (_) => QrScanScreen(fieldLabel: fieldLabel)),
     );
     if (result == null || !mounted) return;
+    final lines = result.split('\n');
+    if (lines.isNotEmpty && lines.first.trim() == 'localsync-setup-v1') {
+      // Fixed field order setup.sh writes: user, ip, bare repo path,
+      // vault path. Blank lines are skipped (not force-cleared) so a
+      // scan never wipes a field the desktop genuinely had nothing to
+      // report for (e.g. no eth1/usb0 connection found).
+      final fields = [_userCtrl, _ipCtrl, _pathCtrl, _vaultPathCtrl];
+      for (var i = 0; i < fields.length && i + 1 < lines.length; i++) {
+        final value = lines[i + 1].trim();
+        if (value.isNotEmpty) fields[i].text = value;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kSurface,
+            content: Text('Filled in from desktop setup QR code',
+                style: TextStyle(color: kStar, fontSize: 14)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
     controller.text = result;
   }
 
@@ -837,7 +871,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                   // instruction). The 3 fields below now carry their own
                   // numbered headers (1/2/3), so this just needs to say
                   // why they're here, not repeat what they are.
-                  'Pairing to desktop, needs below filled in to connect.',
+                  //
+                  // 2026-09-04: real feedback, live - "I don't know the
+                  // real values. That's the point... this is critical
+                  // data, if I don't have the correct data I could lose
+                  // all my data." The Welcome screen mentions the
+                  // desktop setup file, but only as a small caption a
+                  // user could easily miss several screens earlier -
+                  // this banner sits at the exact moment a real user
+                  // hits empty fields with nowhere to go, so it's the
+                  // right place to say plainly where the answer comes
+                  // from, not just that an answer is needed.
+                  'Pairing to desktop, needs below filled in to connect.\n\n'
+                  'Get these from your desktop: on that computer, go to '
+                  'kworld.space/localsync, download and run the setup '
+                  'file - it prints everything below, or shows a QR '
+                  'code you can scan with the icon next to each field.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
                 ),

@@ -77,7 +77,27 @@ class DesktopSetupPromptScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(),
-              Icon(Icons.desktop_windows_outlined, color: kGreen, size: 48),
+              // 2026-09-04: real feedback, live - "First set up your
+              // desktop. Maybe a visual, website downloading file to
+              // desktop?" Replaced the single static desktop icon with
+              // a small website -> file -> desktop row, showing what
+              // actually happens rather than just naming the desktop.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Icon(Icons.language, color: kTextMid, size: 32),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_forward, color: kTextDim, size: 16),
+                  const SizedBox(width: 6),
+                  Icon(Icons.insert_drive_file_outlined,
+                      color: kGreen, size: 28),
+                  const SizedBox(width: 6),
+                  Icon(Icons.arrow_forward, color: kTextDim, size: 16),
+                  const SizedBox(width: 6),
+                  Icon(Icons.desktop_windows_outlined,
+                      color: kGreen, size: 32),
+                ],
+              ),
               const SizedBox(height: 24),
               Text('First, set up your desktop',
                   style: TextStyle(
