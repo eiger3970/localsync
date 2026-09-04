@@ -54,6 +54,17 @@ import '../theme.dart';
 import '../services/database_service.dart';
 import 'linking_screen.dart';
 
+// 2026-09-04: real feedback, live - "the app needs clear steps for the
+// user to know where and when to do the desktop download... this needs
+// to be simple for the user in visuals." First tried a required
+// checkbox ("I've run the file") to gate Continue - correctly called
+// out as MORE text/interaction, not the strong-visual, low-text answer
+// actually asked for. Reverted that, kept this StatelessWidget. Real
+// fix: swapped the small generic icon row for the dog mascot
+// (dog_success_stand.gif) already used elsewhere in the app - visual
+// continuity with the Welcome screen's own dog-carries-the-file demo,
+// so this screen reads as "the same journey you just saw, now for
+// real" rather than a new, unrelated wall of icons+text to parse.
 class DesktopSetupPromptScreen extends StatelessWidget {
   const DesktopSetupPromptScreen({super.key});
 
@@ -74,62 +85,44 @@ class DesktopSetupPromptScreen extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // 2026-09-04: stretch, not start - every child here is now
+            // centered content (dog, headline, URL), unlike the old
+            // left-aligned icon-row/text layout this replaced. The
+            // Continue button already sets its own explicit width
+            // regardless, so this doesn't change its sizing.
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
-              // 2026-09-04: real feedback, live - "First set up your
-              // desktop. Maybe a visual, website downloading file to
-              // desktop?" Replaced the single static desktop icon with
-              // a small website -> file -> desktop row, showing what
-              // actually happens rather than just naming the desktop.
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Icon(Icons.language, color: kTextMid, size: 32),
-                  const SizedBox(width: 6),
-                  Icon(Icons.arrow_forward, color: kTextDim, size: 16),
-                  const SizedBox(width: 6),
-                  Icon(Icons.insert_drive_file_outlined,
-                      color: kGreen, size: 28),
-                  const SizedBox(width: 6),
-                  Icon(Icons.arrow_forward, color: kTextDim, size: 16),
-                  const SizedBox(width: 6),
-                  Icon(Icons.desktop_windows_outlined,
-                      color: kGreen, size: 32),
-                ],
+              // 2026-09-04: real feedback, live - dog mascot instead of
+              // an icon row, for visual continuity with the Welcome
+              // screen's own drag-to-desktop demo. Centered, large
+              // enough to be the actual focal point of the screen, not
+              // a decorative accent above the real content.
+              Center(
+                child: Image.asset('assets/gifs/dog_success_stand.gif',
+                    width: 120, height: 120),
               ),
-              const SizedBox(height: 24),
-              Text('First, set up your desktop',
+              const SizedBox(height: 20),
+              Text('Go to this on your desktop now',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                       color: kStar,
-                      fontSize: 24,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              Text(_url,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: kGreen,
+                      fontFamily: 'monospace',
+                      fontSize: 20,
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              Text(
-                  'One file gets your desktop ready to connect - '
-                  'nothing to type or configure by hand.',
+              Text('Download and run the file there - it shows the '
+                  'details you\'ll need on the next screen.',
+                  textAlign: TextAlign.center,
                   style:
-                      TextStyle(color: kTextMid, fontSize: 15, height: 1.5)),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(_url,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: kGreen,
-                            fontFamily: 'monospace',
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Text('Open that on your desktop.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: kTextMid, fontSize: 13.5)),
-                  ],
-                ),
-              ),
+                      TextStyle(color: kTextMid, fontSize: 14, height: 1.5)),
               const Spacer(),
               SizedBox(
                 width: double.infinity,
