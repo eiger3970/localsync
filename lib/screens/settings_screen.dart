@@ -935,40 +935,78 @@ class _SettingsScreenState extends State<SettingsScreen>
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
+                            borderRadius: BorderRadius.circular(28),
                             onTap: () =>
                                 _scanInto(_pathCtrl, 'DESKTOP SETUP'),
                             child: Padding(
-                              padding: const EdgeInsets.all(4),
+                              padding: const EdgeInsets.all(6),
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
-                                  Icon(Icons.qr_code_scanner,
-                                      color: kVoid, size: 32),
+                                  // 2026-09-04: real feedback, live -
+                                  // "good, but not obvious enough to
+                                  // touch. The twinkling stars could be
+                                  // more and green rather than black." A
+                                  // plain kVoid icon read as one more
+                                  // static illustration, identical in
+                                  // weight to the three non-tappable
+                                  // ones before it - a solid green
+                                  // circle behind it (the app's own
+                                  // accent, not the banner's black) is
+                                  // what actually marks it as the live
+                                  // button, not another diagram step.
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                        color: kGreen,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                              color: kGreen.withValues(
+                                                  alpha: 0.5),
+                                              blurRadius: 8,
+                                              spreadRadius: 1)
+                                        ]),
+                                    child: Icon(Icons.qr_code_scanner,
+                                        color: kVoid, size: 30),
+                                  ),
                                   Positioned(
-                                    top: -4,
-                                    right: -4,
+                                    top: -6,
+                                    right: -6,
                                     child: AnimatedBuilder(
                                       animation: _sparkleCtrl1,
                                       builder: (_, __) => Icon(
                                           Icons.auto_awesome,
-                                          color: kVoid.withValues(
+                                          color: kGreen.withValues(
                                               alpha: _twinkle(_sparkleCtrl1,
                                                   _sparklePhase3)),
-                                          size: 13),
+                                          size: 15),
                                     ),
                                   ),
                                   Positioned(
-                                    bottom: -2,
-                                    left: -6,
+                                    bottom: -4,
+                                    left: -8,
                                     child: AnimatedBuilder(
                                       animation: _sparkleCtrl2,
                                       builder: (_, __) => Icon(
                                           Icons.auto_awesome,
-                                          color: kVoid.withValues(
+                                          color: kGreen.withValues(
                                               alpha: _twinkle(_sparkleCtrl2,
                                                   _sparklePhase4)),
-                                          size: 8),
+                                          size: 10),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    left: -10,
+                                    child: AnimatedBuilder(
+                                      animation: _sparkleCtrl1,
+                                      builder: (_, __) => Icon(
+                                          Icons.auto_awesome,
+                                          color: kGreen.withValues(
+                                              alpha: _twinkle(_sparkleCtrl1,
+                                                  _sparklePhase1)),
+                                          size: 9),
                                     ),
                                   ),
                                 ],
@@ -990,13 +1028,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                             fontWeight: FontWeight.w800,
                             fontSize: 17)),
                     const SizedBox(height: 4),
-                    Text('kworld.space/localsync',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: kVoid,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16)),
+                    // 2026-09-04: real feedback, live - "can
+                    // kworld.space/localsync be made a live link, as
+                    // perhaps the user wants to peruse the website
+                    // whilst on the phone, then later at home can do
+                    // desktop stuff." Fair - plain text here, on the one
+                    // device someone might genuinely be reading this
+                    // on, gave no way to actually visit it without
+                    // typing the URL by hand into a browser first.
+                    // Opens externally (the phone's own browser, not an
+                    // in-app webview) since browsing the real site is
+                    // exactly the point.
+                    GestureDetector(
+                      onTap: () => launchUrl(
+                          Uri.parse('https://kworld.space/localsync'),
+                          mode: LaunchMode.externalApplication),
+                      child: Text('kworld.space/localsync',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: kVoid,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              decoration: TextDecoration.underline)),
+                    ),
                   ],
                 ),
               ),
