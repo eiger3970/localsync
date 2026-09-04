@@ -37,7 +37,21 @@ BARE_REPO_DIR="$HOME/Documents/Git/LocalSync"
 BARE_REPO_PATH="$BARE_REPO_DIR/vault.git"
 SSH_PORT=22
 
-log() { echo "==> $*"; }
+# 2026-09-04: real feedback, live - "I need to see the output in a
+# possible same format as the app, so that would be a nice green
+# terminal colour and style perhaps?" Matches the app's own accent
+# green (the HTML popup below already uses #6fff8f). No `[ -t 1 ]`
+# gate - the .deb's postinst always pipes this through `tee`, which
+# makes stdout a pipe, not a tty, so a tty check would silently kill
+# the color for every .deb install, the exact case this request is
+# about. postinst strips these codes back out before saving its own
+# copy to a plain text file, so this doesn't reopen the escape-code-
+# in-a-text-file bug found earlier the same day.
+GREEN=$'\033[1;32m'
+DIM=$'\033[2;32m'
+RESET=$'\033[0m'
+
+log() { echo "${DIM}==>${RESET} $*"; }
 
 case "$(uname -s)" in
   Linux)
@@ -187,7 +201,7 @@ echo "Desktop username (enter this into LocalSync's Settings):"
 # LOCALSYNC_USER before calling this script; the .command and manual
 # curl|bash paths never set that, so whoami stays correct there (a
 # real logged-in user running this directly, not via a root postinst).
-echo "  ${LOCALSYNC_USER:-$(whoami)}"
+echo "  ${GREEN}${LOCALSYNC_USER:-$(whoami)}${RESET}"
 echo
 
 # 2026-09-03: matches the app's own IP dialog exactly (same eth1/usb0
@@ -207,7 +221,7 @@ if [[ "$OS" == debian ]]; then
     echo "  No eth1 or usb0 connection found - connect the phone's USB"
     echo "  cable or turn on its Wi-Fi Hotspot, then re-run this script"
   else
-    echo "  $IP_RESULT"
+    echo "  ${GREEN}$IP_RESULT${RESET}"
   fi
 else
   echo "  Not auto-detected on macOS yet - use LocalSync's Settings ->"
@@ -216,7 +230,7 @@ fi
 echo
 
 echo "Git bare repo path (enter this into LocalSync's Settings):"
-echo "  $BARE_REPO_PATH"
+echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 echo
 
 # ── Existing LocalSync folders ───────────────────────────────────────────
@@ -280,7 +294,7 @@ else
   echo "No previous LocalSync folders found here - normal for a first"
   echo "time setup. Use this path in LocalSync's Settings on your phone:"
 fi
-echo "  $BARE_REPO_PATH"
+echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 
 # ── Desktop vault path ────────────────────────────────────────────────────
 # 2026-09-03: same scoring the app's own "Desktop vault path" dialog
@@ -307,7 +321,7 @@ else
   VAULT_COUNT=$(echo "$VAULT_RESULT" | wc -l)
   echo "$VAULT_RESULT" | head -1 | while IFS='|' read -r path score notes epoch; do
     d=$(date -d "@$epoch" +%Y-%m-%d 2>/dev/null || echo unknown)
-    echo "  $path"
+    echo "  ${GREEN}$path${RESET}"
     echo "    ~${score}% likely your real vault ($notes notes, last edited $d)"
   done
   if [[ "$VAULT_COUNT" -gt 1 ]]; then
@@ -327,22 +341,80 @@ fi
 # (magic first line so the app can tell a real LocalSync QR from an
 # unrelated one someone might scan by mistake) - one scan instead of
 # retyping four values by hand, the actual "critical data, get it
-# wrong and risk your data" problem flagged directly. Runs in the same
-# terminal window already open for every distribution path (.deb,
-# .command, curl|bash) - a real terminal is always monospace, so no
-# separate HTML/image file is needed the way a font-uncertain plain
-# text viewer would require. Skips gracefully, no auto-install, if
-# qrencode isn't present - the plain-text values above already cover
-# that case, this is a real enhancement, not a hard requirement.
+# wrong and risk your data" problem flagged directly.
+#
+# 2026-09-04 follow-up - two real problems found testing this for real.
+# (1) "still easy to lose amongst the terminal text output" - tried
+# bold ANSI color on the banner text, but that's a half-measure at
+# best. (2) far more serious, found while investigating (1): the .deb's
+# postinst tees this whole terminal output (colored banner AND the
+# ANSI-block QR itself) into a plain "LocalSync setup result.txt" file
+# for anyone who installs via a GUI package manager with no visible
+# terminal at all - opening that file in a text editor showed raw
+# garbage (^[[1;32m escape codes, a QR rendered as scrambled block/
+# escape-code soup) instead of anything readable. "The terminal is an
+# unknown for noobs" - both problems point at the same real fix: stop
+# treating the terminal as the primary place this QR lives at all.
+# Reverted the ANSI banner coloring (a plain, ANSI-free banner is at
+# least not ALSO broken in a saved text file), and instead generate a
+# real standalone HTML file with the QR as an actual embedded PNG image
+# - not ANSI blocks - auto-opened in the default browser via xdg-open/
+# open. That's a genuine new window, no terminal literacy needed to
+# read it, and it can never render as escape-code garbage the way a
+# terminal-only QR can. The terminal's own plain-text values (and the
+# ANSI QR, for anyone already comfortable there) stay as a fallback if
+# opening a browser window fails for any reason.
 if command -v qrencode >/dev/null 2>&1; then
   echo
-  echo "=================================================================="
+  echo "${GREEN}=================================================================="
   echo "SCAN THIS ON YOUR PHONE - fills in all 4 Settings fields at once"
   echo "(open LocalSync's Settings, tap the QR icon next to any field)"
-  echo "=================================================================="
-  printf 'localsync-setup-v1\n%s\n%s\n%s\n%s\n' \
-    "${LOCALSYNC_USER:-$(whoami)}" "${IP_RESULT:-}" "$BARE_REPO_PATH" "$BEST_VAULT_PATH" \
-    | qrencode -t ANSIUTF8
+  echo "==================================================================${RESET}"
+  QR_PAYLOAD=$(printf 'localsync-setup-v1\n%s\n%s\n%s\n%s\n' \
+    "${LOCALSYNC_USER:-$(whoami)}" "${IP_RESULT:-}" "$BARE_REPO_PATH" "$BEST_VAULT_PATH")
+  echo "$QR_PAYLOAD" | qrencode -t ANSIUTF8
+  echo
+
+  # 2026-09-04: real feedback, live - "the data needs to be vertical in
+  # the format of the real app, so it's consistent and mirrors what the
+  # user needs to match and see." Settings' own 4 fields stack
+  # vertically, one below another - the two-column grid this used at
+  # first broke that visual correspondence, making side-by-side
+  # checking harder, not easier.
+  QR_HTML="$(mktemp -t localsync-qr-XXXXXX).html"
+  QR_PNG_B64=$(echo "$QR_PAYLOAD" | qrencode -o - -s 10 -m 2 | base64 -w0 2>/dev/null || echo "$QR_PAYLOAD" | qrencode -o - -s 10 -m 2 | base64)
+  cat > "$QR_HTML" <<HTMLEOF
+<!doctype html><html><head><meta charset="UTF-8">
+<title>LocalSync setup</title>
+<style>
+body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-apple-system,sans-serif;display:flex;justify-content:center;padding:36px 20px;box-sizing:border-box}
+.page{width:100%;max-width:460px;text-align:center}
+.qr{background:#fff;border-radius:16px;padding:22px;display:inline-block}
+.qr img{display:block;width:min(72vw,280px);height:min(72vw,280px)}
+.breadcrumb{font-size:13.5px;color:#7c9070;margin:16px 0 4px;line-height:1.5}
+.manual-note{font-size:13.5px;color:#7c9070;margin:34px 0 8px;line-height:1.5}
+.values{display:flex;flex-direction:column;gap:8px;text-align:left;font-family:'DejaVu Sans Mono',monospace}
+.chip{background:#10160e;border:1px solid #263420;border-radius:8px;padding:9px 12px}
+.chip b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7c9070;display:block;margin-bottom:3px;font-weight:400}
+.chip span{font-size:12.5px;word-break:break-all}
+</style></head><body><div class="page">
+<div class="qr"><img src="data:image/png;base64,${QR_PNG_B64}" alt="LocalSync setup QR"></div>
+<p class="breadcrumb">Phone -&gt; LocalSync app -&gt; Settings -&gt; tap QR icon</p>
+<p class="manual-note">Manual values below if you'd rather type.</p>
+<div class="values">
+<div class="chip"><b>1. Desktop username</b><span>${LOCALSYNC_USER:-$(whoami)}</span></div>
+<div class="chip"><b>2. Desktop IP address</b><span>${IP_RESULT:-not found}</span></div>
+<div class="chip"><b>3. Desktop sync folder</b><span>${BARE_REPO_PATH}</span></div>
+<div class="chip"><b>4. Desktop vault path</b><span>${BEST_VAULT_PATH:-(leave blank)}</span></div>
+</div></div></body></html>
+HTMLEOF
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$QR_HTML" >/dev/null 2>&1 &
+    echo "(Also opened in your browser - a proper window, not this terminal.)"
+  elif command -v open >/dev/null 2>&1; then
+    open "$QR_HTML" >/dev/null 2>&1 &
+    echo "(Also opened in your browser - a proper window, not this terminal.)"
+  fi
   echo
 else
   echo
@@ -357,4 +429,4 @@ echo "Setup details:"
 echo "$TECH_LOG" | sed 's/^/  /'
 
 echo
-log "Done."
+echo "${GREEN}✓ Done.${RESET}"

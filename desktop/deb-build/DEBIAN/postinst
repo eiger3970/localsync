@@ -25,7 +25,7 @@ set -uo pipefail
 # here, in LocalSync-Setup-Mac.command, in the website's
 # local_sync.tsx, and in docs/desktop-setup.md together whenever
 # setup.sh's content changes, or this check fails for everyone.
-EXPECTED_SHA256="a8fe71ef666e773d109957e3dd829a2ec44f179c55d6e0f8e5989701e2a13790"
+EXPECTED_SHA256="631c77ec7d88b21b3d0093094ae518961bed2bc797586f8bf54d745f4a1517c2"
 ACTUAL_SHA256="$(sha256sum /usr/share/localsync/setup.sh | cut -d' ' -f1)"
 if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
   echo "localsync-desktop-setup: checksum mismatch on the bundled setup.sh - refusing to run it." >&2
@@ -95,12 +95,29 @@ RESULT_FILE="$RESULT_DIR/LocalSync setup result.txt"
 # only fixes path-building, not whoami()'s actual process-UID answer.
 # This exports the already-resolved real user under its own name so
 # setup.sh can prefer it over whoami() without guessing at HOME.
-HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RESULT_FILE"
+#
+# 2026-09-04 follow-up: setup.sh now colors its own terminal output
+# (green, matching the app and the QR page) - real feedback, live,
+# "I need to see the output in a possible same format as the app, so
+# that would be a nice green terminal colour and style perhaps?" This
+# postinst is the exact place that already got burned once today by
+# raw ANSI escape codes landing in a saved plain-text file (the QR
+# banner color, reverted at the time). Rather than dropping the color
+# again, `tee` now captures the colored run to a throwaway temp file
+# first, and $RESULT_FILE is written from a stripped copy of that -
+# the terminal (or apt's own output, for anyone installing this way)
+# still sees real color, and the saved file stays plain, readable text
+# either way.
+RAW_LOG="$(mktemp)"
+HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RAW_LOG"
 {
   echo
   echo "(This is also saved to $RESULT_FILE, in case this window is"
   echo "gone by the time you check LocalSync's Settings on your phone.)"
-} | tee -a "$RESULT_FILE"
+} | tee -a "$RAW_LOG"
+ESC="$(printf '\033')"
+sed -E "s/${ESC}\[[0-9;]*m//g" "$RAW_LOG" > "$RESULT_FILE"
+rm -f "$RAW_LOG"
 
 # Anything setup.sh (or the result file above) created under the real
 # user's home was created by this script running as root - fix
