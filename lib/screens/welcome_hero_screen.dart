@@ -150,7 +150,17 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     ],
                   ),
                 ),
-                Text('No cloud. No account. Just you.',
+                // 2026-09-04: real feedback, live - asked for a general,
+                // early statement about the auto-detect feature's
+                // privacy story ("value user privacy - nothing leave
+                // your devices"), not a small per-field caption buried
+                // in Settings. This is the app's first and most general
+                // privacy line already - extended rather than adding a
+                // second, separate statement later.
+                Text(
+                    'No cloud. No account. Just you. Auto-detect only '
+                    'looks on your own local network - nothing leaves '
+                    'your devices.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: wInkDim)),
                 const SizedBox(height: 4),

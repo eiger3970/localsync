@@ -208,9 +208,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     // prompt to appear in. addPostFrameCallback, not called directly -
     // _findDesktop() calls setState, which initState can't do safely
     // before the first frame.
+    // 2026-09-04: real feedback, live - "some convoluted text, saying no
+    // IP found on Wi-Fi and to manually search the IP, but I just had
+    // to tap the Satellite and the IP was found... why do you have the
+    // text to have the user eye bleed and run around?" That "no desktop
+    // found, use the (i) button for manual steps" text is a real,
+    // documented fallback for a genuine iOS permission-timing quirk -
+    // but it was only ever meant to reassure someone AFTER their own
+    // deliberate tap failed, not to greet them the instant Settings
+    // opens. Passing silent: true here means a failed background
+    // attempt just quietly leaves the field empty (satellite icon still
+    // sits right there to try manually) instead of surfacing that
+    // fallback text unprompted.
     if (_ipCtrl.text.trim().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _findDesktop();
+        if (mounted) _findDesktop(silent: true);
       });
     }
   }
@@ -606,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     super.dispose();
   }
 
-  Future<void> _findDesktop() async {
+  Future<void> _findDesktop({bool silent = false}) async {
     setState(() {
       _discovering = true;
       _notFoundOnWifi = false;
@@ -691,7 +703,12 @@ class _SettingsScreenState extends State<SettingsScreen>
     // "better to smoothly transition in under the satellite" like the
     // searching message already does - moved inline too (see the
     // `helper:` Column below, gated on _notFoundOnWifi).
-    setState(() => _notFoundOnWifi = true);
+    //
+    // 2026-09-04: real feedback, live - a silent (auto-on-open) failure
+    // should NOT surface this fallback text unprompted - see the call
+    // site's own comment. Only a deliberate, user-initiated tap earns
+    // the "here's what to do next" guidance.
+    if (!silent) setState(() => _notFoundOnWifi = true);
   }
 
   Future<void> _save() async {
