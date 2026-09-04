@@ -20,6 +20,19 @@ void main() {
         .setMockMethodCallHandler(
             const MethodChannel('plugins.flutter.io/path_provider'),
             (MethodCall call) async => '/tmp');
+    // 2026-09-04: real bug, found while building a different preview -
+    // this test constructs SettingsScreen with an empty desktopIp,
+    // which triggers the real auto-fill-on-open discovery added earlier
+    // today (settings_screen.dart's initState). That calls
+    // connectivity_plus's real platform channel, unmocked here, throwing
+    // MissingPluginException and leaving the retry's Future.delayed
+    // timers pending past tearDown - the actual cause of this test's
+    // "Timer still pending" failure, previously (wrongly) assumed to be
+    // unrelated pre-existing noise.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+            (MethodCall call) async => ['none']);
   });
 
   testWidgets('Save button position with a simulated keyboard open',
@@ -30,9 +43,20 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetViewInsets);
 
+    // 2026-09-04: real bug, found while building a different preview -
+    // an empty desktopIp here triggers the real auto-fill-on-open
+    // discovery added earlier today, which calls connectivity_plus's
+    // unmocked platform channel and leaves retry timers pending past
+    // tearDown - the actual root cause of this test's long-standing
+    // "Timer still pending" failure, wrongly assumed before to be
+    // unrelated pre-existing noise. This test's real purpose (Save
+    // button position above the keyboard) has nothing to do with
+    // discovery - a non-empty IP sidesteps that code path entirely
+    // instead of fighting its timing. The connectivity mock in setUp()
+    // above stays too, as a defensive backstop.
     final ctrl = LinkingController(
       desktopUser: '',
-      desktopIp: '',
+      desktopIp: '172.20.10.11',
       bareRepoPath: '',
     );
     final repoProvider = RepositoryProvider();

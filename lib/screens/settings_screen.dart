@@ -853,42 +853,70 @@ class _SettingsScreenState extends State<SettingsScreen>
               // used, now living on the screen it's actually explaining
               // instead of a message that could be missed/mis-tapped
               // before this screen even opened.
+              // 2026-09-04: real feedback, live, three rounds - "I don't
+              // know the real values, that's the point"; then "this may
+              // be too early [on the earlier onboarding screen], as I
+              // won't remember this step... data overload... the key
+              // location is in the moment"; then "at top of page a
+              // visual like Download website file now... with clear
+              // visuals." The Welcome/onboarding screen's own desktop-
+              // setup prompt is real, but happens minutes before this
+              // moment and gets forgotten - THIS is the actual point of
+              // need (empty fields, nowhere to go), so the strong visual
+              // belongs here, not repeated/relied-on from earlier. Dog
+              // mascot for continuity with the Welcome screen's own
+              // drag-to-desktop demo, a short headline instead of a
+              // paragraph, full URL still spelled out since that's the
+              // one thing to actually act on.
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.amber,
-                  // 2026-09-01: real feedback - "yellow button missing
-                  // rounded corners" - not a real button, but reads as
-                  // one visually (solid color bar) so it gets the same
-                  // 8px treatment as the button theme.
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  // 2026-08-30: real device feedback - "too complicated
-                  // for a new user and wrong order" (naming all 3 fields
-                  // inline read as a checklist to parse, not a plain
-                  // instruction). The 3 fields below now carry their own
-                  // numbered headers (1/2/3), so this just needs to say
-                  // why they're here, not repeat what they are.
-                  //
-                  // 2026-09-04: real feedback, live - "I don't know the
-                  // real values. That's the point... this is critical
-                  // data, if I don't have the correct data I could lose
-                  // all my data." The Welcome screen mentions the
-                  // desktop setup file, but only as a small caption a
-                  // user could easily miss several screens earlier -
-                  // this banner sits at the exact moment a real user
-                  // hits empty fields with nowhere to go, so it's the
-                  // right place to say plainly where the answer comes
-                  // from, not just that an answer is needed.
-                  'Pairing to desktop, needs below filled in to connect.\n\n'
-                  'Get these from your desktop: on that computer, go to '
-                  'kworld.space/localsync, download and run the setup '
-                  'file - it prints everything below, or shows a QR '
-                  'code you can scan with the icon next to each field.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: kVoid, fontWeight: FontWeight.w600),
+                child: Column(
+                  children: [
+                    // 2026-09-04: real feedback, live - "no verbose
+                    // text, only clear visuals" then "the key is to see
+                    // the workflow so the user knows where to action the
+                    // desktop and phone connection." The dog GIF didn't
+                    // render in this session's own preview-capture tool
+                    // (a test-harness limitation with animated GIF
+                    // decoding, not confirmed broken on a real device,
+                    // but "if visuals are too difficult, go with a more
+                    // basic visual" is the direct instruction) - swapped
+                    // for a static desktop -> phone icon pair, which
+                    // shows the actual workflow (action happens on that
+                    // other device, then connects here) rather than a
+                    // mascot alone.
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.desktop_windows_outlined,
+                            color: kVoid, size: 40),
+                        const SizedBox(width: 10),
+                        Icon(Icons.arrow_forward, color: kVoid, size: 22),
+                        const SizedBox(width: 10),
+                        Icon(Icons.phone_iphone, color: kVoid, size: 36),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Download this on your desktop',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: kVoid,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17)),
+                    const SizedBox(height: 4),
+                    Text('kworld.space/localsync',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: kVoid,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16)),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
