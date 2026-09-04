@@ -95,5 +95,12 @@
 	<array>
 		<string>_localsync._tcp</string>
 	</array>
+	<!-- 2026-09-04: Settings fields 3/4's own QR scan button - lets a
+	     user scan the desktop's git bare repo / vault path off screen
+	     (or a printed/QR'd setup result) instead of typing or
+	     copy-pasting a long path that can get corrupted by OCR line
+	     wrapping. -->
+	<key>NSCameraUsageDescription</key>
+	<string>LocalSync uses your camera to scan a QR code shown on your desktop, so you don't have to type or paste a long path by hand.</string>
 </dict>
 </plist>

@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
+import 'qr_scan_screen.dart';
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
 
@@ -120,6 +121,24 @@ class _SettingsScreenState extends State<SettingsScreen>
   // visit so each suggestion is genuinely distinct - "sync.git" first,
   // "sync-2.git" next, etc.
   int _suggestCount = 0;
+
+  // 2026-09-04: shared by field 3 and field 4's own scan buttons - real
+  // gap found, live: the desktop's git bare repo path is long enough to
+  // wrap across multiple lines on screen, and iOS Live Text/OCR bakes
+  // in a line break at the wrap point when a user copies it via the
+  // system Camera app, which the field then silently rejects (embedded
+  // newline mid-path). A QR code sidesteps this - one atomic string,
+  // no wrap point to misinterpret.
+  Future<void> _scanInto(
+      TextEditingController controller, String fieldLabel) async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => QrScanScreen(fieldLabel: fieldLabel)),
+    );
+    if (result == null || !mounted) return;
+    controller.text = result;
+  }
 
   // 2026-08-30: extracted from the old "Use suggested path" text link's
   // inline onTap so the big laptop icon above the field can trigger the
@@ -1511,7 +1530,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // "something's wrong, ask for help." This is
                       // neither - it's a lookup command, not a support
                       // request.
-                      suffixIcon: IconButton(
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.qr_code_scanner,
+                                color: kTextDim, size: 20),
+                            tooltip: 'Scan QR code',
+                            onPressed: () => _scanInto(
+                                _pathCtrl, 'DESKTOP SYNC FOLDER'),
+                          ),
+                          IconButton(
                         icon:
                             Icon(Icons.info_outline, color: kTextDim, size: 20),
                         tooltip: 'How do I find this?',
@@ -1753,6 +1782,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           detailsIntro: 'Full details - every existing '
                               'sync folder, most recently used first:',
                         ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1842,7 +1873,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                     decoration: InputDecoration(
                       hintText: '/home/user/Documents/Obsidian/MyVault '
                           '(leave blank for a fresh folder)',
-                      suffixIcon: IconButton(
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.qr_code_scanner,
+                                color: kTextDim, size: 20),
+                            tooltip: 'Scan QR code',
+                            onPressed: () => _scanInto(
+                                _vaultPathCtrl, 'DESKTOP VAULT PATH'),
+                          ),
+                          IconButton(
                         icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'What is this?',
@@ -2039,6 +2080,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                           detailsIntro: 'Full details - every folder '
                               'Obsidian has opened, ranked:',
                         ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
