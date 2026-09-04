@@ -51,6 +51,17 @@ GREEN=$'\033[1;32m'
 DIM=$'\033[2;32m'
 RESET=$'\033[0m'
 
+# 2026-09-04: real feedback, live - "is it possible to have the logo at
+# the top, so users know it's 100% from LocalSync?" The QR popup is a
+# standalone HTML file with no network access assumed (opened straight
+# from disk) and no copy of the website's own asset files sitting next
+# to it, so the real logo (same file kworld.space/localsync itself
+# uses: public/assets/localsync/logo_word_with_circle.svg) is baked in
+# here as base64, the same way the QR image itself already gets
+# embedded as base64 PNG a few lines down - not a new pattern, just the
+# same one applied to a second image.
+LOCALSYNC_LOGO_B64="PHN2ZyB3aWR0aD0iODcuOSIgaGVpZ2h0PSIxMC4yIiB2aWV3Qm94PSIwIDAgODcuOSAxMC4yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJnR3JlZW4iIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNiYWZmYjAiLz4KICA8c3RvcCBvZmZzZXQ9IjU1JSIgc3RvcC1jb2xvcj0iIzAwRkY0MSIvPgogIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzAwYjgyZiIvPgo8L2xpbmVhckdyYWRpZW50Pgo8cmFkaWFsR3JhZGllbnQgaWQ9ImdHbG93IiBjeD0iNTAlIiBjeT0iNTAlIiByPSI1MCUiPgogIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwMEZGNDEiIHN0b3Atb3BhY2l0eT0iMC40NSIvPgogIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzAwRkY0MSIgc3RvcC1vcGFjaXR5PSIwIi8+CjwvcmFkaWFsR3JhZGllbnQ+CjxmaWx0ZXIgaWQ9ImdCbHVyIiB4PSItODAlIiB5PSItODAlIiB3aWR0aD0iMjYwJSIgaGVpZ2h0PSIyNjAlIj4KICA8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSI4Ii8+CjwvZmlsdGVyPgo8L2RlZnM+Cjx0ZXh0IHg9IjAuMDAiIHk9IjEwLjI1IiBmb250LWZhbWlseT0iQ291cmllciBOZXcsIERlamFWdSBTYW5zIE1vbm8sIG1vbm9zcGFjZSIgZm9udC13ZWlnaHQ9IjYwMCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzAwRkY0MSI+TDwvdGV4dD4KPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTQuMTQsNS4xMikgc2NhbGUoMC4xMTE0MSkiPgogICAgPGNpcmNsZSBjeD0iMCIgY3k9IjAiIHI9IjUyIiBmaWxsPSJ1cmwoI2dHbG93KSIgZmlsdGVyPSJ1cmwoI2dCbHVyKSIvPgogICAgPGNpcmNsZSBjeD0iMCIgY3k9IjAiIHI9IjQ0IiBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZ0dyZWVuKSIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZ0dyZWVuKSIgc3Ryb2tlLXdpZHRoPSI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogICAgICA8cG9seWxpbmUgcG9pbnRzPSItMTksLTE5IC01LDAgLTE5LDE5IiBvcGFjaXR5PSIwLjM1Ii8+CiAgICAgIDxwb2x5bGluZSBwb2ludHM9Ii02LC0xOSA4LDAgLTYsMTkiIG9wYWNpdHk9IjAuNjUiLz4KICAgICAgPHBvbHlsaW5lIHBvaW50cz0iNywtMTkgMjEsMCA3LDE5IiBvcGFjaXR5PSIxLjAiLz4KICAgIDwvZz4KICA8L2c+Cjx0ZXh0IHg9IjE5Ljg2IiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPkM8L3RleHQ+Cjx0ZXh0IHg9IjI5Ljc5IiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPkE8L3RleHQ+Cjx0ZXh0IHg9IjM5LjcyIiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPkw8L3RleHQ+Cjx0ZXh0IHg9IjQ5LjY1IiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPlM8L3RleHQ+Cjx0ZXh0IHg9IjU5LjU4IiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPlk8L3RleHQ+Cjx0ZXh0IHg9IjY5LjUxIiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPk48L3RleHQ+Cjx0ZXh0IHg9Ijc5LjQ0IiB5PSIxMC4yNSIgZm9udC1mYW1pbHk9IkNvdXJpZXIgTmV3LCBEZWphVnUgU2FucyBNb25vLCBtb25vc3BhY2UiIGZvbnQtd2VpZ2h0PSI2MDAiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGNDEiPkM8L3RleHQ+Cjwvc3ZnPgo="
+
 log() { echo "${DIM}==>${RESET} $*"; }
 
 # 2026-09-04: real bug, caught by the user's own real terminal paste -
@@ -495,6 +506,16 @@ if command -v qrencode >/dev/null 2>&1; then
 <style>
 body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-apple-system,sans-serif;display:flex;justify-content:center;padding:36px 20px;box-sizing:border-box}
 .page{width:100%;max-width:460px;text-align:center}
+.brand{margin:0 0 20px}
+.brand img{height:20px;width:auto;display:inline-block}
+.scan-hint{margin:0 0 6px}
+.scan-hint svg{display:block;margin:0 auto}
+@media (prefers-reduced-motion: no-preference) {
+  .scan-hint .wave{animation:scan-pulse 1.8s ease-in-out infinite}
+  .scan-hint .wave-2{animation-delay:.2s}
+  .scan-hint .wave-3{animation-delay:.4s}
+}
+@keyframes scan-pulse{0%,100%{opacity:.25}50%{opacity:1}}
 .qr{background:#fff;border-radius:16px;padding:22px;display:inline-block}
 .qr img{display:block;width:min(72vw,280px);height:min(72vw,280px)}
 .breadcrumb{font-size:13.5px;color:#7c9070;margin:16px 0 4px;line-height:1.5}
@@ -504,6 +525,23 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 .chip b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7c9070;display:block;margin-bottom:3px;font-weight:400}
 .chip span{font-size:12.5px;word-break:break-all}
 </style></head><body><div class="page">
+<div class="brand"><img src="data:image/svg+xml;base64,${LOCALSYNC_LOGO_B64}" alt="LocalSync"></div>
+<!-- 2026-09-04: real feedback, live - "a visual showing a phone
+     scanning the desktop screen, to hint to the user what they're
+     meant to be doing with this new window." A phone outline with an
+     expanding scan cone, sitting directly above the QR it's meant to
+     represent scanning - hand-drawn to match this page's own existing
+     icon language (plain stroked outlines, no emoji) rather than a
+     generic stock graphic. -->
+<div class="scan-hint" aria-hidden="true">
+<svg width="64" height="52" viewBox="0 0 64 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect x="23" y="1" width="18" height="29" rx="3" stroke="#6fff8f" stroke-width="1.6"/>
+<circle cx="32" cy="8" r="1.3" fill="#6fff8f"/>
+<path class="wave wave-1" d="M20 42 L32 31 L44 42" stroke="#6fff8f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+<path class="wave wave-2" d="M12 47 L32 31 L52 47" stroke="#6fff8f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+<path class="wave wave-3" d="M4 51 L32 31 L60 51" stroke="#6fff8f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/>
+</svg>
+</div>
 <div class="qr"><img src="data:image/png;base64,${QR_PNG_B64}" alt="LocalSync setup QR"></div>
 <p class="breadcrumb">Phone -&gt; LocalSync app -&gt; Settings -&gt; tap QR icon</p>
 <p class="manual-note">Manual values below if you'd rather type.</p>
