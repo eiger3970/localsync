@@ -80,10 +80,14 @@ void _leaveSetup(BuildContext context) {
 void _showSshHelp(BuildContext context) {
   void copy(BuildContext ctx, String command) {
     Clipboard.setData(ClipboardData(text: command));
+    // 2026-09-04: real feedback, live - "the tick and Copied text is
+    // too small" (same fix on the website's own copy buttons).
     ScaffoldMessenger.of(ctx).showSnackBar(
       SnackBar(
         backgroundColor: kSurface,
-        content: Text('Command copied', style: TextStyle(color: kStar, fontSize: 14)),
+        content: Text('✓ Command copied',
+            style: TextStyle(
+                color: kGreen, fontSize: 16, fontWeight: FontWeight.w800)),
         duration: const Duration(seconds: 2),
       ),
     );
