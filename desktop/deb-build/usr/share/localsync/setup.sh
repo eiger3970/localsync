@@ -53,6 +53,89 @@ RESET=$'\033[0m'
 
 log() { echo "${DIM}==>${RESET} $*"; }
 
+# 2026-09-04: real bug, caught by the user's own real terminal paste -
+# the .deb install printed "(Also opened in your browser...)" but no
+# window ever appeared. Root cause #1: the .deb's postinst runs this
+# whole script as root (HOME is overridden to the real user's, but the
+# process itself is still root), so a plain `xdg-open` here tries to
+# open a browser AS root - which has no DISPLAY of its own and, even
+# where sudo happens to leak one through, is refused by the real
+# user's X/Wayland session anyway (root isn't authorized against their
+# session cookie). Direct runs (this script by hand, the .command
+# wrapper, curl|bash) never hit this - LOCALSYNC_USER is only set by
+# postinst, and EUID is the real user's own there already. Fixed by
+# pulling DISPLAY/WAYLAND_DISPLAY straight from one of the real user's
+# own already-running processes (the actual live answer, not a guessed
+# ":0"), then running the browser AS them via sudo -u.
+#
+# 2026-09-04 follow-up - real bug #2, found by comparing process start
+# times against the user's own repeated real tests: `xdg-open` WAS
+# reaching the real user's already-running Firefox each time (a new
+# tab's content process spawned right when the command ran) - it just
+# opened as a background tab, not a focused window, so it was never
+# actually visible. Wayland compositors (this desktop runs labwc)
+# deliberately refuse to let a background process raise or steal focus
+# onto an EXISTING window - the fix above got the display connection
+# right but still hit this second, unrelated restriction. Asking
+# Firefox itself for a brand new top-level window (rather than letting
+# the generic xdg-open handler reuse the running instance's existing
+# one) sidesteps it - compositors map and focus a genuinely NEW window
+# far more readily than they'll let something bring an old one forward.
+open_in_browser() {
+  local file="$1"
+  local -a browser_cmd=()
+  if command -v firefox >/dev/null 2>&1; then
+    browser_cmd=(firefox --new-window "$file")
+  fi
+
+  if [[ "$EUID" -ne 0 || -z "${LOCALSYNC_USER:-}" ]]; then
+    if [[ "${#browser_cmd[@]}" -gt 0 ]]; then
+      "${browser_cmd[@]}" >/dev/null 2>&1 &
+      return 0
+    elif command -v xdg-open >/dev/null 2>&1; then
+      xdg-open "$file" >/dev/null 2>&1 &
+      return 0
+    elif command -v open >/dev/null 2>&1; then
+      open "$file" >/dev/null 2>&1 &
+      return 0
+    fi
+    return 1
+  fi
+
+  local target_uid disp="" wdisp="" pid env_disp env_wdisp
+  target_uid=$(id -u "$LOCALSYNC_USER" 2>/dev/null) || return 1
+  for pid in $(pgrep -u "$target_uid" 2>/dev/null); do
+    [[ -r "/proc/$pid/environ" ]] || continue
+    env_disp=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^DISPLAY=//p' | head -1)
+    if [[ -n "$env_disp" ]]; then
+      disp="$env_disp"
+      env_wdisp=$(tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sed -n 's/^WAYLAND_DISPLAY=//p' | head -1)
+      wdisp="$env_wdisp"
+      break
+    fi
+  done
+  [[ -z "$disp" ]] && disp=":0"
+  # 2026-09-04 follow-up - real bug #3, live: "Firefox is already
+  # running, but is not responding." Firefox's single-instance IPC (the
+  # mechanism that turns "open this file" into a new window in the
+  # ALREADY-running browser instead of a second, conflicting process)
+  # goes over the user's D-Bus session bus on this desktop, not X
+  # properties - DISPLAY/WAYLAND_DISPLAY/XAUTHORITY alone don't reach
+  # it. Without XDG_RUNTIME_DIR/DBUS_SESSION_BUS_ADDRESS, the new
+  # process can't find that bus, can't hand off to the running
+  # instance, and collides with its profile lock file instead - exactly
+  # this error. Both live at the standard, discoverable path for this
+  # user's own runtime dir.
+  local runtime_dir="/run/user/$target_uid"
+  local dbus_addr="unix:path=$runtime_dir/bus"
+  if [[ "${#browser_cmd[@]}" -gt 0 ]]; then
+    sudo -u "$LOCALSYNC_USER" DISPLAY="$disp" WAYLAND_DISPLAY="$wdisp" XAUTHORITY="$HOME/.Xauthority" XDG_RUNTIME_DIR="$runtime_dir" DBUS_SESSION_BUS_ADDRESS="$dbus_addr" "${browser_cmd[@]}" >/dev/null 2>&1 &
+    return 0
+  fi
+  command -v xdg-open >/dev/null 2>&1 || return 1
+  sudo -u "$LOCALSYNC_USER" DISPLAY="$disp" WAYLAND_DISPLAY="$wdisp" XAUTHORITY="$HOME/.Xauthority" XDG_RUNTIME_DIR="$runtime_dir" DBUS_SESSION_BUS_ADDRESS="$dbus_addr" xdg-open "$file" >/dev/null 2>&1 &
+}
+
 case "$(uname -s)" in
   Linux)
     if [[ -f /etc/debian_version ]]; then OS=debian; else OS=other-linux; fi
@@ -408,11 +491,7 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 <div class="chip"><b>4. Desktop vault path</b><span>${BEST_VAULT_PATH:-(leave blank)}</span></div>
 </div></div></body></html>
 HTMLEOF
-  if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$QR_HTML" >/dev/null 2>&1 &
-    echo "(Also opened in your browser - a proper window, not this terminal.)"
-  elif command -v open >/dev/null 2>&1; then
-    open "$QR_HTML" >/dev/null 2>&1 &
+  if open_in_browser "$QR_HTML"; then
     echo "(Also opened in your browser - a proper window, not this terminal.)"
   fi
   echo
