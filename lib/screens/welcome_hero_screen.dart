@@ -110,15 +110,21 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 const _HeadlinePoint(
                     assetIcon: 'assets/logos/git-branches-only.svg',
                     text: 'No more conflicts.'),
-                // 2026-09-04: real feedback, live, two rounds - "Try
+                // 2026-09-04: real feedback, live, three rounds - "Try
                 // it... is under No more conflicts, maybe move to above
                 // the dashed line" (fixed by widening the gap above so
                 // it read as a caption for the demo, not a fourth
                 // headline bullet); then "this can go under the dashed
-                // line" - moved below the demo entirely instead, so it
-                // labels the drag-path directly underneath it rather
-                // than introducing it from above.
+                // line" (moved below the demo entirely); then "too far
+                // low, can the text be added close above the dashed
+                // line?" - below the WHOLE demo (past its own animation)
+                // was further away than intended. Back above it, tight
+                // gap directly against the demo it labels.
                 const SizedBox(height: 22),
+                Text('Try it - drag your file across.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: wInkDim)),
+                const SizedBox(height: 8),
                 SizedBox(
                   height: 172,
                   child: _PhoneToDesktopDemo(
@@ -126,10 +132,6 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     onDelivered: () => setState(() => _delivered = true),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text('Try it - drag your file across.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: wInkDim)),
                 const SizedBox(height: 8),
                 Expanded(
                   child: ListView(
