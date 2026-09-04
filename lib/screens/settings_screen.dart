@@ -890,15 +890,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // shows the actual workflow (action happens on that
                     // other device, then connects here) rather than a
                     // mascot alone.
+                    // 2026-09-04: real feedback, live, three rounds -
+                    // "shouldn't the image of desktop pointing to phone
+                    // also include phone pointing to scanning the qr
+                    // code?"; then "visuals are wrong or out of order"
+                    // (desktop -> phone -> scanner read as "desktop,
+                    // then a phone, then some separate scanner device" -
+                    // fixed to desktop -> the code -> phone scanning it);
+                    // then "add the phone scanning as a 3rd step" -
+                    // qr_code_scanner's own icon (a phone-shaped frame
+                    // with scan corners) apparently reads too close to
+                    // qr_code right before it to register as its own,
+                    // distinct third beat. Swapped the third icon for an
+                    // unambiguous phone_iphone instead - three visually
+                    // distinct shapes now (desktop, code, phone), same
+                    // correct order as before.
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.desktop_windows_outlined,
-                            color: kVoid, size: 40),
-                        const SizedBox(width: 10),
-                        Icon(Icons.arrow_forward, color: kVoid, size: 22),
-                        const SizedBox(width: 10),
-                        Icon(Icons.phone_iphone, color: kVoid, size: 36),
+                            color: kVoid, size: 36),
+                        const SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: kVoid, size: 18),
+                        const SizedBox(width: 8),
+                        Icon(Icons.qr_code, color: kVoid, size: 32),
+                        const SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, color: kVoid, size: 18),
+                        const SizedBox(width: 8),
+                        Icon(Icons.phone_iphone, color: kVoid, size: 32),
                       ],
                     ),
                     const SizedBox(height: 8),

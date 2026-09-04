@@ -8,10 +8,8 @@
 // as-is for consistency, not a new custom slider.
 
 import 'package:flutter/material.dart';
-import '../services/database_service.dart';
 import '../widgets/swap_gif_swipe_confirm.dart';
 import '../widgets/shatter_page_route.dart';
-import 'desktop_setup_prompt_screen.dart';
 import 'linking_screen.dart';
 import 'welcome_hero_screen.dart';
 
@@ -21,22 +19,21 @@ class SyncFilesPreviewScreen extends StatelessWidget {
   // This is the one real moment the pastel welcome world meets the
   // app's actual dark UI - shatters into it rather than a plain cut.
   //
-  // 2026-09-03: real gap found, live - "there's nothing to tell me
-  // what to do on the app... where does the user know to download and
-  // run the desktop file?" Shatters into DesktopSetupPromptScreen
-  // instead of straight to LinkingScreen the first time only - it
-  // handles its own onward navigation once continued/skipped, and
-  // marks itself seen so a returning user (or someone pairing a second
-  // device) goes straight through as before.
-  Future<void> _proceed(BuildContext context) async {
-    final seen = await DatabaseService().getSeenDesktopSetupPrompt();
-    if (!context.mounted) return;
+  // 2026-09-04: real feedback, live - "isn't [the desktop setup prompt]
+  // meant to be at the Settings page, in the moment? The app Welcome
+  // screen already has a foreshadowing about desktop and phone
+  // connecting, with the user dragging the dog." Right - the standalone
+  // prompt screen this used to shatter into (2026-09-03) sat between
+  // two things that already cover it: Welcome's own dog-drag demo
+  // plants the idea early, and Settings' own banner catches the actual
+  // moment of need (empty fields, nowhere to go). A screen shown once,
+  // minutes before either of those moments actually matter, was the
+  // exact "too early, forgotten by the time you need it" problem
+  // already found and fixed once at the wording level - this fixes it
+  // at the screen level instead. Straight to LinkingScreen now.
+  void _proceed(BuildContext context) {
     Navigator.pushReplacement(
-        context,
-        ShatterPageRoute(
-            builder: (_) => seen
-                ? const LinkingScreen()
-                : const DesktopSetupPromptScreen()));
+        context, ShatterPageRoute(builder: (_) => const LinkingScreen()));
   }
 
   @override
