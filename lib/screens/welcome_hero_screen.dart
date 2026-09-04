@@ -110,7 +110,18 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 const _HeadlinePoint(
                     assetIcon: 'assets/logos/git-branches-only.svg',
                     text: 'No more conflicts.'),
-                const SizedBox(height: 6),
+                // 2026-09-04: real feedback, live - "Try it... is under
+                // No more conflicts, maybe move to above the dashed
+                // line." It was already structurally above the demo
+                // (which contains the dashed drag-path), but a tight
+                // 6px gap after the headlines and an equally tight 8px
+                // gap before the demo made it read as a fourth headline
+                // bullet, not a caption introducing the demo below.
+                // Widened the gap above (visually detaches it from "No
+                // more conflicts"), same tight gap below stays - it now
+                // reads as glued to the demo it describes, not the
+                // headline above it.
+                const SizedBox(height: 22),
                 Text('Try it - drag your file across.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: wInkDim)),
@@ -150,24 +161,27 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                     ],
                   ),
                 ),
-                // 2026-09-04: real feedback, live - asked for a general,
-                // early statement about the auto-detect feature's
-                // privacy story ("value user privacy - nothing leave
-                // your devices"), not a small per-field caption buried
-                // in Settings. This is the app's first and most general
-                // privacy line already - extended rather than adding a
-                // second, separate statement later.
-                Text(
-                    'No cloud. No account. Just you. Auto-detect only '
-                    'looks on your own local network - nothing leaves '
-                    'your devices.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: wInkDim)),
-                const SizedBox(height: 4),
-                Text('iPhone only. Works with a Linux or Mac desktop.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: wInkDim)),
-                const SizedBox(height: 4),
+                // 2026-09-04: real feedback, live - "front page is
+                // verbose, can it be all visuals and images?" These
+                // three lines carry real information a user needs
+                // before picking a path (privacy, platform compatibility,
+                // and the desktop-setup requirement specifically exists
+                // because someone previously got partway through - even
+                // paid - before discovering it) - not safe to cut
+                // outright. Icon-prefixed instead, so each line scans
+                // visually first, text second, rather than three
+                // consecutive paragraphs.
+                _CaptionLine(
+                    icon: Icons.shield_outlined,
+                    text: 'No cloud. No account. Just you. Auto-detect '
+                        'only looks on your own local network - nothing '
+                        'leaves your devices.'),
+                const SizedBox(height: 6),
+                _CaptionLine(
+                    icon: Icons.phone_iphone,
+                    text: 'iPhone only. Works with a Linux or Mac '
+                        'desktop.'),
+                const SizedBox(height: 6),
                 // 2026-09-01: real feedback - "users need this
                 // information upfront... so 2 devices needed,
                 // connection Wi-Fi or cable and install desktop file."
@@ -175,13 +189,16 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 // pick a path, even pay for the Obsidian one, before
                 // discovering a one-time desktop step exists at all -
                 // this says it plainly before any of that.
-                Text(
-                  'Needs your phone + a desktop (or NAS), connected by '
-                  'Wi-Fi or cable, and a one-time setup file run once on '
-                  'the desktop.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: wInkDim),
-                ),
+                _CaptionLine(
+                    icon: Icons.devices_outlined,
+                    text: 'Needs your phone + a desktop (or NAS), '
+                        'connected by Wi-Fi or cable, and a one-time '
+                        'setup file run once on the desktop.'),
+                const SizedBox(height: 10),
+                Text('© 2026 LocalSync',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 10, color: wInkDim.withValues(alpha: 0.7))),
               ],
             ),
           ),
@@ -220,6 +237,38 @@ class _HeadlinePoint extends StatelessWidget {
                   fontWeight: FontWeight.w800, fontSize: 20, color: wInk)),
         ],
       ),
+    );
+  }
+}
+
+// 2026-09-04: real feedback, live - "front page is verbose, can it be
+// all visuals and images?" Icon-prefixed caption row for the three
+// bottom-of-screen info lines - lets each one scan visually first
+// (icon), text second, without cutting the actual information (see the
+// call sites' own comments for why each line still needs to say what
+// it says).
+class _CaptionLine extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _CaptionLine({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Icon(icon, size: 13, color: wInkDim),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: wInkDim)),
+        ),
+      ],
     );
   }
 }

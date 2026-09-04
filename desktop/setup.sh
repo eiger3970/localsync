@@ -298,10 +298,12 @@ VAULT_RESULT=$(find "$HOME/Documents" -maxdepth 3 -iname "*.obsidian" -type d 2>
   e=${e%.*}
   echo "$v|$n|${e:-0}"
 done | awk -F'|' '{p[NR]=$1;n[NR]=$2;e[NR]=$3; if($2+0>maxn)maxn=$2+0; if($3+0>maxe)maxe=$3+0} END{for(i=1;i<=NR;i++){ns=(maxn>0)?n[i]/maxn:0; age=(maxe-e[i])/86400; rs=(age<=0)?1:1/(1+age/14); sc=int(100*(0.4*ns+0.6*rs)); if(sc>100)sc=100; print p[i]"|"sc"|"n[i]"|"e[i]}}' | sort -t'|' -k2 -rn)
+BEST_VAULT_PATH=""
 if [[ -z "$VAULT_RESULT" ]]; then
   echo "  No Obsidian vaults found under $HOME/Documents - normal for a"
   echo "  first-time setup, leave this field blank on your phone"
 else
+  BEST_VAULT_PATH=$(echo "$VAULT_RESULT" | head -1 | cut -d'|' -f1)
   VAULT_COUNT=$(echo "$VAULT_RESULT" | wc -l)
   echo "$VAULT_RESULT" | head -1 | while IFS='|' read -r path score notes epoch; do
     d=$(date -d "@$epoch" +%Y-%m-%d 2>/dev/null || echo unknown)
@@ -313,6 +315,40 @@ else
     echo "  ($((VAULT_COUNT - 1)) other, lower-scored candidate(s) also"
     echo "  found - the path above is the best match)"
   fi
+fi
+
+# ── Combined setup QR code ────────────────────────────────────────────────
+# 2026-09-04: real gap, live - "this is where the desktop file that
+# shows all the setup autom wtih qr scanner et al should run, but the
+# user needs to be informed, preferably visually." The app's own
+# Settings screen already has a QR scan button (added earlier today)
+# but nothing on the desktop side ever generated a QR to scan - this
+# closes that loop. One QR encodes all four Settings fields at once
+# (magic first line so the app can tell a real LocalSync QR from an
+# unrelated one someone might scan by mistake) - one scan instead of
+# retyping four values by hand, the actual "critical data, get it
+# wrong and risk your data" problem flagged directly. Runs in the same
+# terminal window already open for every distribution path (.deb,
+# .command, curl|bash) - a real terminal is always monospace, so no
+# separate HTML/image file is needed the way a font-uncertain plain
+# text viewer would require. Skips gracefully, no auto-install, if
+# qrencode isn't present - the plain-text values above already cover
+# that case, this is a real enhancement, not a hard requirement.
+if command -v qrencode >/dev/null 2>&1; then
+  echo
+  echo "=================================================================="
+  echo "SCAN THIS ON YOUR PHONE - fills in all 4 Settings fields at once"
+  echo "(open LocalSync's Settings, tap the QR icon next to any field)"
+  echo "=================================================================="
+  printf 'localsync-setup-v1\n%s\n%s\n%s\n%s\n' \
+    "${LOCALSYNC_USER:-$(whoami)}" "${IP_RESULT:-}" "$BARE_REPO_PATH" "$BEST_VAULT_PATH" \
+    | qrencode -t ANSIUTF8
+  echo
+else
+  echo
+  echo "(Install qrencode for a scannable QR code here instead of typing"
+  echo "the above by hand - e.g. 'sudo apt install qrencode' or 'brew"
+  echo "install qrencode', then re-run this file.)"
 fi
 
 # ── Setup details, last - not the headline, just for reference ──────────

@@ -1,10 +1,11 @@
 Package: localsync-desktop-setup
-Version: 1.0.2
+Version: 1.0.3
 Section: utils
 Priority: optional
 Architecture: all
 Maintainer: kworld <access@kworld.space>
 Depends: bash
+Recommends: qrencode
 Description: LocalSync desktop setup (git, SSH, bare repo, auto-discovery)
  Runs LocalSync's one-time desktop setup: installs git and SSH access if
  missing, creates the git bare repository LocalSync syncs your Obsidian
@@ -12,7 +13,9 @@ Description: LocalSync desktop setup (git, SSH, bare repo, auto-discovery)
  can find this machine automatically. Also detects and prints this
  desktop's username, IP address, and any existing Obsidian vault - every
  answer LocalSync's Settings screen needs, with nothing to type from a
- long command by hand.
+ long command by hand, or a QR code the app can scan to fill all four
+ Settings fields in one tap (qrencode, recommended - apt installs it
+ alongside this package by default, no separate step for most users).
  .
  This package does not install a persistent application - it runs the
  setup once, during installation, the same as the terminal one-liner or
