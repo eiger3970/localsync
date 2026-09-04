@@ -25,7 +25,7 @@ set -uo pipefail
 # here, in LocalSync-Setup-Mac.command, in the website's
 # local_sync.tsx, and in docs/desktop-setup.md together whenever
 # setup.sh's content changes, or this check fails for everyone.
-EXPECTED_SHA256="976e5a4e6b68c7de09575b10e63d1d2c3a0eb0e0fcdacf18201db2b1f3772d62"
+EXPECTED_SHA256="32e967364eb590a5bb1a7398fe96d75d550c43eac219e05c58e590344e452194"
 ACTUAL_SHA256="$(sha256sum /usr/share/localsync/setup.sh | cut -d' ' -f1)"
 if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
   echo "localsync-desktop-setup: checksum mismatch on the bundled setup.sh - refusing to run it." >&2
@@ -90,7 +90,12 @@ RESULT_FILE="$RESULT_DIR/LocalSync setup result.txt"
 # heart attack." The repeated "====" banner read as an error/warning,
 # not a calm status note - dropped it, this is just a pointer to where
 # the same output above is saved, nothing alarming.
-HOME="$REAL_HOME" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RESULT_FILE"
+# 2026-09-04: real bug, caught by actually installing the .deb -
+# setup.sh's "Desktop username" line printed "root" because HOME above
+# only fixes path-building, not whoami()'s actual process-UID answer.
+# This exports the already-resolved real user under its own name so
+# setup.sh can prefer it over whoami() without guessing at HOME.
+HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RESULT_FILE"
 {
   echo
   echo "(This is also saved to $RESULT_FILE, in case this window is"

@@ -178,7 +178,16 @@ TECH_LOG=$(run_technical_setup 2>&1)
 # nothing left to relay from the phone at all except pairing itself.
 
 echo "Desktop username (enter this into LocalSync's Settings):"
-echo "  $(whoami)"
+# 2026-09-04: real bug, caught by actually installing the .deb - this
+# printed "root" instead of the real desktop user. whoami() reflects
+# the actual process UID, which the .deb's postinst always runs as
+# root regardless of the HOME override it already applies for path-
+# building below - HOME isn't what whoami reads. postinst resolves the
+# real invoking user via SUDO_USER/PKEXEC_UID/logname and exports it as
+# LOCALSYNC_USER before calling this script; the .command and manual
+# curl|bash paths never set that, so whoami stays correct there (a
+# real logged-in user running this directly, not via a root postinst).
+echo "  ${LOCALSYNC_USER:-$(whoami)}"
 echo
 
 # 2026-09-03: matches the app's own IP dialog exactly (same eth1/usb0
