@@ -122,6 +122,18 @@ void main() {
         .setMockMethodCallHandler(
             const MethodChannel('plugins.flutter.io/path_provider'),
             (MethodCall call) async => '/tmp');
+    // 2026-09-03: real gap this test exposed - SettingsScreen now
+    // auto-runs IP discovery on init when the field is empty (see
+    // settings_screen.dart's initState), which calls
+    // Connectivity().checkConnectivity() with no mock registered here,
+    // throwing MissingPluginException and failing the whole test. 'none'
+    // (empty list) is the honest answer for a test environment with no
+    // real network - findDesktopIp() already treats that as "nothing to
+    // discover" and returns null cleanly, same as a real offline device.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+            const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+            (MethodCall call) async => <String>[]);
   });
 
   testWidgets('command-box wrapping and step ordering, all three dialogs',

@@ -22,14 +22,48 @@
 // Storyboarded first (not coded blind) - matches the "First, set up
 // your desktop" interstitial reviewed and approved before this file
 // was written.
+//
+// 2026-09-03: real device feedback, live, right after shipping -
+// "noobs don't know what git and ssh are and don't care, need normie
+// words" - body copy dropped git/SSH/IP-address jargon entirely,
+// down to what it actually does for the reader. "unsure about desktop
+// having to run the IP address, as the app satellite is very handy" -
+// fair, the satellite icon already solves IP discovery elegantly, so
+// this screen's own copy shouldn't sell that part of the setup file's
+// job. "I tap kworld.space/localsync and nothing happens" - the URL
+// looked tappable (boxed, colored) but wasn't wired to anything; now
+// copies to the clipboard with the same confirmation pattern every
+// other copyable value in this app already uses. "text below is too
+// dark and small" - kTextDim/12.5 bumped to kTextMid/13.5. "I'm
+// confused with 2 similar choices" - "I've done this" and "Skip" led
+// to the exact same place doing the exact same thing (see the old
+// _continue duplicated across both buttons below) - two labels for one
+// behavior is confusion, not choice. Collapsed to one "Continue"
+// button.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../services/database_service.dart';
 import 'linking_screen.dart';
 
 class DesktopSetupPromptScreen extends StatelessWidget {
   const DesktopSetupPromptScreen({super.key});
+
+  static const _url = 'kworld.space/localsync';
+
+  void _copyUrl(BuildContext context) {
+    Clipboard.setData(const ClipboardData(text: _url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Text(
+            'Copied - paste it into your desktop\'s browser address bar',
+            style: TextStyle(color: kStar, fontSize: 14)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
 
   Future<void> _continue(BuildContext context) async {
     await DatabaseService().setSeenDesktopSetupPrompt();
@@ -58,33 +92,49 @@ class DesktopSetupPromptScreen extends StatelessWidget {
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Text(
-                  'One file does everything - git, SSH, and your sync '
-                  'folder, in one run.',
+                  'One file gets your desktop ready to connect - '
+                  'nothing to type or configure by hand.',
                   style:
                       TextStyle(color: kTextMid, fontSize: 15, height: 1.5)),
               const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                decoration: BoxDecoration(
-                    color: kSurface,
-                    border: Border.all(color: kGreen.withValues(alpha: 0.4)),
-                    borderRadius: BorderRadius.circular(10)),
-                child: Column(
-                  children: [
-                    Text('kworld.space/localsync',
-                        style: TextStyle(
-                            color: kGreen,
-                            fontFamily: 'monospace',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    Text(
-                        'Open that on your desktop, download, run it.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: kTextDim, fontSize: 12.5)),
-                  ],
+              Material(
+                color: kSurface,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () => _copyUrl(context),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
+                    decoration: BoxDecoration(
+                        border:
+                            Border.all(color: kGreen.withValues(alpha: 0.4)),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(_url,
+                                style: TextStyle(
+                                    color: kGreen,
+                                    fontFamily: 'monospace',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 8),
+                            Icon(Icons.copy, color: kTextMid, size: 16),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                            'Tap to copy, then open it on your desktop',
+                            textAlign: TextAlign.center,
+                            style:
+                                TextStyle(color: kTextMid, fontSize: 13.5)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               const Spacer(),
@@ -98,18 +148,9 @@ class DesktopSetupPromptScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10))),
-                  child: Text("I've done this - continue",
+                  child: Text('Continue',
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 15)),
-                ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => _continue(context),
-                  child: Text("Skip, I'll do it later",
-                      style: TextStyle(color: kTextMid, fontSize: 14)),
                 ),
               ),
               const SizedBox(height: 8),

@@ -176,6 +176,24 @@ class _SettingsScreenState extends State<SettingsScreen>
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
     });
+    // 2026-09-03: real feedback, live - "how complicated is it to have
+    // the ip auto filled?" _findDesktop() already does exactly this (on
+    // a tap) - only auto-run it here when the field is genuinely empty
+    // (a first-time setup, nothing saved yet), never when a value
+    // already exists. Two real reasons not to run this on every visit
+    // regardless: it would silently overwrite an IP someone typed in
+    // on purpose (e.g. a manual override for a network auto-discovery
+    // can't reach), and it would trigger iOS's "Allow LocalSync to find
+    // devices on local networks?" permission prompt just from opening
+    // Settings, not from a clear tap - confusing context for that
+    // prompt to appear in. addPostFrameCallback, not called directly -
+    // _findDesktop() calls setState, which initState can't do safely
+    // before the first frame.
+    if (_ipCtrl.text.trim().isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _findDesktop();
+      });
+    }
   }
 
   // 2026-08-21: real feedback, live - "there needs to be user help...
