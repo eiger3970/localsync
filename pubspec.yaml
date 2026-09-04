@@ -73,6 +73,20 @@ dependencies:
   # permission-free query) - unrelated to and can't trigger the same
   # Local Network device-discovery permission multicast_dns needs.
   connectivity_plus: ^6.0.5
+  # 2026-09-04: real gap, live - the desktop's git bare repo path is
+  # long enough to wrap across multiple lines on screen, and iOS Live
+  # Text/OCR bakes in a line break at the wrap point when a user copies
+  # it via the Camera app - the Settings field then silently rejects
+  # the paste (embedded newline mid-path). A QR code sidesteps this
+  # entirely (one atomic string, no wrap point to misinterpret) and a
+  # user-generated QR already confirmed to work end to end - this adds
+  # an in-app scanner (Settings field 3/4's own scan button) instead of
+  # requiring the clipboard/app-switch round trip through the system
+  # Camera app. Standard camera API (AVFoundation/ML Kit under the
+  # hood), not the fragile git2dart-style native-symbol-linking risk -
+  # only cost is one new, well-understood permission prompt
+  # (NSCameraUsageDescription).
+  mobile_scanner: ^7.4.0
 
 dev_dependencies:
   flutter_test:
