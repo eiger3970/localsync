@@ -20,7 +20,7 @@ Three ways to run the same script, pick whichever matches how comfortable you ar
 
 1. **Comfortable with a terminal** (Linux or macOS) - downloads, verifies the SHA256 checksum, then runs (2026-09-01: real feedback - "download needs security and credibility... checksum like Linux Mint" - this is that, without the separate manual-comparison step Mint's own process needs):
    ```
-   curl -fsSL https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh -o /tmp/localsync-setup.sh && echo "631c77ec7d88b21b3d0093094ae518961bed2bc797586f8bf54d745f4a1517c2  /tmp/localsync-setup.sh" | sha256sum -c - && bash /tmp/localsync-setup.sh
+   curl -fsSL https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh -o /tmp/localsync-setup.sh && echo "fbf9a82e593aadf0d7d899ce73502c272765206cb521dc93004bb901e23e09f9  /tmp/localsync-setup.sh" | sha256sum -c - && bash /tmp/localsync-setup.sh
    ```
    `sha256sum -c -` refuses to continue (the `&&` chain stops) if the download doesn't match - the same tamper/corruption protection as comparing a published checksum by hand, just automatic. Skip the auto-discovery step: append ` --skip-discovery` after `/tmp/localsync-setup.sh` in the final command.
 
