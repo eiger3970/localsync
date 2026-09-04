@@ -2150,37 +2150,65 @@ class _CompleteViewState extends State<_CompleteView>
       return;
     }
 
-    await provider.addRepository(Repository(
-      // 2026-08-14: was hardcoded to the literal generic string
-      // "PKM_vault" regardless of which vault was linked - the
-      // app-bar status widget (_AppBarRepoStatus) displays this as
-      // the vault's name, so every repo looked identical and there
-      // was no way to tell which vault was actually connected. Now
-      // uses the real vault folder name, same pattern already used
-      // correctly for obsidianVaultPath below.
-      name: vaultPath.split('/').last,
-      remoteHost: ctrl.desktopIp,
-      remoteUser: ctrl.desktopUser,
-      remotePath: ctrl.bareRepoPath,
-      remotePort: ctrl.sshPort,
-      localPath: vaultPath,
-      vaultBookmark: vaultBookmark,
-      // 2026-08-15: was hardcoded to literal "Localsync" - same stale
-      // assumption fixed in the display text and deep link earlier,
-      // just missed here. Display-only field (see repository.dart),
-      // but still wrong for anyone who typed a different vault name.
-      // 2026-08-27: a Tier 0 genericFolder repo has no $kNoteAppName
-      // container at all - "On My iPhone/$kNoteAppName/..." would be an
-      // actively wrong claim about where the folder lives, not just an
-      // unused display string, so this branches on ctrl.syncMode.
-      obsidianVaultPath: ctrl.syncMode == SyncMode.genericFolder
-          ? vaultPath.split('/').last
-          : 'On My iPhone/$kNoteAppName/${vaultPath.split('/').last}',
-      autoSync: true,
-      status: SyncStatus.ok,
-      lastSync: DateTime.now(),
-      syncMode: ctrl.syncMode,
-    ));
+    // 2026-09-04 follow-up: the null-check above only covers ONE way
+    // this can fail - real device testing (sideloaded the exact commit
+    // with that fix, still silently dropped to Welcome with zero
+    // message) proved something else, not that check, is the actual
+    // culprit here. addRepository() below does a real database write
+    // with nothing catching a failure - an uncaught exception in this
+    // addPostFrameCallback just vanishes (Flutter logs it to a console
+    // no sideloaded user has attached), leaving repos.isEmpty true and
+    // HomeScreen bouncing straight back to Welcome, indistinguishable
+    // from setup never having run at all. Wrapping the whole save so
+    // ANY failure here - not just the one case already known about -
+    // becomes a visible message instead of another silent vanish.
+    try {
+      await provider.addRepository(Repository(
+        // 2026-08-14: was hardcoded to the literal generic string
+        // "PKM_vault" regardless of which vault was linked - the
+        // app-bar status widget (_AppBarRepoStatus) displays this as
+        // the vault's name, so every repo looked identical and there
+        // was no way to tell which vault was actually connected. Now
+        // uses the real vault folder name, same pattern already used
+        // correctly for obsidianVaultPath below.
+        name: vaultPath.split('/').last,
+        remoteHost: ctrl.desktopIp,
+        remoteUser: ctrl.desktopUser,
+        remotePath: ctrl.bareRepoPath,
+        remotePort: ctrl.sshPort,
+        localPath: vaultPath,
+        vaultBookmark: vaultBookmark,
+        // 2026-08-15: was hardcoded to literal "Localsync" - same stale
+        // assumption fixed in the display text and deep link earlier,
+        // just missed here. Display-only field (see repository.dart),
+        // but still wrong for anyone who typed a different vault name.
+        // 2026-08-27: a Tier 0 genericFolder repo has no $kNoteAppName
+        // container at all - "On My iPhone/$kNoteAppName/..." would be an
+        // actively wrong claim about where the folder lives, not just an
+        // unused display string, so this branches on ctrl.syncMode.
+        obsidianVaultPath: ctrl.syncMode == SyncMode.genericFolder
+            ? vaultPath.split('/').last
+            : 'On My iPhone/$kNoteAppName/${vaultPath.split('/').last}',
+        autoSync: true,
+        status: SyncStatus.ok,
+        lastSync: DateTime.now(),
+        syncMode: ctrl.syncMode,
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kSurface,
+            content: Text(
+              'Setup finished, but saving failed: $e\n'
+              'Please try pairing again.',
+              style: TextStyle(color: kStar, fontSize: 13),
+            ),
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
+    }
   }
 
   @override
