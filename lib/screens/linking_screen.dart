@@ -7,6 +7,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -2119,7 +2120,35 @@ class _CompleteViewState extends State<_CompleteView>
 
     final vaultPath = ctrl.pickedVaultPath;
     final vaultBookmark = ctrl.pickedVaultBookmark;
-    if (vaultPath == null || vaultBookmark == null) return; // web target
+    // 2026-09-04: real bug, live - "app setup complete... the app
+    // returned to the main welcome page" with zero warning. This check
+    // was written for one expected case (kIsWeb, no native picker ever
+    // ran) but returned silently for ANY null, on every platform - so a
+    // real device somehow reaching this screen without a saved vault
+    // pick (root cause still unconfirmed - not reproduced live, no
+    // reset() path found that explains it) discarded the entire
+    // pairing with nothing to show for it. HomeScreen's own
+    // repos.isEmpty check then silently bounces back to Welcome,
+    // reading as if setup never happened at all. Web keeps its real,
+    // expected no-op; every other platform now says so instead of
+    // vanishing.
+    if (kIsWeb) return;
+    if (vaultPath == null || vaultBookmark == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kSurface,
+            content: Text(
+              "Setup finished, but your vault folder wasn't saved - "
+              'please try pairing again.',
+              style: TextStyle(color: kStar, fontSize: 14),
+            ),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+      return;
+    }
 
     await provider.addRepository(Repository(
       // 2026-08-14: was hardcoded to the literal generic string
