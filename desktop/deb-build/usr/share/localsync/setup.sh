@@ -312,11 +312,7 @@ else
 fi
 echo
 
-echo "Git bare repo path (enter this into LocalSync's Settings):"
-echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
-echo
-
-# ── Existing LocalSync folders ───────────────────────────────────────────
+# ── Git bare repo path (an existing real setup wins over the default) ───
 # 2026-09-02: real feedback, live - "make it optimised so I just
 # download the website deb file, rather than type out that long
 # command showing on the phone." This is the exact same logic the
@@ -324,11 +320,7 @@ echo
 # -> i) walks a user through typing into a terminal by hand - folded
 # in here instead, so it runs automatically as part of the one
 # desktop setup step (.deb, .command, or this script directly), no
-# separate command to relay from the phone at all. Only matters for
-# reconnecting to a PREVIOUS pairing's real data (reinstalled the app,
-# switched phones, or - like right now - a desktop with old test
-# pairings on it already); a genuinely first-time setup can ignore
-# this and use the path printed above.
+# separate command to relay from the phone at all.
 # 2026-09-02: real feedback, live - "that will give me and users a
 # heart attack. Can this text file be beautified, to see the most
 # pertinent information." Fair - dumping every .git folder on the
@@ -338,13 +330,35 @@ echo
 # "Desktop sync", "Desktop conflicting edit", or "Initial sync from
 # phone" - the app's own fixed commit-message conventions) or empty
 # repos, and just counts everything else instead of listing it.
+# 2026-09-04: real gap, live - "why doesn't the QR scan output the
+# correct path?" It didn't: this used to always print (and QR-encode) a
+# fresh, empty default even when the scan just below found this SAME
+# desktop's own real, previously-paired bare repo sitting right there
+# with genuine sync history. The vault-path field a few lines down
+# already auto-picks its own best real candidate instead of making
+# someone read a list and correct it by hand - this now does the exact
+# same thing here, since finding a real match and still not using it
+# defeats the entire point of scanning in the first place.
 echo "Desktop sync folders:"
 echo
 FOUND_MATCH=false
 UNRELATED_COUNT=0
+BEST_SYNC_FOLDER=""
+BEST_SYNC_DATE=""
+BEST_SYNC_EPOCH=""
 while IFS= read -r -d '' d; do
   msg=$(git --git-dir="$d" log -1 --format='%s' 2>/dev/null)
   when=$(git --git-dir="$d" log -1 --format='%ad' --date=short 2>/dev/null)
+  # 2026-09-04: real bug, caught comparing this against a second real
+  # candidate touched the same day - %ad --date=short only has day
+  # precision, so two candidates last used on the same calendar day
+  # (routine once more than one thing syncs daily) tied here, and the
+  # comparison below silently fell back to find's own traversal order
+  # to break the tie instead of picking the ACTUALLY most recent one.
+  # %at (a raw comparable epoch) is captured separately so the real
+  # timestamp decides, while $when stays just for the human-readable
+  # message.
+  when_epoch=$(git --git-dir="$d" log -1 --format='%at' 2>/dev/null)
   if [[ -z "$msg" ]]; then
     echo "  $d"
     echo "    empty - safe to use"
@@ -353,6 +367,11 @@ while IFS= read -r -d '' d; do
     echo "  $d"
     echo "    last used $when - $msg"
     FOUND_MATCH=true
+    if [[ -z "$BEST_SYNC_EPOCH" || "${when_epoch:-0}" -gt "$BEST_SYNC_EPOCH" ]]; then
+      BEST_SYNC_EPOCH="$when_epoch"
+      BEST_SYNC_DATE="$when"
+      BEST_SYNC_FOLDER="$d"
+    fi
   else
     UNRELATED_COUNT=$((UNRELATED_COUNT + 1))
   fi
@@ -369,13 +388,17 @@ elif [[ "$UNRELATED_COUNT" -gt 1 ]]; then
 fi
 
 echo
-if [[ "$FOUND_MATCH" == true ]]; then
-  echo "If one of the folders above is yours, type its path into"
-  echo "LocalSync's Settings -> 2. DESKTOP SYNC FOLDER field on your"
-  echo "phone. Not sure? This path is a safe, empty default:"
+if [[ -n "$BEST_SYNC_FOLDER" ]]; then
+  BARE_REPO_PATH="$BEST_SYNC_FOLDER"
+  echo "Found your existing setup above (last used $BEST_SYNC_DATE) -"
+  echo "using it below and in the QR code automatically:"
+elif [[ "$FOUND_MATCH" == true ]]; then
+  echo "None of the folders above have real sync history yet. Not sure"
+  echo "which to use? This path is a safe, empty default:"
 else
   echo "No previous LocalSync folders found here - normal for a first"
-  echo "time setup. Use this path in LocalSync's Settings on your phone:"
+  echo "time setup. Enter this path into LocalSync's Settings on your"
+  echo "phone:"
 fi
 echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 
