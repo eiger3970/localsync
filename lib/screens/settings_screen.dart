@@ -902,7 +902,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('Download this on your desktop',
+                    // 2026-09-04: real feedback, live - "What does
+                    // 'this' mean?" Fair - nothing before it names a
+                    // noun for "this" to refer back to. Names the
+                    // actual thing (the setup file) instead.
+                    Text('Get the setup file on your desktop',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: kVoid,
