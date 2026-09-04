@@ -533,16 +533,34 @@ class _SettingsScreenState extends State<SettingsScreen>
               // no shared clipboard between the two devices. Says
               // outright where this copy actually lands and what it's
               // actually for.
+              // 2026-09-04: real feedback, live - "the tick and Copied
+              // text is too small" (same fix on the website's own copy
+              // buttons). The confirmation word itself is what needs to
+              // register at a glance - bolded and given a real
+              // checkmark, not just folded into the same-size
+              // explanatory sentence after it.
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: kSurface,
-                  content: Text(
-                      'Copied to phone clipboard - paste it '
-                      'somewhere you can reach from your '
-                      'desktop (a notes app, a message to '
-                      "yourself, an SSH client) - it won't "
-                      'paste directly into a desktop terminal',
-                      style: TextStyle(color: kStar, fontSize: 14)),
+                  content: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                            text: '✓ Copied  ',
+                            style: TextStyle(
+                                color: kGreen,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800)),
+                        TextSpan(
+                            text:
+                                'Paste it somewhere you can reach from your '
+                                'desktop (a notes app, a message to '
+                                "yourself, an SSH client) - it won't "
+                                'paste directly into a desktop terminal',
+                            style: TextStyle(color: kStar, fontSize: 14)),
+                      ],
+                    ),
+                  ),
                   duration: const Duration(seconds: 4),
                 ),
               );
