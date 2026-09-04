@@ -30,19 +30,26 @@
 // having to run the IP address, as the app satellite is very handy" -
 // fair, the satellite icon already solves IP discovery elegantly, so
 // this screen's own copy shouldn't sell that part of the setup file's
-// job. "I tap kworld.space/localsync and nothing happens" - the URL
-// looked tappable (boxed, colored) but wasn't wired to anything; now
-// copies to the clipboard with the same confirmation pattern every
-// other copyable value in this app already uses. "text below is too
-// dark and small" - kTextDim/12.5 bumped to kTextMid/13.5. "I'm
-// confused with 2 similar choices" - "I've done this" and "Skip" led
-// to the exact same place doing the exact same thing (see the old
-// _continue duplicated across both buttons below) - two labels for one
-// behavior is confusion, not choice. Collapsed to one "Continue"
-// button.
+// job. "text below is too dark and small" - kTextDim/12.5 bumped to
+// kTextMid/13.5. "I'm confused with 2 similar choices" - "I've done
+// this" and "Skip" led to the exact same place doing the exact same
+// thing (see the old _continue duplicated across both buttons below) -
+// two labels for one behavior is confusion, not choice. Collapsed to
+// one "Continue" button.
+//
+// 2026-09-04: real feedback, live - "why is [tap to copy] here, this
+// seems to just add confusion and an unnecessary step?" Fair - a
+// 2026-09-03 fix made this URL tappable (copy-to-clipboard) because it
+// used to look tappable but do nothing, and that read as broken. But
+// this is a short, memorable URL, not a long path like the git bare
+// repo one - copy/paste solves a real problem for THAT, not for eleven
+// characters someone can just read and type. Removed the tap/copy
+// mechanic entirely instead of building it out further: this is now
+// plain, non-interactive text with no border implying a button, so
+// there's nothing to feel broken or add a step over reading and typing
+// it directly.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../services/database_service.dart';
 import 'linking_screen.dart';
@@ -51,19 +58,6 @@ class DesktopSetupPromptScreen extends StatelessWidget {
   const DesktopSetupPromptScreen({super.key});
 
   static const _url = 'kworld.space/localsync';
-
-  void _copyUrl(BuildContext context) {
-    Clipboard.setData(const ClipboardData(text: _url));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: kSurface,
-        content: Text(
-            'Copied - paste it into your desktop\'s browser address bar',
-            style: TextStyle(color: kStar, fontSize: 14)),
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
 
   Future<void> _continue(BuildContext context) async {
     await DatabaseService().setSeenDesktopSetupPrompt();
@@ -97,44 +91,23 @@ class DesktopSetupPromptScreen extends StatelessWidget {
                   style:
                       TextStyle(color: kTextMid, fontSize: 15, height: 1.5)),
               const SizedBox(height: 20),
-              Material(
-                color: kSurface,
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  onTap: () => _copyUrl(context),
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 16, horizontal: 16),
-                    decoration: BoxDecoration(
-                        border:
-                            Border.all(color: kGreen.withValues(alpha: 0.4)),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(_url,
-                                style: TextStyle(
-                                    color: kGreen,
-                                    fontFamily: 'monospace',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 8),
-                            Icon(Icons.copy, color: kTextMid, size: 16),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                            'Tap to copy, then open it on your desktop',
-                            textAlign: TextAlign.center,
-                            style:
-                                TextStyle(color: kTextMid, fontSize: 13.5)),
-                      ],
-                    ),
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(_url,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: kGreen,
+                            fontFamily: 'monospace',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Text('Open that on your desktop.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: kTextMid, fontSize: 13.5)),
+                  ],
                 ),
               ),
               const Spacer(),

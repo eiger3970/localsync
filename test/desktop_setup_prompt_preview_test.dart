@@ -1,9 +1,15 @@
 // Local visual verification only. Renders the real DesktopSetupPromptScreen
-// and confirms: tapping the URL copies it to the clipboard, and Continue
-// navigates to LinkingScreen and marks the "seen" flag so a returning user
-// skips straight past it next time (see sync_files_preview_screen.dart /
-// sync_obsidian_preview_screen.dart's _proceed()). Run with:
+// and confirms Continue navigates to LinkingScreen and marks the "seen" flag
+// so a returning user skips straight past it next time (see
+// sync_files_preview_screen.dart / sync_obsidian_preview_screen.dart's
+// _proceed()). Run with:
 //   flutter test test/desktop_setup_prompt_preview_test.dart --update-goldens
+//
+// 2026-09-04: real feedback, live - "why is [tap to copy] here, this seems
+// to just add confusion and an unnecessary step?" The URL is no longer
+// tappable/copyable (see desktop_setup_prompt_screen.dart's own note) - the
+// old "tapping the URL copies it to the clipboard" test and its Clipboard
+// mock are gone with it.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,27 +42,12 @@ Widget _wrapped(Widget child) {
 }
 
 void main() {
-  String? copiedText;
-
   setUp(() {
-    copiedText = null;
     SharedPreferences.setMockInitialValues({});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
             const MethodChannel('plugins.flutter.io/path_provider'),
             (MethodCall call) async => '/tmp');
-    // 2026-09-03: real feedback, live - "I tap kworld.space/localsync and
-    // nothing happens?" Fixed by wiring the URL box to Clipboard.setData -
-    // this intercepts that platform call so the test can actually assert
-    // the copy happened, not just that tapping didn't crash.
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform,
-            (MethodCall call) async {
-      if (call.method == 'Clipboard.setData') {
-        copiedText = (call.arguments as Map)['text'] as String;
-      }
-      return null;
-    });
   });
 
   testWidgets('renders the real screen and captures it', (tester) async {
@@ -76,17 +67,6 @@ void main() {
       find.byType(DesktopSetupPromptScreen),
       matchesGoldenFile('goldens/desktop_setup_prompt.png'),
     );
-  });
-
-  testWidgets('tapping the URL copies it to the clipboard', (tester) async {
-    await tester.pumpWidget(_wrapped(const DesktopSetupPromptScreen()));
-    await tester.pump();
-
-    await tester.tap(find.text('kworld.space/localsync'));
-    await tester.pump();
-
-    expect(copiedText, 'kworld.space/localsync');
-    expect(find.textContaining('Copied'), findsOneWidget);
   });
 
   testWidgets('Continue navigates to LinkingScreen and marks seen',
