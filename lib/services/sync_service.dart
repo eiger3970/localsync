@@ -341,7 +341,10 @@ class SyncService {
     // comment - only meaningful for pull's "nothing changed" case, where
     // the real question is whether the visible folder actually matches.
     if (result is SyncNoChanges && phase == SyncPhase.pulling) {
-      result = SyncNoChanges(debugDetail: await _scanVaultForDebug(resolvedPath));
+      final gitInfo = result.debugDetail;
+      final diskInfo = await _scanVaultForDebug(resolvedPath);
+      result = SyncNoChanges(
+          debugDetail: gitInfo == null ? diskInfo : '$gitInfo | $diskInfo');
     }
     yield SyncEvent.done(result);
   }
@@ -424,7 +427,26 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
-    if (localOid == remoteOid) return const SyncNoChanges();
+    if (localOid == remoteOid) {
+      // 2026-09-05: temporary diagnostic, same real device bug as
+      // SyncNoChanges.debugDetail's own comment - this specific branch
+      // is the one that fires right after a genuine remote.fetch()
+      // found the local and remote OIDs already equal. The open
+      // question is whether that's really true (local HEAD genuinely
+      // is the real, current, up-to-date commit) or whether local HEAD
+      // is stuck on something stale that merely resolved equal by
+      // accident of this repo's own history. Surfacing the actual
+      // commit message + time HEAD points at answers that directly.
+      String headInfo;
+      try {
+        final c = git.Commit.lookup(repo: repo, oid: localOid);
+        headInfo = 'head="${c.message.trim()}"@${c.time}';
+      } catch (e) {
+        headInfo = 'head lookup failed: $e';
+      }
+      return SyncNoChanges(
+          debugDetail: 'oid=${localOid.toString().substring(0, 10)} $headInfo');
+    }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
     if (localOid == baseOid) {
