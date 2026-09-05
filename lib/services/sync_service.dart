@@ -492,9 +492,22 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // changing on every open) and racing local HEAD ahead of a remote
       // that may have real independent content this device never merges
       // in. Local commit's own message reveals which.
+      String changedPaths;
+      try {
+        final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
+        final parentOid = localCommit.parents.first;
+        final counts = _diffFileCounts(repo, parentOid, localOid);
+        changedPaths = 'changed=${[
+          ...counts.added,
+          ...counts.removed,
+          ...counts.modified
+        ].join(",")}';
+      } catch (e) {
+        changedPaths = 'diff failed: $e';
+      }
       return SyncNoChanges(
           debugDetail: 'local ahead oid=${localOid.toString().substring(0, 10)} '
-              '${_commitDebugInfo(repo, localOid)}');
+              '${_commitDebugInfo(repo, localOid)} $changedPaths');
     }
 
     // Diverged - three-way merge, conflicts repaired in place (both
