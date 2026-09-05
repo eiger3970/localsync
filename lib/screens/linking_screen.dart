@@ -62,13 +62,26 @@ String desktopUserAtIp(String user, String ip) {
   return '$user@$ip';
 }
 
+// 2026-09-05: real device bug, root-caused live - a fully successful
+// FIRST-TIME pairing silently dropped back to the Welcome screen with
+// zero error, indistinguishable from setup never having run. Root
+// cause: WelcomeHeroScreen._choose() reaches this whole linking flow
+// via Navigator.push (not pushReplacement), so WelcomeHeroScreen stays
+// on the stack underneath every screen in this flow. canPop(context)
+// was therefore true, and pop() correctly popped back to... the
+// Welcome screen still sitting there - not to HomeScreen at all. The
+// save itself (see _CompleteView._saveRepository) always succeeded;
+// this was a pure navigation-target bug, not a data or timing bug.
+// Always clearing the whole stack down to a fresh HomeScreen is
+// correct regardless of which screen this flow was originally reached
+// from (a first-time Welcome pairing, or "Add another vault" from an
+// existing HomeScreen) - either way, HomeScreen is exactly where a
+// user who just finished linking should land.
 void _leaveSetup(BuildContext context) {
-  if (Navigator.canPop(context)) {
-    Navigator.pop(context);
-  } else {
-    Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => const HomeScreen()));
-  }
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => const HomeScreen()),
+    (route) => false,
+  );
 }
 
 // 2026-09-01: real feedback - "SSH enabling needs basic simple steps
