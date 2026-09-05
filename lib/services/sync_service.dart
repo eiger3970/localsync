@@ -398,7 +398,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final remoteRefs = remote.ls(callbacks: callbacks);
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
-    if (!hasRemoteBranch) return const SyncNoChanges();
+    // 2026-09-05: temporary diagnostic - real device retest of the
+    // divergence fix still silently said "Nothing to sync," need to
+    // know which branch is actually firing before guessing further.
+    if (!hasRemoteBranch) return SyncOk('DIAG: no remote branch');
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
       repo: repo,
@@ -407,7 +410,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
-    if (localOid == remoteOid) return const SyncNoChanges();
+    if (localOid == remoteOid) {
+      return SyncOk('DIAG: localOid==remoteOid, both '
+          '${localOid.toString().substring(0, 10)}');
+    }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
     if (localOid == baseOid) {
@@ -465,19 +471,29 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // and both real versions to combine by hand instead of one
       // silently winning over the other.
       final divergedPaths = <String>[];
+      // 2026-09-05: temporary diagnostic, real device retest of the
+      // 7b5c6a8/b587154 fix still silently said "Nothing to sync" -
+      // this is now visible in every case, not just failures, to prove
+      // whether this block even runs and what the lookups actually
+      // return, instead of guessing at a third theory blind.
+      var diag = 'baseOid-branch-entered';
       try {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
         final parentOid = localCommit.parents.first;
         final locallyChanged = _diffFileCounts(repo, parentOid, localOid);
         final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
         final parentTree = git.Commit.lookup(repo: repo, oid: parentOid).tree;
-        for (final path in {
+        final changedPaths = {
           ...locallyChanged.added,
           ...locallyChanged.removed,
           ...locallyChanged.modified
-        }) {
+        };
+        diag = 'changed=${changedPaths.join("|")}';
+        for (final path in changedPaths) {
           final remoteEntryOid = _lookupPathOid(repo, remoteTree, path);
           final parentEntryOid = _lookupPathOid(repo, parentTree, path);
+          diag += ' [$path remote=${remoteEntryOid?.toString().substring(0, 8) ?? "null"} '
+              'parent=${parentEntryOid?.toString().substring(0, 8) ?? "null"}]';
           // Remote independently has this path with content that isn't
           // what local's own history started from - a real, missed
           // conflict, not a false alarm.
@@ -485,11 +501,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
             divergedPaths.add(path);
           }
         }
-      } catch (_) {
-        // Can't prove it's safe either way - nothing to report, but
-        // don't crash the whole pull over a diagnostic-only check.
+      } catch (e) {
+        diag = 'exception: $e';
       }
-      if (divergedPaths.isEmpty) return const SyncNoChanges();
+      if (divergedPaths.isEmpty) return SyncOk('DIAG (nothing to sync): $diag');
 
       final backupDir =
           Directory('${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
