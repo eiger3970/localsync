@@ -490,7 +490,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           ...locallyChanged.removed,
           ...locallyChanged.modified
         };
-        diag = 'changed=${changedPaths.join("|")}';
+        diag += ' changed=${changedPaths.join("|")}';
         for (final path in changedPaths) {
           final remoteEntryOid = _lookupPathOid(repo, remoteTree, path);
           final parentEntryOid = _lookupPathOid(repo, parentTree, path);
