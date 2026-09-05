@@ -402,6 +402,17 @@ class SyncService {
 // 2026-08-08) instead of doing the same safe three-way merge ordinary
 // day-to-day pulls already do here.
 
+// 2026-09-05: temporary, see SyncNoChanges.debugDetail's own comment.
+// Shared by every "nothing to sync" diagnostic branch in _pullInIsolate.
+String _commitDebugInfo(git.Repository repo, git.Oid oid) {
+  try {
+    final c = git.Commit.lookup(repo: repo, oid: oid);
+    return 'msg="${c.message.trim()}"@${c.time}';
+  } catch (e) {
+    return 'commit lookup failed: $e';
+  }
+}
+
 Future<SyncResult> _pullInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
     commitDirtyTree(repo, p.commitMessage, p.deviceName);
@@ -418,7 +429,17 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final remoteRefs = remote.ls(callbacks: callbacks);
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
-    if (!hasRemoteBranch) return const SyncNoChanges();
+    if (!hasRemoteBranch) {
+      // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's
+      // own comment - the remote genuinely has no matching branch at all,
+      // per this repo's own fetch. If the real bare repo demonstrably has
+      // one (checked independently, server-side), this branch firing
+      // anyway would point at a wrong remote URL baked into this repo's
+      // own .git/config, not a Settings display issue.
+      return SyncNoChanges(
+          debugDetail: 'no remote branch refs/heads/${p.branch} - remote had: '
+              '${remoteRefs.map((r) => r.name).join(", ")}');
+    }
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
       repo: repo,
@@ -437,15 +458,9 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // is stuck on something stale that merely resolved equal by
       // accident of this repo's own history. Surfacing the actual
       // commit message + time HEAD points at answers that directly.
-      String headInfo;
-      try {
-        final c = git.Commit.lookup(repo: repo, oid: localOid);
-        headInfo = 'head="${c.message.trim()}"@${c.time}';
-      } catch (e) {
-        headInfo = 'head lookup failed: $e';
-      }
       return SyncNoChanges(
-          debugDetail: 'oid=${localOid.toString().substring(0, 10)} $headInfo');
+          debugDetail: 'equal oid=${localOid.toString().substring(0, 10)} '
+              '${_commitDebugInfo(repo, localOid)}');
     }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
@@ -467,8 +482,19 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       return const SyncOk('Downloaded latest notes.');
     }
     if (remoteOid == baseOid) {
-      // Remote has nothing new - local being ahead is push's job.
-      return const SyncNoChanges();
+      // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's
+      // own comment - this means local has commit(s) the remote doesn't,
+      // so local is skipped ahead as "nothing to pull." Real open
+      // question: is that genuinely the user's own local edits, or is
+      // commitDirtyTree (which runs unconditionally at the top of this
+      // function, every single pull) quietly auto-committing incidental
+      // local noise (e.g. Obsidian's own .obsidian/workspace.json
+      // changing on every open) and racing local HEAD ahead of a remote
+      // that may have real independent content this device never merges
+      // in. Local commit's own message reveals which.
+      return SyncNoChanges(
+          debugDetail: 'local ahead oid=${localOid.toString().substring(0, 10)} '
+              '${_commitDebugInfo(repo, localOid)}');
     }
 
     // Diverged - three-way merge, conflicts repaired in place (both
