@@ -402,12 +402,29 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     // divergence fix still silently said "Nothing to sync," need to
     // know which branch is actually firing before guessing further.
     if (!hasRemoteBranch) return SyncOk('DIAG: no remote branch');
+    final liveServerOid =
+        remoteRefs.firstWhere((r) => r.name == 'refs/heads/${p.branch}').oid;
+    final refspecsBefore = remote.fetchRefspecs;
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
       repo: repo,
       name: 'origin/${p.branch}',
       type: git.GitBranch.remote,
     );
+    // 2026-09-05: temporary diagnostic - real device confirmed the
+    // tracking-ref resolution (Branch.lookup 'origin/main') is stuck 39
+    // commits behind the true current tip, across multiple fetches.
+    // remote.ls() above is a live, always-accurate server listing
+    // (confirmed separately) - comparing its oid against what
+    // Branch.lookup resolves to, plus the configured fetch refspecs,
+    // settles whether fetch() is retrieving the right data but failing
+    // to update the tracking ref (a refspec config issue, possibly
+    // fixable), or something deeper.
+    if (liveServerOid != remoteBranch.target) {
+      return SyncOk('DIAG: live server oid=$liveServerOid differs from '
+          'tracking ref oid=${remoteBranch.target} after fetch - '
+          'refspecs=$refspecsBefore');
+    }
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
     if (localOid == remoteOid) {
