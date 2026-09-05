@@ -66,20 +66,7 @@ class SyncOk extends SyncResult {
 }
 
 class SyncNoChanges extends SyncResult {
-  // 2026-09-05: temporary diagnostic field, real device bug being chased -
-  // "Nothing to sync" only proves git's own OID comparison matched, it
-  // never proved the visible vault folder on disk actually holds what
-  // that comparison implies (see the 2026-08-18 "fresh vault checkout
-  // ends up empty despite git reporting synced" bug, never root-caused).
-  // _run() below fills this in with a live directory scan of the
-  // resolved vault path taken right after the pull, so it's visible on
-  // the actual SnackBar on a real sideloaded build instead of guessed at
-  // again. Remove once the real cause is found and fixed, matching the
-  // precedent already in this file (see _pushInIsolate's own comment
-  // about a prior temporary diagnostic dump removed once its bug was
-  // fixed).
-  final String? debugDetail;
-  const SyncNoChanges({this.debugDetail});
+  const SyncNoChanges();
 }
 
 // 2026-08-19: real user finding, walked through the actual flow live -
@@ -167,8 +154,7 @@ class SyncEvent {
 /// own copy of this).
 String syncResultMessage(SyncResult result) => switch (result) {
       SyncOk(:final message) => message,
-      SyncNoChanges(:final debugDetail) =>
-        debugDetail == null ? 'Nothing to sync.' : 'Nothing to sync. [$debugDetail]',
+      SyncNoChanges() => 'Nothing to sync.',
       SyncOkWithConflicts(:final conflictCount) => conflictCount == 1
           ? 'Merged in changes - 1 file needs your review.'
           : 'Merged in changes - $conflictCount files need your review.',
@@ -337,42 +323,7 @@ class SyncService {
     } finally {
       await _vaultFolder.stopAccessing(vaultBookmark);
     }
-    // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's own
-    // comment - only meaningful for pull's "nothing changed" case, where
-    // the real question is whether the visible folder actually matches.
-    if (result is SyncNoChanges && phase == SyncPhase.pulling) {
-      final gitInfo = result.debugDetail;
-      final diskInfo = await _scanVaultForDebug(resolvedPath);
-      result = SyncNoChanges(
-          debugDetail: gitInfo == null ? diskInfo : '$gitInfo | $diskInfo');
-    }
     yield SyncEvent.done(result);
-  }
-
-  // 2026-09-05: temporary, see SyncNoChanges.debugDetail's own comment.
-  // Plain filesystem read of the resolved vault path right after a pull -
-  // total file count and the single most-recently-modified file's name +
-  // timestamp, so a real device screenshot can show whether anything was
-  // actually written to disk, not just what git's own internal state
-  // claims.
-  Future<String> _scanVaultForDebug(String path) async {
-    try {
-      var count = 0;
-      String? newestName;
-      DateTime? newestTime;
-      await for (final entity in Directory(path).list(recursive: true)) {
-        if (entity is! File) continue;
-        count++;
-        final modified = await entity.stat().then((s) => s.modified);
-        if (newestTime == null || modified.isAfter(newestTime)) {
-          newestTime = modified;
-          newestName = entity.path.substring(path.length);
-        }
-      }
-      return 'path=$path files=$count newest=$newestName@$newestTime';
-    } catch (e) {
-      return 'path=$path scan failed: $e';
-    }
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
@@ -402,17 +353,6 @@ class SyncService {
 // 2026-08-08) instead of doing the same safe three-way merge ordinary
 // day-to-day pulls already do here.
 
-// 2026-09-05: temporary, see SyncNoChanges.debugDetail's own comment.
-// Shared by every "nothing to sync" diagnostic branch in _pullInIsolate.
-String _commitDebugInfo(git.Repository repo, git.Oid oid) {
-  try {
-    final c = git.Commit.lookup(repo: repo, oid: oid);
-    return 'msg="${c.message.trim()}"@${c.time}';
-  } catch (e) {
-    return 'commit lookup failed: $e';
-  }
-}
-
 Future<SyncResult> _pullInIsolate(_SyncParams p) async {
   return _withRepo(p, (repo, remote, callbacks) {
     commitDirtyTree(repo, p.commitMessage, p.deviceName);
@@ -429,17 +369,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final remoteRefs = remote.ls(callbacks: callbacks);
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
-    if (!hasRemoteBranch) {
-      // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's
-      // own comment - the remote genuinely has no matching branch at all,
-      // per this repo's own fetch. If the real bare repo demonstrably has
-      // one (checked independently, server-side), this branch firing
-      // anyway would point at a wrong remote URL baked into this repo's
-      // own .git/config, not a Settings display issue.
-      return SyncNoChanges(
-          debugDetail: 'no remote branch refs/heads/${p.branch} - remote had: '
-              '${remoteRefs.map((r) => r.name).join(", ")}');
-    }
+    if (!hasRemoteBranch) return const SyncNoChanges();
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
       repo: repo,
@@ -448,20 +378,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     );
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
-    if (localOid == remoteOid) {
-      // 2026-09-05: temporary diagnostic, same real device bug as
-      // SyncNoChanges.debugDetail's own comment - this specific branch
-      // is the one that fires right after a genuine remote.fetch()
-      // found the local and remote OIDs already equal. The open
-      // question is whether that's really true (local HEAD genuinely
-      // is the real, current, up-to-date commit) or whether local HEAD
-      // is stuck on something stale that merely resolved equal by
-      // accident of this repo's own history. Surfacing the actual
-      // commit message + time HEAD points at answers that directly.
-      return SyncNoChanges(
-          debugDetail: 'equal oid=${localOid.toString().substring(0, 10)} '
-              '${_commitDebugInfo(repo, localOid)}');
-    }
+    if (localOid == remoteOid) return const SyncNoChanges();
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
     if (localOid == baseOid) {
@@ -482,63 +399,106 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       return const SyncOk('Downloaded latest notes.');
     }
     if (remoteOid == baseOid) {
-      // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's
-      // own comment - this means local has commit(s) the remote doesn't,
-      // so local is skipped ahead as "nothing to pull." Real open
-      // question: is that genuinely the user's own local edits, or is
-      // commitDirtyTree (which runs unconditionally at the top of this
-      // function, every single pull) quietly auto-committing incidental
-      // local noise (e.g. Obsidian's own .obsidian/workspace.json
-      // changing on every open) and racing local HEAD ahead of a remote
-      // that may have real independent content this device never merges
-      // in. Local commit's own message reveals which.
-      String changedPaths;
-      String contentDiff = '';
+      // 2026-09-05: REAL BUG, confirmed live with a real user's own
+      // diary content - "local ahead of remote" (per git's commit-graph
+      // ancestry) was being trusted as proof there's nothing left to
+      // reconcile. That assumption is wrong: commitDirtyTree runs
+      // BEFORE this fetch/comparison, so the local "ahead" commit can
+      // legitimately be a real ancestor of remote graph-wise while its
+      // own file content has already silently diverged from whatever
+      // the remote independently holds for the same path right now -
+      // confirmed live: the phone's own real diary entry for today
+      // silently raced ahead of the desktop's own real, different entry
+      // for the same file, and a real push from this state would have
+      // silently overwritten the desktop's content with zero warning,
+      // zero conflict, zero backup.
+      //
+      // Real constraint on this fix: git2dart's own Merge.commit() is
+      // ancestor-aware, same as the check above - it would treat this
+      // exact case as "already up to date" and do nothing, since remote
+      // genuinely is an ancestor of local. A real three-way merge here
+      // needs Merge.trees()/manual index+checkout+MERGE_HEAD plumbing
+      // that can't be verified against real git2dart behavior on this
+      // Pi (git2dart's bundled binaries are x86_64-only, this hardware
+      // is arm64 - the same reason flutter test can't run any
+      // git2dart-touching test locally, documented elsewhere in this
+      // app's history). Shipping an unverified hand-rolled merge
+      // sequence against a real user's only copy of irreplaceable
+      // content is a worse risk than not auto-merging at all.
+      //
+      // Safe fix instead: detect the missed divergence (pure read-only
+      // tree/blob comparison, no working-tree or repo mutation - low
+      // risk), and if found, back up the remote's independent content
+      // using this app's own already-proven backup mechanism (same
+      // pattern as _resolveBinaryConflict below) rather than silently
+      // declaring nothing to sync. Local's own content is never touched
+      // - nothing is lost either way, the user gets an honest signal
+      // and both real versions to combine by hand instead of one
+      // silently winning over the other.
+      final divergedPaths = <String>[];
       try {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
         final parentOid = localCommit.parents.first;
-        final counts = _diffFileCounts(repo, parentOid, localOid);
-        final changed = [
-          ...counts.added,
-          ...counts.removed,
-          ...counts.modified
-        ];
-        changedPaths = 'changed=${changed.join(",")}';
-        // 2026-09-05: temporary, see SyncNoChanges.debugDetail's own
-        // comment - real device confirmed the changed path is the
-        // user's own real journal note, not incidental app housekeeping.
-        // Real open question now: is the LOCAL (just auto-committed)
-        // version actually the user's real edit, or did something
-        // (Obsidian's own in-memory cache re-saving stale content over
-        // a fresh git checkout - a documented mechanism already seen
-        // once before in this app, see the 2026-08-19 "picker
-        // resolution silently reverted" bug) overwrite a freshly
-        // cloned file with something else entirely. Short content
-        // excerpts of both sides, right in the message, settle it by
-        // eye instead of guessing.
-        if (changed.isNotEmpty) {
-          final path = changed.first;
-          final parentCommit = git.Commit.lookup(repo: repo, oid: parentOid);
-          String excerpt(git.Tree tree) {
-            try {
-              final entry = tree[path];
-              final blob = git.Blob.lookup(repo: repo, oid: entry.oid);
-              final c = blob.content;
-              return c.length > 80 ? '${c.substring(0, 80)}...' : c;
-            } catch (e) {
-              return '(missing: $e)';
-            }
+        final locallyChanged = _diffFileCounts(repo, parentOid, localOid);
+        final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
+        final parentTree = git.Commit.lookup(repo: repo, oid: parentOid).tree;
+        for (final path in {
+          ...locallyChanged.added,
+          ...locallyChanged.removed,
+          ...locallyChanged.modified
+        }) {
+          git.Oid? remoteEntryOid;
+          try {
+            remoteEntryOid = remoteTree[path].oid;
+          } catch (_) {
+            remoteEntryOid = null; // remote doesn't have this path either
           }
-
-          contentDiff = ' parent="${excerpt(parentCommit.tree)}" '
-              'local="${excerpt(localCommit.tree)}"';
+          git.Oid? parentEntryOid;
+          try {
+            parentEntryOid = parentTree[path].oid;
+          } catch (_) {
+            parentEntryOid = null;
+          }
+          // Remote independently has this path with content that isn't
+          // what local's own history started from - a real, missed
+          // conflict, not a false alarm.
+          if (remoteEntryOid != null && remoteEntryOid != parentEntryOid) {
+            divergedPaths.add(path);
+          }
         }
-      } catch (e) {
-        changedPaths = 'diff failed: $e';
+      } catch (_) {
+        // Can't prove it's safe either way - nothing to report, but
+        // don't crash the whole pull over a diagnostic-only check.
       }
-      return SyncNoChanges(
-          debugDetail: 'local ahead oid=${localOid.toString().substring(0, 10)} '
-              '${_commitDebugInfo(repo, localOid)} $changedPaths$contentDiff');
+      if (divergedPaths.isEmpty) return const SyncNoChanges();
+
+      final backupDir =
+          Directory('${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
+      backupDir.createSync(recursive: true);
+      final ts = backupTimestamp();
+      final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
+      final savedNames = <String>[];
+      for (final path in divergedPaths) {
+        try {
+          final entry = remoteTree[path];
+          final blob = git.Blob.lookup(repo: repo, oid: entry.oid);
+          final rawName = path.split('/').last;
+          final dot = rawName.lastIndexOf('.');
+          final stem = dot > 0 ? rawName.substring(0, dot) : rawName;
+          final ext = dot > 0 ? rawName.substring(dot) : '';
+          final backupName = '$stem - desktop version - $ts$ext';
+          File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
+          savedNames.add(backupName);
+        } catch (_) {
+          // Leave this one path unreported rather than guess at content.
+        }
+      }
+      return SyncOk(
+          'Pull stopped: ${divergedPaths.join(", ")} has different real '
+          'content on the desktop that couldn\'t be safely combined '
+          'automatically. Saved the desktop\'s version to LocalSync/'
+          'Conflict Backups (${savedNames.join(", ")}) - please combine '
+          'both by hand before syncing further.');
     }
 
     // Diverged - three-way merge, conflicts repaired in place (both
