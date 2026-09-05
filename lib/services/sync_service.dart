@@ -343,6 +343,35 @@ class SyncService {
 // with no captured state, since it runs in a fresh isolate that starts
 // from scratch. Everything each one needs travels in via _SyncParams.
 //
+// 2026-09-05: real bug found chasing a live repro - git2dart's Tree
+// operator[] multi-segment path lookup ("Journal/2026/09/Sep 5th,
+// 2026.md") threw "the path 'Sep 5th, 2026.md' does not exist", quietly
+// dropping the directory prefix from its own error - a binding-level
+// bug, not proof the file was actually missing. Walks one path segment
+// at a time instead, using single-name lookups only (never the '/'-
+// path form), which sidesteps whatever that binding does wrong with
+// nested paths.
+git.Oid? _lookupPathOid(git.Repository repo, git.Tree rootTree, String path) {
+  var currentTree = rootTree;
+  final segments = path.split('/');
+  for (var i = 0; i < segments.length; i++) {
+    git.TreeEntry entry;
+    try {
+      entry = currentTree[segments[i]];
+    } catch (_) {
+      return null;
+    }
+    if (i == segments.length - 1) return entry.oid;
+    final obj = entry.toObject(repo);
+    if (obj is git.Tree) {
+      currentTree = obj;
+    } else {
+      return null;
+    }
+  }
+  return null;
+}
+
 // 2026-08-26: commitDirtyTree/labelForCommit/repairAllConflictsOnDisk/
 // finishMergeCommit below were library-private until now - made public
 // (name unchanged, just dropped the leading underscore) so git_service.dart's
@@ -447,18 +476,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           ...locallyChanged.removed,
           ...locallyChanged.modified
         }) {
-          git.Oid? remoteEntryOid;
-          try {
-            remoteEntryOid = remoteTree[path].oid;
-          } catch (_) {
-            remoteEntryOid = null; // remote doesn't have this path either
-          }
-          git.Oid? parentEntryOid;
-          try {
-            parentEntryOid = parentTree[path].oid;
-          } catch (_) {
-            parentEntryOid = null;
-          }
+          final remoteEntryOid = _lookupPathOid(repo, remoteTree, path);
+          final parentEntryOid = _lookupPathOid(repo, parentTree, path);
           // Remote independently has this path with content that isn't
           // what local's own history started from - a real, missed
           // conflict, not a false alarm.
@@ -480,8 +499,9 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       final savedNames = <String>[];
       for (final path in divergedPaths) {
         try {
-          final entry = remoteTree[path];
-          final blob = git.Blob.lookup(repo: repo, oid: entry.oid);
+          final entryOid = _lookupPathOid(repo, remoteTree, path);
+          if (entryOid == null) continue;
+          final blob = git.Blob.lookup(repo: repo, oid: entryOid);
           final rawName = path.split('/').last;
           final dot = rawName.lastIndexOf('.');
           final stem = dot > 0 ? rawName.substring(0, dot) : rawName;
