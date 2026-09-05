@@ -493,21 +493,52 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // that may have real independent content this device never merges
       // in. Local commit's own message reveals which.
       String changedPaths;
+      String contentDiff = '';
       try {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
         final parentOid = localCommit.parents.first;
         final counts = _diffFileCounts(repo, parentOid, localOid);
-        changedPaths = 'changed=${[
+        final changed = [
           ...counts.added,
           ...counts.removed,
           ...counts.modified
-        ].join(",")}';
+        ];
+        changedPaths = 'changed=${changed.join(",")}';
+        // 2026-09-05: temporary, see SyncNoChanges.debugDetail's own
+        // comment - real device confirmed the changed path is the
+        // user's own real journal note, not incidental app housekeeping.
+        // Real open question now: is the LOCAL (just auto-committed)
+        // version actually the user's real edit, or did something
+        // (Obsidian's own in-memory cache re-saving stale content over
+        // a fresh git checkout - a documented mechanism already seen
+        // once before in this app, see the 2026-08-19 "picker
+        // resolution silently reverted" bug) overwrite a freshly
+        // cloned file with something else entirely. Short content
+        // excerpts of both sides, right in the message, settle it by
+        // eye instead of guessing.
+        if (changed.isNotEmpty) {
+          final path = changed.first;
+          final parentCommit = git.Commit.lookup(repo: repo, oid: parentOid);
+          String excerpt(git.Tree tree) {
+            try {
+              final entry = tree[path];
+              final blob = git.Blob.lookup(repo: repo, oid: entry.oid);
+              final c = blob.content;
+              return c.length > 80 ? '${c.substring(0, 80)}...' : c;
+            } catch (e) {
+              return '(missing: $e)';
+            }
+          }
+
+          contentDiff = ' parent="${excerpt(parentCommit.tree)}" '
+              'local="${excerpt(localCommit.tree)}"';
+        }
       } catch (e) {
         changedPaths = 'diff failed: $e';
       }
       return SyncNoChanges(
           debugDetail: 'local ahead oid=${localOid.toString().substring(0, 10)} '
-              '${_commitDebugInfo(repo, localOid)} $changedPaths');
+              '${_commitDebugInfo(repo, localOid)} $changedPaths$contentDiff');
     }
 
     // Diverged - three-way merge, conflicts repaired in place (both
