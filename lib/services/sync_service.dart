@@ -66,7 +66,20 @@ class SyncOk extends SyncResult {
 }
 
 class SyncNoChanges extends SyncResult {
-  const SyncNoChanges();
+  // 2026-09-05: temporary diagnostic field, real device bug being chased -
+  // "Nothing to sync" only proves git's own OID comparison matched, it
+  // never proved the visible vault folder on disk actually holds what
+  // that comparison implies (see the 2026-08-18 "fresh vault checkout
+  // ends up empty despite git reporting synced" bug, never root-caused).
+  // _run() below fills this in with a live directory scan of the
+  // resolved vault path taken right after the pull, so it's visible on
+  // the actual SnackBar on a real sideloaded build instead of guessed at
+  // again. Remove once the real cause is found and fixed, matching the
+  // precedent already in this file (see _pushInIsolate's own comment
+  // about a prior temporary diagnostic dump removed once its bug was
+  // fixed).
+  final String? debugDetail;
+  const SyncNoChanges({this.debugDetail});
 }
 
 // 2026-08-19: real user finding, walked through the actual flow live -
@@ -154,7 +167,8 @@ class SyncEvent {
 /// own copy of this).
 String syncResultMessage(SyncResult result) => switch (result) {
       SyncOk(:final message) => message,
-      SyncNoChanges() => 'Nothing to sync.',
+      SyncNoChanges(:final debugDetail) =>
+        debugDetail == null ? 'Nothing to sync.' : 'Nothing to sync. [$debugDetail]',
       SyncOkWithConflicts(:final conflictCount) => conflictCount == 1
           ? 'Merged in changes - 1 file needs your review.'
           : 'Merged in changes - $conflictCount files need your review.',
@@ -323,7 +337,39 @@ class SyncService {
     } finally {
       await _vaultFolder.stopAccessing(vaultBookmark);
     }
+    // 2026-09-05: temporary diagnostic, see SyncNoChanges.debugDetail's own
+    // comment - only meaningful for pull's "nothing changed" case, where
+    // the real question is whether the visible folder actually matches.
+    if (result is SyncNoChanges && phase == SyncPhase.pulling) {
+      result = SyncNoChanges(debugDetail: await _scanVaultForDebug(resolvedPath));
+    }
     yield SyncEvent.done(result);
+  }
+
+  // 2026-09-05: temporary, see SyncNoChanges.debugDetail's own comment.
+  // Plain filesystem read of the resolved vault path right after a pull -
+  // total file count and the single most-recently-modified file's name +
+  // timestamp, so a real device screenshot can show whether anything was
+  // actually written to disk, not just what git's own internal state
+  // claims.
+  Future<String> _scanVaultForDebug(String path) async {
+    try {
+      var count = 0;
+      String? newestName;
+      DateTime? newestTime;
+      await for (final entity in Directory(path).list(recursive: true)) {
+        if (entity is! File) continue;
+        count++;
+        final modified = await entity.stat().then((s) => s.modified);
+        if (newestTime == null || modified.isAfter(newestTime)) {
+          newestTime = modified;
+          newestName = entity.path.substring(path.length);
+        }
+      }
+      return 'path=$path files=$count newest=$newestName@$newestTime';
+    } catch (e) {
+      return 'path=$path scan failed: $e';
+    }
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
