@@ -476,13 +476,15 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // this is now visible in every case, not just failures, to prove
       // whether this block even runs and what the lookups actually
       // return, instead of guessing at a third theory blind.
-      var diag = 'baseOid-branch-entered';
+      var diag = 'remoteOid=$remoteOid baseOid=$baseOid';
       try {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
         final parentOid = localCommit.parents.first;
+        diag += ' parentOid=$parentOid';
         final locallyChanged = _diffFileCounts(repo, parentOid, localOid);
         final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
         final parentTree = git.Commit.lookup(repo: repo, oid: parentOid).tree;
+        diag += ' remoteTree.length=${remoteTree.length} parentTree.length=${parentTree.length}';
         final changedPaths = {
           ...locallyChanged.added,
           ...locallyChanged.removed,
