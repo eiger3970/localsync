@@ -452,7 +452,21 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
     if (localOid == remoteOid) {
-      return const SyncNoChanges();
+      // 2026-09-06: real device bug, found live - "nothing to sync"
+      // here is correct at the git level (local's tracking ref really
+      // does equal remote's), but a real incident this same day showed
+      // the working tree can already be silently wrong on disk with
+      // nothing left to trigger a fresh reset ever again, since git
+      // itself sees no reason to touch a commit it already considers
+      // current. verifyAndRepairCheckout (this branch's sibling above,
+      // wired to the fast-forward reset) can never reach this state -
+      // this is the other half, checking regardless of whether
+      // anything just changed. See that function's own doc comment,
+      // and verifyWorkingTreeMatchesHead's, for the full story.
+      final repaired = verifyWorkingTreeMatchesHead(repo, p.vaultPath);
+      if (repaired.isEmpty) return const SyncNoChanges();
+      return SyncOk('${repaired.join(", ")} didn\'t match what was '
+          'already synced - fixed automatically.');
     }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
@@ -1120,6 +1134,53 @@ List<String> verifyAndRepairCheckout(git.Repository repo, String vaultPath,
   } catch (_) {
     // Best-effort safety net - never worth surfacing an error for, and
     // never worth turning an already-completed reset into a failure.
+  }
+  return repaired;
+}
+
+/// 2026-09-06: real gap in verifyAndRepairCheckout above, found live the
+/// same day - it only ever runs right after a fresh reset, diffing the
+/// two commits involved. Once a phone's tracking ref already equals
+/// remote's tip (localOid == remoteOid, "nothing to sync" - correct at
+/// the git level), no reset ever fires again, so that check never gets
+/// another chance to run - even though the real incident's own working
+/// tree was already silently wrong *before* this whole safety net
+/// existed, and staying wrong forever afterward since git itself sees
+/// no reason to touch it again. This is the other half: compares HEAD's
+/// tree directly against the actual working directory
+/// (Diff.treeToWorkdir - the same native operation `git status` itself
+/// uses, not a naive per-file hash walk, so this stays cheap even on a
+/// large vault) and repairs any tracked file that doesn't match,
+/// regardless of whether a reset just ran. Only acts on modified/
+/// deleted deltas - never "added" ones, which are a real untracked user
+/// file sitting in the vault, not something to overwrite or delete.
+List<String> verifyWorkingTreeMatchesHead(git.Repository repo, String vaultPath) {
+  final repaired = <String>[];
+  try {
+    final headOid = repo.head.target;
+    final headTree = git.Commit.lookup(repo: repo, oid: headOid).tree;
+    final diff = git.Diff.treeToWorkdir(repo: repo, tree: headTree);
+    for (final delta in diff.deltas) {
+      if (delta.status != git.GitDelta.modified &&
+          delta.status != git.GitDelta.deleted) {
+        continue;
+      }
+      final path = delta.oldFile.path;
+      try {
+        final expectedOid = _lookupPathOid(repo, headTree, path);
+        if (expectedOid == null) continue;
+        final blob = git.Blob.lookup(repo: repo, oid: expectedOid);
+        final file = File('$vaultPath/$path');
+        file.parent.createSync(recursive: true);
+        file.writeAsBytesSync(blob.contentBytes);
+        repaired.add(path);
+      } catch (_) {
+        // Best-effort - one path failing to verify/repair shouldn't
+        // block checking/fixing the rest.
+      }
+    }
+  } catch (_) {
+    // Best-effort safety net - never worth surfacing an error for.
   }
   return repaired;
 }
