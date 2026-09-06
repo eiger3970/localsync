@@ -61,8 +61,40 @@ const Map<String, _WizardNode> _flowB = {
       no: 'push'),
   'push': _WizardNode(type: _NodeType.action, text: 'PUSH', next: 'end_done'),
   'end_done': _WizardNode(type: _NodeType.end, text: 'Done', tone: _Tone.good),
-  'end_no':
+  // 2026-09-06: real feedback, live - a real device incident showed
+  // content going missing with nothing ever flagged here at all (see
+  // sync_service.dart's backupFilesAboutToChange doc comment for the
+  // full story). "Nothing to do" was true for the common case (no
+  // conflict really did happen) but silently wrong for the one that
+  // actually bit a real user - this app has no way to detect that case
+  // itself, so the honest next move is asking the one question it
+  // can't answer on its own.
+  'end_no': _WizardNode(
+      type: _NodeType.question,
+      text: 'Do phone and desktop still match?',
+      yes: 'end_match',
+      no: 'mismatch_open'),
+  'end_match':
       _WizardNode(type: _NodeType.end, text: 'Nothing to do', tone: _Tone.good),
+  'mismatch_open': _WizardNode(
+      type: _NodeType.action,
+      text: 'Open the same note on both',
+      fine: 'Side by side, or one after another - compare what each has.',
+      next: 'mismatch_combine'),
+  'mismatch_combine': _WizardNode(
+      type: _NodeType.action,
+      text: 'Combine by hand',
+      fine: 'Keep everything from both sides - nothing gets dropped.',
+      next: 'mismatch_paste'),
+  'mismatch_paste': _WizardNode(
+      type: _NodeType.action,
+      text: 'Paste the combined version into both',
+      fine: 'Replace each copy so they read exactly the same.',
+      next: 'mismatch_push'),
+  'mismatch_push':
+      _WizardNode(type: _NodeType.action, text: 'PUSH', next: 'end_mismatch'),
+  'end_mismatch':
+      _WizardNode(type: _NodeType.end, text: 'Done', tone: _Tone.good),
 };
 
 const String _start = 'q1';
