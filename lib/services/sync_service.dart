@@ -488,6 +488,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // and both real versions to combine by hand instead of one
       // silently winning over the other.
       final divergedPaths = <String>[];
+      // 2026-09-06: paths where mergeThreeWayLines below found the two
+      // sides' changes genuinely disjoint and safely combined them with
+      // no human input - see that function's own doc comment for why
+      // this specific merge (unlike the real git one) can be trusted
+      // without a device test first.
+      final autoMergedPaths = <String>[];
       // 2026-09-05: temporary diagnostic, real device retest of the
       // 7b5c6a8/b587154 fix still silently said "Nothing to sync" -
       // this is now visible in every case, not just failures, to prove
@@ -501,6 +507,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         final locallyChanged = _diffFileCounts(repo, parentOid, localOid);
         final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
         final parentTree = git.Commit.lookup(repo: repo, oid: parentOid).tree;
+        final localTree = localCommit.tree;
         diag += ' remoteTree.length=${remoteTree.length} parentTree.length=${parentTree.length}';
         final changedPaths = {
           ...locallyChanged.added,
@@ -516,14 +523,85 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           // Remote independently has this path with content that isn't
           // what local's own history started from - a real, missed
           // conflict, not a false alarm.
-          if (remoteEntryOid != null && remoteEntryOid != parentEntryOid) {
-            divergedPaths.add(path);
+          if (remoteEntryOid == null || remoteEntryOid == parentEntryOid) {
+            continue;
           }
+          // parentEntryOid == null means this path didn't exist before
+          // local's own edit (both sides independently created a new
+          // file with the same name) - mergeThreeWayLines needs a real
+          // common-ancestor text to diff against, so this harder case
+          // still goes straight to the manual fallback, unchanged from
+          // before.
+          if (parentEntryOid != null) {
+            final localEntryOid = _lookupPathOid(repo, localTree, path);
+            if (localEntryOid != null) {
+              final baseBlob = git.Blob.lookup(repo: repo, oid: parentEntryOid);
+              final oursBlob = git.Blob.lookup(repo: repo, oid: localEntryOid);
+              final theirsBlob = git.Blob.lookup(repo: repo, oid: remoteEntryOid);
+              if (!baseBlob.isBinary && !oursBlob.isBinary && !theirsBlob.isBinary) {
+                final merged = mergeThreeWayLines(
+                    baseBlob.content, oursBlob.content, theirsBlob.content);
+                if (merged != null) {
+                  // 2026-09-06: mergeThreeWayLines's own safety is "defer
+                  // to a human on any real ambiguity," but it's still an
+                  // LCS-based heuristic, not a proof - a wrong merge
+                  // should never mean the pre-merge content is gone.
+                  // Both real versions get saved here unconditionally,
+                  // before the file is touched, same backup mechanism
+                  // (and same recoverable-by-hand-in-Obsidian promise)
+                  // the manual-combine path below already gives every
+                  // other conflict - so a bad auto-merge is a "open two
+                  // backup notes and fix it" problem, never a data-loss
+                  // one.
+                  final backupDir = Directory(
+                      '${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
+                  backupDir.createSync(recursive: true);
+                  final ts = backupTimestamp();
+                  File('${backupDir.path}/'
+                          '${_conflictBackupName(path, "before auto-merge, phone version", ts)}')
+                      .writeAsStringSync(oursBlob.content);
+                  File('${backupDir.path}/'
+                          '${_conflictBackupName(path, "before auto-merge, desktop version", ts)}')
+                      .writeAsStringSync(theirsBlob.content);
+                  File('${p.vaultPath}/$path').writeAsStringSync(merged);
+                  autoMergedPaths.add(path);
+                  continue;
+                }
+              }
+            }
+          }
+          divergedPaths.add(path);
         }
       } catch (e) {
         diag = 'exception: $e';
       }
-      if (divergedPaths.isEmpty) return SyncOk('DIAG (nothing to sync): $diag');
+      if (divergedPaths.isEmpty && autoMergedPaths.isEmpty) {
+        return SyncOk('DIAG (nothing to sync): $diag');
+      }
+
+      if (autoMergedPaths.isNotEmpty) {
+        final tree = _stageAndWriteTree(repo);
+        final signature = _signatureFor(p.deviceName);
+        final parent = git.Commit.lookup(repo: repo, oid: localOid);
+        git.Commit.create(
+          repo: repo,
+          updateRef: 'HEAD',
+          author: signature,
+          committer: signature,
+          message:
+              'Auto-merged desktop\'s independent changes to ${autoMergedPaths.join(", ")}',
+          tree: tree,
+          parents: [parent],
+        );
+      }
+
+      if (divergedPaths.isEmpty) {
+        return SyncOk(
+            'Downloaded latest notes and automatically combined non-'
+            'overlapping desktop changes to ${autoMergedPaths.join(", ")} '
+            '(both original versions saved to LocalSync/Conflict Backups '
+            'first, in case anything needs a second look).');
+      }
 
       final backupDir =
           Directory('${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
@@ -536,23 +614,23 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           final entryOid = _lookupPathOid(repo, remoteTree, path);
           if (entryOid == null) continue;
           final blob = git.Blob.lookup(repo: repo, oid: entryOid);
-          final rawName = path.split('/').last;
-          final dot = rawName.lastIndexOf('.');
-          final stem = dot > 0 ? rawName.substring(0, dot) : rawName;
-          final ext = dot > 0 ? rawName.substring(dot) : '';
-          final backupName = '$stem - desktop version - $ts$ext';
+          final backupName = _conflictBackupName(path, 'desktop version', ts);
           File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
           savedNames.add(backupName);
         } catch (_) {
           // Leave this one path unreported rather than guess at content.
         }
       }
+      final autoMergedNote = autoMergedPaths.isEmpty
+          ? ''
+          : ' (${autoMergedPaths.join(", ")} combined automatically, both '
+              'original versions backed up too, no action needed there)';
       return SyncOk(
           'Pull stopped: ${divergedPaths.join(", ")} has different real '
           'content on the desktop that couldn\'t be safely combined '
-          'automatically. Saved the desktop\'s version to LocalSync/'
-          'Conflict Backups (${savedNames.join(", ")}) - please combine '
-          'both by hand before syncing further.');
+          'automatically$autoMergedNote. Saved the desktop\'s version to '
+          'LocalSync/Conflict Backups (${savedNames.join(", ")}) - please '
+          'combine both by hand before syncing further.');
     }
 
     // Diverged - three-way merge, conflicts repaired in place (both
@@ -908,6 +986,17 @@ bool _isLargeDeletion(
           List<String> modified
         }) counts) =>
     counts.removed.length >= 3;
+
+/// Shared naming for every file this app backs up into LocalSync/
+/// Conflict Backups, whichever code path is doing the backing up - one
+/// format so a folder full of these always reads the same way.
+String _conflictBackupName(String path, String label, String ts) {
+  final rawName = path.split('/').last;
+  final dot = rawName.lastIndexOf('.');
+  final stem = dot > 0 ? rawName.substring(0, dot) : rawName;
+  final ext = dot > 0 ? rawName.substring(dot) : '';
+  return '$stem - $label - $ts$ext';
+}
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
   final index = repo.index;
