@@ -289,7 +289,17 @@ class _SettingsScreenState extends State<SettingsScreen>
     // attempt just quietly leaves the field empty (satellite icon still
     // sits right there to try manually) instead of surfacing that
     // fallback text unprompted.
-    if (_ipCtrl.text.trim().isEmpty) {
+    // 2026-09-06: real feedback, live - "the satellite somehow auto
+    // actioned itself and added an IP address, I didn't even touch
+    // anything... distracts the user from the 1st step download, then
+    // scan." True even though this was deliberate (see above) - during
+    // first-time pairing specifically, a field silently filling itself
+    // undercuts the very sequencing the grey/green step-activation
+    // above exists to make clear (scan first, fields light up after).
+    // Restricted to a normal returning Settings visit, where it's still
+    // exactly the convenience it was built for and there's no
+    // onboarding narrative to step on.
+    if (!widget.neededForPairing && _ipCtrl.text.trim().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _findDesktop(silent: true);
       });
@@ -930,6 +940,50 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
                 child: Column(
                   children: [
+                    // 2026-09-06: real feedback, live - "the 1st thing
+                    // users see is what they need to do... I prefer
+                    // images first, but they need to see the 1st action
+                    // as the 1st thing." This headline + link used to
+                    // sit BELOW the desktop/QR/phone/scan icon row - but
+                    // the actual first action is "go get the file," not
+                    // "look at this diagram," so text moved above the
+                    // images it explains instead of after them.
+                    // 2026-09-04: real feedback, live - "What does
+                    // 'this' mean?" Fair - nothing before it names a
+                    // noun for "this" to refer back to. Names the
+                    // actual thing (the setup file) instead.
+                    Text('Get the setup file on your desktop',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: kVoid,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 17)),
+                    const SizedBox(height: 4),
+                    // 2026-09-04: real feedback, live - "can
+                    // kworld.space/localsync be made a live link, as
+                    // perhaps the user wants to peruse the website
+                    // whilst on the phone, then later at home can do
+                    // desktop stuff." Fair - plain text here, on the one
+                    // device someone might genuinely be reading this
+                    // on, gave no way to actually visit it without
+                    // typing the URL by hand into a browser first.
+                    // Opens externally (the phone's own browser, not an
+                    // in-app webview) since browsing the real site is
+                    // exactly the point.
+                    GestureDetector(
+                      onTap: () => launchUrl(
+                          Uri.parse('https://kworld.space/localsync'),
+                          mode: LaunchMode.externalApplication),
+                      child: Text('kworld.space/localsync',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: kVoid,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              decoration: TextDecoration.underline)),
+                    ),
+                    const SizedBox(height: 12),
                     // 2026-09-04: real feedback, live - "no verbose
                     // text, only clear visuals" then "the key is to see
                     // the workflow so the user knows where to action the
@@ -1068,42 +1122,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 8),
-                    // 2026-09-04: real feedback, live - "What does
-                    // 'this' mean?" Fair - nothing before it names a
-                    // noun for "this" to refer back to. Names the
-                    // actual thing (the setup file) instead.
-                    Text('Get the setup file on your desktop',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: kVoid,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17)),
-                    const SizedBox(height: 4),
-                    // 2026-09-04: real feedback, live - "can
-                    // kworld.space/localsync be made a live link, as
-                    // perhaps the user wants to peruse the website
-                    // whilst on the phone, then later at home can do
-                    // desktop stuff." Fair - plain text here, on the one
-                    // device someone might genuinely be reading this
-                    // on, gave no way to actually visit it without
-                    // typing the URL by hand into a browser first.
-                    // Opens externally (the phone's own browser, not an
-                    // in-app webview) since browsing the real site is
-                    // exactly the point.
-                    GestureDetector(
-                      onTap: () => launchUrl(
-                          Uri.parse('https://kworld.space/localsync'),
-                          mode: LaunchMode.externalApplication),
-                      child: Text('kworld.space/localsync',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: kVoid,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              decoration: TextDecoration.underline)),
                     ),
                   ],
                 ),
