@@ -357,6 +357,17 @@ UNRELATED_COUNT=0
 BEST_SYNC_FOLDER=""
 BEST_SYNC_DATE=""
 BEST_SYNC_EPOCH=""
+# 2026-09-06: real incident - the old logic below this comment picked
+# whichever candidate had the most RECENT matching commit, silently,
+# with no confirmation - reasonable when exactly one real candidate
+# exists (the 2026-09-04 fix's actual case), but a real, multi-day
+# data-loss incident traced directly to TWO real candidates existing
+# at once and "most recent" alone having no way to tell which one the
+# person actually meant. Recency is not identity. Every real match is
+# now collected into an array first; only auto-picked without asking
+# when there's exactly one.
+MATCH_PATHS=()
+MATCH_LABELS=()
 while IFS= read -r -d '' d; do
   msg=$(git --git-dir="$d" log -1 --format='%s' 2>/dev/null)
   when=$(git --git-dir="$d" log -1 --format='%ad' --date=short 2>/dev/null)
@@ -370,14 +381,29 @@ while IFS= read -r -d '' d; do
   # timestamp decides, while $when stays just for the human-readable
   # message.
   when_epoch=$(git --git-dir="$d" log -1 --format='%at' 2>/dev/null)
+  # 2026-09-06: the human-readable repo name (LocalSync/repo-name.txt,
+  # see localsync_sync.sh's own matching ensure_repo_name) is real,
+  # tracked content inside the working tree - not reachable from a bare
+  # repo's git history alone (a bare repo has no working tree). Read
+  # from the file if a normal working-copy clone sits next to this bare
+  # repo at the conventional path; silently absent otherwise, same as
+  # everywhere else this file is read from.
+  name_hint=""
+  if [[ -f "${d%.git}/LocalSync/repo-name.txt" ]]; then
+    name_hint=" \"$(cat "${d%.git}/LocalSync/repo-name.txt" 2>/dev/null)\""
+  fi
   if [[ -z "$msg" ]]; then
     echo "  $d"
     echo "    empty - safe to use"
     FOUND_MATCH=true
+    MATCH_PATHS+=("$d")
+    MATCH_LABELS+=("$d - empty, safe to use")
   elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
-    echo "  $d"
+    echo "  $d$name_hint"
     echo "    last used $when - $msg"
     FOUND_MATCH=true
+    MATCH_PATHS+=("$d")
+    MATCH_LABELS+=("$d$name_hint - last used $when")
     if [[ -z "$BEST_SYNC_EPOCH" || "${when_epoch:-0}" -gt "$BEST_SYNC_EPOCH" ]]; then
       BEST_SYNC_EPOCH="$when_epoch"
       BEST_SYNC_DATE="$when"
@@ -399,19 +425,40 @@ elif [[ "$UNRELATED_COUNT" -gt 1 ]]; then
 fi
 
 echo
-if [[ -n "$BEST_SYNC_FOLDER" ]]; then
+if [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
+  echo "Found ${#MATCH_PATHS[@]} real candidates above - which one is"
+  echo "actually yours? Picking by \"most recently used\" alone caused a"
+  echo "real multi-day data-loss incident once already, so this asks"
+  echo "instead of guessing:"
+  echo
+  for i in "${!MATCH_PATHS[@]}"; do
+    echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
+  done
+  echo
+  read -rp "Enter the number of the correct one: " CHOICE
+  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
+    BARE_REPO_PATH="${MATCH_PATHS[$((CHOICE - 1))]}"
+    echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
+  else
+    echo "Not a valid choice - not guessing. Run this again and enter"
+    echo "one of the numbers above."
+    exit 1
+  fi
+elif [[ -n "$BEST_SYNC_FOLDER" ]]; then
   BARE_REPO_PATH="$BEST_SYNC_FOLDER"
   echo "Found your existing setup above (last used $BEST_SYNC_DATE) -"
   echo "using it below and in the QR code automatically:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 elif [[ "$FOUND_MATCH" == true ]]; then
   echo "None of the folders above have real sync history yet. Not sure"
   echo "which to use? This path is a safe, empty default:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 else
   echo "No previous LocalSync folders found here - normal for a first"
   echo "time setup. Enter this path into LocalSync's Settings on your"
   echo "phone:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 fi
-echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 
 # ── Desktop vault path ────────────────────────────────────────────────────
 # 2026-09-03: same scoring the app's own "Desktop vault path" dialog
