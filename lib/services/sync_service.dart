@@ -449,6 +449,18 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           );
         }
       }
+      // 2026-09-06: kept silent, deliberately not surfaced - unlike the
+      // push-retry reset below, this fast-forward branch only reaches
+      // here when localOid==baseOid, meaning local is a strict git
+      // ancestor of remote by definition. Every file this backs up is
+      // just an old revision being superseded by a legitimate, expected
+      // remote update - completely normal on every pull that brings
+      // down any real change, not a rare/risky case. Surfacing it here
+      // would mean alarming "your version was saved, just in case" on
+      // essentially every ordinary sync - the opposite of the clarity
+      // this is supposed to add. Still backed up (cheap insurance,
+      // real if the ancestor assumption ever turns out wrong for a
+      // reason not yet understood), just not narrated.
       backupFilesAboutToChange(
           repo, p.vaultPath, localOid, remoteOid, 'before pull reset');
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
@@ -678,12 +690,19 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
     if (!hasRemoteBranch) {
-      final err =
+      final result =
           _pushWithRetry(repo, remote, callbacks, p.branch, p.vaultPath);
-      if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
-      return SyncOk(committed
+      if (result.error != null) {
+        return SyncFailed(result.error!, debugDetail: result.detail);
+      }
+      final base = committed
           ? 'Pushed as "${p.commitMessage}".'
-          : 'Uploaded notes to desktop.');
+          : 'Uploaded notes to desktop.';
+      return SyncOk(result.backedUp.isEmpty
+          ? base
+          : '$base Desktop had changed ${result.backedUp.join(", ")} too - '
+              'that version was saved to LocalSync/Conflict Backups before '
+              'this push replaced it, just in case.');
     }
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -737,12 +756,19 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       }
     }
 
-    final err =
+    final result =
         _pushWithRetry(repo, remote, callbacks, p.branch, p.vaultPath);
-    if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
-    return SyncOk(committed
+    if (result.error != null) {
+      return SyncFailed(result.error!, debugDetail: result.detail);
+    }
+    final base = committed
         ? 'Pushed as "${p.commitMessage}".'
-        : 'Uploaded notes to desktop.');
+        : 'Uploaded notes to desktop.';
+    return SyncOk(result.backedUp.isEmpty
+        ? base
+        : '$base Desktop had changed ${result.backedUp.join(", ")} too - '
+            'that version was saved to LocalSync/Conflict Backups before '
+            'this push replaced it, just in case.');
   });
 }
 
@@ -1025,7 +1051,16 @@ String _conflictBackupName(String path, String label, String ts) {
 /// always real - a permanent, Obsidian-visible recovery copy sitting
 /// in Conflict Backups regardless of what actually caused the reset to
 /// be needed.
-void backupFilesAboutToChange(git.Repository repo, String vaultPath,
+///
+/// 2026-09-06: returns the backed-up file names instead of nothing -
+/// real feedback, "how would a user find their lost content, this
+/// needs automation, no eyeballing." A silent backup a user has to
+/// stumble on by manually browsing a folder fails that bar just as
+/// badly as no backup at all. Every call site below folds this into
+/// its own result message, so the moment a reset actually discards
+/// something, the sync result itself says so and names the file - nothing
+/// to go looking for.
+List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
     git.Oid fromOid, git.Oid toOid, String label) {
   final List<String> atRisk;
   final git.Tree fromTree;
@@ -1043,13 +1078,14 @@ void backupFilesAboutToChange(git.Repository repo, String vaultPath,
   } catch (_) {
     // Best-effort safety net - never block the reset itself over a
     // failure to compute what it's about to discard.
-    return;
+    return const [];
   }
-  if (atRisk.isEmpty) return;
+  if (atRisk.isEmpty) return const [];
   final backupDir =
       Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
   backupDir.createSync(recursive: true);
   final ts = backupTimestamp();
+  final savedNames = <String>[];
   for (final path in atRisk) {
     try {
       final oid = _lookupPathOid(repo, fromTree, path);
@@ -1057,11 +1093,13 @@ void backupFilesAboutToChange(git.Repository repo, String vaultPath,
       final blob = git.Blob.lookup(repo: repo, oid: oid);
       final backupName = _conflictBackupName(path, label, ts);
       File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
+      savedNames.add(backupName);
     } catch (_) {
       // Leave this one path unreported rather than let it block the
       // others or the reset itself.
     }
   }
+  return savedNames;
 }
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
@@ -1086,7 +1124,13 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 /// between our fetch and this push - re-fetch and fast-forward if
 /// possible, then retry once). A genuine divergence found here is left
 /// for the next pull() to resolve, not duplicated as merge logic here.
-({LinkingError error, String detail})? _pushWithRetry(
+///
+/// 2026-09-06: always returns a real record now instead of null-on-
+/// success - `backedUp` needs a way out even when there's no error, so
+/// callers can actually tell the user when the retry's reset discarded
+/// something, instead of that only ever being knowable by browsing
+/// LocalSync/Conflict Backups unprompted.
+({LinkingError? error, String? detail, List<String> backedUp}) _pushWithRetry(
   git.Repository repo,
   git.Remote remote,
   git.Callbacks callbacks,
@@ -1098,7 +1142,7 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       refspecs: ['refs/heads/$branch:refs/heads/$branch'],
       callbacks: callbacks,
     );
-    return null;
+    return (error: null, detail: null, backedUp: const []);
   } catch (e) {
     try {
       remote.fetch(callbacks: callbacks);
@@ -1110,7 +1154,11 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       final analysis =
           git.Merge.analysis(repo: repo, theirHead: remoteBranch.target);
       if (!analysis.result.contains(git.GitMergeAnalysis.fastForward)) {
-        return (error: LinkingError.cannotFastForward, detail: e.toString());
+        return (
+          error: LinkingError.cannotFastForward,
+          detail: e.toString(),
+          backedUp: const []
+        );
       }
       // 2026-09-06: this specific reset is the least airtight of the
       // three in this file - it fires because a push was REJECTED,
@@ -1118,17 +1166,19 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       // ago, not because local was known to have nothing unique from
       // the start (contrast the plain pull fast-forward above, which
       // never had anything to push in the first place). Real backup,
-      // not just a defensive comment, given that gap.
-      backupFilesAboutToChange(repo, vaultPath, repo.head.target,
-          remoteBranch.target, 'before push-retry reset');
+      // not just a defensive comment, given that gap - and, unlike the
+      // fast-forward pull case, worth actually telling the user about
+      // (see this function's own doc comment).
+      final backedUp = backupFilesAboutToChange(repo, vaultPath,
+          repo.head.target, remoteBranch.target, 'before push-retry reset');
       repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
       remote.push(
         refspecs: ['refs/heads/$branch:refs/heads/$branch'],
         callbacks: callbacks,
       );
-      return null;
+      return (error: null, detail: null, backedUp: backedUp);
     } catch (e2) {
-      return (error: _diagnose(e2), detail: e2.toString());
+      return (error: _diagnose(e2), detail: e2.toString(), backedUp: const []);
     }
   }
 }
