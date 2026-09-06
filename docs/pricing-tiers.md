@@ -86,6 +86,73 @@ why that boundary already exists in the code independent of payment.
   code.
 - A second, higher-priced entitlement tier and its gating logic.
 
+## Real automatic merge now exists (2026-09-06) - this section is now wrong
+
+The "Not built at all yet: Any form of automatic merge" line above is no
+longer true. `mergeThreeWayLines` (`conflict_repair.dart`) auto-merges
+disjoint changes on a real pull with zero manual input - built the same
+day a real production incident (a phone's own content silently lost,
+see `[[project_synclocal_app]]` memory's 2026-09-06 section for the full
+story) made the gap urgent. **Currently free, unconditional, not gated
+behind anything** - built as a data-safety fix, not scoped as a paid
+feature at build time. User's own framing, verbatim: "add to the
+features list... these features can be played around with for tiers
+once proven to work" - i.e. real candidates for the tier table above,
+not yet assigned to one.
+
+**What it actually does**: diffs both sides against their real common
+ancestor; auto-combines only when the two sides touched disjoint lines;
+any line touched by both sides still defers to manual combine (same
+conservative bias as the rest of this app). Backs up both pre-merge
+versions unconditionally before ever applying a merge.
+
+**Candidate features for the tier table, all shipped 2026-09-06, all
+currently free.** Listed noun-first, alphabetically (no sequential
+order between them), per the naming convention used throughout this
+project - real capability first, onboarding/UI polish after (listed
+for completeness, not because it's likely tier-worthy):
+
+Real capability:
+- **Backup, automatic** (before any reset) - `backupFilesAboutToChange`.
+  A real copy of anything a reset is about to discard, saved
+  automatically before it happens, regardless of cause.
+- **Cleanup, automatic** (old backups) - `pruneOldConflictBackups`. Not
+  a user-facing feature on its own, more a "keeps the free/paid
+  experience clean" hygiene fix; probably stays free regardless of what
+  else gets gated.
+- **Discovery, auto-IP** (restricted to non-setup Settings visits) - no
+  longer silently fills the desktop IP field during first-time pairing;
+  still does on a normal return visit.
+- **Guide, recovery** (for a silent device mismatch) -
+  `help_wizard.dart`'s Conflicts-screen wizard now walks through manual
+  recovery even when nothing was flagged as a conflict. Pure
+  guidance/UX, no real gating logic to add, but part of the same
+  real-incident response.
+- **Merge, automatic** (disjoint changes) - `mergeThreeWayLines`. This
+  is literally the "IAP premium: automatic put/yank" row's real-world
+  equivalent for the *undetected-divergence* pull path specifically
+  (distinct from the existing conflict-picker's own manual put/yank,
+  which is a different code path for *detected* conflicts).
+- **Sync, automatic** (on app open) - `AutoSyncOnResume`. Push+pull
+  automatically on app launch/foreground, no tap needed. Already
+  flagged by the user as a tier candidate specifically.
+
+Onboarding/UI polish (listed for completeness, probably not
+tier-worthy):
+- **Banner, setup-instructions reorder** - "Get the setup file" text
+  now sits above the icon diagram instead of below it.
+- **Messages, sync-result cleanup** - raw internal diagnostic dumps no
+  longer shown to the user on an ordinary sync.
+- **Steps, visual activation** (Settings screen) - setup fields 1-4
+  stay greyed out until scanned or typed, so the QR scan button reads
+  as the actionable step.
+
+Not decided: whether any of the real-capability items move behind the
+existing IAP entitlement, get a new one, or stay free as part of the
+core safety promise (arguable case: gating data-loss *protection*
+itself behind a paywall is a different kind of decision than gating a
+comparison UI polish). Flagged, not resolved.
+
 ## Known constraint worth deciding around
 
 `conflict_picker_screen.dart`'s `useDiff` check
