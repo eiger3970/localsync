@@ -233,7 +233,9 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
   });
 
-  testWidgets('Flow B: no conflicts -> Nothing to do', (tester) async {
+  testWidgets(
+      'Flow B: no conflicts, devices still match -> Nothing to do',
+      (tester) async {
     await tester.pumpWidget(_harness('B'));
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -241,7 +243,44 @@ void main() {
     await tester.tap(find.text('NO'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Do phone and desktop still match?'), findsOneWidget);
+    await tester.tap(find.text('YES'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Nothing to do'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Flow B: no conflicts shown, but a silent mismatch -> manual recovery steps',
+      (tester) async {
+    await tester.pumpWidget(_harness('B'));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('NO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Do phone and desktop still match?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'NO'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open the same note on both'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Combine by hand'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paste the combined version into both'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PUSH'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Done'), findsOneWidget);
   });
 
   testWidgets('Flow B: no close icon - tapping outside dismisses it',
