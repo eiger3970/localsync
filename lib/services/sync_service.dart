@@ -485,7 +485,20 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       backupFilesAboutToChange(
           repo, p.vaultPath, localOid, remoteOid, 'before pull reset');
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
-      return const SyncOk('Downloaded latest notes.');
+      // 2026-09-06: real device bug found live - a hard reset's own
+      // checkout silently failed to actually write at least one real
+      // file's new content to disk, while reporting success. See
+      // verifyAndRepairCheckout's own doc comment for the full story.
+      // Surfaced in the message unconditionally when it fires (unlike
+      // the silent backup above) - unlike an ordinary content update,
+      // this genuinely is the rare/unexpected case worth telling the
+      // user about.
+      final repaired = verifyAndRepairCheckout(
+          repo, p.vaultPath, localOid, remoteOid);
+      return SyncOk(repaired.isEmpty
+          ? 'Downloaded latest notes.'
+          : 'Downloaded latest notes. ${repaired.join(", ")} didn\'t '
+              'update correctly the first time - fixed automatically.');
     }
     if (remoteOid == baseOid) {
       // 2026-09-05: REAL BUG, confirmed live with a real user's own
@@ -719,11 +732,16 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       final base = committed
           ? 'Pushed as "${p.commitMessage}".'
           : 'Uploaded notes to desktop.';
-      return SyncOk(result.backedUp.isEmpty
-          ? base
-          : '$base Desktop had changed ${result.backedUp.join(", ")} too - '
+      final backupNote = result.backedUp.isEmpty
+          ? ''
+          : ' Desktop had changed ${result.backedUp.join(", ")} too - '
               'that version was saved to LocalSync/Conflict Backups before '
-              'this push replaced it, just in case.');
+              'this push replaced it, just in case.';
+      final repairNote = result.repaired.isEmpty
+          ? ''
+          : ' ${result.repaired.join(", ")} didn\'t update correctly the '
+              'first time - fixed automatically.';
+      return SyncOk('$base$backupNote$repairNote');
     }
     remote.fetch(callbacks: callbacks);
     final remoteBranch = git.Branch.lookup(
@@ -785,11 +803,16 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final base = committed
         ? 'Pushed as "${p.commitMessage}".'
         : 'Uploaded notes to desktop.';
-    return SyncOk(result.backedUp.isEmpty
-        ? base
-        : '$base Desktop had changed ${result.backedUp.join(", ")} too - '
+    final backupNote = result.backedUp.isEmpty
+        ? ''
+        : ' Desktop had changed ${result.backedUp.join(", ")} too - '
             'that version was saved to LocalSync/Conflict Backups before '
-            'this push replaced it, just in case.');
+            'this push replaced it, just in case.';
+    final repairNote = result.repaired.isEmpty
+        ? ''
+        : ' ${result.repaired.join(", ")} didn\'t update correctly the '
+            'first time - fixed automatically.';
+    return SyncOk('$base$backupNote$repairNote');
   });
 }
 
@@ -1031,6 +1054,76 @@ void finishMergeCommit(git.Repository repo, String deviceName,
   return (added: added, removed: removed, modified: modified);
 }
 
+/// 2026-09-06: real device bug, found live, same day - after a hard
+/// reset, one real file (a nested path with a comma in its own
+/// filename, "Journal/2026/09/Sep 5th, 2026.md") kept its exact PRE-
+/// reset disk content while every other file in the same reset checked
+/// out correctly - confirmed by comparing the phone's raw on-disk file
+/// (Files app, bypassing Obsidian entirely) against the real desktop-
+/// committed content, which matched neither the old nor the new
+/// version cleanly - it just never moved. libgit2/git2dart's own
+/// checkout has a real, silent gap for at least this path shape (this
+/// exact file already had a related, but distinct, git2dart path-
+/// lookup gap - see _lookupPathOid's own doc comment - this is the
+/// checkout step, not the lookup one). The app had no way to notice -
+/// it trusted the reset call's own success as proof the working tree
+/// actually matches, which this incident disproved.
+///
+/// Called right after every repo.reset(hard) in this file and
+/// git_service.dart. Diffs [fromOid] against [toOid] to find what
+/// SHOULD have changed on disk (same pattern as
+/// backupFilesAboutToChange), then for each such path hashes the real
+/// on-disk content straight from the working directory
+/// (Blob.createFromWorkdir, not a String read first - avoids any
+/// encoding-related false mismatch) and compares it against what the
+/// target tree actually records. Any mismatch gets rewritten directly
+/// from the correct blob - self-healing, not just detection. Best-
+/// effort per path: one file's verify/repair failing never blocks the
+/// rest, and this never throws back to the caller - a reset that
+/// already succeeded must never be turned into a failure by this
+/// safety net.
+List<String> verifyAndRepairCheckout(git.Repository repo, String vaultPath,
+    git.Oid fromOid, git.Oid toOid) {
+  final repaired = <String>[];
+  try {
+    final fromTree = git.Commit.lookup(repo: repo, oid: fromOid).tree;
+    final toTree = git.Commit.lookup(repo: repo, oid: toOid).tree;
+    final diff =
+        git.Diff.treeToTree(repo: repo, oldTree: fromTree, newTree: toTree);
+    for (final delta in diff.deltas) {
+      if (delta.status != git.GitDelta.added &&
+          delta.status != git.GitDelta.modified) {
+        continue;
+      }
+      final path = delta.newFile.path;
+      try {
+        final expectedOid = _lookupPathOid(repo, toTree, path);
+        if (expectedOid == null) continue;
+        git.Oid? actualOid;
+        try {
+          actualOid =
+              git.Blob.createFromWorkdir(repo: repo, relativePath: path);
+        } catch (_) {
+          actualOid = null; // Missing on disk entirely - also needs repair.
+        }
+        if (actualOid == expectedOid) continue;
+        final blob = git.Blob.lookup(repo: repo, oid: expectedOid);
+        final file = File('$vaultPath/$path');
+        file.parent.createSync(recursive: true);
+        file.writeAsBytesSync(blob.contentBytes);
+        repaired.add(path);
+      } catch (_) {
+        // Best-effort - one path failing to verify/repair shouldn't
+        // block checking/fixing the rest.
+      }
+    }
+  } catch (_) {
+    // Best-effort safety net - never worth surfacing an error for, and
+    // never worth turning an already-completed reset into a failure.
+  }
+  return repaired;
+}
+
 /// Threshold for "large chunk of existing content" - the real fear this
 /// guards against is bulk/accidental emptying (a whole folder or vault
 /// gone missing), not the ordinary one-note-deleted case, so this only
@@ -1151,7 +1244,8 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 /// callers can actually tell the user when the retry's reset discarded
 /// something, instead of that only ever being knowable by browsing
 /// LocalSync/Conflict Backups unprompted.
-({LinkingError? error, String? detail, List<String> backedUp}) _pushWithRetry(
+({LinkingError? error, String? detail, List<String> backedUp, List<String> repaired})
+    _pushWithRetry(
   git.Repository repo,
   git.Remote remote,
   git.Callbacks callbacks,
@@ -1163,7 +1257,12 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       refspecs: ['refs/heads/$branch:refs/heads/$branch'],
       callbacks: callbacks,
     );
-    return (error: null, detail: null, backedUp: const []);
+    return (
+      error: null,
+      detail: null,
+      backedUp: const [],
+      repaired: const []
+    );
   } catch (e) {
     try {
       remote.fetch(callbacks: callbacks);
@@ -1178,7 +1277,8 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
         return (
           error: LinkingError.cannotFastForward,
           detail: e.toString(),
-          backedUp: const []
+          backedUp: const [],
+          repaired: const []
         );
       }
       // 2026-09-06: this specific reset is the least airtight of the
@@ -1190,16 +1290,30 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       // not just a defensive comment, given that gap - and, unlike the
       // fast-forward pull case, worth actually telling the user about
       // (see this function's own doc comment).
-      final backedUp = backupFilesAboutToChange(repo, vaultPath,
-          repo.head.target, remoteBranch.target, 'before push-retry reset');
+      final priorOid = repo.head.target;
+      final backedUp = backupFilesAboutToChange(
+          repo, vaultPath, priorOid, remoteBranch.target,
+          'before push-retry reset');
       repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
+      final repaired = verifyAndRepairCheckout(
+          repo, vaultPath, priorOid, remoteBranch.target);
       remote.push(
         refspecs: ['refs/heads/$branch:refs/heads/$branch'],
         callbacks: callbacks,
       );
-      return (error: null, detail: null, backedUp: backedUp);
+      return (
+        error: null,
+        detail: null,
+        backedUp: backedUp,
+        repaired: repaired
+      );
     } catch (e2) {
-      return (error: _diagnose(e2), detail: e2.toString(), backedUp: const []);
+      return (
+        error: _diagnose(e2),
+        detail: e2.toString(),
+        backedUp: const [],
+        repaired: const []
+      );
     }
   }
 }
