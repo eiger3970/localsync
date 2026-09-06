@@ -33,6 +33,7 @@ import '../widgets/swap_gif_swipe_confirm.dart';
 import '../widgets/pkm_sync_upsell.dart';
 import '../services/purchase_service.dart';
 import 'home_screen.dart';
+import '../widgets/auto_sync_on_resume.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
@@ -79,7 +80,9 @@ String desktopUserAtIp(String user, String ip) {
 // user who just finished linking should land.
 void _leaveSetup(BuildContext context) {
   Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (_) => const HomeScreen()),
+    MaterialPageRoute(
+        builder: (_) =>
+            const AutoSyncOnResume(child: HomeScreen())),
     (route) => false,
   );
 }
