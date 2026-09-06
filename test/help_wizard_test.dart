@@ -264,15 +264,29 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, 'NO'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Open the same note on both'), findsOneWidget);
+    expect(find.text('Open the note in Obsidian on the phone'),
+        findsOneWidget);
     await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Combine by hand'), findsOneWidget);
+    expect(find.text('Open the same note in Obsidian on the desktop'),
+        findsOneWidget);
     await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Paste the combined version into both'), findsOneWidget);
+    expect(find.text('Write one version with everything from both'),
+        findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Type or paste that into the note on the phone'),
+        findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text('Type or paste the same text into the note on the desktop'),
+        findsOneWidget);
     await tester.tap(find.widgetWithText(ElevatedButton, 'CONTINUE'));
     await tester.pumpAndSettle();
 
