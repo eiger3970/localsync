@@ -185,6 +185,16 @@ enum LinkingError {
   /// even starts (pairing_controller.dart's pairWithPassword) instead
   /// of letting it fall through to unclassifiedError's generic message.
   desktopNotConfigured,
+
+  /// 2026-09-06: real incident - a vault folder's own EXISTING git
+  /// remote (from a prior link) was being used as-is on re-link, with
+  /// no check against what the current Settings say the bare repo
+  /// should be. If those ever disagreed, the app would silently keep
+  /// syncing the OLD repo forever - the exact bug that caused a real
+  /// multi-day data-loss incident (desktop's own equivalent script had
+  /// the same gap, fixed the same day - see
+  /// MEMORY project_synclocal_app.md's 2026-09-06 section).
+  repoIdentityMismatch,
 }
 
 extension LinkingErrorDetails on LinkingError {
@@ -262,6 +272,9 @@ extension LinkingErrorDetails on LinkingError {
           'Something went wrong that LocalSync did not expect.',
         LinkingError.desktopNotConfigured =>
           'Desktop username and IP address have not been set yet.',
+        LinkingError.repoIdentityMismatch =>
+          'This vault folder is already linked to a different bare repo '
+              'than the one in Settings.',
       };
 
   String get resolution => switch (this) {
@@ -400,6 +413,11 @@ extension LinkingErrorDetails on LinkingError {
         LinkingError.desktopNotConfigured =>
           'Go to Settings and fill in Desktop username and '
               'Desktop IP address, then try pairing again.',
+        LinkingError.repoIdentityMismatch =>
+          'If you meant to switch repos, that\'s fine - but check Settings\' '
+              'Git bare repo path is really what you want first.\n'
+              'If you didn\'t mean to change it, fix the path in Settings '
+              'back to what this folder was already using, then try again.',
       };
 }
 
