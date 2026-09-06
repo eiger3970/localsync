@@ -326,7 +326,21 @@ class SyncService {
       // cheap and idempotent when there's nothing old to remove, so
       // running it after every pull/push (not just once per app
       // session) is fine.
-      await pruneOldConflictBackups(resolvedPath);
+      //
+      // 2026-09-06, same day, real device crash: this call had no
+      // protection of its own here - any exception from it (pruning's
+      // own internal try/catch doesn't cover its first `dir.exists()`
+      // check) propagated straight out of this whole method, discarding
+      // the real, already-successful pull/push result and surfacing as
+      // a crash instead of the sync just completing normally. "Best-
+      // effort, never affects the sync's own result" was the intent
+      // from the start - this is what actually makes that true.
+      try {
+        await pruneOldConflictBackups(resolvedPath);
+      } catch (_) {
+        // Never let a cleanup failure discard a real, already-succeeded
+        // sync result.
+      }
     } finally {
       await _vaultFolder.stopAccessing(vaultBookmark);
     }

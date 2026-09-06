@@ -87,11 +87,19 @@ Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
 /// which can shift unpredictably across a synced/copied file.
 Future<void> pruneOldConflictBackups(String vaultPath,
     {Duration maxAge = const Duration(days: 30)}) async {
-  final dir = Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
-  if (!await dir.exists()) return;
-  final cutoff = DateTime.now().subtract(maxAge);
-  final tsPattern = RegExp(r'(\d{12})(?:\.[^.]*)?$');
+  // 2026-09-06: real device crash, same day - the exists() check used
+  // to sit outside this function's own try/catch below, so any real
+  // exception from it (a real one did fire on a real device, root
+  // cause not yet pinned down - the call site in sync_service.dart's
+  // _run() had no protection of its own either at the time) had
+  // nothing catching it here. Whole function now wrapped, not just the
+  // listing loop - "best-effort" needs to mean the entire thing, not
+  // most of it.
   try {
+    final dir = Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+    if (!await dir.exists()) return;
+    final cutoff = DateTime.now().subtract(maxAge);
+    final tsPattern = RegExp(r'(\d{12})(?:\.[^.]*)?$');
     await for (final entity in dir.list()) {
       if (entity is! File) continue;
       final name = entity.uri.pathSegments.last;
