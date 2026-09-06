@@ -250,4 +250,60 @@ void main() {
       expect(versions[1].body, 'v2');
     });
   });
+
+  group('mergeThreeWayLines - the real 2026-09-06 Kanban case and variants',
+      () {
+    test('disjoint insertions in different sections merge with no conflict',
+        () {
+      const base = 'A\nB\nC\n\nX\nY\nZ';
+      const ours = 'A\nNEW-PHONE\nB\nC\n\nX\nY\nZ';
+      const theirs = 'A\nB\nC\n\nX\nNEW-DESKTOP\nY\nZ';
+      final merged = mergeThreeWayLines(base, ours, theirs);
+      expect(merged, isNotNull);
+      expect(merged, contains('NEW-PHONE'));
+      expect(merged, contains('NEW-DESKTOP'));
+      expect(merged,
+          'A\nNEW-PHONE\nB\nC\n\nX\nNEW-DESKTOP\nY\nZ');
+    });
+
+    test('one side edits a line the other side never touched - not a conflict',
+        () {
+      const base = 'A\nB\nC';
+      const ours = 'A\nB CHANGED\nC';
+      const theirs = 'A\nB\nC';
+      expect(mergeThreeWayLines(base, ours, theirs), 'A\nB CHANGED\nC');
+    });
+
+    test('both sides change the exact same line differently - real conflict',
+        () {
+      const base = 'A\nB\nC';
+      const ours = 'A\nB FROM PHONE\nC';
+      const theirs = 'A\nB FROM DESKTOP\nC';
+      expect(mergeThreeWayLines(base, ours, theirs), isNull);
+    });
+
+    test(
+        'both sides delete the same line - still deferred to manual, same '
+        'conservative bias as every other merge path in this app', () {
+      const base = 'A\nB\nC';
+      const ours = 'A\nC';
+      const theirs = 'A\nC';
+      expect(mergeThreeWayLines(base, ours, theirs), isNull);
+    });
+
+    test('unrelated additions at the exact same gap are both kept', () {
+      const base = 'A\nB';
+      const ours = 'A\nPHONE ITEM\nB';
+      const theirs = 'A\nDESKTOP ITEM\nB';
+      expect(mergeThreeWayLines(base, ours, theirs),
+          'A\nPHONE ITEM\nDESKTOP ITEM\nB');
+    });
+
+    test('one side purely appends at the end, other side is unchanged', () {
+      const base = 'A\nB';
+      const ours = 'A\nB';
+      const theirs = 'A\nB\nC';
+      expect(mergeThreeWayLines(base, ours, theirs), 'A\nB\nC');
+    });
+  });
 }

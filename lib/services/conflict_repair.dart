@@ -78,6 +78,140 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
   return null;
 }
 
+enum _LineOp { equal, baseOnly, otherOnly }
+
+/// Same plain LCS diff word_diff.dart/line_diff.dart already use at
+/// their own granularity, here over whole lines. [a] is always [base]
+/// in mergeThreeWayLines below, [b] the other side - baseOnly means "in
+/// base, gone from the other side" (a deletion/replacement), otherOnly
+/// means "new in the other side, not in base" (an insertion).
+List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
+  final n = a.length, m = b.length;
+  final dp = List.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
+  for (var i = n - 1; i >= 0; i--) {
+    for (var j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] == b[j]
+          ? dp[i + 1][j + 1] + 1
+          : (dp[i + 1][j] > dp[i][j + 1] ? dp[i + 1][j] : dp[i][j + 1]);
+    }
+  }
+  final result = <(_LineOp, String)>[];
+  var i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] == b[j]) {
+      result.add((_LineOp.equal, a[i]));
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      result.add((_LineOp.baseOnly, a[i]));
+      i++;
+    } else {
+      result.add((_LineOp.otherOnly, b[j]));
+      j++;
+    }
+  }
+  while (i < n) {
+    result.add((_LineOp.baseOnly, a[i]));
+    i++;
+  }
+  while (j < m) {
+    result.add((_LineOp.otherOnly, b[j]));
+    j++;
+  }
+  return result;
+}
+
+/// 2026-09-06: real gap found live - a phone stuck behind on fetch
+/// finally caught up and surfaced a genuine "ancestor but content
+/// diverged" case (see sync_service.dart's remoteOid==baseOid branch)
+/// on a real Kanban board, where both sides had only added different
+/// list items in different sections - a plain, safe, non-overlapping
+/// change on each side. That branch had no automatic-merge attempt at
+/// all, only detect-then-back-up-and-ask, because a real git-level
+/// three-way merge (Merge.trees()) can't be verified locally (git2dart's
+/// bundled binaries are x86_64-only, this dev machine is arm64 - see
+/// that branch's own long comment). This function sidesteps that
+/// specific blocker: it's pure Dart string/list logic, no git2dart
+/// calls, so - unlike the real git merge path - it's fully unit-testable
+/// on this arm64 machine before ever touching a real device.
+///
+/// Diffs [ours] and [theirs] each against the real common ancestor
+/// [base] (same LCS diff as dedupeAndCheckAppend's neighbors), then
+/// merges the two edit scripts by walking [base]'s own line positions.
+/// Where only one side touched a given base line, that side's edit wins
+/// outright - not a conflict, since the other side made no competing
+/// claim on that exact line. The one thing this refuses to guess at,
+/// matching every other merge path in this app: if BOTH sides
+/// independently touched the very same base line, that's a genuine
+/// same-line collision (the exact failure class dedupeAndCheckAppend's
+/// own history flagged as dangerous to silently paper over) - returns
+/// null immediately, deferring to this app's existing backup-and-ask
+/// flow rather than guessing which edit should win.
+///
+/// Pure insertions (new lines with no base counterpart) landing at the
+/// same gap from both sides are NOT a collision - neither side is
+/// overwriting content the other touched, so both are kept, ours first.
+String? mergeThreeWayLines(String base, String ours, String theirs) {
+  final baseLines = base.split('\n');
+  final oursDiff = _diffLines(baseLines, ours.split('\n'));
+  final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
+
+  final oursKept = List<bool>.filled(baseLines.length, true);
+  final oursGapInserts =
+      List.generate(baseLines.length + 1, (_) => <String>[]);
+  _fillFromDiff(oursDiff, oursKept, oursGapInserts);
+
+  final theirsKept = List<bool>.filled(baseLines.length, true);
+  final theirsGapInserts =
+      List.generate(baseLines.length + 1, (_) => <String>[]);
+  _fillFromDiff(theirsDiff, theirsKept, theirsGapInserts);
+
+  for (var k = 0; k < baseLines.length; k++) {
+    if (!oursKept[k] && !theirsKept[k]) return null;
+  }
+
+  final out = StringBuffer();
+  void writeGap(int g) {
+    for (final l in oursGapInserts[g]) {
+      out.write(l);
+      out.write('\n');
+    }
+    for (final l in theirsGapInserts[g]) {
+      out.write(l);
+      out.write('\n');
+    }
+  }
+
+  writeGap(0);
+  for (var k = 0; k < baseLines.length; k++) {
+    if (oursKept[k] && theirsKept[k]) {
+      out.write(baseLines[k]);
+      out.write('\n');
+    }
+    writeGap(k + 1);
+  }
+  final result = out.toString();
+  return result.endsWith('\n')
+      ? result.substring(0, result.length - 1)
+      : result;
+}
+
+void _fillFromDiff(List<(_LineOp, String)> diff, List<bool> kept,
+    List<List<String>> gapInserts) {
+  var baseIdx = 0;
+  for (final (op, text) in diff) {
+    switch (op) {
+      case _LineOp.equal:
+        baseIdx++;
+      case _LineOp.baseOnly:
+        kept[baseIdx] = false;
+        baseIdx++;
+      case _LineOp.otherOnly:
+        gapInserts[baseIdx].add(text);
+    }
+  }
+}
+
 // 2026-08-19: matches one already-wrapped callout header, at any quote
 // depth (`>`, `> >`, `> > >`, ...) - extractStackedVersions strips
 // depth first, so this only ever needs to match depth-0 headers.
