@@ -461,7 +461,31 @@ class GitServiceImpl implements GitService {
         // loss incident. Checked here, once, before anything else
         // touches this repo.
         if (!_isSameBareRepo(remote.url)) {
-          return const StepFailure(LinkingError.repoIdentityMismatch);
+          // 2026-09-06: same real feedback that led to this whole check
+          // - "make paths crystal clear... a raw path is easy to
+          // mistype, hard to eyeball-compare." LocalSync/repo-name.txt
+          // is a real tracked file inside the vault (see
+          // localsync_sync.sh's own matching ensure_repo_name) - a
+          // short human name for "which repo is this," fetched to
+          // every device the same as any other content. Read directly
+          // via dart:io, not git2dart - this repo's tree is already
+          // checked out on disk, no need to go through a blob lookup
+          // for a plain file read.
+          String? existingName;
+          try {
+            existingName = File('$localVaultPath/LocalSync/repo-name.txt')
+                .readAsStringSync()
+                .trim();
+          } catch (_) {
+            existingName = null;
+          }
+          return StepFailure(
+            LinkingError.repoIdentityMismatch,
+            debugDetail: existingName == null || existingName.isEmpty
+                ? null
+                : 'This folder is currently connected to "$existingName." '
+                    'Settings now points somewhere else.',
+          );
         }
         // 2026-08-30: same real device bug as the fresh-clone branch
         // above, still hitting - "same error connecting to new phone
