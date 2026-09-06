@@ -43,7 +43,7 @@
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
 import 'dart:io';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
@@ -398,10 +398,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final remoteRefs = remote.ls(callbacks: callbacks);
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
-    // 2026-09-05: temporary diagnostic - real device retest of the
-    // divergence fix still silently said "Nothing to sync," need to
-    // know which branch is actually firing before guessing further.
-    if (!hasRemoteBranch) return SyncOk('DIAG: no remote branch');
+    if (!hasRemoteBranch) return const SyncNoChanges();
     final liveServerOid =
         remoteRefs.firstWhere((r) => r.name == 'refs/heads/${p.branch}').oid;
     final refspecsBefore = remote.fetchRefspecs;
@@ -411,25 +408,30 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       name: 'origin/${p.branch}',
       type: git.GitBranch.remote,
     );
-    // 2026-09-05: temporary diagnostic - real device confirmed the
-    // tracking-ref resolution (Branch.lookup 'origin/main') is stuck 39
-    // commits behind the true current tip, across multiple fetches.
-    // remote.ls() above is a live, always-accurate server listing
-    // (confirmed separately) - comparing its oid against what
-    // Branch.lookup resolves to, plus the configured fetch refspecs,
-    // settles whether fetch() is retrieving the right data but failing
-    // to update the tracking ref (a refspec config issue, possibly
-    // fixable), or something deeper.
+    // 2026-09-05: real device once confirmed the tracking-ref resolution
+    // (Branch.lookup 'origin/main') stuck 39 commits behind the true
+    // current tip, across multiple fetches - this check catches that
+    // exact inconsistency (remote.ls() above is a live, always-accurate
+    // server listing, confirmed separately) before anything downstream
+    // trusts a stale tracking ref. Hasn't reproduced since across
+    // several real pulls, so it's kept as a safety net rather than
+    // removed outright - but 2026-09-06: real feedback, live, this used
+    // to surface the full oid/refspec dump straight to the user's
+    // screen on every ordinary pull, which is a real defect on its own
+    // (this branch almost never fires - the dump doesn't belong in the
+    // common path at all). Detail goes to debugPrint (recoverable from
+    // device console logs if this ever needs diagnosing again), user
+    // sees a short, honest message instead.
     if (liveServerOid != remoteBranch.target) {
-      return SyncOk('DIAG: live server oid=$liveServerOid differs from '
-          'tracking ref oid=${remoteBranch.target} after fetch - '
+      debugPrint('LocalSync pull: live server oid=$liveServerOid differs '
+          'from tracking ref oid=${remoteBranch.target} after fetch - '
           'refspecs=$refspecsBefore');
+      return const SyncOk('Pull came back inconsistent - try again.');
     }
     final localOid = repo.head.target;
     final remoteOid = remoteBranch.target;
     if (localOid == remoteOid) {
-      return SyncOk('DIAG: localOid==remoteOid, both '
-          '${localOid.toString().substring(0, 10)}');
+      return const SyncNoChanges();
     }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);
@@ -494,11 +496,13 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // this specific merge (unlike the real git one) can be trusted
       // without a device test first.
       final autoMergedPaths = <String>[];
-      // 2026-09-05: temporary diagnostic, real device retest of the
-      // 7b5c6a8/b587154 fix still silently said "Nothing to sync" -
-      // this is now visible in every case, not just failures, to prove
-      // whether this block even runs and what the lookups actually
-      // return, instead of guessing at a third theory blind.
+      // 2026-09-05: kept as a debugPrint, not a user-visible message -
+      // this traced down the 7b5c6a8/b587154 fix's own real bug at the
+      // time, but 2026-09-06 real feedback confirmed dumping it straight
+      // into the sync result blows up as a huge unreadable text block on
+      // the home screen for what's usually just the ordinary "nothing
+      // changed" case. Detail's still here for `flutter logs`/Xcode
+      // console if this area ever needs diagnosing again.
       var diag = 'remoteOid=$remoteOid baseOid=$baseOid';
       try {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
@@ -576,7 +580,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         diag = 'exception: $e';
       }
       if (divergedPaths.isEmpty && autoMergedPaths.isEmpty) {
-        return SyncOk('DIAG (nothing to sync): $diag');
+        debugPrint('LocalSync pull: nothing to sync - $diag');
+        return const SyncNoChanges();
       }
 
       if (autoMergedPaths.isNotEmpty) {
