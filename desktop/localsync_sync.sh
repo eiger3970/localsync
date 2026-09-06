@@ -43,6 +43,67 @@ REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/Documents/Scripts/repair_conflicts.py}"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 die() { log "FATAL: $*"; exit 1; }
 
+# ── Repo identity check ───────────────────────────────────────────────────────
+# 2026-09-06: real incident - this vault's git remote got silently
+# repointed to a different, unrelated bare repo at some point (during
+# the LocalSync migration off the old Working Copy setup). Both this
+# script and the phone app kept reporting success for days afterward,
+# since neither ever cross-checked they were actually talking to the
+# SAME repository - "nothing to sync" was true, just for the wrong
+# repo. See MEMORY project_synclocal_app.md's 2026-09-06 section for
+# the full story.
+#
+# THIS FILE HAS REVERTED TO ITS PRE-FIX STATE TWICE NOW (17:32 and
+# 18:01) with NO cause found despite checking every systemd timer, all
+# cron levels, running processes, file locks, and ansible (installed
+# but not scheduled anywhere on this Pi). If this reverts a third time,
+# stop re-patching blindly and investigate what's actually doing it -
+# check for another terminal/session/device with write access to this
+# Pi before assuming this fix alone is enough.
+IDENTITY_FILE="$VAULT/.git/localsync-repo-id"
+verify_repo_identity() {
+  local current_url
+  current_url=$(git remote get-url origin 2>/dev/null) || return 0
+  if [[ ! -f "$IDENTITY_FILE" ]]; then
+    echo "$current_url" > "$IDENTITY_FILE"
+    log "Recorded repo identity (remote URL): $current_url"
+    return 0
+  fi
+  local expected
+  expected=$(cat "$IDENTITY_FILE")
+  if [[ "$current_url" != "$expected" ]]; then
+    die "REPO IDENTITY MISMATCH - origin's remote URL is now '$current_url', but this vault was set up against '$expected'. This means something repointed the remote to a DIFFERENT repository - the exact bug that caused a real multi-day data-loss incident on 2026-09-06. Refusing to sync until this is resolved by hand (check 'git remote -v' in $VAULT). If this change was genuinely intentional, delete $IDENTITY_FILE to accept the new identity."
+  fi
+}
+
+# ── Human-readable repo name ──────────────────────────────────────────────────
+# 2026-09-06: the identity check above catches a real mismatch, but
+# only by comparing two long, easy-to-mistype absolute paths - not
+# something a person can eyeball-compare at a glance across two
+# devices. This is a real, tracked file inside the vault itself
+# (fetched/cloned to every device the same as any other content, unlike
+# a git-config value, which would stay local to this one clone) holding
+# one short human name for "which repo is this" - shown prominently in
+# this script's own log every run, and readable from the phone app too
+# (see git_service.dart's matching read of this same file). A real
+# mismatch between two devices now reads as "Personal Vault" vs "Test
+# Vault," not two 80-character paths that have to be compared character
+# by character.
+REPO_NAME_FILE="LocalSync/repo-name.txt"
+ensure_repo_name() {
+  if [[ -f "$REPO_NAME_FILE" ]]; then
+    log "Repo: $(cat "$REPO_NAME_FILE")"
+    return 0
+  fi
+  local base default_name
+  base=$(basename "$BARE_REPO")
+  base="${base%.git}"
+  default_name=$(echo "$base" | tr '_-' ' ' | sed -e 's/\b\(.\)/\u\1/g')
+  mkdir -p "LocalSync"
+  echo "$default_name" > "$REPO_NAME_FILE"
+  log "Repo: $default_name (name file created - rename it in Obsidian any time)"
+}
+
 # ── Lock: one run at a time ───────────────────────────────────────────────────
 exec 9>"$LOCK"
 flock -n 9 || { log "Already running — skipping"; exit 0; }
@@ -64,6 +125,8 @@ command -v python3 >/dev/null || die "python3 not found"
 
 cd "$VAULT" || die "Cannot cd to $VAULT"
 log "=== localsync_sync start ==="
+verify_repo_identity
+ensure_repo_name
 
 # ── Repair markdown/Kanban conflict markers ───────────────────────────────────
 repair_md_conflicts() {
