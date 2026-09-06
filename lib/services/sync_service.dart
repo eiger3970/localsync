@@ -1138,42 +1138,60 @@ List<String> verifyAndRepairCheckout(git.Repository repo, String vaultPath,
   return repaired;
 }
 
+/// Folders never worth walking/checking - git's own metadata, and this
+/// app's own backup output (which is never meant to match anything in
+/// git, by design).
+const _skipTopLevelDirs = {'.git', kLocalSyncFolderName};
+
 /// 2026-09-06: real gap in verifyAndRepairCheckout above, found live the
 /// same day - it only ever runs right after a fresh reset, diffing the
 /// two commits involved. Once a phone's tracking ref already equals
 /// remote's tip (localOid == remoteOid, "nothing to sync" - correct at
 /// the git level), no reset ever fires again, so that check never gets
-/// another chance to run - even though the real incident's own working
-/// tree was already silently wrong *before* this whole safety net
-/// existed, and staying wrong forever afterward since git itself sees
-/// no reason to touch it again. This is the other half: compares HEAD's
-/// tree directly against the actual working directory
-/// (Diff.treeToWorkdir - the same native operation `git status` itself
-/// uses, not a naive per-file hash walk, so this stays cheap even on a
-/// large vault) and repairs any tracked file that doesn't match,
-/// regardless of whether a reset just ran. Only acts on modified/
-/// deleted deltas - never "added" ones, which are a real untracked user
-/// file sitting in the vault, not something to overwrite or delete.
-List<String> verifyWorkingTreeMatchesHead(git.Repository repo, String vaultPath) {
+/// another chance to run.
+///
+/// First version of this used Diff.treeToWorkdir (the same native
+/// operation `git status` itself uses) - real device retest, same day,
+/// same file: it reported no mismatch at all for the exact path already
+/// proven broken, even though the raw on-disk file (checked via Files
+/// app, bypassing Obsidian and this app both) still had the old
+/// content. This is now the THIRD distinct git2dart/libgit2 gap
+/// confirmed on this one path shape (nested directory + a comma in the
+/// filename) in a single session - after a Tree lookup gap and a
+/// checkout gap, a tree-to-workdir diff gap too. No git2dart tree-
+/// walking or diffing API can be trusted for this path any more, so
+/// this doesn't use one: walks every real file on disk directly via
+/// plain dart:io (zero git2dart tree/diff calls), and for each one
+/// individually looks up its expected oid via _lookupPathOid (proven
+/// correct all session - the one segment-at-a-time lookup that's never
+/// failed on this path) and its actual on-disk oid via
+/// Blob.createFromWorkdir (a single-path operation, not a bulk walk/
+/// diff - the class of operation that's kept failing here). More
+/// expensive than the diff-based version on a large vault, but
+/// correctness matters more than speed for content this important, and
+/// this path has now burned through every faster alternative.
+List<String> verifyWorkingTreeMatchesHead(
+    git.Repository repo, String vaultPath) {
   final repaired = <String>[];
   try {
     final headOid = repo.head.target;
     final headTree = git.Commit.lookup(repo: repo, oid: headOid).tree;
-    final diff = git.Diff.treeToWorkdir(repo: repo, tree: headTree);
-    for (final delta in diff.deltas) {
-      if (delta.status != git.GitDelta.modified &&
-          delta.status != git.GitDelta.deleted) {
-        continue;
-      }
-      final path = delta.oldFile.path;
+    final root = Directory(vaultPath);
+    for (final entity
+        in root.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final relPath = entity.path.substring(vaultPath.length + 1);
+      final topLevel = relPath.split('/').first;
+      if (_skipTopLevelDirs.contains(topLevel)) continue;
       try {
-        final expectedOid = _lookupPathOid(repo, headTree, path);
-        if (expectedOid == null) continue;
+        final expectedOid = _lookupPathOid(repo, headTree, relPath);
+        if (expectedOid == null) continue; // Not tracked - a real user file.
+        final actualOid =
+            git.Blob.createFromWorkdir(repo: repo, relativePath: relPath);
+        if (actualOid == expectedOid) continue;
         final blob = git.Blob.lookup(repo: repo, oid: expectedOid);
-        final file = File('$vaultPath/$path');
-        file.parent.createSync(recursive: true);
-        file.writeAsBytesSync(blob.contentBytes);
-        repaired.add(path);
+        entity.writeAsBytesSync(blob.contentBytes);
+        repaired.add(relPath);
       } catch (_) {
         // Best-effort - one path failing to verify/repair shouldn't
         // block checking/fixing the rest.
