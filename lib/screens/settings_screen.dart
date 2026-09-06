@@ -140,6 +140,31 @@ class _SettingsScreenState extends State<SettingsScreen>
   // could lose all my data." Falls back to filling just the field that
   // opened the scanner for a plain (non-combined) value, unchanged from
   // before.
+  // 2026-09-06: real feedback, live - "the green twinkly star qr scanner
+  // needs to be more obvious it's the actionable next step. At the
+  // moment I can easily miss tapping this qr scan and be focussed on
+  // steps 1-4." Steps 1-4 (the numbered field headers below) read as
+  // equally live/actionable as the scan button itself, so there was
+  // nothing visually saying "scan first, these fill themselves in."
+  // Greyed out (kTextDim) instead of their usual kGreen while still
+  // empty AND this screen is the first-time pairing flow specifically
+  // (widget.neededForPairing) - lighting up once populated, by the scan
+  // OR by typing by hand (deliberately not scan-only: this page's
+  // fields stay real, always-editable text fields, never hard-locked
+  // behind the scanner - see the 2026-08-30 comment on the "1." header
+  // above for why a hard lock was already rejected once here). A normal
+  // Settings visit after setup (neededForPairing false) always shows
+  // steps 1-4 already active, matching how a returning user actually
+  // encounters this screen - real values already sitting in every
+  // field, nothing to "unlock."
+  bool get _stepsActive =>
+      !widget.neededForPairing ||
+      (_userCtrl.text.trim().isNotEmpty &&
+          _ipCtrl.text.trim().isNotEmpty &&
+          _pathCtrl.text.trim().isNotEmpty);
+
+  Color get _stepColor => _stepsActive ? kGreen : kTextDim;
+
   Future<void> _scanInto(
       TextEditingController controller, String fieldLabel) async {
     final result = await Navigator.push<String>(
@@ -154,11 +179,21 @@ class _SettingsScreenState extends State<SettingsScreen>
       // vault path. Blank lines are skipped (not force-cleared) so a
       // scan never wipes a field the desktop genuinely had nothing to
       // report for (e.g. no eth1/usb0 connection found).
-      final fields = [_userCtrl, _ipCtrl, _pathCtrl, _vaultPathCtrl];
-      for (var i = 0; i < fields.length && i + 1 < lines.length; i++) {
-        final value = lines[i + 1].trim();
-        if (value.isNotEmpty) fields[i].text = value;
-      }
+      //
+      // 2026-09-06: wrapped in setState - these controllers feed
+      // _stepsActive above, which several OTHER widgets (the step
+      // headers/icons) read from, not just the TextFields these
+      // controllers are directly attached to. A TextField updates
+      // itself automatically when its own controller's .text changes,
+      // but sibling widgets reading the same controller need this
+      // screen's build() to actually re-run to notice.
+      setState(() {
+        final fields = [_userCtrl, _ipCtrl, _pathCtrl, _vaultPathCtrl];
+        for (var i = 0; i < fields.length && i + 1 < lines.length; i++) {
+          final value = lines[i + 1].trim();
+          if (value.isNotEmpty) fields[i].text = value;
+        }
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1093,7 +1128,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // configured field later, which a hard lock would break).
             Text('1. DESKTOP USERNAME',
                 style: TextStyle(
-                    color: kGreen,
+                    color: _stepColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
@@ -1107,11 +1142,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   // aren't consistent... I prefer the green." Was
                   // kTextMid (a muted grey), inconsistent with the git
                   // bare repo path field's own accent-colored icon.
-                  child: Icon(Icons.person_outline, color: kGreen, size: 22),
+                  child: Icon(Icons.person_outline, color: _stepColor, size: 22),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _userCtrl,
+                    onChanged: (_) => setState(() {}),
                     style: TextStyle(color: kStar, fontSize: 16),
                     decoration: InputDecoration(
                       // 2026-08-30: real device feedback - "3 headers in
@@ -1158,7 +1194,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // only one starting with the field name instead).
             Text('2. DESKTOP IP ADDRESS',
                 style: TextStyle(
-                    color: kGreen,
+                    color: _stepColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
@@ -1175,11 +1211,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   padding: const EdgeInsets.only(top: 4, right: 10),
                   // 2026-08-30: real device feedback - icon color
                   // consistency across all 3 fields, green preferred.
-                  child: Icon(Icons.lan, color: kGreen, size: 22),
+                  child: Icon(Icons.lan, color: _stepColor, size: 22),
                 ),
                 Expanded(
                   child: TextField(
                     controller: _ipCtrl,
+                    onChanged: (_) => setState(() {}),
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     style: TextStyle(color: kStar, fontSize: 16),
@@ -1674,7 +1711,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Removed to match.
             Text('3. DESKTOP SYNC FOLDER (git bare repo path)',
                 style: TextStyle(
-                    color: kGreen,
+                    color: _stepColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
@@ -1724,7 +1761,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         'assets/logos/desktop-git-diamond.svg',
                         width: 26,
                         height: 26,
-                        colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn),
+                        colorFilter:
+                            ColorFilter.mode(_stepColor, BlendMode.srcIn),
                       ),
                     ),
                   ),
@@ -1732,6 +1770,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Expanded(
                   child: TextField(
                     controller: _pathCtrl,
+                    onChanged: (_) => setState(() {}),
                     style: TextStyle(color: kStar, fontSize: 14),
                     decoration: InputDecoration(
                       // 2026-08-28: real feedback, live - "Git bare repo
@@ -2108,7 +2147,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 40),
             Text('4. DESKTOP VAULT PATH (optional)',
                 style: TextStyle(
-                    color: kGreen,
+                    color: _stepColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5)),
@@ -2118,7 +2157,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               children: [
                 Padding(
                   padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.folder_open, color: kGreen, size: 22),
+                  child: Icon(Icons.folder_open, color: _stepColor, size: 22),
                 ),
                 Expanded(
                   child: TextField(
