@@ -10,6 +10,7 @@ import 'services/purchase_service.dart';
 import 'features/linking/linking_controller.dart';
 import 'lifecycle_observer.dart';
 import 'screens/home_screen.dart';
+import 'widgets/auto_sync_on_resume.dart';
 import 'widgets/flag_backdrop.dart';
 import 'widgets/flag_frame.dart';
 
@@ -170,7 +171,14 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
           // const) correctly re-rendered live. Removing const forces
           // Home to actually rebuild - and re-read the live kGreen/
           // kVoid/etc getters - every time the skin changes.
-          home: HomeScreen(), // ignore: prefer_const_constructors
+          // 2026-09-06: AutoSyncOnResume wraps HomeScreen now (see that
+          // widget's own doc comment) - kept HomeScreen() itself non-
+          // const, same as before this change, for the exact reason the
+          // comment above used to explain here: a const HomeScreen can
+          // get treated as identical across rebuilds and skip re-reading
+          // the live skin colors when only this Consumer's theme
+          // actually changed.
+          home: AutoSyncOnResume(child: HomeScreen()), // ignore: prefer_const_constructors
         ),
       ),
     );
