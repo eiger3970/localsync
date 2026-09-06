@@ -11,7 +11,8 @@ import 'sync_service.dart'
         labelForCommit,
         repairAllConflictsOnDisk,
         finishMergeCommit,
-        backupFilesAboutToChange;
+        backupFilesAboutToChange,
+        verifyAndRepairCheckout;
 import 'vault_backup.dart';
 
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
@@ -455,7 +456,13 @@ class GitServiceImpl implements GitService {
           backupFilesAboutToChange(
               repo, localVaultPath, localOid, remoteOid, 'before pull reset');
           repo.reset(oid: remoteOid, resetType: GitReset.hard);
-          return const StepSuccess(message: 'Pulled (fast-forward)');
+          final repaired = verifyAndRepairCheckout(
+              repo, localVaultPath, localOid, remoteOid);
+          return StepSuccess(
+              message: repaired.isEmpty
+                  ? 'Pulled (fast-forward)'
+                  : 'Pulled (fast-forward) - ${repaired.join(", ")} '
+                      'fixed automatically after not updating correctly.');
         }
         if (remoteOid == baseOid) {
           // Local (just committed above) is already ahead - nothing new
