@@ -10,7 +10,8 @@ import 'sync_service.dart'
         createInitialCommit,
         labelForCommit,
         repairAllConflictsOnDisk,
-        finishMergeCommit;
+        finishMergeCommit,
+        backupFilesAboutToChange;
 import 'vault_backup.dart';
 
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
@@ -451,6 +452,8 @@ class GitServiceImpl implements GitService {
 
         final baseOid = Merge.base(repo, localOid, remoteOid);
         if (localOid == baseOid) {
+          backupFilesAboutToChange(
+              repo, localVaultPath, localOid, remoteOid, 'before pull reset');
           repo.reset(oid: remoteOid, resetType: GitReset.hard);
           return const StepSuccess(message: 'Pulled (fast-forward)');
         }

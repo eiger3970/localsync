@@ -449,6 +449,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           );
         }
       }
+      backupFilesAboutToChange(
+          repo, p.vaultPath, localOid, remoteOid, 'before pull reset');
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
       return const SyncOk('Downloaded latest notes.');
     }
@@ -676,7 +678,8 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
     if (!hasRemoteBranch) {
-      final err = _pushWithRetry(repo, remote, callbacks, p.branch);
+      final err =
+          _pushWithRetry(repo, remote, callbacks, p.branch, p.vaultPath);
       if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
       return SyncOk(committed
           ? 'Pushed as "${p.commitMessage}".'
@@ -734,7 +737,8 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       }
     }
 
-    final err = _pushWithRetry(repo, remote, callbacks, p.branch);
+    final err =
+        _pushWithRetry(repo, remote, callbacks, p.branch, p.vaultPath);
     if (err != null) return SyncFailed(err.error, debugDetail: err.detail);
     return SyncOk(committed
         ? 'Pushed as "${p.commitMessage}".'
@@ -1003,6 +1007,63 @@ String _conflictBackupName(String path, String label, String ts) {
   return '$stem - $label - $ts$ext';
 }
 
+/// 2026-09-06: real defense-in-depth, not itself an admission the reset
+/// logic at each call site is wrong - every hard reset in this app
+/// already reasons its way to "local has nothing unique here" before
+/// calling this (see each site's own comment: commitDirtyTree already
+/// ran, or the merge-base check already confirmed local is a strict
+/// ancestor). But a real incident the same day showed content going
+/// missing with none of those git-level assumptions actually violated
+/// as far as this app's own history could tell - the leading theory is
+/// Obsidian's own file cache silently overwriting what LocalSync just
+/// wrote to disk, entirely outside git's view, which no amount of
+/// correct git reasoning here can see coming. Backing up whatever a
+/// reset is about to discard needs none of those assumptions to hold:
+/// diffs [fromOid] against [toOid] and saves fromOid's own committed
+/// version of every file that's about to change or disappear, cheap
+/// (only the files actually changing, never the whole vault) and
+/// always real - a permanent, Obsidian-visible recovery copy sitting
+/// in Conflict Backups regardless of what actually caused the reset to
+/// be needed.
+void backupFilesAboutToChange(git.Repository repo, String vaultPath,
+    git.Oid fromOid, git.Oid toOid, String label) {
+  final List<String> atRisk;
+  final git.Tree fromTree;
+  try {
+    fromTree = git.Commit.lookup(repo: repo, oid: fromOid).tree;
+    final toTree = git.Commit.lookup(repo: repo, oid: toOid).tree;
+    final diff =
+        git.Diff.treeToTree(repo: repo, oldTree: fromTree, newTree: toTree);
+    atRisk = [
+      for (final delta in diff.deltas)
+        if (delta.status == git.GitDelta.deleted ||
+            delta.status == git.GitDelta.modified)
+          delta.oldFile.path
+    ];
+  } catch (_) {
+    // Best-effort safety net - never block the reset itself over a
+    // failure to compute what it's about to discard.
+    return;
+  }
+  if (atRisk.isEmpty) return;
+  final backupDir =
+      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+  backupDir.createSync(recursive: true);
+  final ts = backupTimestamp();
+  for (final path in atRisk) {
+    try {
+      final oid = _lookupPathOid(repo, fromTree, path);
+      if (oid == null) continue;
+      final blob = git.Blob.lookup(repo: repo, oid: oid);
+      final backupName = _conflictBackupName(path, label, ts);
+      File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
+    } catch (_) {
+      // Leave this one path unreported rather than let it block the
+      // others or the reset itself.
+    }
+  }
+}
+
 git.Tree _stageAndWriteTree(git.Repository repo) {
   final index = repo.index;
   index.addAll(['*']);
@@ -1030,6 +1091,7 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
   git.Remote remote,
   git.Callbacks callbacks,
   String branch,
+  String vaultPath,
 ) {
   try {
     remote.push(
@@ -1050,6 +1112,15 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       if (!analysis.result.contains(git.GitMergeAnalysis.fastForward)) {
         return (error: LinkingError.cannotFastForward, detail: e.toString());
       }
+      // 2026-09-06: this specific reset is the least airtight of the
+      // three in this file - it fires because a push was REJECTED,
+      // meaning local believed it had something real to push a moment
+      // ago, not because local was known to have nothing unique from
+      // the start (contrast the plain pull fast-forward above, which
+      // never had anything to push in the first place). Real backup,
+      // not just a defensive comment, given that gap.
+      backupFilesAboutToChange(repo, vaultPath, repo.head.target,
+          remoteBranch.target, 'before push-retry reset');
       repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
       remote.push(
         refspecs: ['refs/heads/$branch:refs/heads/$branch'],
