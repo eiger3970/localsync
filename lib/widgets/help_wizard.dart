@@ -73,23 +73,43 @@ const Map<String, _WizardNode> _flowB = {
       type: _NodeType.question,
       text: 'Do phone and desktop still match?',
       yes: 'end_match',
-      no: 'mismatch_open'),
+      no: 'mismatch_open_phone'),
   'end_match':
       _WizardNode(type: _NodeType.end, text: 'Nothing to do', tone: _Tone.good),
-  'mismatch_open': _WizardNode(
+  // 2026-09-06: rewritten - real feedback, live, on the first draft's
+  // wording: "don't use the non-specific word both... where is this on
+  // the phone or desktop... is this fixed automatically or with drag
+  // sentence blocks that are coloured?" Named each device and app
+  // directly instead of "both," and made explicit that this really is
+  // typed by hand - the colored drag-merge picker
+  // (conflict_picker_screen.dart/merge_picker_screen.dart) only ever
+  // runs on a conflict this app actually detected, which this path by
+  // definition isn't one of.
+  'mismatch_open_phone': _WizardNode(
       type: _NodeType.action,
-      text: 'Open the same note on both',
-      fine: 'Side by side, or one after another - compare what each has.',
+      text: 'Open the note in Obsidian on the phone',
+      fine: 'Read what it says there.',
+      next: 'mismatch_open_desktop'),
+  'mismatch_open_desktop': _WizardNode(
+      type: _NodeType.action,
+      text: 'Open the same note in Obsidian on the desktop',
+      fine: 'Read what it says there too.',
       next: 'mismatch_combine'),
   'mismatch_combine': _WizardNode(
       type: _NodeType.action,
-      text: 'Combine by hand',
-      fine: 'Keep everything from both sides - nothing gets dropped.',
-      next: 'mismatch_paste'),
-  'mismatch_paste': _WizardNode(
+      text: 'Write one version with everything from both',
+      fine: 'By hand - no automatic tool for this, since nothing was '
+          'flagged as a conflict.',
+      next: 'mismatch_paste_phone'),
+  'mismatch_paste_phone': _WizardNode(
       type: _NodeType.action,
-      text: 'Paste the combined version into both',
-      fine: 'Replace each copy so they read exactly the same.',
+      text: 'Type or paste that into the note on the phone',
+      fine: 'Replace what\'s there now, in Obsidian.',
+      next: 'mismatch_paste_desktop'),
+  'mismatch_paste_desktop': _WizardNode(
+      type: _NodeType.action,
+      text: 'Type or paste the same text into the note on the desktop',
+      fine: 'Replace what\'s there too, so both read exactly the same.',
       next: 'mismatch_push'),
   'mismatch_push':
       _WizardNode(type: _NodeType.action, text: 'PUSH', next: 'end_mismatch'),
