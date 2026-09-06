@@ -74,6 +74,51 @@ Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
   return true;
 }
 
+/// 2026-09-06: real feedback - "will they fill up a user's phone
+/// storage?" Nothing pruned LocalSync/Conflict Backups before this, and
+/// with auto-sync now running every time the app opens (see
+/// AutoSyncOnResume), a backup can be written far more often than a
+/// user will ever deliberately go looking in this folder. Best-effort,
+/// one pass, meant to be called once per app session (from
+/// AutoSyncOnResume) rather than after every single sync - deletes
+/// anything older than [maxAge]. Parses the embedded timestamp already
+/// in each filename (the same YYYYMMDDHHmm backupTimestamp() always
+/// writes, right before the extension) instead of trusting file mtime,
+/// which can shift unpredictably across a synced/copied file.
+Future<void> pruneOldConflictBackups(String vaultPath,
+    {Duration maxAge = const Duration(days: 30)}) async {
+  final dir = Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+  if (!await dir.exists()) return;
+  final cutoff = DateTime.now().subtract(maxAge);
+  final tsPattern = RegExp(r'(\d{12})(?:\.[^.]*)?$');
+  try {
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final name = entity.uri.pathSegments.last;
+      final match = tsPattern.firstMatch(name);
+      if (match == null) continue;
+      final ts = match.group(1)!;
+      final parsed = DateTime(
+        int.parse(ts.substring(0, 4)),
+        int.parse(ts.substring(4, 6)),
+        int.parse(ts.substring(6, 8)),
+        int.parse(ts.substring(8, 10)),
+        int.parse(ts.substring(10, 12)),
+      );
+      if (parsed.isBefore(cutoff)) {
+        try {
+          await entity.delete();
+        } catch (_) {
+          // Best-effort - one file failing to delete shouldn't block
+          // pruning the rest.
+        }
+      }
+    }
+  } catch (_) {
+    // Best-effort safety net - never worth surfacing an error for.
+  }
+}
+
 Future<void> _copyDirectoryContents(
   Directory source,
   Directory dest, {
