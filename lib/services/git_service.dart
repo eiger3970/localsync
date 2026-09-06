@@ -15,6 +15,19 @@ import 'sync_service.dart'
         verifyAndRepairCheckout;
 import 'vault_backup.dart';
 
+/// Extracts the repo path from a `ssh://user@host:port/path` URL - this
+/// app's own always-written format (see GitServiceImpl._remoteUrl and
+/// sync_service.dart's matching getter). Pure string logic, no
+/// git2dart involved, so unlike almost everything else in this file
+/// it's directly unit-testable on this arm64 dev machine. Returns null
+/// for anything that doesn't match that exact shape - callers should
+/// treat a non-match as "can't compare, don't block on it" rather than
+/// a mismatch.
+String? bareRepoPathFromSshUrl(String url) {
+  final match = RegExp(r'^ssh://[^@]+@[^:]+:\d+(.+)$').firstMatch(url);
+  return match?.group(1);
+}
+
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
 /// on iOS via CocoaPods - see lib/STRUCTURE.md for why this replaced the
 /// original Working Copy delegation plan).
@@ -98,6 +111,20 @@ class GitServiceImpl implements GitService {
   });
 
   String get _remoteUrl => 'ssh://$sshUser@$sshHost:$sshPort$bareRepoPath';
+
+  /// 2026-09-06: real gap found the same day as a real incident - a
+  /// vault folder's own EXISTING git remote (from a prior link) used
+  /// to be trusted as-is on re-link, never checked against what the
+  /// current Settings say the bare repo should be. This app's own
+  /// desktop-side equivalent script had the identical gap, fixed the
+  /// same session (see MEMORY project_synclocal_app.md's 2026-09-06
+  /// section). Compares only the repo PATH portion of the two ssh://
+  /// URLs, never sshHost - that legitimately changes day to day (DHCP
+  /// on the desktop's own network), not a sign of a wrong repo.
+  bool _isSameBareRepo(String existingUrl) {
+    final path = bareRepoPathFromSshUrl(existingUrl);
+    return path == null || path == bareRepoPath;
+  }
 
   Credentials get _credentials => Keypair(
         username: sshUser,
@@ -423,6 +450,19 @@ class GitServiceImpl implements GitService {
         }
 
         final remote = Remote.lookup(repo: repo, name: 'origin');
+        // 2026-09-06: real incident - this vault folder's own remote,
+        // set the last time it was linked, is what everything below
+        // actually syncs against - not _remoteUrl/bareRepoPath, which
+        // only reflect Settings' CURRENT value. If those two have
+        // quietly drifted apart (Settings changed since this folder
+        // was last linked, or vice versa), every sync from here on
+        // would silently keep talking to the OLD repo forever with no
+        // warning - the exact bug that caused a real multi-day data-
+        // loss incident. Checked here, once, before anything else
+        // touches this repo.
+        if (!_isSameBareRepo(remote.url)) {
+          return const StepFailure(LinkingError.repoIdentityMismatch);
+        }
         // 2026-08-30: same real device bug as the fresh-clone branch
         // above, still hitting - "same error connecting to new phone
         // folder." This is the OTHER path to the same unconditional
