@@ -462,15 +462,18 @@ class GitServiceImpl implements GitService {
         // touches this repo.
         if (!_isSameBareRepo(remote.url)) {
           // 2026-09-06: same real feedback that led to this whole check
-          // - "make paths crystal clear... a raw path is easy to
-          // mistype, hard to eyeball-compare." LocalSync/repo-name.txt
-          // is a real tracked file inside the vault (see
-          // localsync_sync.sh's own matching ensure_repo_name) - a
-          // short human name for "which repo is this," fetched to
-          // every device the same as any other content. Read directly
-          // via dart:io, not git2dart - this repo's tree is already
-          // checked out on disk, no need to go through a blob lookup
-          // for a plain file read.
+          // - "make paths crystal clear... let the full path be shown
+          // if details want to be seen." LocalSync/repo-name.txt is a
+          // real tracked file inside the vault (see localsync_sync.sh's
+          // own matching ensure_repo_name) - a short human name for
+          // "which repo is this," fetched to every device the same as
+          // any other content. But this check runs BEFORE any fetch -
+          // if the vault's stuck on the wrong repo (the exact case
+          // this is flagging), that repo may never have had a chance
+          // to deliver its own name file yet, so the name alone can't
+          // be the only thing shown. Always shows both raw paths being
+          // compared - the name (when available) is a bonus headline
+          // on top of that, never a replacement for it.
           String? existingName;
           try {
             existingName = File('$localVaultPath/LocalSync/repo-name.txt')
@@ -479,12 +482,16 @@ class GitServiceImpl implements GitService {
           } catch (_) {
             existingName = null;
           }
+          final existingPath =
+              bareRepoPathFromSshUrl(remote.url) ?? remote.url;
+          final nameLine = existingName == null || existingName.isEmpty
+              ? ''
+              : 'Currently connected to: "$existingName"\n';
           return StepFailure(
             LinkingError.repoIdentityMismatch,
-            debugDetail: existingName == null || existingName.isEmpty
-                ? null
-                : 'This folder is currently connected to "$existingName." '
-                    'Settings now points somewhere else.',
+            debugDetail: '$nameLine'
+                'This folder\'s repo: $existingPath\n'
+                'Settings\' repo: $bareRepoPath',
           );
         }
         // 2026-08-30: same real device bug as the fresh-clone branch
