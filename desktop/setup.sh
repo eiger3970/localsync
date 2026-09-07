@@ -474,6 +474,36 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   CHOSEN_INDEX="$IDENTITY_INDEX"
   BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
   echo "Using: ${GREEN}$BARE_REPO_PATH${RESET} (already linked before)"
+  # 2026-09-07: real feedback, live - "how can I or the user trust
+  # this, as data lost or deleted cannot be retrieved if wrong."
+  # Terse-by-default (the fix right above this comment) means the
+  # reasoning and the other candidates are no longer shown - fair ask
+  # to still be able to see them on demand instead of just being told
+  # to trust it. This never deletes or moves anything by itself (that
+  # only ever happens later, in the archive step, gated on its own
+  # explicit yes) - it only decided which existing folder to read from,
+  # so there's nothing to "get wrong" in a destructive sense here, but
+  # the person asking to see why is a completely reasonable ask on its
+  # own merits.
+  echo "This only decided which existing folder to read - nothing was"
+  echo "moved, changed, or deleted to get here."
+  read -rp "See the other ${#MATCH_PATHS[@]}-1 candidates and why this one was picked? [y/N] " WHY_ANSWER
+  if [[ "$WHY_ANSWER" =~ ^[Yy]$ ]]; then
+    echo
+    echo "Picked because it has a recorded identity file"
+    echo "(LocalSync/repo-name.txt = \"${IDENTITY_BY_PATH[$BARE_REPO_PATH]}\"),"
+    echo "written the one time your phone actually linked to it. None of"
+    echo "the other candidates below have that - only a guess by"
+    echo "filename or date, which is exactly what caused a real data-loss"
+    echo "incident once already, so this never uses that alone:"
+    echo
+    for i in "${!MATCH_PATHS[@]}"; do
+      MARK=""
+      [[ "$i" == "$CHOSEN_INDEX" ]] && MARK=" ${GREEN}<- chosen${RESET}"
+      echo "  $((i + 1))) ${MATCH_LABELS[$i]}$MARK"
+    done
+    echo
+  fi
 elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
   # Genuinely ambiguous - this is the one case the full listing earns
   # its place, since the person actually has to read it to decide.
@@ -526,10 +556,21 @@ fi
 if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
   OTHER_COUNT=$((${#MATCH_PATHS[@]} - 1))
   if [[ "$OTHER_COUNT" -ge 1 && -t 0 ]]; then
+    # 2026-09-07: real feedback, live - "data lost or deleted cannot be
+    # retrieved if wrong... the data is backed up and can be found and
+    # recovered from a path linked." The exact recovery path is now
+    # stated BEFORE asking, not just described in the abstract after -
+    # someone deciding whether to say yes should already know exactly
+    # where things will land if they do, not find out afterward.
+    ARCHIVE_DIR="$HOME/Documents/Git/LocalSync-old-candidates-archive/$(date +%Y%m%d%H%M%S)"
     echo
-    read -rp "Archive the other $OTHER_COUNT candidate(s) to reduce clutter next time? Nothing is deleted, only moved. [y/N] " ARCHIVE_ANSWER
+    echo "Archive the other $OTHER_COUNT candidate(s) to reduce clutter next time?"
+    echo "Nothing deleted - each one is copied, verified byte-for-byte,"
+    echo "only then removed from its old spot. Full git history stays"
+    echo "intact. If you ever need one back, it'll be sitting right here:"
+    echo "  ${GREEN}$ARCHIVE_DIR${RESET}"
+    read -rp "Archive now? [y/N] " ARCHIVE_ANSWER
     if [[ "$ARCHIVE_ANSWER" =~ ^[Yy]$ ]]; then
-      ARCHIVE_DIR="$HOME/Documents/Git/LocalSync-old-candidates-archive/$(date +%Y%m%d%H%M%S)"
       mkdir -p "$ARCHIVE_DIR"
       for i in "${!MATCH_PATHS[@]}"; do
         [[ "$i" == "$CHOSEN_INDEX" ]] && continue
