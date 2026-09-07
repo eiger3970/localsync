@@ -690,6 +690,47 @@ if command -v qrencode >/dev/null 2>&1; then
   # checking harder, not easier.
   QR_HTML="$(mktemp -t localsync-qr-XXXXXX).html"
   QR_PNG_B64=$(echo "$QR_PAYLOAD" | qrencode -o - -s 10 -m 2 | base64 -w0 2>/dev/null || echo "$QR_PAYLOAD" | qrencode -o - -s 10 -m 2 | base64)
+  # 2026-09-07: real feedback, live - "I was thinking to have this on
+  # the desktop qr screen, as once the phone as scanned the path, it's
+  # too late." The terminal's own "why + alternatives" reveal (added
+  # earlier this session) happens before this window even exists and
+  # scrolls out of view by the time someone's actually looking at the
+  # QR deciding whether to scan it - the real decision point is here,
+  # not further up the terminal. Same information, moved to where it's
+  # actually needed: a collapsed-by-default <details> so it doesn't
+  # fight the QR for attention, but one tap away right where the QR is.
+  WHY_SECTION=""
+  if [[ -n "$CHOSEN_INDEX" && "${#MATCH_PATHS[@]}" -gt 1 ]]; then
+    ALT_ROWS=""
+    for i in "${!MATCH_PATHS[@]}"; do
+      [[ "$i" == "$CHOSEN_INDEX" ]] && continue
+      ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\">${MATCH_PATHS[$i]}</div>"
+    done
+    if [[ -n "${IDENTITY_BY_PATH[$BARE_REPO_PATH]:-}" ]]; then
+      WHY_TEXT="Picked automatically - the only one with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). Not a guess by name or date - that's exactly what caused a real data-loss incident once, so it's never used alone."
+    else
+      WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
+    fi
+    WHY_SECTION="<details class=\"why\"><summary>Why this DESKTOP SYNC FOLDER path?</summary><p class=\"why-text\">${WHY_TEXT}</p><p class=\"why-text\">Nothing was changed or deleted to decide this - it only reads from whichever folder gets confirmed. $((${#MATCH_PATHS[@]} - 1)) other folder(s) considered, not used:</p><div class=\"alt-list\">${ALT_ROWS}</div>"
+    # 2026-09-07: real bug found live, testing this - ARCHIVE_DIR is
+    # set to a real string as soon as it's computed (needed so the y/N
+    # prompt itself can show the recovery path before asking), but the
+    # actual folder is only created a few lines later, and only inside
+    # the "yes" branch. Checking `-n "$ARCHIVE_DIR"` here tested "was
+    # this string ever computed", true even when the person said no -
+    # producing a file:// link to a folder that was never created,
+    # which broke the browser when clicked. Checking `-d` instead tests
+    # the one thing that actually matters: does the folder genuinely
+    # exist right now.
+    if [[ -d "${ARCHIVE_DIR:-}" ]]; then
+      # 2026-09-07: real feedback, live - "add a live link to the
+      # archive." A file:// link a real browser can open directly to
+      # the actual folder, not just plain text of the path someone
+      # would have to retype into a file manager by hand.
+      WHY_SECTION="${WHY_SECTION}<p class=\"archive-note\">The others above were archived (copied, verified, then removed from their old spot - nothing deleted) to:<br><a class=\"archive-link\" href=\"file://${ARCHIVE_DIR}\">${ARCHIVE_DIR}</a></p>"
+    fi
+    WHY_SECTION="${WHY_SECTION}</details>"
+  fi
   cat > "$QR_HTML" <<HTMLEOF
 <!doctype html><html><head><meta charset="UTF-8">
 <title>LocalSync setup</title>
@@ -714,6 +755,16 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 .chip{background:#10160e;border:1px solid #263420;border-radius:8px;padding:9px 12px}
 .chip b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7c9070;display:block;margin-bottom:3px;font-weight:400}
 .chip span{font-size:12.5px;word-break:break-all}
+.why{margin:18px 0 0;text-align:left;background:#10160e;border:1px solid #263420;border-radius:8px;padding:2px 12px}
+.why summary{cursor:pointer;font-size:12.5px;color:#7c9070;padding:9px 0;list-style:none}
+.why summary::-webkit-details-marker{display:none}
+.why summary::before{content:"▸ ";color:#6fff8f}
+.why[open] summary::before{content:"▾ "}
+.why-text{font-size:12.5px;color:#d7e6cd;line-height:1.5;margin:0 0 10px}
+.alt-list{display:flex;flex-direction:column;gap:5px;margin:0 0 12px;font-family:'DejaVu Sans Mono',monospace}
+.alt-row{font-size:11px;color:#7c9070;word-break:break-all}
+.archive-note{font-size:11.5px;color:#7c9070;margin:10px 0 12px;line-height:1.5;padding-top:10px;border-top:1px solid #263420}
+.archive-link{color:#6fff8f;word-break:break-all;text-decoration:underline}
 </style></head><body><div class="page">
 <div class="brand"><img src="data:image/svg+xml;base64,${LOCALSYNC_LOGO_B64}" alt="LocalSync"></div>
 <!-- 2026-09-04: real feedback, live - "a visual showing a phone
@@ -740,7 +791,9 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 <div class="chip"><b>2. Desktop IP address</b><span>${IP_RESULT:-not found}</span></div>
 <div class="chip"><b>3. Desktop sync folder</b><span>${BARE_REPO_PATH}</span></div>
 <div class="chip"><b>4. Desktop vault path</b><span>${BEST_VAULT_PATH:-(leave blank)}</span></div>
-</div></div></body></html>
+</div>
+${WHY_SECTION}
+</div></body></html>
 HTMLEOF
   if open_in_browser "$QR_HTML"; then
     echo "(Also opened in your browser - a proper window, not this terminal.)"
