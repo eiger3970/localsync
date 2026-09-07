@@ -350,8 +350,17 @@ echo
 # someone read a list and correct it by hand - this now does the exact
 # same thing here, since finding a real match and still not using it
 # defeats the entire point of scanning in the first place.
-echo "Desktop sync folders:"
-echo
+# 2026-09-07: real feedback, live - "eye bleed... verbose text... new
+# information to a non-expert user. The script needs to sort it out."
+# The old version always printed a full per-candidate scan listing
+# (path, last-used date, message) up front, even in the ordinary case
+# where the script can already decide on its own (0 or 1 real
+# candidate, or exactly one with a recorded identity) - showing the
+# entire decision-making process to someone who never needed to make
+# a decision. The scan below is now silent; a listing only ever prints
+# in the one case it's actually needed - genuine ambiguity the person
+# has to resolve themselves (see the branch below). Every other case
+# gets one short result line.
 FOUND_MATCH=false
 UNRELATED_COUNT=0
 BEST_SYNC_FOLDER=""
@@ -415,15 +424,11 @@ while IFS= read -r -d '' d; do
     name_hint=" \"${IDENTITY_BY_PATH[$d]}\""
   fi
   if [[ -z "$msg" ]]; then
-    echo "  $d"
-    echo "    empty - safe to use"
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d - empty, safe to use")
     MATCH_HAS_IDENTITY+=(false)
   elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
-    echo "  $d$name_hint"
-    echo "    last used $when - $msg"
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d$name_hint - last used $when")
@@ -442,77 +447,83 @@ while IFS= read -r -d '' d; do
   fi
 done < <(find "$HOME/Documents/Git" -maxdepth 3 -name '*.git' -type d -print0 2>/dev/null)
 
-if [[ "$UNRELATED_COUNT" -eq 1 ]]; then
-  echo
-  echo "  (1 other folder here looks like an unrelated project, not"
-  echo "  LocalSync data, so it's skipped above.)"
-elif [[ "$UNRELATED_COUNT" -gt 1 ]]; then
-  echo
-  echo "  ($UNRELATED_COUNT other folders here look like unrelated"
-  echo "  projects, not LocalSync data, so they're skipped above.)"
-fi
-
 echo
 CHOSEN_INDEX=""
-if [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
-  # 2026-09-07: real feedback, live - "not user friendly" to always ask
-  # when there's more than one candidate, even though most of the time
-  # exactly one of them carries a real, already-established identity
-  # (LocalSync/repo-name.txt, written once a phone has actually linked
-  # to it - see localsync_sync.sh's ensure_repo_name). That's not a
-  # guess the way "most recently used" was - it's a fact this exact
-  # desktop already recorded about this exact repo. Only auto-skips the
-  # question when EXACTLY one candidate has that marker; two or more
-  # (or zero) still ask, same as before - this never guesses between
-  # genuinely ambiguous options, it only skips asking when there's
-  # nothing left to actually be ambiguous about.
-  IDENTITY_COUNT=0
-  IDENTITY_INDEX=""
-  for i in "${!MATCH_HAS_IDENTITY[@]}"; do
-    if [[ "${MATCH_HAS_IDENTITY[$i]}" == true ]]; then
-      IDENTITY_COUNT=$((IDENTITY_COUNT + 1))
-      IDENTITY_INDEX="$i"
-    fi
-  done
-
-  if [[ "$IDENTITY_COUNT" -eq 1 ]]; then
-    CHOSEN_INDEX="$IDENTITY_INDEX"
-    BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
-    echo "Found ${#MATCH_PATHS[@]} candidates above, but only one has a"
-    echo "recorded identity from a real previous link - using it, no"
-    echo "need to ask:"
-    echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
-  else
-    echo "Found ${#MATCH_PATHS[@]} real candidates above - which one is"
-    echo "actually yours? Picking by \"most recently used\" alone caused a"
-    echo "real multi-day data-loss incident once already, so this asks"
-    echo "instead of guessing:"
-    echo
-    for i in "${!MATCH_PATHS[@]}"; do
-      echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
-    done
-    echo
-    read -rp "Enter the number of the correct one: " CHOICE
-    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
-      CHOSEN_INDEX=$((CHOICE - 1))
-      BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
-      echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
-    else
-      echo "Not a valid choice - not guessing. Run this again and enter"
-      echo "one of the numbers above."
-      exit 1
-    fi
+# 2026-09-07: real feedback, live - "not user friendly" to always ask
+# when there's more than one candidate, even though most of the time
+# exactly one of them carries a real, already-established identity
+# (LocalSync/repo-name.txt, written once a phone has actually linked
+# to it - see localsync_sync.sh's ensure_repo_name). That's not a
+# guess the way "most recently used" was - it's a fact this exact
+# desktop already recorded about this exact repo. Only auto-skips the
+# question when EXACTLY one candidate has that marker; two or more (or
+# zero) still ask, same as before - this never guesses between
+# genuinely ambiguous options, it only skips asking when there's
+# nothing left to actually be ambiguous about. Computed before the
+# branch below so both the terse and the verbose path can use it.
+IDENTITY_COUNT=0
+IDENTITY_INDEX=""
+for i in "${!MATCH_HAS_IDENTITY[@]}"; do
+  if [[ "${MATCH_HAS_IDENTITY[$i]}" == true ]]; then
+    IDENTITY_COUNT=$((IDENTITY_COUNT + 1))
+    IDENTITY_INDEX="$i"
   fi
+done
 
-  # 2026-09-07: real feedback, live - "real life needs to cater for...
-  # users will inevitably have a mess and need this cleaned up without
-  # losing any data." Right after the person has told this script
-  # (directly, or via the identity match above) which candidate is
-  # real, that's the one moment this script can safely act on the
-  # others - never guessed at algorithmically, only offered using the
-  # answer just given. Archives (mv, never rm) every OTHER real
-  # candidate into one timestamped folder - full git history intact,
-  # nothing deleted, trivially reversible by moving it back.
+if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
+  CHOSEN_INDEX="$IDENTITY_INDEX"
+  BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
+  echo "Using: ${GREEN}$BARE_REPO_PATH${RESET} (already linked before)"
+elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
+  # Genuinely ambiguous - this is the one case the full listing earns
+  # its place, since the person actually has to read it to decide.
+  echo "Found ${#MATCH_PATHS[@]} real candidates - which one is"
+  echo "actually yours? Picking by \"most recently used\" alone caused a"
+  echo "real multi-day data-loss incident once already, so this asks"
+  echo "instead of guessing:"
+  echo
+  for i in "${!MATCH_PATHS[@]}"; do
+    echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
+  done
+  echo
+  read -rp "Enter the number of the correct one: " CHOICE
+  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
+    CHOSEN_INDEX=$((CHOICE - 1))
+    BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
+    echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
+  else
+    echo "Not a valid choice - not guessing. Run this again and enter"
+    echo "one of the numbers above."
+    exit 1
+  fi
+elif [[ -n "$BEST_SYNC_FOLDER" ]]; then
+  BARE_REPO_PATH="$BEST_SYNC_FOLDER"
+  echo "Found your existing setup (last used $BEST_SYNC_DATE) - using it"
+  echo "below and in the QR code automatically:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
+elif [[ "$FOUND_MATCH" == true ]]; then
+  echo "No folder here has real sync history yet. Not sure which to"
+  echo "use? This path is a safe, empty default:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
+else
+  echo "No previous LocalSync folders found here - normal for a first"
+  echo "time setup. Enter this path into LocalSync's Settings on your"
+  echo "phone:"
+  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
+fi
+
+# 2026-09-07: real feedback, live - "real life needs to cater for...
+# users will inevitably have a mess and need this cleaned up without
+# losing any data." Right after the person has told this script
+# (directly, or via the identity match above) which candidate is real,
+# that's the one moment this script can safely act on the others -
+# never guessed at algorithmically, only offered using the answer just
+# given. Applies whichever way CHOSEN_INDEX got set above (auto-picked
+# via identity, or manually chosen) - both leave other real candidates
+# sitting around. Archives (copy, verify, then remove - never a blind
+# delete) every OTHER real candidate into one timestamped folder, full
+# git history intact.
+if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
   OTHER_COUNT=$((${#MATCH_PATHS[@]} - 1))
   if [[ "$OTHER_COUNT" -ge 1 && -t 0 ]]; then
     echo
@@ -549,20 +560,6 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
       echo "All moved into: ${GREEN}$ARCHIVE_DIR${RESET}"
     fi
   fi
-elif [[ -n "$BEST_SYNC_FOLDER" ]]; then
-  BARE_REPO_PATH="$BEST_SYNC_FOLDER"
-  echo "Found your existing setup above (last used $BEST_SYNC_DATE) -"
-  echo "using it below and in the QR code automatically:"
-  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
-elif [[ "$FOUND_MATCH" == true ]]; then
-  echo "None of the folders above have real sync history yet. Not sure"
-  echo "which to use? This path is a safe, empty default:"
-  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
-else
-  echo "No previous LocalSync folders found here - normal for a first"
-  echo "time setup. Enter this path into LocalSync's Settings on your"
-  echo "phone:"
-  echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
 fi
 
 # ── Desktop vault path ────────────────────────────────────────────────────
