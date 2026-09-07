@@ -531,10 +531,9 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
     echo "Picked because this DESKTOP SYNC FOLDER path has a recorded"
     echo "identity file (LocalSync/repo-name.txt = \"${IDENTITY_BY_PATH[$BARE_REPO_PATH]}\"),"
     echo "written the one time your phone actually linked to it. None of"
-    echo "the other candidates below have that. File name or last-used"
-    echo "date alone are never enough to decide this - guessing from"
-    echo "those alone is exactly what caused a real data-loss incident"
-    echo "once already:"
+    echo "the other candidates below have that - so file name or"
+    echo "last-used date alone are never used to decide this, to avoid"
+    echo "ever picking the wrong one and risking your data:"
     echo
     # Real order, stated: most recently used first (SORTED_IDX, see
     # its own comment above) - not filesystem traversal order.
@@ -550,9 +549,8 @@ elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
   # Genuinely ambiguous - this is the one case the full listing earns
   # its place, since the person actually has to read it to decide.
   echo "Found ${#MATCH_PATHS[@]} real candidates, most recently used"
-  echo "first - which one is actually yours? Picking by \"most recently"
-  echo "used\" ALONE caused a real multi-day data-loss incident once"
-  echo "already, so this asks instead of guessing:"
+  echo "first - which one is actually yours? Picking the wrong one here"
+  echo "risks your data, so this asks instead of guessing:"
   echo
   for pos in "${!SORTED_IDX[@]}"; do
     i="${SORTED_IDX[$pos]}"
@@ -768,7 +766,7 @@ if command -v qrencode >/dev/null 2>&1; then
       ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\"><span class=\"alt-num\">${ALT_POS}.</span> ${MATCH_LABELS[$i]}</div>"
     done
     if [[ -n "${IDENTITY_BY_PATH[$BARE_REPO_PATH]:-}" ]]; then
-      WHY_TEXT="Picked automatically - the only DESKTOP SYNC FOLDER path with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). File name or last-used date alone are never enough to decide this - guessing from those alone is exactly what caused a real data-loss incident once already."
+      WHY_TEXT="Picked automatically - the only DESKTOP SYNC FOLDER path with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). File name or last-used date alone are never used to decide this, to avoid ever picking the wrong one and risking your data."
     else
       WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
     fi
