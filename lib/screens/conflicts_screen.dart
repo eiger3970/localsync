@@ -140,6 +140,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (mounted) setState(() => _future = _scan());
   }
 
+  /// Combines a leftover reference callout back into the note alongside
+  /// the content that was kept, instead of only ever swapping (Undo) or
+  /// discarding (Delete) - see mergeReferenceKeepingBoth's own doc
+  /// (conflict_scanner.dart) for the real case this fixes.
+  Future<void> _mergeRef(ReferenceEntry ref) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      await mergeReferenceKeepingBoth(path, ref);
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (mounted) setState(() => _future = _scan());
+  }
+
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
     final db = DatabaseService();
     final now = DateTime.now();
@@ -512,6 +527,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       onUndo: ref.keptMarkerStart == null
                                           ? null
                                           : () => _undoRef(ref),
+                                      onMerge: ref.keptMarkerStart == null
+                                          ? null
+                                          : () => _mergeRef(ref),
                                     ),
                                   ),
                                 );
@@ -717,11 +735,13 @@ class ReferenceDetailScreen extends StatelessWidget {
   final ReferenceEntry entry;
   final VoidCallback onDelete;
   final VoidCallback? onUndo;
+  final VoidCallback? onMerge;
   const ReferenceDetailScreen({
     super.key,
     required this.entry,
     required this.onDelete,
     this.onUndo,
+    this.onMerge,
   });
 
   @override
@@ -735,11 +755,12 @@ class ReferenceDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: ReferenceCalloutTile(
           entry: entry,
-          // Delete/Undo still run against the Conflicts list's own
-          // Repository/vault access (the callbacks passed in from
-          // conflicts_screen.dart's _deleteRef/_undoRef) - popping this
-          // screen right after doesn't interrupt that work, since it
-          // belongs to the still-mounted screen underneath, not this one.
+          // Delete/Undo/Merge still run against the Conflicts list's
+          // own Repository/vault access (the callbacks passed in from
+          // conflicts_screen.dart's _deleteRef/_undoRef/_mergeRef) -
+          // popping this screen right after doesn't interrupt that
+          // work, since it belongs to the still-mounted screen
+          // underneath, not this one.
           onDelete: () {
             onDelete();
             Navigator.pop(context);
@@ -748,6 +769,12 @@ class ReferenceDetailScreen extends StatelessWidget {
               ? null
               : () {
                   onUndo!();
+                  Navigator.pop(context);
+                },
+          onMerge: onMerge == null
+              ? null
+              : () {
+                  onMerge!();
                   Navigator.pop(context);
                 },
         ),
@@ -787,11 +814,17 @@ class ReferenceCalloutTile extends StatefulWidget {
   // ReferenceEntry's own doc) - the UNDO button is left off entirely
   // for that case rather than shown disabled with no explanation.
   final VoidCallback? onUndo;
+  // 2026-09-07: real feedback, live - "I want to merge the 1500 before
+  // the 2105, but I don't see any options to MERGE or KEEP BOTH, I only
+  // see DELETE NOTE." Same null-when-unavailable gate as onUndo - see
+  // mergeReferenceKeepingBoth's own doc (conflict_scanner.dart).
+  final VoidCallback? onMerge;
   const ReferenceCalloutTile({
     super.key,
     required this.entry,
     required this.onDelete,
     this.onUndo,
+    this.onMerge,
   });
 
   @override
@@ -813,6 +846,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
   ReferenceEntry get entry => widget.entry;
   VoidCallback get onDelete => widget.onDelete;
   VoidCallback? get onUndo => widget.onUndo;
+  VoidCallback? get onMerge => widget.onMerge;
 
   // Only the dropped side's origin is actually tracked (entry.label,
   // written by conflict_scanner.dart's _mergeCallout as "who - when").
@@ -903,12 +937,21 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
           const SizedBox(height: 2),
           Text(_subtitle, style: TextStyle(color: kTextMid, fontSize: 12.5)),
           const SizedBox(height: 10),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Container(
+          // 2026-09-07: real feedback, live - "I need this left/right
+          // order to be a consistent rule... phone left... first thing
+          // the user sees." Position (left/right) now always follows
+          // device identity (this device left, other device right,
+          // built via _keptIsThisDevice - already true device identity,
+          // not a coincidence of which side happened to be kept) -
+          // color/label (green=kept/"IN NOTE NOW", amber=dropped/"IN
+          // CONFLICT BACKUPS") stays tied to what actually happened,
+          // independent of position. Before this, position followed
+          // kept/dropped instead, so which device appeared on which
+          // side silently flipped between notes depending on which side
+          // won that note's resolution - the actual inconsistency.
+          Builder(builder: (context) {
+            final keptBox = Expanded(
+              child: Container(
                     padding:
                         const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     decoration: BoxDecoration(
@@ -1028,14 +1071,10 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                         ],
                       ],
                     ),
-                  ),
-                ),
-                // 2026-08-26: real feedback, live - "left and right
-                // squares to have a space between them" - was 8, bumped
-                // to 12.
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
+              ),
+            );
+            final droppedBox = Expanded(
+              child: Container(
                     padding:
                         const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
                     decoration: BoxDecoration(
@@ -1160,11 +1199,42 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                         ),
                       ],
                     ),
-                  ),
+              ),
+            );
+            const gap = SizedBox(width: 12);
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _keptIsThisDevice
+                    ? [keptBox, gap, droppedBox]
+                    : [droppedBox, gap, keptBox],
+              ),
+            );
+          }),
+          // 2026-09-07: real feedback, live - "I want to merge the 1500
+          // before the 2105, but I don't see any options to MERGE or
+          // KEEP BOTH." Same shape as the live conflict picker's own
+          // KEEP BOTH button (conflict_picker_screen.dart) - full width,
+          // below the compare panels, only shown when there's an exact
+          // kept span to merge against (onMerge's own null-gate doc).
+          if (onMerge != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onMerge,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: kGreen),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
-              ],
+                child: Text('KEEP BOTH',
+                    style: TextStyle(
+                        color: kGreen,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700)),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
