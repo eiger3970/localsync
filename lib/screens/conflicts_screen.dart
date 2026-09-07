@@ -488,17 +488,50 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           }
                           if (i > refHeaderIndex) {
                             final ref = refs[i - refHeaderIndex - 1];
-                            return ReferenceCalloutTile(
-                                entry: ref,
-                                onDelete: () => _deleteRef(ref),
-                                // Undo needs an exact swap span (see
-                                // ReferenceEntry's own doc) - null on an older
-                                // note resolved before that marker existed,
-                                // which the tile reads as "not offered" rather
-                                // than a broken button.
-                                onUndo: ref.keptMarkerStart == null
-                                    ? null
-                                    : () => _undoRef(ref));
+                            // 2026-09-07: real feedback, live - "still
+                            // showing inconsistent presentation, some
+                            // conflicts as text only and some with
+                            // visuals... just keep all as minimal as
+                            // possible with text only." The green/amber
+                            // compare card (ReferenceCalloutTile, moved
+                            // to its own screen below) used to render
+                            // inline right here, next to the plain
+                            // ListTile rows real conflicts use just below
+                            // this branch - one list, two totally
+                            // different visual languages. Now every row
+                            // in this list is the same plain ListTile;
+                            // the compare card only appears after tapping
+                            // in, on ReferenceDetailScreen.
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(ref.filePath,
+                                  style:
+                                      TextStyle(color: kStar, fontSize: 15)),
+                              subtitle: Text(
+                                ref.label.isEmpty
+                                    ? 'An earlier edit, not kept'
+                                    : '${ref.label} - not kept',
+                                style:
+                                    TextStyle(color: kTextMid, fontSize: 14),
+                              ),
+                              trailing:
+                                  Icon(Icons.chevron_right, color: kTextDim),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ReferenceDetailScreen(
+                                      entry: ref,
+                                      onDelete: () => _deleteRef(ref),
+                                      onUndo: ref.keptMarkerStart == null
+                                          ? null
+                                          : () => _undoRef(ref),
+                                    ),
+                                  ),
+                                );
+                                if (mounted) setState(() => _future = _scan());
+                              },
+                            );
                           }
                           final e = entries[i];
                           // 2026-08-20: this exact conflict was resolved before
@@ -665,6 +698,56 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   }
 }
 
+// 2026-09-07: real feedback, live - "still showing inconsistent
+// presentation, some conflicts as text only and some with visuals...
+// keep all as minimal as possible with text only, then when user taps
+// into the conflict, the fix can begin." Hosts the compare card below
+// (ReferenceCalloutTile, unchanged) on its own screen instead of inline
+// in the Conflicts list, so every row in that list is now the same
+// plain ListTile regardless of which section it's in.
+class ReferenceDetailScreen extends StatelessWidget {
+  final ReferenceEntry entry;
+  final VoidCallback onDelete;
+  final VoidCallback? onUndo;
+  const ReferenceDetailScreen({
+    super.key,
+    required this.entry,
+    required this.onDelete,
+    this.onUndo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: kVoid,
+        title: Text('Old version', style: TextStyle(color: kStar)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: ReferenceCalloutTile(
+          entry: entry,
+          // Delete/Undo still run against the Conflicts list's own
+          // Repository/vault access (the callbacks passed in from
+          // conflicts_screen.dart's _deleteRef/_undoRef) - popping this
+          // screen right after doesn't interrupt that work, since it
+          // belongs to the still-mounted screen underneath, not this one.
+          onDelete: () {
+            onDelete();
+            Navigator.pop(context);
+          },
+          onUndo: onUndo == null
+              ? null
+              : () {
+                  onUndo!();
+                  Navigator.pop(context);
+                },
+        ),
+      ),
+    );
+  }
+}
+
 // 2026-08-26: real feedback, live - "stop the eye bleed, simple buttons
 // for this or that." The wording fix on _mergeCallout's leftover blocks
 // (conflict_scanner.dart) answered "what is this" but still left "now
@@ -674,6 +757,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
 // Delete button, backed up first (deleteReferenceCallout), no note-
 // editing required. Public (not `_ReferenceCalloutTile`) so it can be
 // preview-tested in isolation, same pattern as DiagCard.
+// 2026-09-07: now only reached via ReferenceDetailScreen (tap-in from
+// the Conflicts list), not rendered inline in the list itself - see that
+// screen's own header comment.
 // 2026-08-26: real feedback, live, many rounds - final shape settled via
 // an HTML mockup (real device screenshots weren't practical mid-session):
 // left/right compare (same principle as the real conflict picker's
