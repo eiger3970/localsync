@@ -519,12 +519,13 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   read -rp "See the other $(( ${#MATCH_PATHS[@]} - 1 )) candidates and why this one was picked? [y/N] " WHY_ANSWER
   if [[ "$WHY_ANSWER" =~ ^[Yy]$ ]]; then
     echo
-    echo "Picked because it has a recorded identity file"
-    echo "(LocalSync/repo-name.txt = \"${IDENTITY_BY_PATH[$BARE_REPO_PATH]}\"),"
+    echo "Picked because this DESKTOP SYNC FOLDER path has a recorded"
+    echo "identity file (LocalSync/repo-name.txt = \"${IDENTITY_BY_PATH[$BARE_REPO_PATH]}\"),"
     echo "written the one time your phone actually linked to it. None of"
-    echo "the other candidates below have that - only a guess by"
-    echo "filename or date, which is exactly what caused a real data-loss"
-    echo "incident once already, so this never uses that alone:"
+    echo "the other candidates below have that. File name or last-used"
+    echo "date alone are never enough to decide this - guessing from"
+    echo "those alone is exactly what caused a real data-loss incident"
+    echo "once already:"
     echo
     # Real order, stated: most recently used first (SORTED_IDX, see
     # its own comment above) - not filesystem traversal order.
@@ -752,7 +753,7 @@ if command -v qrencode >/dev/null 2>&1; then
       ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\"><span class=\"alt-num\">${ALT_POS}.</span> ${MATCH_LABELS[$i]}</div>"
     done
     if [[ -n "${IDENTITY_BY_PATH[$BARE_REPO_PATH]:-}" ]]; then
-      WHY_TEXT="Picked automatically - the only DESKTOP SYNC FOLDER path with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). Not a guess by name or date - that's exactly what caused a real data-loss incident once, so it's never used alone."
+      WHY_TEXT="Picked automatically - the only DESKTOP SYNC FOLDER path with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). File name or last-used date alone are never enough to decide this - guessing from those alone is exactly what caused a real data-loss incident once already."
     else
       WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
     fi
