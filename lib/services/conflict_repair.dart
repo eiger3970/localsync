@@ -272,8 +272,17 @@ void _fillFromDiff(List<(_LineOp, String)> diff, List<bool> kept,
 // whole mechanism exists to repair. The write side (below) only ever
 // produces a regular dash now - this stays permissive on read so
 // older, already-written content is still recoverable.
+// 2026-09-07: real feedback, live - "too verbose... just succinctly
+// say Conflict... tapping it links to LocalSync Conflicts." The write
+// side (below) now collapses this callout by default ([+-] here
+// accepts both - old content wrote +, always-expanded; new content
+// writes -, collapsed) and appends a short instruction after the
+// closing paren - [^)]*\)[^$]* tolerates that trailing text (or its
+// total absence, on older already-written content) without requiring
+// an exact match, same permissive-on-read philosophy as the em-dash
+// fix above.
 final calloutHeaderPattern = RegExp(
-  r'^\[!(?:info|warning)\]\+ SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)$',
+  r'^\[!(?:info|warning)\][+-] SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)[^\n]*$',
   multiLine: true,
 );
 
@@ -386,8 +395,17 @@ String repairConflictMarkers(String content,
       final kind = i == 0 ? '!info' : '!warning';
       final callout =
           versions[i].body.split('\n').map((l) => '> $l\n').join('');
-      blocks.add('> [$kind]+ SYNC CONFLICT - ${versions[i].label} '
-          '(review and delete one)\n$callout');
+      // 2026-09-07: real feedback, live - "too verbose... just
+      // succinctly say Conflict... tapping it links to LocalSync
+      // Conflicts." [kind]- (was +) collapses this by default -
+      // Obsidian hides the quoted body until tapped, instead of always
+      // showing every conflicting line. The label stays in the header
+      // (still needed to tell versions apart and for the picker's own
+      // display) but the header itself now ends by naming exactly
+      // where to go to actually resolve it, since collapsed content
+      // has no other visible call to action.
+      blocks.add('> [$kind]- SYNC CONFLICT - ${versions[i].label} '
+          '(review and delete one) - open LocalSync → ⋮ → Conflicts\n$callout');
     }
     return '${blocks.join('\n')}\n';
   }
@@ -452,8 +470,13 @@ String repairConflictMarkers(String content,
 // cosmetically stale (may still show an old-format dash) but not
 // unsafe: it's never silently merged with anything, and remains
 // readable/hand-editable in the raw file either way.
+// [+-] accepts both the older always-expanded (+) and current
+// collapsed-by-default (-) fold state - see calloutHeaderPattern's own
+// comment above for why. [^\n]* after the closing paren tolerates the
+// "open LocalSync..." suffix new content carries (or its absence, on
+// older content) without needing an exact match.
 final _stackedRunPattern = RegExp(
-  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one[^)]*\)\n'
+  r'(?:> \[!(?:info|warning)\][+-] SYNC CONFLICT [-—] .+? \(review and delete one[^)]*\)[^\n]*\n'
   r'(?:> .*\n?)*\n?){2,}',
 );
 
@@ -466,8 +489,17 @@ String consolidateStackedRuns(String content) {
       final kind = i == 0 ? '!info' : '!warning';
       final callout =
           versions[i].body.split('\n').map((l) => '> $l\n').join('');
-      blocks.add('> [$kind]+ SYNC CONFLICT - ${versions[i].label} '
-          '(review and delete one)\n$callout');
+      // 2026-09-07: real feedback, live - "too verbose... just
+      // succinctly say Conflict... tapping it links to LocalSync
+      // Conflicts." [kind]- (was +) collapses this by default -
+      // Obsidian hides the quoted body until tapped, instead of always
+      // showing every conflicting line. The label stays in the header
+      // (still needed to tell versions apart and for the picker's own
+      // display) but the header itself now ends by naming exactly
+      // where to go to actually resolve it, since collapsed content
+      // has no other visible call to action.
+      blocks.add('> [$kind]- SYNC CONFLICT - ${versions[i].label} '
+          '(review and delete one) - open LocalSync → ⋮ → Conflicts\n$callout');
     }
     return '${blocks.join('\n')}\n';
   });
