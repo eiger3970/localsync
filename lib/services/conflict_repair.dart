@@ -88,6 +88,25 @@ List<String> _splitParagraphs(String text) => text
     .where((p) => p.isNotEmpty)
     .toList();
 
+/// 2026-09-07: shared rule for "is it safe to reorder these by time" -
+/// every entry point that combines conflict content (the auto-merge
+/// below, the review-callout ordering in repairConflictMarkers, and
+/// conflict_scanner.dart's "keep both" picker action) goes through this
+/// one function, so what counts as a journal-timestamped entry can never
+/// drift between call sites. Sorts [bodies] chronologically when every
+/// one starts with a bare HHMM time (this user's real journal
+/// convention); otherwise returns them in their original order
+/// unchanged - never guesses when it can't be sure.
+List<String> journalOrderedBodies(List<String> bodies) {
+  if (bodies.isEmpty || !bodies.every((b) => _journalTimePattern.hasMatch(b))) {
+    return bodies;
+  }
+  final sorted = [...bodies];
+  sorted.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
+      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
+  return sorted;
+}
+
 /// 2026-09-07: real feedback, live - two unrelated journal entries
 /// (each a paragraph starting with a bare HHMM time, this user's real
 /// journal convention - "2105 salad...", "0715 I left...") landing on
@@ -103,12 +122,8 @@ List<String> _splitParagraphs(String text) => text
 /// splits, or duplicates one.
 String? chronologicallyOrderedIfJournal(String ours, String theirsRemaining) {
   final paras = [..._splitParagraphs(ours), ..._splitParagraphs(theirsRemaining)];
-  if (paras.isEmpty || !paras.every((p) => _journalTimePattern.hasMatch(p))) {
-    return null;
-  }
-  paras.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
-      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
-  return paras.join('\n\n');
+  final ordered = journalOrderedBodies(paras);
+  return identical(ordered, paras) ? null : ordered.join('\n\n');
 }
 
 enum _LineOp { equal, baseOnly, otherOnly }

@@ -193,6 +193,89 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     }
   }
 
+  // 2026-09-07: real feedback, live - "the app is supposed to fix" a
+  // conflict where both sides are genuinely separate, real entries (this
+  // user's case: two different journal moments landing as one conflict)
+  // - every existing action here either picks one side or requires
+  // manually assembling pieces (MERGE PIECES INSTEAD below). This is the
+  // one-tap "both belong here" fix - see conflict_scanner.dart's
+  // mergeConflictKeepingBoth for what it actually writes.
+  Future<void> _confirmAndKeepBoth() async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Keep both versions?',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(
+                icon: Icons.check_circle,
+                color: kGreen,
+                text: widget.entry.versions.length > 2
+                    ? 'Keeps every version, as plain text'
+                    : 'Keeps both versions, as plain text'),
+            _DialogPoint(
+                icon: Icons.sort,
+                color: kGreen,
+                text: 'Ordered by time when both start with a clock '
+                    'time - otherwise left as they are'),
+            _DialogPoint(
+              icon: Icons.backup,
+              color: kGreen,
+              text: 'Every version backed up first, in ',
+              linkText: 'LocalSync/Conflict Backups',
+              onLinkTap: () =>
+                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Not now',
+                style: TextStyle(color: kTextMid, fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('Keep both',
+                style: TextStyle(color: kStar, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) await _keepBoth();
+  }
+
+  Future<void> _keepBoth() async {
+    setState(() => _resolving = true);
+    final vaultFolder = VaultFolderService();
+    final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    String? backupRelPath;
+    try {
+      if (path != null) {
+        backupRelPath = await mergeConflictKeepingBoth(path, widget.entry);
+        await DatabaseService().addResolvedRecords(
+          recordsFor(widget.entry, DateTime.now()),
+        );
+      }
+    } finally {
+      await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (mounted) {
+      Navigator.pop(
+        context,
+        (
+          resolved: true,
+          vaultName: path?.split('/').last,
+          backupRelPath: backupRelPath,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
@@ -342,6 +425,29 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           _confirmAndChoose(titleFor(i), versions[i].body),
                     ),
                   ],
+                const SizedBox(height: 14),
+                // 2026-09-07: real feedback, live - "the app is supposed
+                // to fix" the common real case where neither version is
+                // wrong, they're just two separate things that both
+                // belong (this user's real example: two different
+                // journal entries landing as one conflict). Not gated by
+                // useDiff/version count like the two options above -
+                // this works for any number of stacked versions, Kanban
+                // or not. See _confirmAndKeepBoth/mergeConflictKeepingBoth.
+                OutlinedButton(
+                  onPressed: _confirmAndKeepBoth,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: kGreen),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size.fromHeight(0),
+                  ),
+                  child: Text('KEEP BOTH',
+                      style: TextStyle(
+                          color: kGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3)),
+                ),
               ],
             ),
     );
