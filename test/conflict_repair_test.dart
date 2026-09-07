@@ -23,8 +23,9 @@ void main() {
       final out = repairConflictMarkers(content,
           otherLabel: 'Desktop', otherTime: '202608181200');
 
-      expect(out, contains('[!info]+ SYNC CONFLICT - yours'));
-      expect(out, contains('[!warning]+ SYNC CONFLICT - Desktop - 202608181200'));
+      expect(out, contains('[!info]- SYNC CONFLICT - yours'));
+      expect(out, contains('[!warning]- SYNC CONFLICT - Desktop - 202608181200'));
+      expect(out, contains('open LocalSync'));
       // Exactly one quote level - never '> >'.
       expect(out.contains('> >'), isFalse);
       expect(out, contains('> line A'));
@@ -89,9 +90,9 @@ void main() {
       // Obsidian only auto-expands the outermost/last callout, so a
       // version that isn't its own top-level callout is the exact
       // invisibility trap this fix targets.
-      final infoCount = RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(vault).length;
+      final infoCount = RegExp(r'\[!info\]- SYNC CONFLICT').allMatches(vault).length;
       final warningCount =
-          RegExp(r'\[!warning\]\+ SYNC CONFLICT').allMatches(vault).length;
+          RegExp(r'\[!warning\]- SYNC CONFLICT').allMatches(vault).length;
       expect(infoCount, 1, reason: 'exactly one "yours" head version');
       expect(warningCount, 3, reason: 'one sibling per incoming round');
     });
@@ -126,7 +127,7 @@ void main() {
       // that's what leaked raw header text into the picker's body text
       // on the real device.
       final infoCount =
-          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+          RegExp(r'\[!info\]- SYNC CONFLICT').allMatches(out).length;
       expect(infoCount, 1,
           reason: 'the old, now-empty duplicate header must be dropped, '
               'not kept as a second info callout');
@@ -138,12 +139,19 @@ void main() {
       expect(out, contains('CHANGED ON DESKTOP 20260818d.'));
 
       // The old callout must not be stranded as an orphaned, separately
-      // -looking block - every warning callout must have been produced
-      // through the same flatten path, so there should be exactly 3
-      // total callouts (1 info + 2 warning) with no line consisting of
-      // only a header and no body.
+      // -looking block - there should be exactly 3 total callouts
+      // (1 info + 2 warning) with no line consisting of only a header
+      // and no body. [+-] on purpose: the pre-existing "Desktop test"
+      // callout sits 2 blank lines away from the freshly-merged pair
+      // above it, so by design (see consolidateStackedRuns' own
+      // 2026-08-19 comment) it's never folded into the same run or
+      // rewritten - it correctly stays in whatever fold state it
+      // already had, only the newly-written pair gets the current "-"
+      // format. Counting both is the real invariant this test checks:
+      // all 3 versions survive, not that every callout shares one
+      // format.
       final warningCount =
-          RegExp(r'\[!warning\]\+ SYNC CONFLICT').allMatches(out).length;
+          RegExp(r'\[!warning\][+-] SYNC CONFLICT').allMatches(out).length;
       expect(warningCount, 2);
     });
   });
@@ -182,7 +190,7 @@ void main() {
       // single 4-version list - the exact regression this test exists
       // to catch.
       final infoCount =
-          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+          RegExp(r'\[!info\]- SYNC CONFLICT').allMatches(out).length;
       expect(infoCount, 2,
           reason: 'each genuinely separate conflict must keep its own '
               '"yours" head version, not be folded into the other');
@@ -215,7 +223,7 @@ void main() {
       final out = consolidateStackedRuns(legacyBlock);
 
       final infoCount =
-          RegExp(r'\[!info\]\+ SYNC CONFLICT').allMatches(out).length;
+          RegExp(r'\[!info\]- SYNC CONFLICT').allMatches(out).length;
       expect(infoCount, 1,
           reason: 'legacy em-dash content must be recognized and the '
               'orphaned duplicate header dropped, same as new-format content');

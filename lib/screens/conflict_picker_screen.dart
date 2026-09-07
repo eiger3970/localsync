@@ -64,6 +64,29 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     _resolveMyDeviceName();
   }
 
+  // 2026-09-07: real feedback, live - "needs a little i for info/
+  // details" on both KEEP BOTH and MERGE PIECES INSTEAD, since neither
+  // button's name alone explains what it actually does or how the two
+  // differ. Same plain title+message dialog pattern settings_screen.dart
+  // already uses for its own (i) buttons.
+  void _showInfo(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+        content: Text(message,
+            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _resolveMyDeviceName() async {
     final saved = await DatabaseService().getDeviceName();
     final name = (saved != null && saved.trim().isNotEmpty)
@@ -384,34 +407,54 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   // line_diff.dart's sentence refinement only makes
                   // sense for the same 2-version case the word-diff view
                   // already requires.
-                  OutlinedButton(
-                    onPressed: () async {
-                      final result =
-                          await Navigator.push<ConflictResolvedResult>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MergePickerScreen(
-                            repo: widget.repo,
-                            entry: entry,
-                            myDeviceName: _myDeviceName,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final result =
+                                await Navigator.push<ConflictResolvedResult>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MergePickerScreen(
+                                  repo: widget.repo,
+                                  entry: entry,
+                                  myDeviceName: _myDeviceName,
+                                ),
+                              ),
+                            );
+                            if (result?.resolved == true && context.mounted) {
+                              Navigator.pop(context, result);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: kTextMid),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size.fromHeight(0),
                           ),
+                          child: Text('MERGE PIECES INSTEAD',
+                              style: TextStyle(
+                                  color: kTextMid,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3)),
                         ),
-                      );
-                      if (result?.resolved == true && context.mounted) {
-                        Navigator.pop(context, result);
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: kTextMid),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      minimumSize: const Size.fromHeight(0),
-                    ),
-                    child: Text('MERGE PIECES INSTEAD',
-                        style: TextStyle(
-                            color: kTextMid,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3)),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.info_outline,
+                            color: kTextDim, size: 20),
+                        tooltip: 'What is this?',
+                        onPressed: () => _showInfo(
+                          'Merge pieces instead',
+                          'Pick individual sentences from each side to '
+                              'hand-build your own combined version - '
+                              'more control, more work than Keep both. '
+                              'A paid feature.\n\nYou choose exactly what '
+                              'stays and what goes, piece by piece, '
+                              'instead of keeping both sides whole.',
+                        ),
+                      ),
+                    ],
                   ),
                 ] else
                   for (var i = 0; i < versions.length; i++) ...[
@@ -434,19 +477,42 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // useDiff/version count like the two options above -
                 // this works for any number of stacked versions, Kanban
                 // or not. See _confirmAndKeepBoth/mergeConflictKeepingBoth.
-                OutlinedButton(
-                  onPressed: _confirmAndKeepBoth,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: kGreen),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    minimumSize: const Size.fromHeight(0),
-                  ),
-                  child: Text('KEEP BOTH',
-                      style: TextStyle(
-                          color: kGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _confirmAndKeepBoth,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: kGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          minimumSize: const Size.fromHeight(0),
+                        ),
+                        child: Text('KEEP BOTH',
+                            style: TextStyle(
+                                color: kGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3)),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
+                      tooltip: 'What is this?',
+                      onPressed: () => _showInfo(
+                        'Keep both',
+                        'Keeps both full versions as plain text - nothing '
+                            'summarized, nothing dropped.\n\nIf every '
+                            'version starts with a clock time (like '
+                            '"1940 ..."), they\'re put in that order '
+                            'automatically. If even one version has no '
+                            'clock time, nothing is reordered - they\'re '
+                            'kept in the order they arrived, since '
+                            'guessing an order without a real time to go '
+                            'on risks scrambling notes that were never '
+                            'meant to be time-ordered in the first place.',
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

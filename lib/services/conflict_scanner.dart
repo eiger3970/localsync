@@ -86,9 +86,14 @@ class ConflictEntry {
 // conflict separated from a true sibling by 2+ blank lines (legacy
 // content only, so far) stays split into its own entry rather than
 // risk merging unrelated content together.
+// 2026-09-07: [+-] accepts both the older always-expanded (+) and
+// current collapsed-by-default (-) fold state - see conflict_repair.
+// dart's calloutHeaderPattern comment for why the write side changed.
+// [^\n]* after the closing paren tolerates the "- open LocalSync..."
+// suffix new content carries (or its absence, on older content).
 final _stackedBlockPattern = RegExp(
-  r'(?:> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] .+? \(review and delete one\)\n'
-  r'(?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*\n?)+',
+  r'(?:> \[!(?:info|warning)\][+-] SYNC CONFLICT [-—] .+? \(review and delete one\)[^\n]*\n'
+  r'(?:> (?!\[!(?:info|warning)\][+-] SYNC CONFLICT).*\n?)*\n?)+',
 );
 // 2026-08-19: body capture stops before another header line instead of
 // greedily swallowing it - see conflict_repair.dart's
@@ -99,8 +104,8 @@ final _stackedBlockPattern = RegExp(
 // no header directly following another header, but this stays
 // defensive rather than relying on that invariant silently.
 final _calloutPattern = RegExp(
-  r'> \[!(?:info|warning)\]\+ SYNC CONFLICT [-—] (.+?) \(review and delete one\)\n'
-  r'((?:> (?!\[!(?:info|warning)\]\+ SYNC CONFLICT).*\n?)*)',
+  r'> \[!(?:info|warning)\][+-] SYNC CONFLICT [-—] (.+?) \(review and delete one\)[^\n]*\n'
+  r'((?:> (?!\[!(?:info|warning)\][+-] SYNC CONFLICT).*\n?)*)',
 );
 
 final _kanbanPairedPattern = RegExp(
