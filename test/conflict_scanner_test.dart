@@ -141,6 +141,120 @@ void main() {
       expect(rescanned, isEmpty);
     });
 
+  });
+
+  group('applyKeepBoth - real 2026-09-07 case (NAB Bills incident review)',
+      () {
+    test('two unrelated entries land as plain text, ordered chronologically '
+        'when both have a leading HHMM time', () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Aug 28th, 2026.md');
+      await file.writeAsString(
+        '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+        '> 2105 salad Caucasian Swiss? Gave me a hard time.\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT - desktop obsidian - 202609041645 (review and delete one)\n'
+        '> 0715 Clothes washed last night are 80% damp wet.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      expect(entries, hasLength(1));
+      final entry = entries.single;
+      final content = await file.readAsString();
+      final updated = applyKeepBoth(content, entry);
+
+      // No longer flagged as a conflict - both are just plain text now.
+      expect(updated, isNot(contains('SYNC CONFLICT')));
+      expect(updated, contains('0715 Clothes washed'));
+      expect(updated, contains('2105 salad'));
+      // Chronological, not arrival order - 0715 happened before 2105.
+      expect(updated.indexOf('0715 Clothes washed'),
+          lessThan(updated.indexOf('2105 salad')));
+
+      // Re-scanning must not find a fresh conflict.
+      await file.writeAsString(updated);
+      expect(await scanForConflicts(dir.path), isEmpty);
+    });
+
+    test('an untimed version leaves stacking order untouched - never guesses',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/note.md');
+      await file.writeAsString(
+        '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+        '> 2105 salad Caucasian Swiss? Gave me a hard time.\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT - Desktop (review and delete one)\n'
+        '> Clothes washed last night are 80% damp wet.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      final content = await file.readAsString();
+      final updated = applyKeepBoth(content, entry);
+
+      // "yours" (index 0) still comes first - the untimed side gives
+      // nothing safe to sort by.
+      expect(updated.indexOf('2105 salad'),
+          lessThan(updated.indexOf('Clothes washed')));
+    });
+
+    test('3+ stacked versions are all kept, none dropped', () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/note.md');
+      await file.writeAsString(
+        '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+        '> 0900 first round.\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT - Desktop - 1 (review and delete one)\n'
+        '> 1000 second round.\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT - Desktop - 2 (review and delete one)\n'
+        '> 0800 third round.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      expect(entry.versions, hasLength(3));
+      final content = await file.readAsString();
+      final updated = applyKeepBoth(content, entry);
+
+      expect(updated, contains('first round'));
+      expect(updated, contains('second round'));
+      expect(updated, contains('third round'));
+      // All three have a leading HHMM - chronological: 0800, 0900, 1000.
+      expect(updated.indexOf('third round'), lessThan(updated.indexOf('first round')));
+      expect(updated.indexOf('first round'), lessThan(updated.indexOf('second round')));
+    });
+
+    test('Kanban conflicts are also supported - both cards kept as plain lines',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Board.md');
+      await file.writeAsString(
+        '---\nkanban-plugin: board\n---\n\n'
+        '## Bills\n\n'
+        '- [ ] Rent due\n'
+        '%% CONFLICT-OTHER (Desktop): - [ ] Internet due %%\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      expect(entry.isKanban, isTrue);
+      final content = await file.readAsString();
+      final updated = applyKeepBoth(content, entry);
+
+      expect(updated, isNot(contains('CONFLICT-OTHER')));
+      expect(updated, contains('Rent due'));
+      expect(updated, contains('Internet due'));
+    });
+  });
+
+  group('applyResolution - non-Kanban merge (continued)', () {
     test('Kanban conflicts are never merge-appended - a card is one line', () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));

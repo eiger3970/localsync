@@ -24,6 +24,7 @@
 // whichever side won, nothing fuzzier than a direct substring replace.
 
 import 'dart:io';
+import 'conflict_repair.dart' show journalOrderedBodies;
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 
@@ -587,6 +588,47 @@ Future<String> resolveConflict(
   // written the plain way was found silently reverted by Obsidian's own
   // cache on a real device, this is the best-available fix, unconfirmed
   // on device.
+  await VaultFolderService().coordinatedWrite(filePath, updated);
+  return backupRelPath;
+}
+
+/// 2026-09-07: real feedback, live - "the app is supposed to fix" a
+/// conflict like two unrelated real journal entries (this user's real
+/// case: a 2105 entry and an untimed one, both genuinely belonging in
+/// the note) landing as a conflict. Every existing action either kept
+/// one side and demoted the other to a collapsed reference callout
+/// (resolveConflict/applyResolution) or required manually assembling
+/// pieces sentence-by-sentence (MergePickerScreen, the paid put/yank
+/// tier) - neither is a one-tap "both belong here" fix. This is that
+/// fix: replaces the whole conflict span with every version's body as
+/// plain, unwrapped text - nothing left "unresolved," nothing collapsed
+/// into a reference - ordered chronologically when every version has a
+/// leading HHMM time (conflict_repair.dart's journalOrderedBodies,
+/// the same rule the write side already uses when it can safely apply
+/// this automatically), in original stacking order otherwise. Always
+/// backs up every version first, same safety net as resolveConflict -
+/// this never discards anything, it only changes how it's displayed.
+///
+/// Pure string transform, no file I/O - same split as
+/// applyResolution/resolveConflict above, so this is unit-testable
+/// directly (see test/conflict_scanner_test.dart).
+String applyKeepBoth(String content, ConflictEntry entry) {
+  final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
+  final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
+  final bodies = journalOrderedBodies(entry.versions.map((v) => v.body).toList());
+  final merged = '${bodies.join('\n\n')}$trailingNewline';
+  return content.replaceRange(entry.matchStart, entry.matchEnd, merged);
+}
+
+Future<String> mergeConflictKeepingBoth(
+  String vaultPath,
+  ConflictEntry entry,
+) async {
+  final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
+  if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
+  final updated = applyKeepBoth(content, entry);
   await VaultFolderService().coordinatedWrite(filePath, updated);
   return backupRelPath;
 }
