@@ -511,40 +511,18 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   # the person asking to see why is a completely reasonable ask on its
   # own merits.
   echo "This only decided which existing folder to read - nothing was"
-  echo "moved, changed, or deleted to get here."
-  # 2026-09-07: real bug, caught live on a real run - "${#MATCH_PATHS[@]}-1"
-  # inside a plain double-quoted string just concatenates the count with
-  # the literal text "-1" ("8-1"), it doesn't subtract - needs real
-  # arithmetic expansion.
-  #
-  # 2026-09-07: real feedback, live - "users just need to see an output
-  # window, not complex foreign terminal verbose text." This question
-  # used to block indefinitely - the actual window (the QR/values page
-  # that matters) couldn't appear until someone answered it, even
-  # though it's a pure convenience, not a real decision the way the
-  # archive question is. -t (timeout) means someone who wants to read
-  # the reasoning still can, but everyone else reaches the real window
-  # automatically in a few seconds instead of being stuck at a prompt.
-  read -t 8 -rp "See the other $(( ${#MATCH_PATHS[@]} - 1 )) candidates and why this one was picked? [y/N, auto-continues in 8s] " WHY_ANSWER || true
-  if [[ "$WHY_ANSWER" =~ ^[Yy]$ ]]; then
-    echo
-    echo "Picked because this DESKTOP SYNC FOLDER path has a recorded"
-    echo "identity file (LocalSync/repo-name.txt = \"${IDENTITY_BY_PATH[$BARE_REPO_PATH]}\"),"
-    echo "written the one time your phone actually linked to it. None of"
-    echo "the other candidates below have that - so file name or"
-    echo "last-used date alone are never used to decide this, to avoid"
-    echo "ever picking the wrong one and risking your data:"
-    echo
-    # Real order, stated: most recently used first (SORTED_IDX, see
-    # its own comment above) - not filesystem traversal order.
-    for pos in "${!SORTED_IDX[@]}"; do
-      i="${SORTED_IDX[$pos]}"
-      MARK=""
-      [[ "$i" == "$CHOSEN_INDEX" ]] && MARK=" ${GREEN}<- chosen${RESET}"
-      echo "  $((pos + 1))) ${MATCH_LABELS[$i]}$MARK"
-    done
-    echo
-  fi
+  echo "moved, changed, or deleted to get here. Full reasoning and the"
+  echo "other candidates are in the window below, under \"Why this"
+  echo "DESKTOP SYNC FOLDER path?\" if you want them."
+  # 2026-09-07: real feedback, live - "too slow to open window...
+  # just skip the user input and go straight to the window." This used
+  # to be an interactive y/N (later an 8s-timeout one) asking to reveal
+  # the same reasoning and candidate list - dropped entirely, not just
+  # shortened, since the QR window a few lines below already has the
+  # exact same content as its own tap-to-open "Why this DESKTOP SYNC
+  # FOLDER path?" section. Asking twice, once here and once in the
+  # window, was pure duplication - nothing lost by only asking once,
+  # in the window, where it doesn't block anything from appearing.
 elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
   # Genuinely ambiguous - this is the one case the full listing earns
   # its place, since the person actually has to read it to decide.
@@ -594,30 +572,27 @@ fi
 # sitting around. Archives (copy, verify, then remove - never a blind
 # delete) every OTHER real candidate into one timestamped folder, full
 # git history intact.
+# 2026-09-07: real feedback, live - "too slow to open window... just
+# skip the user input and go straight to the window." This was an
+# interactive y/N (then an 8s-timeout one) that still stood between
+# a real user and the actual window that matters. Moved from "ask
+# every time" to "opt in once" - set LOCALSYNC_ARCHIVE_OLD=1 before
+# running this script (or export it in your shell profile) and this
+# runs with no question at all; leave it unset and this prints one
+# plain FYI line, no prompt, and gets out of the way. Either way the
+# window below never waits on this again.
 if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
   OTHER_COUNT=$((${#MATCH_PATHS[@]} - 1))
-  if [[ "$OTHER_COUNT" -ge 1 && -t 0 ]]; then
-    # 2026-09-07: real feedback, live - "data lost or deleted cannot be
-    # retrieved if wrong... the data is backed up and can be found and
-    # recovered from a path linked." The exact recovery path is now
-    # stated BEFORE asking, not just described in the abstract after -
-    # someone deciding whether to say yes should already know exactly
-    # where things will land if they do, not find out afterward.
-    ARCHIVE_DIR="$HOME/Documents/Git/LocalSync-old-candidates-archive/$(date +%Y%m%d%H%M%S)"
-    echo
-    echo "Archive the other $OTHER_COUNT candidate(s) to reduce clutter next time?"
-    echo "Nothing deleted - each one is copied, verified byte-for-byte,"
-    echo "only then removed from its old spot. Full git history stays"
-    echo "intact. If you ever need one back, it'll be sitting right here:"
-    echo "  ${GREEN}$ARCHIVE_DIR${RESET}"
-    # 2026-09-07: real feedback, live - "users just need to see an
-    # output window, not complex foreign terminal verbose text." Same
-    # fix as the why-reveal prompt above - a real decision (this one
-    # moves files) still deserves a real chance to answer, but not an
-    # indefinite block on the one thing that actually matters, the QR
-    # window a few lines below this.
-    read -t 8 -rp "Archive now? [y/N, auto-skips in 8s] " ARCHIVE_ANSWER || true
-    if [[ "$ARCHIVE_ANSWER" =~ ^[Yy]$ ]]; then
+  if [[ "$OTHER_COUNT" -ge 1 ]]; then
+    if [[ "${LOCALSYNC_ARCHIVE_OLD:-}" == "1" ]]; then
+      # 2026-09-07: real feedback, live - "data lost or deleted cannot
+      # be retrieved if wrong... the data is backed up and can be
+      # found and recovered from a path linked." Stating the recovery
+      # path up front, same as when this was still a prompt.
+      ARCHIVE_DIR="$HOME/Documents/Git/LocalSync-old-candidates-archive/$(date +%Y%m%d%H%M%S)"
+      echo
+      echo "Archiving the other $OTHER_COUNT candidate(s) (LOCALSYNC_ARCHIVE_OLD=1) to:"
+      echo "  ${GREEN}$ARCHIVE_DIR${RESET}"
       mkdir -p "$ARCHIVE_DIR"
       for i in "${!MATCH_PATHS[@]}"; do
         [[ "$i" == "$CHOSEN_INDEX" ]] && continue
@@ -631,10 +606,7 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
         # now" isn't the same guarantee as "can't ever be wrong later"
         # (e.g. if this archive path ever lived on a different mount).
         # Copy first, verify the copy is byte-identical with diff, only
-        # remove the original once that's confirmed - no new question
-        # asked, same single y/N above covers this whole step; this
-        # just makes the step itself safer without adding another
-        # interruption.
+        # remove the original once that's confirmed.
         if cp -a "$SRC" "$DEST" && diff -rq "$SRC" "$DEST" >/dev/null 2>&1; then
           rm -rf "$SRC"
           echo "  Archived (copy verified, then removed original): $SRC -> $DEST"
@@ -646,6 +618,9 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
         fi
       done
       echo "All moved into: ${GREEN}$ARCHIVE_DIR${RESET}"
+    else
+      echo "($OTHER_COUNT old candidate(s) not in use - set LOCALSYNC_ARCHIVE_OLD=1"
+      echo "and re-run this to archive them, nothing asked or required now.)"
     fi
   fi
 fi
