@@ -516,7 +516,16 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   # inside a plain double-quoted string just concatenates the count with
   # the literal text "-1" ("8-1"), it doesn't subtract - needs real
   # arithmetic expansion.
-  read -rp "See the other $(( ${#MATCH_PATHS[@]} - 1 )) candidates and why this one was picked? [y/N] " WHY_ANSWER
+  #
+  # 2026-09-07: real feedback, live - "users just need to see an output
+  # window, not complex foreign terminal verbose text." This question
+  # used to block indefinitely - the actual window (the QR/values page
+  # that matters) couldn't appear until someone answered it, even
+  # though it's a pure convenience, not a real decision the way the
+  # archive question is. -t (timeout) means someone who wants to read
+  # the reasoning still can, but everyone else reaches the real window
+  # automatically in a few seconds instead of being stuck at a prompt.
+  read -t 8 -rp "See the other $(( ${#MATCH_PATHS[@]} - 1 )) candidates and why this one was picked? [y/N, auto-continues in 8s] " WHY_ANSWER || true
   if [[ "$WHY_ANSWER" =~ ^[Yy]$ ]]; then
     echo
     echo "Picked because this DESKTOP SYNC FOLDER path has a recorded"
@@ -603,7 +612,13 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && -n "$CHOSEN_INDEX" ]]; then
     echo "only then removed from its old spot. Full git history stays"
     echo "intact. If you ever need one back, it'll be sitting right here:"
     echo "  ${GREEN}$ARCHIVE_DIR${RESET}"
-    read -rp "Archive now? [y/N] " ARCHIVE_ANSWER
+    # 2026-09-07: real feedback, live - "users just need to see an
+    # output window, not complex foreign terminal verbose text." Same
+    # fix as the why-reveal prompt above - a real decision (this one
+    # moves files) still deserves a real chance to answer, but not an
+    # indefinite block on the one thing that actually matters, the QR
+    # window a few lines below this.
+    read -t 8 -rp "Archive now? [y/N, auto-skips in 8s] " ARCHIVE_ANSWER || true
     if [[ "$ARCHIVE_ANSWER" =~ ^[Yy]$ ]]; then
       mkdir -p "$ARCHIVE_DIR"
       for i in "${!MATCH_PATHS[@]}"; do
