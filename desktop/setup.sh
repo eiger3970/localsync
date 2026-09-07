@@ -366,8 +366,30 @@ BEST_SYNC_EPOCH=""
 # person actually meant. Recency is not identity. Every real match is
 # now collected into an array first; only auto-picked without asking
 # when there's exactly one.
+# 2026-09-07: real bug found testing this on a real desktop - the
+# repo-name.txt lookup below this comment used to assume a working-copy
+# vault always sits at "the bare repo's own path with .git stripped."
+# That's only true by coincidence; a real vault (e.g. Obsidian_vault)
+# is normally named nothing like its bare repo (e.g.
+# Git_bare_repo/Md_files_bare.git) - the two names have no required
+# relationship at all. Real fix: find every actual repo-name.txt under
+# ~/Documents first, resolve each one back to its real bare repo via
+# the vault's own git remote (which IS the bare repo's real path,
+# always, since that's what "origin" points at), and key a lookup
+# table on that - works regardless of what the vault happens to be
+# named.
+declare -A IDENTITY_BY_PATH
+while IFS= read -r -d '' rn; do
+  vault_dir="$(dirname "$(dirname "$rn")")"
+  [[ -d "$vault_dir/.git" ]] || continue
+  remote_url="$(git -C "$vault_dir" remote get-url origin 2>/dev/null)"
+  [[ -n "$remote_url" ]] || continue
+  IDENTITY_BY_PATH["$remote_url"]="$(cat "$rn" 2>/dev/null)"
+done < <(find "$HOME/Documents" -maxdepth 5 -path "*/LocalSync/repo-name.txt" -print0 2>/dev/null)
+
 MATCH_PATHS=()
 MATCH_LABELS=()
+MATCH_HAS_IDENTITY=()
 while IFS= read -r -d '' d; do
   msg=$(git --git-dir="$d" log -1 --format='%s' 2>/dev/null)
   when=$(git --git-dir="$d" log -1 --format='%ad' --date=short 2>/dev/null)
@@ -384,13 +406,13 @@ while IFS= read -r -d '' d; do
   # 2026-09-06: the human-readable repo name (LocalSync/repo-name.txt,
   # see localsync_sync.sh's own matching ensure_repo_name) is real,
   # tracked content inside the working tree - not reachable from a bare
-  # repo's git history alone (a bare repo has no working tree). Read
-  # from the file if a normal working-copy clone sits next to this bare
-  # repo at the conventional path; silently absent otherwise, same as
-  # everywhere else this file is read from.
+  # repo's git history alone (a bare repo has no working tree).
+  # 2026-09-07: looked up via IDENTITY_BY_PATH (built above from every
+  # real vault's own git remote) instead of assuming a fixed relative
+  # path - see that block's comment for the real bug this replaced.
   name_hint=""
-  if [[ -f "${d%.git}/LocalSync/repo-name.txt" ]]; then
-    name_hint=" \"$(cat "${d%.git}/LocalSync/repo-name.txt" 2>/dev/null)\""
+  if [[ -n "${IDENTITY_BY_PATH[$d]:-}" ]]; then
+    name_hint=" \"${IDENTITY_BY_PATH[$d]}\""
   fi
   if [[ -z "$msg" ]]; then
     echo "  $d"
@@ -398,12 +420,18 @@ while IFS= read -r -d '' d; do
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d - empty, safe to use")
+    MATCH_HAS_IDENTITY+=(false)
   elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
     echo "  $d$name_hint"
     echo "    last used $when - $msg"
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d$name_hint - last used $when")
+    if [[ -n "$name_hint" ]]; then
+      MATCH_HAS_IDENTITY+=(true)
+    else
+      MATCH_HAS_IDENTITY+=(false)
+    fi
     if [[ -z "$BEST_SYNC_EPOCH" || "${when_epoch:-0}" -gt "$BEST_SYNC_EPOCH" ]]; then
       BEST_SYNC_EPOCH="$when_epoch"
       BEST_SYNC_DATE="$when"
@@ -425,24 +453,82 @@ elif [[ "$UNRELATED_COUNT" -gt 1 ]]; then
 fi
 
 echo
+CHOSEN_INDEX=""
 if [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
-  echo "Found ${#MATCH_PATHS[@]} real candidates above - which one is"
-  echo "actually yours? Picking by \"most recently used\" alone caused a"
-  echo "real multi-day data-loss incident once already, so this asks"
-  echo "instead of guessing:"
-  echo
-  for i in "${!MATCH_PATHS[@]}"; do
-    echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
+  # 2026-09-07: real feedback, live - "not user friendly" to always ask
+  # when there's more than one candidate, even though most of the time
+  # exactly one of them carries a real, already-established identity
+  # (LocalSync/repo-name.txt, written once a phone has actually linked
+  # to it - see localsync_sync.sh's ensure_repo_name). That's not a
+  # guess the way "most recently used" was - it's a fact this exact
+  # desktop already recorded about this exact repo. Only auto-skips the
+  # question when EXACTLY one candidate has that marker; two or more
+  # (or zero) still ask, same as before - this never guesses between
+  # genuinely ambiguous options, it only skips asking when there's
+  # nothing left to actually be ambiguous about.
+  IDENTITY_COUNT=0
+  IDENTITY_INDEX=""
+  for i in "${!MATCH_HAS_IDENTITY[@]}"; do
+    if [[ "${MATCH_HAS_IDENTITY[$i]}" == true ]]; then
+      IDENTITY_COUNT=$((IDENTITY_COUNT + 1))
+      IDENTITY_INDEX="$i"
+    fi
   done
-  echo
-  read -rp "Enter the number of the correct one: " CHOICE
-  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
-    BARE_REPO_PATH="${MATCH_PATHS[$((CHOICE - 1))]}"
-    echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
+
+  if [[ "$IDENTITY_COUNT" -eq 1 ]]; then
+    CHOSEN_INDEX="$IDENTITY_INDEX"
+    BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
+    echo "Found ${#MATCH_PATHS[@]} candidates above, but only one has a"
+    echo "recorded identity from a real previous link - using it, no"
+    echo "need to ask:"
+    echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
   else
-    echo "Not a valid choice - not guessing. Run this again and enter"
-    echo "one of the numbers above."
-    exit 1
+    echo "Found ${#MATCH_PATHS[@]} real candidates above - which one is"
+    echo "actually yours? Picking by \"most recently used\" alone caused a"
+    echo "real multi-day data-loss incident once already, so this asks"
+    echo "instead of guessing:"
+    echo
+    for i in "${!MATCH_PATHS[@]}"; do
+      echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
+    done
+    echo
+    read -rp "Enter the number of the correct one: " CHOICE
+    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
+      CHOSEN_INDEX=$((CHOICE - 1))
+      BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
+      echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
+    else
+      echo "Not a valid choice - not guessing. Run this again and enter"
+      echo "one of the numbers above."
+      exit 1
+    fi
+  fi
+
+  # 2026-09-07: real feedback, live - "real life needs to cater for...
+  # users will inevitably have a mess and need this cleaned up without
+  # losing any data." Right after the person has told this script
+  # (directly, or via the identity match above) which candidate is
+  # real, that's the one moment this script can safely act on the
+  # others - never guessed at algorithmically, only offered using the
+  # answer just given. Archives (mv, never rm) every OTHER real
+  # candidate into one timestamped folder - full git history intact,
+  # nothing deleted, trivially reversible by moving it back.
+  OTHER_COUNT=$((${#MATCH_PATHS[@]} - 1))
+  if [[ "$OTHER_COUNT" -ge 1 && -t 0 ]]; then
+    echo
+    read -rp "Archive the other $OTHER_COUNT candidate(s) to reduce clutter next time? Nothing is deleted, only moved. [y/N] " ARCHIVE_ANSWER
+    if [[ "$ARCHIVE_ANSWER" =~ ^[Yy]$ ]]; then
+      ARCHIVE_DIR="$HOME/Documents/Git/LocalSync-old-candidates-archive/$(date +%Y%m%d%H%M%S)"
+      mkdir -p "$ARCHIVE_DIR"
+      for i in "${!MATCH_PATHS[@]}"; do
+        [[ "$i" == "$CHOSEN_INDEX" ]] && continue
+        SRC="${MATCH_PATHS[$i]}"
+        BASE="$(basename "$SRC")"
+        mv "$SRC" "$ARCHIVE_DIR/$BASE"
+        echo "  Archived: $SRC -> $ARCHIVE_DIR/$BASE"
+      done
+      echo "All moved into: ${GREEN}$ARCHIVE_DIR${RESET}"
+    fi
   fi
 elif [[ -n "$BEST_SYNC_FOLDER" ]]; then
   BARE_REPO_PATH="$BEST_SYNC_FOLDER"
