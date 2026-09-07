@@ -77,6 +77,11 @@ void main() {
     // find.byType(InkWell).at(1) broke the moment conflict_picker_screen
     // gained another InkWell-based widget elsewhere on the screen (the
     // "MERGE PIECES INSTEAD" button) with no relation to this panel.
+    // 2026-09-07: scrolls the panel into frame first, same as a real
+    // user would, before tapping - defensive, doesn't change behavior
+    // in this particular test (panel was already on-screen either way).
+    await tester.ensureVisible(find.byKey(const Key('conflict_panel_theirs')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('conflict_panel_theirs')));
     await tester.pump(const Duration(milliseconds: 300));
     await expectLater(
