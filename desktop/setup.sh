@@ -752,7 +752,7 @@ if command -v qrencode >/dev/null 2>&1; then
       ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\"><span class=\"alt-num\">${ALT_POS}.</span> ${MATCH_LABELS[$i]}</div>"
     done
     if [[ -n "${IDENTITY_BY_PATH[$BARE_REPO_PATH]:-}" ]]; then
-      WHY_TEXT="Picked automatically - the only one with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). Not a guess by name or date - that's exactly what caused a real data-loss incident once, so it's never used alone."
+      WHY_TEXT="Picked automatically - the only DESKTOP SYNC FOLDER path with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). Not a guess by name or date - that's exactly what caused a real data-loss incident once, so it's never used alone."
     else
       WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
     fi
