@@ -399,6 +399,14 @@ done < <(find "$HOME/Documents" -maxdepth 5 -path "*/LocalSync/repo-name.txt" -p
 MATCH_PATHS=()
 MATCH_LABELS=()
 MATCH_HAS_IDENTITY=()
+# 2026-09-07: real feedback, live - "what's the order of the paths,
+# likelihood of being the correct path or just alphabetical?" Honest
+# answer at the time: neither - plain `find` traversal order, which is
+# whatever order the filesystem happens to return, meaningless to a
+# real person reading it. Tracks each candidate's real last-used epoch
+# (already computed below for the single-best-match case) so the lists
+# built from these arrays can be sorted by actual recency instead.
+MATCH_EPOCH=()
 while IFS= read -r -d '' d; do
   msg=$(git --git-dir="$d" log -1 --format='%s' 2>/dev/null)
   when=$(git --git-dir="$d" log -1 --format='%ad' --date=short 2>/dev/null)
@@ -428,10 +436,12 @@ while IFS= read -r -d '' d; do
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d - empty, safe to use")
     MATCH_HAS_IDENTITY+=(false)
+    MATCH_EPOCH+=(0)
   elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d$name_hint - last used $when")
+    MATCH_EPOCH+=("${when_epoch:-0}")
     if [[ -n "$name_hint" ]]; then
       MATCH_HAS_IDENTITY+=(true)
     else
@@ -470,6 +480,21 @@ for i in "${!MATCH_HAS_IDENTITY[@]}"; do
   fi
 done
 
+# 2026-09-07: real feedback, live - "what's the order of the paths?"
+# Builds SORTED_IDX, MATCH_PATHS' own indices reordered by real
+# last-used recency (most recent first) instead of plain filesystem
+# traversal order - used everywhere a list of candidates gets shown to
+# a person, terminal or the QR window, so there's one real, meaningful,
+# stated order instead of an arbitrary one.
+SORTED_IDX=()
+while IFS= read -r idx; do
+  SORTED_IDX+=("$idx")
+done < <(
+  for i in "${!MATCH_PATHS[@]}"; do
+    printf '%s:%s\n' "${MATCH_EPOCH[$i]}" "$i"
+  done | sort -t: -k1,1rn | cut -d: -f2
+)
+
 if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   CHOSEN_INDEX="$IDENTITY_INDEX"
   BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
@@ -497,28 +522,32 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
     echo "filename or date, which is exactly what caused a real data-loss"
     echo "incident once already, so this never uses that alone:"
     echo
-    for i in "${!MATCH_PATHS[@]}"; do
+    # Real order, stated: most recently used first (SORTED_IDX, see
+    # its own comment above) - not filesystem traversal order.
+    for pos in "${!SORTED_IDX[@]}"; do
+      i="${SORTED_IDX[$pos]}"
       MARK=""
       [[ "$i" == "$CHOSEN_INDEX" ]] && MARK=" ${GREEN}<- chosen${RESET}"
-      echo "  $((i + 1))) ${MATCH_LABELS[$i]}$MARK"
+      echo "  $((pos + 1))) ${MATCH_LABELS[$i]}$MARK"
     done
     echo
   fi
 elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
   # Genuinely ambiguous - this is the one case the full listing earns
   # its place, since the person actually has to read it to decide.
-  echo "Found ${#MATCH_PATHS[@]} real candidates - which one is"
-  echo "actually yours? Picking by \"most recently used\" alone caused a"
-  echo "real multi-day data-loss incident once already, so this asks"
-  echo "instead of guessing:"
+  echo "Found ${#MATCH_PATHS[@]} real candidates, most recently used"
+  echo "first - which one is actually yours? Picking by \"most recently"
+  echo "used\" ALONE caused a real multi-day data-loss incident once"
+  echo "already, so this asks instead of guessing:"
   echo
-  for i in "${!MATCH_PATHS[@]}"; do
-    echo "  $((i + 1))) ${MATCH_LABELS[$i]}"
+  for pos in "${!SORTED_IDX[@]}"; do
+    i="${SORTED_IDX[$pos]}"
+    echo "  $((pos + 1))) ${MATCH_LABELS[$i]}"
   done
   echo
   read -rp "Enter the number of the correct one: " CHOICE
   if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
-    CHOSEN_INDEX=$((CHOICE - 1))
+    CHOSEN_INDEX="${SORTED_IDX[$((CHOICE - 1))]}"
     BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
     echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
   else
@@ -701,17 +730,29 @@ if command -v qrencode >/dev/null 2>&1; then
   # fight the QR for attention, but one tap away right where the QR is.
   WHY_SECTION=""
   if [[ -n "$CHOSEN_INDEX" && "${#MATCH_PATHS[@]}" -gt 1 ]]; then
+    # 2026-09-07: real feedback, live - "add lines spaces or numbers to
+    # the paths, it's too hard to read. What's the order... likelihood
+    # or just alphabetical?" Real answer at the time was neither - see
+    # SORTED_IDX's own comment above (real last-used recency, now
+    # actually true and stated as such, not arbitrary). Each row now
+    # numbered and includes the same last-used detail the terminal
+    # shows, not just a bare path - the two "Md_files_bare_backup_..."
+    # candidates are otherwise only distinguishable by a few digits
+    # buried mid-path.
     ALT_ROWS=""
-    for i in "${!MATCH_PATHS[@]}"; do
+    ALT_POS=0
+    for pos in "${!SORTED_IDX[@]}"; do
+      i="${SORTED_IDX[$pos]}"
       [[ "$i" == "$CHOSEN_INDEX" ]] && continue
-      ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\">${MATCH_PATHS[$i]}</div>"
+      ALT_POS=$((ALT_POS + 1))
+      ALT_ROWS="${ALT_ROWS}<div class=\"alt-row\"><span class=\"alt-num\">${ALT_POS}.</span> ${MATCH_LABELS[$i]}</div>"
     done
     if [[ -n "${IDENTITY_BY_PATH[$BARE_REPO_PATH]:-}" ]]; then
       WHY_TEXT="Picked automatically - the only one with a recorded link to this phone (&quot;${IDENTITY_BY_PATH[$BARE_REPO_PATH]}&quot;). Not a guess by name or date - that's exactly what caused a real data-loss incident once, so it's never used alone."
     else
       WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
     fi
-    WHY_SECTION="<details class=\"why\"><summary>Why this DESKTOP SYNC FOLDER path?</summary><p class=\"why-text\">${WHY_TEXT}</p><p class=\"why-text\">Nothing was changed or deleted to decide this - it only reads from whichever folder gets confirmed. $((${#MATCH_PATHS[@]} - 1)) other folder(s) considered, not used:</p><div class=\"alt-list\">${ALT_ROWS}</div>"
+    WHY_SECTION="<details class=\"why\"><summary>Why this DESKTOP SYNC FOLDER path?</summary><p class=\"why-text\">${WHY_TEXT}</p><p class=\"why-text\">Nothing was changed or deleted to decide this - it only reads from whichever folder gets confirmed. $((${#MATCH_PATHS[@]} - 1)) other folder(s) considered, not used, most recently used first:</p><div class=\"alt-list\">${ALT_ROWS}</div>"
     # 2026-09-07: real bug found live, testing this - ARCHIVE_DIR is
     # set to a real string as soon as it's computed (needed so the y/N
     # prompt itself can show the recovery path before asking), but the
@@ -761,8 +802,9 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 .why summary::before{content:"▸ ";color:#6fff8f}
 .why[open] summary::before{content:"▾ "}
 .why-text{font-size:12.5px;color:#d7e6cd;line-height:1.5;margin:0 0 10px}
-.alt-list{display:flex;flex-direction:column;gap:5px;margin:0 0 12px;font-family:'DejaVu Sans Mono',monospace}
-.alt-row{font-size:11px;color:#7c9070;word-break:break-all}
+.alt-list{display:flex;flex-direction:column;gap:12px;margin:0 0 12px;font-family:'DejaVu Sans Mono',monospace}
+.alt-row{font-size:11.5px;color:#7c9070;word-break:break-all;line-height:1.5}
+.alt-num{color:#6fff8f;font-weight:700}
 .archive-note{font-size:11.5px;color:#7c9070;margin:10px 0 12px;line-height:1.5;padding-top:10px;border-top:1px solid #263420}
 .archive-link{color:#6fff8f;word-break:break-all;text-decoration:underline}
 </style></head><body><div class="page">
