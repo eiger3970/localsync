@@ -611,6 +611,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   final versionWord = e.versions.length == 2
                                       ? 'Both versions'
                                       : 'All ${e.versions.length} versions';
+                                  // 2026-09-07: real feedback, live - "needs
+                                  // to inform the user that a full backup is
+                                  // created, to a path which is linked for
+                                  // the user to tap on." This used to link
+                                  // the generic folder name only - the exact
+                                  // file this specific action just wrote
+                                  // (backupRelPath, already returned by
+                                  // resolveConflict/mergeConflictKeepingBoth,
+                                  // just never shown) is now the link text
+                                  // itself, so the message names precisely
+                                  // what to look for once Obsidian opens.
+                                  final backupRelPath = result?.backupRelPath;
+                                  final backupFileName = backupRelPath == null
+                                      ? 'LocalSync/Conflict Backups'
+                                      : backupRelPath.split('/').last;
                                   // 2026-08-19: "why is the button link needed?
                                   // ... make 'backed up' a link" - first pass
                                   // linked the verb. Real follow-up: "ideally
@@ -629,6 +644,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // Reverted an "open Obsidian" rewording that
                                   // tried to hedge around that, per direct
                                   // instruction to keep the original text.
+                                  // Still only opens the vault, not the exact
+                                  // file - see that same 2026-08-19 finding
+                                  // above the header comment on this file for
+                                  // why a direct deep-link isn't safe to try.
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       backgroundColor: kSurface,
@@ -639,10 +658,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                           children: [
                                             TextSpan(
                                                 text: 'Resolved. $versionWord '
-                                                    'backed up in '),
+                                                    'backed up as '),
                                             TextSpan(
-                                              text:
-                                                  'LocalSync/Conflict Backups',
+                                              text: backupFileName,
                                               style: TextStyle(
                                                 color: kGreen,
                                                 fontWeight: FontWeight.bold,
@@ -656,6 +674,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                           vaultName: vaultName);
                                                 },
                                             ),
+                                            const TextSpan(
+                                                text:
+                                                    ' in LocalSync/Conflict '
+                                                    'Backups'),
                                             // 2026-08-26: real feedback, live -
                                             // "these user actions like reboot
                                             // tab or vault needs to be noted in
