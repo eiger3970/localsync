@@ -22,7 +22,6 @@ import '../services/vault_folder_service.dart';
 import '../widgets/conflict_picker_upsell.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
-import 'backup_compare_screen.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
 
@@ -241,25 +240,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   tooltip: 'Help',
                   onPressed: () => showHelpWizard(context, 'B'),
                 ),
-                // 2026-09-06: real feedback, live - "why not a picker
-                // for this too?" The word-diff picker above only ever
-                // turns on for a conflict this app detected itself -
-                // this opens the same visual comparison against any
-                // file already sitting in Conflict Backups, for the
-                // silent-mismatch case the wizard's own new question
-                // (see help_wizard.dart's mismatch_* nodes) has no way
-                // to detect or fix on its own.
-                IconButton(
-                  icon: Icon(Icons.difference_outlined, color: kTextMid),
-                  tooltip: 'Compare with a backup',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          BackupCompareListScreen(repo: widget.repo),
-                    ),
-                  ),
-                ),
+                // 2026-09-07: real feedback, live - "the button on the
+                // top right of Conflicts is better placed in the actual
+                // opened conflict... for each backup." Moved into
+                // ConflictPickerScreen, scoped to whichever note is
+                // actually open there instead of a global unscoped list
+                // - see that screen's own comment on _openBackups.
               ],
             ),
           ),

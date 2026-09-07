@@ -20,6 +20,7 @@ import '../services/ios_app_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
+import 'backup_compare_screen.dart';
 import 'merge_picker_screen.dart';
 
 // 2026-08-18: "red colour more difficult than green below with same
@@ -80,6 +81,61 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2026-09-07: real feedback, live - "still too afraid to tap KEEP
+  // BOTH. The info needs clear non verbose text... that it's reversible
+  // or an undo or it's backed up and a link to the backup, so it's easy
+  // for a user to recover with little brain strain." Same short
+  // icon+point shape as _confirmAndKeepBoth's own dialog (not a
+  // paragraph) - the safety facts (backed up, nothing deleted) lead,
+  // ordering logic comes last since it matters less to "am I safe."
+  void _showKeepBothInfo() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Keep both', style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(
+              icon: Icons.backup,
+              color: kGreen,
+              text: 'Every version backed up first, in ',
+              linkText: 'LocalSync/Conflict Backups',
+              onLinkTap: () =>
+                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
+            ),
+            _DialogPoint(
+              icon: Icons.visibility,
+              color: kGreen,
+              text: 'Nothing hidden - both texts stay as plain, visible '
+                  'paragraphs in the note',
+            ),
+            _DialogPoint(
+              icon: Icons.undo,
+              color: kGreen,
+              text: 'Changed your mind? Delete either paragraph by hand, '
+                  'or copy the original back from the backup',
+            ),
+            _DialogPoint(
+              icon: Icons.sort,
+              color: kGreen,
+              text: 'Put in time order only if every version starts with '
+                  'a clock time - otherwise left as they arrived',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text('Got it', style: TextStyle(color: kGreen)),
           ),
         ],
@@ -346,6 +402,41 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         : "Tap a version to review it, then confirm - "
                             'nothing is changed until you confirm.',
                     style: TextStyle(color: kStar, fontSize: 15)),
+                const SizedBox(height: 8),
+                // 2026-09-07: real feedback, live - "the button on the
+                // top right of Conflicts is better placed in the actual
+                // opened conflict... for each backup." Moved here from
+                // conflicts_screen.dart's app bar (a global, unscoped
+                // list) - this one only ever shows backups that belong
+                // to this exact note, see BackupCompareListScreen.
+                // noteFilePath's own doc.
+                InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BackupCompareListScreen(
+                        repo: widget.repo,
+                        noteFilePath: entry.filePath,
+                      ),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.difference_outlined,
+                            color: kTextMid, size: 16),
+                        const SizedBox(width: 6),
+                        Text('Compare with a backup',
+                            style: TextStyle(
+                                color: kTextMid,
+                                fontSize: 13,
+                                decoration: TextDecoration.underline)),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 // 2026-08-25: real feedback, live - "picking the top red
                 // version or the bottom green version is too much eye
@@ -498,19 +589,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     IconButton(
                       icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
                       tooltip: 'What is this?',
-                      onPressed: () => _showInfo(
-                        'Keep both',
-                        'Keeps both full versions as plain text - nothing '
-                            'summarized, nothing dropped.\n\nIf every '
-                            'version starts with a clock time (like '
-                            '"1940 ..."), they\'re put in that order '
-                            'automatically. If even one version has no '
-                            'clock time, nothing is reordered - they\'re '
-                            'kept in the order they arrived, since '
-                            'guessing an order without a real time to go '
-                            'on risks scrambling notes that were never '
-                            'meant to be time-ordered in the first place.',
-                      ),
+                      // 2026-09-07: real feedback, live - "still too
+                      // afraid to tap KEEP BOTH. The info needs clear
+                      // non verbose text... that it's reversible or an
+                      // undo or it's backed up and a link to the
+                      // backup." Was one wordy paragraph about ordering
+                      // logic with no mention of safety at all -
+                      // replaced with the same short icon+point list the
+                      // confirm dialog already uses, safety facts first.
+                      onPressed: () => _showKeepBothInfo(),
                     ),
                   ],
                 ),

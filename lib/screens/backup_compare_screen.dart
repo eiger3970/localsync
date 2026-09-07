@@ -35,7 +35,22 @@ const _kBrightRed = Color(0xFFFF3B30);
 
 class BackupCompareListScreen extends StatefulWidget {
   final Repository repo;
-  const BackupCompareListScreen({super.key, required this.repo});
+  // 2026-09-07: real feedback, live - "the button... is better placed
+  // in the actual opened conflict... for each backup." When set
+  // (conflict_picker_screen.dart's own use), this screen lists only the
+  // backups that belong to this one note - filename prefix-matched
+  // against its base name, the same shape _backupConflictBeforeResolving
+  // (conflict_scanner.dart) always writes: "$baseName - $timestamp.md".
+  // Also skips the ambiguity-matching _open used for the old unscoped
+  // list below (originalFileNameFromBackup/matchingLivePaths) - a
+  // conflict already knows exactly which live note it's for, no need to
+  // guess from the backup filename alone.
+  final String? noteFilePath;
+  const BackupCompareListScreen({
+    super.key,
+    required this.repo,
+    this.noteFilePath,
+  });
 
   @override
   State<BackupCompareListScreen> createState() =>
@@ -45,6 +60,15 @@ class BackupCompareListScreen extends StatefulWidget {
 class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
   final _vaultFolder = VaultFolderService();
   late Future<List<String>> _future;
+
+  // 2026-09-07: see BackupCompareListScreen.noteFilePath's own doc - the
+  // exact prefix _backupConflictBeforeResolving writes for this note.
+  String? get _scopedPrefix {
+    final notePath = widget.noteFilePath;
+    if (notePath == null) return null;
+    final baseName = notePath.split('/').last.replaceAll('.md', '');
+    return '$baseName - ';
+  }
 
   @override
   void initState() {
@@ -58,11 +82,15 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
     try {
       final dir = Directory('$path/$kLocalSyncFolderName/Conflict Backups');
       if (!await dir.exists()) return const [];
-      final names = await dir
+      var names = await dir
           .list()
           .where((e) => e is File)
           .map((e) => e.uri.pathSegments.last)
           .toList();
+      final prefix = _scopedPrefix;
+      if (prefix != null) {
+        names = names.where((n) => n.startsWith(prefix)).toList();
+      }
       // Filenames are YYYYMMDDhhmm-suffixed - a plain reverse string
       // sort already puts the newest first, same as the timestamp
       // itself would.
@@ -74,6 +102,38 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
   }
 
   Future<void> _open(String backupName) async {
+    // Scoped case: the live path is already known (the conflict this
+    // list was opened from) - no need to guess it back out of the
+    // backup filename, which conflict-resolution backups don't even
+    // carry a recognized label for (see originalFileNameFromBackup's
+    // own doc - a different filename shape than this scoped case).
+    final notePath = widget.noteFilePath;
+    if (notePath != null) {
+      final path =
+          await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+      if (path == null) return;
+      String backupContent;
+      try {
+        backupContent = await File(
+                '$path/$kLocalSyncFolderName/Conflict Backups/$backupName')
+            .readAsString();
+      } finally {
+        await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BackupComparePickerScreen(
+            repo: widget.repo,
+            livePath: notePath,
+            backupName: backupName,
+            backupContent: backupContent,
+          ),
+        ),
+      );
+      return;
+    }
     final original = originalFileNameFromBackup(backupName);
     if (original == null) {
       _showMessage('Can\'t tell which note this backup is for.');
@@ -149,7 +209,10 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('No backups in LocalSync/Conflict Backups yet.',
+                child: Text(
+                    widget.noteFilePath != null
+                        ? 'No backups yet for this note.'
+                        : 'No backups in LocalSync/Conflict Backups yet.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: kTextMid, fontSize: 15)),
               ),
