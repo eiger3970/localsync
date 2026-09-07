@@ -364,4 +364,81 @@ void main() {
       expect(await file.readAsString(), before);
     });
   });
+
+  group('mergeReferenceKeepingBoth - real 2026-09-07 case (Aug 24th note)',
+      () {
+    test(
+        'chronologically combines the kept and dropped sides when both have a leading time',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Aug 24th, 2026.md');
+      await file.writeAsString(
+        '# Aug 24th\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT — yours (review and delete one)\n'
+        '> 2105 salad and rice for dinner.\n'
+        '> [!warning]+ SYNC CONFLICT — desktop obsidian - 202608251230 (review and delete one)\n'
+        '> 1500 went to Point D\'eau for a shower.\n'
+        '\n'
+        'Next entry.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      // Keep the phone ("yours"/2105) side, same as the real incident.
+      final resolved =
+          applyResolution(await file.readAsString(), entry, entry.versions[0].body);
+      await file.writeAsString(resolved);
+
+      final refs = await scanForReferenceCallouts(dir.path);
+      final ref = refs.single;
+      expect(ref.keptMarkerStart, isNotNull);
+
+      await mergeReferenceKeepingBoth(dir.path, ref);
+      final merged = await file.readAsString();
+
+      // Both texts survive, as plain paragraphs - no callout, no marker.
+      expect(merged, contains('2105 salad and rice for dinner.'));
+      expect(merged, contains('1500 went to Point D\'eau for a shower.'));
+      expect(merged, isNot(contains('SYNC CONFLICT')));
+      expect(merged, isNot(contains('Already resolved')));
+      expect(merged, isNot(contains('LOCALSYNC-KEPT')));
+      // 1500 comes before 2105 - chronological, not kept-first.
+      expect(merged.indexOf('1500'), lessThan(merged.indexOf('2105')));
+      expect(merged, contains('Next entry.'));
+
+      // Nothing lost - a backup of both sides exists.
+      final backupDir = Directory('${dir.path}/LocalSync/Conflict Backups');
+      expect(await backupDir.exists(), isTrue);
+      final backups = await backupDir.list().toList();
+      expect(backups, hasLength(1));
+      final backupContent = await File(backups.single.path).readAsString();
+      expect(backupContent, contains('2105 salad and rice for dinner.'));
+      expect(backupContent, contains('1500 went to Point D\'eau for a shower.'));
+    });
+
+    test('an old note with no LOCALSYNC-KEPT marker has nothing to merge against',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Legacy note.md');
+      await file.writeAsString(
+        'Kept text from before this marker existed.\n'
+        '\n'
+        '> [!question]- Already resolved - kept for reference only, not '
+        'an active conflict. This is yours\'s version that was NOT kept - '
+        'copy anything you want from it, then delete this block whenever.\n'
+        '> Old dropped text.\n',
+      );
+
+      final refs = await scanForReferenceCallouts(dir.path);
+      expect(refs.single.keptMarkerStart, isNull);
+
+      // Safe no-op, not a crash - same guard as undoReferenceCallout.
+      final before = await file.readAsString();
+      await mergeReferenceKeepingBoth(dir.path, refs.single);
+      expect(await file.readAsString(), before);
+    });
+  });
 }

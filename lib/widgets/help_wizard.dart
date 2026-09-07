@@ -119,6 +119,20 @@ const Map<String, _WizardNode> _flowB = {
 
 const String _start = 'q1';
 
+// 2026-09-07: real feedback, live - "I then have to exit the Any
+// conflicts? window, thus losing my place in the workflow." Reaching
+// 'pick' means leaving this dialog to actually tap a real conflict in
+// the Conflicts list underneath (the dialog's own barrier-dismiss, or
+// backgrounding to switch to Obsidian) - there was never a way back
+// except restarting the whole wizard from q1. Session-only (resets on
+// app restart, which is fine - a lost place across restarts isn't the
+// complaint here) - remembers the last node and its answered-card trail
+// so reopening Help resumes exactly where they left off, instead of
+// replaying "Any conflicts? YES" again. Cleared once an end node is
+// reached, since a finished flow should start fresh next time.
+String? _flowBResumeNode;
+List<_HistoryEntry>? _flowBResumeHistory;
+
 /// Opens the branching help wizard for [flow] ('A' = Home, 'B' = Conflicts).
 void showHelpWizard(BuildContext context, String flow) {
   if (flow == 'A') {
@@ -560,7 +574,14 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
   @override
   void initState() {
     super.initState();
-    _nodeId = _start;
+    // 2026-09-07: resume where a previous open of this same flow left
+    // off - see _flowBResumeNode's own doc.
+    if (_flowBResumeNode != null) {
+      _nodeId = _flowBResumeNode!;
+      _history.addAll(_flowBResumeHistory ?? const []);
+    } else {
+      _nodeId = _start;
+    }
   }
 
   void _go(String id, String chosen) {
@@ -568,6 +589,13 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
       _history.add(_HistoryEntry(_flowB[_nodeId]!, chosen));
       _nodeId = id;
     });
+    if (_flowB[id]!.type == _NodeType.end) {
+      _flowBResumeNode = null;
+      _flowBResumeHistory = null;
+    } else {
+      _flowBResumeNode = id;
+      _flowBResumeHistory = List.of(_history);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.animateTo(

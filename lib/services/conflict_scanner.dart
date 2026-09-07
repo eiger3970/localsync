@@ -541,6 +541,56 @@ Future<void> undoReferenceCallout(
   await VaultFolderService().coordinatedWrite(filePath, updated);
 }
 
+/// 2026-09-07: real feedback, live - "phone with data from 2105 and
+/// desktop with data from 1500. I want to merge the 1500 before the
+/// 2105, but I don't see any options to MERGE or KEEP BOTH." A reference
+/// leftover only ever offered Undo (full swap back) or Delete (discard)
+/// - no way to combine both, unlike applyKeepBoth's equivalent for a
+/// still-open conflict. This is that same fix applied here: replaces
+/// the kept marker + reference callout with both texts as plain,
+/// unwrapped paragraphs, chronologically ordered when every version has
+/// a leading HHMM time (journalOrderedBodies - same rule, same helper).
+/// Only possible when entry.keptMarkerStart is non-null, same gate as
+/// undoReferenceCallout above - an older note has no exact span for the
+/// kept side to safely splice against, only a heuristic preview.
+///
+/// Pure string transform, no file I/O - same split as applyKeepBoth/
+/// applyResolution above.
+String applyMergeReference(String content, ReferenceEntry entry) {
+  final matchedSpan = content.substring(entry.keptMarkerStart!, entry.matchEnd);
+  final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
+  final bodies = journalOrderedBodies([entry.keptContent!, entry.body]);
+  final merged = '${bodies.join('\n\n')}$trailingNewline';
+  return content.replaceRange(entry.keptMarkerStart!, entry.matchEnd, merged);
+}
+
+/// Backs up both sides first (same safety convention as every other
+/// destructive action in this file), then applies [applyMergeReference].
+Future<void> mergeReferenceKeepingBoth(
+  String vaultPath,
+  ReferenceEntry entry,
+) async {
+  if (entry.keptMarkerStart == null || entry.keptContent == null) return;
+  final backupDir =
+      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+  await backupDir.create(recursive: true);
+  final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
+  final backupFile =
+      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
+  await backupFile.writeAsString(
+    '# Reference content, merged by user\n\n'
+    'Original file: ${entry.filePath}\n\n'
+    '## Kept\n\n${entry.keptContent}\n\n'
+    '## Merged in (from: ${entry.label})\n\n${entry.body}\n',
+  );
+
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
+  if (entry.matchEnd > content.length) return; // file changed since scan
+  final updated = applyMergeReference(content, entry);
+  await VaultFolderService().coordinatedWrite(filePath, updated);
+}
+
 /// Removes exactly one reference callout, backing up its content first -
 /// same safety convention as resolveConflict below: never silently
 /// discard something that was specifically kept so nothing would be
