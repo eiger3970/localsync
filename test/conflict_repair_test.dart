@@ -251,6 +251,56 @@ void main() {
     });
   });
 
+  group('journal entries order chronologically, not by arrival '
+      '(real 2026-09-07 case: NAB Bills incident review)', () {
+    test('review callouts show the earlier HHMM entry first', () {
+      final content = _markers(
+          '2105 salad Caucasian Swiss? Gave me a hard time.',
+          '0715 Clothes washed last night are 80% damp wet.');
+      final out = repairConflictMarkers(content,
+          otherLabel: 'desktop obsidian', otherTime: '202609041645');
+
+      // The 0715 entry (theirs) happened earlier in the day than the
+      // 2105 entry (ours) - it must render first, even though "ours"
+      // is always built first in the underlying versions list.
+      final theirsPos = out.indexOf('0715 Clothes washed');
+      final oursPos = out.indexOf('2105 salad');
+      expect(theirsPos, greaterThanOrEqualTo(0));
+      expect(oursPos, greaterThanOrEqualTo(0));
+      expect(theirsPos, lessThan(oursPos));
+    });
+
+    test('an untimed entry (no leading HHMM) leaves arrival order untouched',
+        () {
+      // Matches the real Aug 28th 2026 case: one side has no timestamp
+      // at all, so there is nothing safe to sort by - must not guess.
+      final content = _markers(
+          '2105 salad Caucasian Swiss? Gave me a hard time.',
+          'Clothes washed last night are 80% damp wet.');
+      final out = repairConflictMarkers(content, otherLabel: 'Desktop');
+
+      final oursPos = out.indexOf('2105 salad');
+      final theirsPos = out.indexOf('Clothes washed');
+      expect(oursPos, lessThan(theirsPos));
+    });
+
+    test('dedupeAndCheckAppend auto-merge reorders by time, not arrival, '
+        'when both sides are timestamped', () {
+      // theirs is "ours plus a continuation" (satisfies the overlap>0
+      // safety gate), but the new line's own clock time (0100) is
+      // earlier than ours' (1200) - naive concatenation would put it
+      // last; the real fix must put it first.
+      final merged = dedupeAndCheckAppend(
+        '1200 noon thing',
+        '1200 noon thing\n0100 early thing',
+      );
+      expect(merged, isNotNull);
+      final earlyPos = merged!.indexOf('0100 early thing');
+      final noonPos = merged.indexOf('1200 noon thing');
+      expect(earlyPos, lessThan(noonPos));
+    });
+  });
+
   group('mergeThreeWayLines - the real 2026-09-06 Kanban case and variants',
       () {
     test('disjoint insertions in different sections merge with no conflict',

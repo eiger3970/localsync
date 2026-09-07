@@ -73,9 +73,42 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
   final remainingNonBlank = remaining.where((l) => l.trim().isNotEmpty).toList();
   if (remainingNonBlank.isNotEmpty &&
       remainingNonBlank.every((l) => !oursSet.contains(l.trim()))) {
-    return '$ours\n\n${remaining.join('\n').trim()}';
+    final theirsRemaining = remaining.join('\n').trim();
+    return chronologicallyOrderedIfJournal(ours, theirsRemaining) ??
+        '$ours\n\n$theirsRemaining';
   }
   return null;
+}
+
+final _journalTimePattern = RegExp(r'^(\d{4})\b');
+
+List<String> _splitParagraphs(String text) => text
+    .split(RegExp(r'\n\s*\n'))
+    .map((p) => p.trim())
+    .where((p) => p.isNotEmpty)
+    .toList();
+
+/// 2026-09-07: real feedback, live - two unrelated journal entries
+/// (each a paragraph starting with a bare HHMM time, this user's real
+/// journal convention - "2105 salad...", "0715 I left...") landing on
+/// opposite sides of an auto-merge used to just concatenate ours-then-
+/// theirs regardless of what time of day either actually happened,
+/// so an earlier entry could land stacked below a later one. When
+/// every paragraph on both sides matches that exact HHMM shape, this
+/// re-sorts the combined paragraphs chronologically instead of using
+/// arrival order. Anything that doesn't match that shape - Kanban
+/// cards, to-dos, ordinary prose without a leading time - returns
+/// null and leaves dedupeAndCheckAppend's original ours-then-theirs
+/// order untouched. Only ever reorders whole paragraphs; never drops,
+/// splits, or duplicates one.
+String? chronologicallyOrderedIfJournal(String ours, String theirsRemaining) {
+  final paras = [..._splitParagraphs(ours), ..._splitParagraphs(theirsRemaining)];
+  if (paras.isEmpty || !paras.every((p) => _journalTimePattern.hasMatch(p))) {
+    return null;
+  }
+  paras.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
+      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
+  return paras.join('\n\n');
 }
 
 enum _LineOp { equal, baseOnly, otherOnly }
@@ -315,6 +348,24 @@ String repairConflictMarkers(String content,
       ...extractStackedVersions(ours),
       (label: theirsLabel, body: theirs),
     ];
+    // 2026-09-07: real feedback, live - two versions that are actually
+    // unrelated journal entries (this user's real convention: a bare
+    // leading HHMM time, e.g. "0715 I left...") used to always show
+    // "yours" first regardless of what time of day either happened,
+    // since this list is built in arrival order, not time order. When
+    // every version's body starts with that exact HHMM shape, sort the
+    // versions chronologically before rendering - still two separate
+    // callouts for the user to review and pick from, never silently
+    // combined, just shown in the order the day actually happened. A
+    // version with no leading time (ordinary prose, a Kanban card body)
+    // leaves the whole list in its original arrival order untouched -
+    // this never guesses.
+    if (versions.every((v) => _journalTimePattern.hasMatch(v.body))) {
+      versions.sort((a, b) =>
+          int.parse(_journalTimePattern.firstMatch(a.body)!.group(1)!)
+              .compareTo(
+                  int.parse(_journalTimePattern.firstMatch(b.body)!.group(1)!)));
+    }
     final blocks = <String>[];
     for (var i = 0; i < versions.length; i++) {
       final kind = i == 0 ? '!info' : '!warning';
