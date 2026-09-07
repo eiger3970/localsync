@@ -512,7 +512,11 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   # own merits.
   echo "This only decided which existing folder to read - nothing was"
   echo "moved, changed, or deleted to get here."
-  read -rp "See the other ${#MATCH_PATHS[@]}-1 candidates and why this one was picked? [y/N] " WHY_ANSWER
+  # 2026-09-07: real bug, caught live on a real run - "${#MATCH_PATHS[@]}-1"
+  # inside a plain double-quoted string just concatenates the count with
+  # the literal text "-1" ("8-1"), it doesn't subtract - needs real
+  # arithmetic expansion.
+  read -rp "See the other $(( ${#MATCH_PATHS[@]} - 1 )) candidates and why this one was picked? [y/N] " WHY_ANSWER
   if [[ "$WHY_ANSWER" =~ ^[Yy]$ ]]; then
     echo
     echo "Picked because it has a recorded identity file"
