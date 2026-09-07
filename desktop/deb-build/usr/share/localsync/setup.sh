@@ -524,8 +524,27 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
         [[ "$i" == "$CHOSEN_INDEX" ]] && continue
         SRC="${MATCH_PATHS[$i]}"
         BASE="$(basename "$SRC")"
-        mv "$SRC" "$ARCHIVE_DIR/$BASE"
-        echo "  Archived: $SRC -> $ARCHIVE_DIR/$BASE"
+        DEST="$ARCHIVE_DIR/$BASE"
+        # 2026-09-07: real feedback, live - plain `mv` is already atomic
+        # (a rename, not a copy+delete) as long as source and
+        # destination are on the same filesystem, which they always are
+        # here (both under $HOME/Documents/Git) - but "always are right
+        # now" isn't the same guarantee as "can't ever be wrong later"
+        # (e.g. if this archive path ever lived on a different mount).
+        # Copy first, verify the copy is byte-identical with diff, only
+        # remove the original once that's confirmed - no new question
+        # asked, same single y/N above covers this whole step; this
+        # just makes the step itself safer without adding another
+        # interruption.
+        if cp -a "$SRC" "$DEST" && diff -rq "$SRC" "$DEST" >/dev/null 2>&1; then
+          rm -rf "$SRC"
+          echo "  Archived (copy verified, then removed original): $SRC -> $DEST"
+        else
+          echo "  ⚠ Could not verify the copy of $SRC - left untouched," >&2
+          echo "    nothing removed. Check $DEST by hand if you want to" >&2
+          echo "    retry this one." >&2
+          rm -rf "$DEST" 2>/dev/null
+        fi
       done
       echo "All moved into: ${GREEN}$ARCHIVE_DIR${RESET}"
     fi
