@@ -770,7 +770,7 @@ if command -v qrencode >/dev/null 2>&1; then
     else
       WHY_TEXT="You picked this one yourself, from ${#MATCH_PATHS[@]} real candidates found on this desktop."
     fi
-    WHY_SECTION="<details class=\"why\"><summary>Why this DESKTOP SYNC FOLDER path?</summary><p class=\"why-text\">${WHY_TEXT}</p><p class=\"why-text\">Nothing was changed or deleted to decide this - it only reads from whichever folder gets confirmed. $((${#MATCH_PATHS[@]} - 1)) other folder(s) considered, not used, most recently used first:</p><div class=\"alt-list\">${ALT_ROWS}</div>"
+    WHY_SECTION="<details class=\"why\"><summary>Why this DESKTOP SYNC FOLDER path?</summary><p class=\"why-text\">${WHY_TEXT}</p><p class=\"why-text\">Nothing was changed or deleted to decide this - this step only reads from whichever folder gets confirmed. $((${#MATCH_PATHS[@]} - 1)) other folder(s) considered, not used, most recently used first:</p><div class=\"alt-list\">${ALT_ROWS}</div>"
     # 2026-09-07: real bug found live, testing this - ARCHIVE_DIR is
     # set to a real string as soon as it's computed (needed so the y/N
     # prompt itself can show the recovery path before asking), but the
