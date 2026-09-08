@@ -196,8 +196,11 @@ void main() {
     expect(find.text('Any conflicts?'), findsOneWidget);
     expect(find.text('Pick version'), findsOneWidget);
     expect(
-        find.text("Not picked doesn't delete text, rather data is saved in "
-            'Obsidian vault/LocalSync/Conflict Backups/note.'),
+        find.text(
+            'The version not picked is removed from the note - backed up '
+            'first, always, in Obsidian vault/LocalSync/Conflict Backups/note. '
+            'A checkbox in that screen keeps it in the note too (collapsed, '
+            'for reference) if you want it reachable there instead.'),
         findsOneWidget);
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();

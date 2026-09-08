@@ -48,11 +48,19 @@ const Map<String, _WizardNode> _flowB = {
   // tappable link isn't possible - deep-linking to a specific Obsidian
   // folder was already tried and found unreliable on real-device
   // testing (see conflicts_screen.dart's own history).
+  // 2026-09-08: rewritten - real feedback, live, on the previous
+  // wording ("not picked doesn't delete text") - default behavior
+  // changed (see conflict_scanner.dart's applyResolution) to match
+  // what the confirm dialog itself has always said: the other version
+  // is removed, not left in the note. The old behavior still exists,
+  // opt-in via a checkbox right in that same dialog.
   'pick': _WizardNode(
       type: _NodeType.action,
       text: 'Pick version',
-      fine: "Not picked doesn't delete text, rather data is saved in "
-          'Obsidian vault/LocalSync/Conflict Backups/note.',
+      fine: 'The version not picked is removed from the note - backed up '
+          'first, always, in Obsidian vault/LocalSync/Conflict Backups/note. '
+          'A checkbox in that screen keeps it in the note too (collapsed, '
+          'for reference) if you want it reachable there instead.',
       next: 'q2'),
   'q2': _WizardNode(
       type: _NodeType.question,
