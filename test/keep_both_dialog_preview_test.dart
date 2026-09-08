@@ -1,6 +1,7 @@
 // Local visual verification only - checks the "Keep both versions?"
-// confirm dialog actually renders/fits after adding the new Undo
-// point, without a full device build. Run with:
+// confirm dialog AND the (i) info popup render the exact same points
+// in the exact same order (they drifted apart across earlier edits -
+// this is what catches that class of bug before a build). Run with:
 //   flutter test test/keep_both_dialog_preview_test.dart --update-goldens
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:localsync/models/repository.dart';
 import 'package:localsync/screens/conflict_picker_screen.dart';
 import 'package:localsync/services/conflict_scanner.dart';
+
+// The backup point renders as Text.rich (a linked suffix), not plain
+// Text.data - find.text() only matches .data, so a predicate reading
+// either shape is needed to check ALL five points uniformly.
+Finder findPointContaining(String substring) => find.byWidgetPredicate((w) {
+      if (w is! Text) return false;
+      final plain = w.data ?? w.textSpan?.toPlainText() ?? '';
+      return plain.contains(substring);
+    });
 
 void main() {
   setUp(() {
@@ -19,7 +29,7 @@ void main() {
             (MethodCall call) async => '/tmp');
   });
 
-  testWidgets('Keep both confirm dialog renders with the new Undo point',
+  testWidgets('Keep both confirm dialog and info popup match exactly',
       (tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3.0;
@@ -54,23 +64,50 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
+    // Canonical order, both dialogs must match this exactly.
+    const confirmOrder = [
+      'Keeps both versions, as plain text',
+      'Nothing hidden - both texts stay as plain, visible paragraphs in the note',
+      'Ordered by time when both start with a clock time - otherwise left as they are',
+      'Every version backed up first',
+      'An UNDO button appears right after, on the confirmation message',
+    ];
+
+    void checkOrder(String label) {
+      var lastY = -1.0;
+      for (final t in confirmOrder) {
+        final finder = findPointContaining(t);
+        expect(finder, findsOneWidget, reason: '$label missing: $t');
+        final y = tester.getTopLeft(finder).dy;
+        expect(y, greaterThan(lastY), reason: '$label: "$t" out of order');
+        lastY = y;
+      }
+    }
+
     await tester.tap(find.text('KEEP BOTH'));
     await tester.pumpAndSettle();
     tester.takeException();
-
-    // Real check, not just a screenshot: every dialog point must
-    // actually be on screen, not clipped/overflowing off it.
     expect(find.text('Keep both versions?'), findsOneWidget);
-    expect(find.text('Keeps both versions, as plain text'), findsOneWidget);
-    expect(
-        find.text(
-            'An UNDO button appears right after, on the confirmation message'),
-        findsOneWidget);
-    expect(find.byIcon(Icons.undo), findsOneWidget);
+    checkOrder('confirm dialog');
 
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/keep_both_dialog_preview.png'),
+    );
+
+    await tester.tap(find.text('Not now'));
+    await tester.pumpAndSettle();
+    // Two (i) buttons exist on this screen (MERGE PIECES INSTEAD has
+    // its own, above this one) - KEEP BOTH's is the one lower on
+    // screen / later in source order.
+    await tester.tap(find.byIcon(Icons.info_outline).last);
+    await tester.pumpAndSettle();
+    tester.takeException();
+    checkOrder('info popup');
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/keep_both_info_preview.png'),
     );
   });
 }
