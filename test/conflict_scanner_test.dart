@@ -272,6 +272,50 @@ void main() {
       expect(updated.indexOf('first round'), lessThan(updated.indexOf('second round')));
     });
 
+    // 2026-09-08: real feedback, live - "one tap" Undo for Keep Both,
+    // matching what "Keep this version" already has. Round-trips
+    // through the real scan functions, not just the pure transform, so
+    // this also proves scanForKeptBoth finds it and the file re-enters
+    // scanForConflicts as a genuine, resolvable conflict afterward.
+    test('Keep Both can be undone back to an active, resolvable conflict',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Aug 28th, 2026.md');
+      await file.writeAsString(
+        '> [!info]+ SYNC CONFLICT - yours (review and delete one)\n'
+        '> 2105 salad Caucasian Swiss? Gave me a hard time.\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT - desktop obsidian - 202609041645 (review and delete one)\n'
+        '> 0715 Clothes washed last night are 80% damp wet.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      final updated = applyKeepBoth(await file.readAsString(), entry);
+      await file.writeAsString(updated);
+
+      // No longer an active conflict, and both texts are genuinely
+      // still present (already covered above) - now also check the
+      // invisible marker is real and findable.
+      expect(await scanForConflicts(dir.path), isEmpty);
+      final kept = await scanForKeptBoth(dir.path);
+      expect(kept, hasLength(1));
+      expect(kept.single.versions, hasLength(2));
+
+      await undoKeepBoth(dir.path, kept.single);
+
+      // Back to an active conflict, with both original versions intact.
+      final reverted = await scanForConflicts(dir.path);
+      expect(reverted, hasLength(1));
+      expect(reverted.single.versions, hasLength(2));
+      expect(reverted.single.versions[0].body,
+          contains('2105 salad Caucasian Swiss'));
+      expect(reverted.single.versions[1].body,
+          contains('0715 Clothes washed'));
+      expect(await scanForKeptBoth(dir.path), isEmpty);
+    });
+
     test('Kanban conflicts are also supported - both cards kept as plain lines',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');

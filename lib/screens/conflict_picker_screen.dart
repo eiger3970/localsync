@@ -131,11 +131,17 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               text: 'Nothing hidden - both texts stay as plain, visible '
                   'paragraphs in the note',
             ),
+            // 2026-09-08: real feedback, live - "one tap" undo, not just
+            // "delete by hand." Now a real button (Conflicts screen's
+            // own "merged conflicts" list, conflict_scanner.dart's
+            // undoKeepBoth) that swaps this exact note back to an
+            // active conflict - available indefinitely, not just while
+            // the backup file happens to still exist.
             _DialogPoint(
               icon: Icons.undo,
               color: kGreen,
-              text: 'Changed your mind? Delete either paragraph by hand, '
-                  'or copy the original back from the backup',
+              text: 'Changed your mind? One tap undoes this - Conflicts '
+                  'screen → Merged conflicts',
             ),
             _DialogPoint(
               icon: Icons.sort,

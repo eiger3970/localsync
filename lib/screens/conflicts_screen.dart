@@ -24,6 +24,7 @@ import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
+import 'kept_both_screen.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
 // brand-new conflict and a pile of unrelated older ones still look like
@@ -57,7 +58,8 @@ class ConflictsScreen extends StatefulWidget {
 typedef _ScanResult = ({
   List<ConflictEntry> conflicts,
   List<ReferenceEntry> refs,
-  List<BinaryConflictLogEntry> binary
+  List<BinaryConflictLogEntry> binary,
+  List<KeptBothEntry> keptBoth
 });
 
 class _ConflictsScreenState extends State<ConflictsScreen> {
@@ -87,7 +89,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       return (
         conflicts: <ConflictEntry>[],
         refs: <ReferenceEntry>[],
-        binary: <BinaryConflictLogEntry>[]
+        binary: <BinaryConflictLogEntry>[],
+        keptBoth: <KeptBothEntry>[]
       );
     }
     try {
@@ -107,7 +110,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       await _checkForReverts(entries);
       final refs = await scanForReferenceCallouts(path);
       final binary = scanBinaryConflictLog(path);
-      return (conflicts: entries, refs: refs, binary: binary);
+      final keptBoth = await scanForKeptBoth(path);
+      return (conflicts: entries, refs: refs, binary: binary, keptBoth: keptBoth);
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
@@ -304,7 +308,11 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 final entries = snapshot.data?.conflicts ?? const [];
                 final refs = snapshot.data?.refs ?? const [];
                 final binary = snapshot.data?.binary ?? const [];
-                if (entries.isEmpty && refs.isEmpty && binary.isEmpty) {
+                final keptBoth = snapshot.data?.keptBoth ?? const [];
+                if (entries.isEmpty &&
+                    refs.isEmpty &&
+                    binary.isEmpty &&
+                    keptBoth.isEmpty) {
                   // 2026-08-26: real feedback, live - "Conflicts screen
                   // makes no sense now" - a fixed "pick a version below"
                   // banner used to show unconditionally, even here where
@@ -404,6 +412,47 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     '${binary.length == 1 ? 'conflict' : 'conflicts'} '
                                     'auto-resolved - your version was kept, '
                                     'tap to review',
+                                    style:
+                                        TextStyle(color: kStar, fontSize: 13.5),
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right,
+                                    color: kTextDim, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    // 2026-09-08: real feedback, live - "one tap" Undo for
+                    // Keep Both. Same reasoning as the binary-conflicts
+                    // banner above: its own screen, not interleaved into
+                    // this list's already-fragile section index math.
+                    if (keptBoth.isNotEmpty)
+                      Material(
+                        color: kGreen.withValues(alpha: 0.08),
+                        child: InkWell(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    KeptBothScreen(repo: widget.repo),
+                              ),
+                            );
+                            if (mounted) setState(() => _future = _scan());
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.undo, color: kGreen, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${keptBoth.length} merged '
+                                    '${keptBoth.length == 1 ? 'conflict' : 'conflicts'} '
+                                    '(Keep Both) - tap to undo any of them',
                                     style:
                                         TextStyle(color: kStar, fontSize: 13.5),
                                   ),
