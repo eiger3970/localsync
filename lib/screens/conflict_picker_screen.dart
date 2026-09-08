@@ -33,6 +33,14 @@ typedef ConflictResolvedResult = ({
   bool resolved,
   String? vaultName,
   String? backupRelPath,
+  // 2026-09-08: real feedback, live - "confusing, build an easier
+  // understanding." The permanent Undo (Conflicts screen -> Merged
+  // conflicts) was real but hard to find - nothing pointed at it in
+  // the moment. Non-null only for a Keep Both result, so the caller
+  // can offer an immediate UNDO right on the success message itself -
+  // zero navigation, no screen to go hunt for - while the permanent
+  // path still exists underneath for later.
+  KeptBothEntry? keptBoth,
 });
 
 class ConflictPickerScreen extends StatefulWidget {
@@ -131,17 +139,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               text: 'Nothing hidden - both texts stay as plain, visible '
                   'paragraphs in the note',
             ),
-            // 2026-09-08: real feedback, live - "one tap" undo, not just
-            // "delete by hand." Now a real button (Conflicts screen's
-            // own "merged conflicts" list, conflict_scanner.dart's
-            // undoKeepBoth) that swaps this exact note back to an
-            // active conflict - available indefinitely, not just while
-            // the backup file happens to still exist.
+            // 2026-09-08, second pass - real feedback, live: "confusing,
+            // build an easier understanding." The first fix (real button,
+            // but only reachable via a screen the user had to go find)
+            // was still hard to discover. Now leads with the actual
+            // easiest path - an UNDO button on the very next message,
+            // right after tapping Keep Both - and only mentions the
+            // permanent Conflicts screen list as the fallback for later.
             _DialogPoint(
               icon: Icons.undo,
               color: kGreen,
-              text: 'Changed your mind? One tap undoes this - Conflicts '
-                  'screen → Merged conflicts',
+              text: 'Changed your mind? An UNDO button appears on the '
+                  'next message - or later, in Conflicts → Merged '
+                  'conflicts',
             ),
             _DialogPoint(
               icon: Icons.sort,
@@ -330,6 +340,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           resolved: true,
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
+          keptBoth: null,
         ),
       );
     }
@@ -396,12 +407,24 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final vaultFolder = VaultFolderService();
     final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
     String? backupRelPath;
+    KeptBothEntry? keptBoth;
     try {
       if (path != null) {
         backupRelPath = await mergeConflictKeepingBoth(path, widget.entry);
         await DatabaseService().addResolvedRecords(
           recordsFor(widget.entry, DateTime.now()),
         );
+        // 2026-09-08: real feedback, live - the permanent Undo (Merged
+        // conflicts screen) existed but nobody could find it. Re-scans
+        // for the marker mergeConflictKeepingBoth just wrote so the
+        // caller can offer an immediate UNDO right on the success
+        // message - same underlying undoKeepBoth, just surfaced where
+        // it's actually useful: right after the action, not a
+        // screen away.
+        final freshlyKept = await scanForKeptBoth(path);
+        keptBoth = freshlyKept
+            .where((k) => k.filePath == widget.entry.filePath)
+            .firstOrNull;
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
@@ -413,6 +436,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           resolved: true,
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
+          keptBoth: keptBoth,
         ),
       );
     }

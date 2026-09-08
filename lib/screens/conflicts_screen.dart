@@ -159,6 +159,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (mounted) setState(() => _future = _scan());
   }
 
+  /// Same undoKeepBoth the "Merged conflicts" screen uses, just reached
+  /// from the immediate success SnackBar instead of a screen the user
+  /// has to go find - see ConflictResolvedResult.keptBoth's own doc.
+  Future<void> _undoKeptBothNow(KeptBothEntry entry) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      await undoKeepBoth(path, entry);
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (mounted) setState(() => _future = _scan());
+  }
+
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
     final db = DatabaseService();
     final now = DateTime.now();
@@ -753,6 +767,29 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                         ),
                                       ),
                                       duration: const Duration(seconds: 10),
+                                      // 2026-09-08: real feedback, live -
+                                      // "confusing, build an easier
+                                      // understanding." Undo for a Keep
+                                      // Both result was real (Conflicts ->
+                                      // Merged conflicts) but nothing
+                                      // pointed at it in the moment - this
+                                      // puts the same action right on the
+                                      // message that just confirmed it
+                                      // happened, no navigation needed.
+                                      // Only present for a Keep Both
+                                      // result (keptBoth non-null) - the
+                                      // "Keep this version" path has
+                                      // nothing equivalent to swap back to
+                                      // from here.
+                                      action: result?.keptBoth == null
+                                          ? null
+                                          : SnackBarAction(
+                                              label: 'UNDO',
+                                              textColor: kGreen,
+                                              onPressed: () =>
+                                                  _undoKeptBothNow(
+                                                      result!.keptBoth!),
+                                            ),
                                     ),
                                   );
                                 }
