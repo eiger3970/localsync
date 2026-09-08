@@ -463,12 +463,9 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // this is the other half, checking regardless of whether
       // anything just changed. See that function's own doc comment,
       // and verifyWorkingTreeMatchesHead's, for the full story.
-      final result = verifyWorkingTreeMatchesHead(repo, p.vaultPath);
-      if (result.diag != null) {
-        return SyncOk(result.diag!);
-      }
-      if (result.repaired.isEmpty) return const SyncNoChanges();
-      return SyncOk('${result.repaired.join(", ")} didn\'t match what was '
+      final repaired = verifyWorkingTreeMatchesHead(repo, p.vaultPath);
+      if (repaired.isEmpty) return const SyncNoChanges();
+      return SyncOk('${repaired.join(", ")} didn\'t match what was '
           'already synced - fixed automatically.');
     }
 
@@ -1173,65 +1170,32 @@ const _skipTopLevelDirs = {'.git', kLocalSyncFolderName};
 /// expensive than the diff-based version on a large vault, but
 /// correctness matters more than speed for content this important, and
 /// this path has now burned through every faster alternative.
-({List<String> repaired, String? diag}) verifyWorkingTreeMatchesHead(
+List<String> verifyWorkingTreeMatchesHead(
     git.Repository repo, String vaultPath) {
   final repaired = <String>[];
-  // 2026-09-06: temporary diagnostic - two real fixes in a row (a
-  // Diff.treeToWorkdir version, then a fully manual dart:io walk using
-  // only single-path git2dart calls) still didn't catch a real,
-  // confirmed mismatch on this exact file. Rather than guess a third
-  // time, this traces every step for that one path specifically and
-  // surfaces it directly in the result message - same technique that
-  // actually found the original fetch bug at the start of this
-  // session. Remove once the real cause is found.
-  String? diag;
-  try {
-    final headOid = repo.head.target;
-    final headTree = git.Commit.lookup(repo: repo, oid: headOid).tree;
-    final root = Directory(vaultPath);
-    var sawTargetFile = false;
-    for (final entity
-        in root.listSync(recursive: true, followLinks: false)) {
-      final isTarget = entity.path.contains('Sep 5th');
-      if (isTarget) {
-        sawTargetFile = true;
-        diag = 'DIAG entity.path=${entity.path} runtimeType='
-            '${entity.runtimeType} headOid=$headOid vaultPath=$vaultPath';
-      }
-      if (entity is! File) {
-        if (isTarget) diag = '$diag | not a File, skipped';
-        continue;
-      }
-      final relPath = entity.path.substring(vaultPath.length + 1);
-      if (isTarget) diag = '$diag | relPath=$relPath';
-      final topLevel = relPath.split('/').first;
-      if (_skipTopLevelDirs.contains(topLevel)) {
-        if (isTarget) diag = '$diag | skipped as top-level $topLevel';
-        continue;
-      }
-      try {
-        final expectedOid = _lookupPathOid(repo, headTree, relPath);
-        if (isTarget) diag = '$diag | expectedOid=$expectedOid';
-        if (expectedOid == null) continue; // Not tracked - a real user file.
-        final actualOid =
-            git.Blob.createFromWorkdir(repo: repo, relativePath: relPath);
-        if (isTarget) diag = '$diag | actualOid=$actualOid';
-        if (actualOid == expectedOid) continue;
-        final blob = git.Blob.lookup(repo: repo, oid: expectedOid);
-        entity.writeAsBytesSync(blob.contentBytes);
-        repaired.add(relPath);
-        if (isTarget) diag = '$diag | REPAIRED';
-      } catch (e) {
-        if (isTarget) diag = '$diag | exception: $e';
-        // Best-effort - one path failing to verify/repair shouldn't
-        // block checking/fixing the rest.
-      }
+  final headOid = repo.head.target;
+  final headTree = git.Commit.lookup(repo: repo, oid: headOid).tree;
+  final root = Directory(vaultPath);
+  for (final entity in root.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File) continue;
+    final relPath = entity.path.substring(vaultPath.length + 1);
+    final topLevel = relPath.split('/').first;
+    if (_skipTopLevelDirs.contains(topLevel)) continue;
+    try {
+      final expectedOid = _lookupPathOid(repo, headTree, relPath);
+      if (expectedOid == null) continue; // Not tracked - a real user file.
+      final actualOid =
+          git.Blob.createFromWorkdir(repo: repo, relativePath: relPath);
+      if (actualOid == expectedOid) continue;
+      final blob = git.Blob.lookup(repo: repo, oid: expectedOid);
+      entity.writeAsBytesSync(blob.contentBytes);
+      repaired.add(relPath);
+    } catch (_) {
+      // Best-effort - one path failing to verify/repair shouldn't
+      // block checking/fixing the rest.
     }
-    if (!sawTargetFile) diag = 'DIAG: target file never seen in walk';
-  } catch (e) {
-    diag = 'DIAG: outer exception: $e';
   }
-  return (repaired: repaired, diag: diag);
+  return repaired;
 }
 
 /// Threshold for "large chunk of existing content" - the real fear this
