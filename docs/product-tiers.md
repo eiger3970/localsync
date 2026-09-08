@@ -86,6 +86,64 @@ pricing ladder diagram, which still apply on top of this.
   during testing" status as everything else in this tier - not wired
   to a real purchase check yet.
 
+## Tier 4 (IAP, opt-in per use) - AI Conflict Support
+
+Captured 2026-09-08, not built. User's own idea: could Claude AI read a
+conflict's two versions in the background and explain in plain
+English what's actually going on, instead of the user having to work
+it out themselves under stress.
+
+- **What**: sends the two (or more) conflicting text snippets to a
+  backend that calls the Claude API, gets back a short plain-English
+  read ("these look like two separate journal entries, not a real
+  conflict" / "these are the same fact edited differently - the
+  desktop version looks more complete"), shown in the conflict picker
+  before the user has to decide anything.
+- **Architecture, matching what already exists in this business**:
+  same pattern as `cvgen-writer-worker` (the Cloudflare Worker already
+  calling Claude for CV/cover-letter writing) - a small backend Worker
+  holds the API key server-side, the phone app never embeds it. Cost
+  per call is trivial (a couple hundred words each way, a fraction of
+  a cent even at premium model rates) - not a meaningful drag on
+  whatever this is priced at.
+
+### CRITICAL - this directly contradicts LocalSync's own core promise, not a minor caveat
+
+Every other tier in this document, and the app's entire marketing
+position (see this file's own "Positioning" section above: "your
+notes never touch a server you don't own or control"), is local-first
+- phone-to-desktop only, no third party ever sees vault content. This
+feature is the **first and only exception to that promise anywhere in
+the product** - conflict text genuinely leaves the device and reaches
+Anthropic's servers to generate the explanation. That is a real,
+material privacy tradeoff, not a technicality, and it must never be
+silent:
+
+- **Must be opt-in per use, not a silent background feature** - the
+  user's own framing to name it, "Cloud warning," like a real OS-level
+  permission prompt (camera/location-style), not buried in a settings
+  toggle they forget exists.
+- **Must be shown every time it would actually run**, not just once at
+  first use - the same "no surprises" instinct as this app's own
+  deletion-safety confirmations elsewhere (`SyncNeedsConfirmation`
+  header comment, `sync_service.dart`) - or at minimum a persistent,
+  unmissable visual indicator (a distinct icon/color) any time this
+  feature is active, so it's never mistaken for the fully local
+  behavior every other screen in this app has.
+- **Draft dialog copy** (same icon+point shape as this app's other
+  safety dialogs, e.g. `conflict_picker_screen.dart`'s "Keep both"
+  info):
+  - ☁️ "This sends both versions of this note to Claude (Anthropic),
+    an external AI service, to generate an explanation."
+  - 🔒 "Nothing else in LocalSync ever does this - every other feature
+    stays phone-to-desktop only, no third party involved."
+  - ✅ "Continue" / "Not now" - never a default-checked "don't ask
+    again" that could make this silent later.
+- **Free tier and every paid tier below this one must stay 100% local
+  with zero exception** - this can only ever be an explicit,
+  clearly-labeled add-on a user actively reaches for, never a default
+  or an automatic upgrade path.
+
 ## Later: other PKMs
 
 LogSeq, Notion, Joplin, Tana, etc. layer onto Tiers 1-3 once Obsidian

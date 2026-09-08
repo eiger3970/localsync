@@ -55,6 +55,17 @@ const kPkmSyncEntitlementId = 'pkm_sync';
 // wiring it in later is a one-line change, not a naming decision too.
 const kKeepBothUndoEntitlementId = 'keep_both_undo';
 
+// 2026-09-08: Tier 4 (docs/product-tiers.md) - AI Conflict Support.
+// Not built - captured as an idea only. IMPORTANT if this ever gets
+// built: this is the one feature in the whole app that sends vault
+// content off-device to a third party (Claude/Anthropic), directly
+// against LocalSync's own core "never touches a server you don't own"
+// promise - see product-tiers.md's own CRITICAL section on this
+// before wiring anything. Must ship with an explicit per-use "Cloud
+// warning" consent dialog, never silently enabled by owning this
+// entitlement alone.
+const kAiConflictSupportEntitlementId = 'ai_conflict_support';
+
 class PurchaseService {
   bool _configured = false;
   bool get isConfigured => _configured;
