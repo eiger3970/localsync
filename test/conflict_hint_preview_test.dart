@@ -36,18 +36,27 @@ void main() {
       localPath: '',
       obsidianVaultPath: '',
     );
-    // Real 2026-08-28 shape - both sides genuinely start with a bare
-    // HHMM time, exactly the case the hint exists for.
+    // 2026-09-08: real content, verbatim from the actual real Aug 29th
+    // conflict this session's user confirmed the hint on-device for -
+    // an earlier version of this test used fabricated/borrowed text
+    // that happened to also satisfy allHaveLeadingTime, which masked
+    // that the real Aug 28th conflict (checked separately) does NOT
+    // qualify (one side has no leading time at all). Using real,
+    // verified text here so this test can never drift from reality
+    // the same way again.
     const entry = ConflictEntry(
-      filePath: 'Journal/2026/08/Aug 28th, 2026.md',
+      filePath: 'Journal/2026/08/Aug 29th, 2026.md',
       versions: [
         ConflictVersion(
             who: 'yours',
-            body: '2105 salad Caucasian Swiss? Gave me a hard time.'),
+            body: '0823 tough Caucasian guy walked past with stinky eye. '
+                'So I quietly said smoking is dangerous and bad for your '
+                'health.'),
         ConflictVersion(
             who: 'desktop obsidian',
             when: '202609041645',
-            body: '0715 Clothes washed last night are 80% damp wet.'),
+            body: '0715 I left my bed 32A with my phone, but left '
+                'earphone on bed, for the 3rd floor toilet.'),
       ],
       isKanban: false,
       matchStart: 0,
