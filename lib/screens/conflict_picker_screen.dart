@@ -169,6 +169,53 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     ];
   }
 
+  // 2026-09-08: real feedback, live - "fairly similar to the conflict
+  // in question, what is the benefit?... verbose, maybe add points."
+  // The picking UI genuinely is the same side-by-side diff view - the
+  // real difference is time range: this works on any backup ever
+  // saved, including long after a conflict's already been resolved,
+  // not just the one active conflict this screen is already showing.
+  void _showCompareBackupInfo() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Compare with a backup',
+            style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(
+              icon: Icons.history,
+              color: kGreen,
+              text: 'Looks back further - every backup ever saved for '
+                  'this note, not just this one conflict',
+            ),
+            _DialogPoint(
+              icon: Icons.difference_outlined,
+              color: kGreen,
+              text: 'Same side-by-side diff view as above, so '
+                  'differences are easy to spot',
+            ),
+            _DialogPoint(
+              icon: Icons.restore,
+              color: kGreen,
+              text: 'Works anytime - even long after a conflict is '
+                  'already resolved',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 2026-09-07: real feedback, live - "still too afraid to tap KEEP
   // BOTH. The info needs clear non verbose text... that it's reversible
   // or an undo or it's backed up and a link to the backup, so it's easy
@@ -537,14 +584,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       icon: Icon(Icons.info_outline,
                           color: kTextDim, size: 18),
                       tooltip: 'What is this?',
-                      onPressed: () => _showInfo(
-                        'Compare with a backup',
-                        'Lists every backup ever saved for this exact '
-                            'note, from any past conflict resolution - '
-                            'in LocalSync/Conflict Backups. Open one to '
-                            'see what an older version looked like, '
-                            'side by side with what\'s in the note now.',
-                      ),
+                      onPressed: _showCompareBackupInfo,
                     ),
                   ],
                 ),
