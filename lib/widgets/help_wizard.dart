@@ -48,19 +48,23 @@ const Map<String, _WizardNode> _flowB = {
   // tappable link isn't possible - deep-linking to a specific Obsidian
   // folder was already tried and found unreliable on real-device
   // testing (see conflicts_screen.dart's own history).
-  // 2026-09-08: rewritten - real feedback, live, on the previous
-  // wording ("not picked doesn't delete text") - default behavior
-  // changed (see conflict_scanner.dart's applyResolution) to match
-  // what the confirm dialog itself has always said: the other version
-  // is removed, not left in the note. The old behavior still exists,
-  // opt-in via a checkbox right in that same dialog.
+  // 2026-09-08: rewritten twice same day - first pass (matching the
+  // confirm dialog's new default) was still too much detail for this
+  // terse overview step, real feedback live: "too much information for
+  // a human already overthinking... searching for the path." A
+  // tappable link to the exact backup NOTE isn't safe to build (see
+  // ios_app_service.dart's own doc - tried once, Obsidian silently
+  // opened the wrong file from an old snapshot). What already exists
+  // and is genuinely good - conflicts_screen.dart's post-resolve
+  // snackbar names the real backup file with a working link to open
+  // the vault - so this card just says the one thing that matters here
+  // (nothing is lost) and defers the rest to that actual moment,
+  // instead of re-explaining a mechanism the user hasn't reached yet.
   'pick': _WizardNode(
       type: _NodeType.action,
       text: 'Pick version',
-      fine: 'The version not picked is removed from the note - backed up '
-          'first, always, in Obsidian vault/LocalSync/Conflict Backups/note. '
-          'A checkbox in that screen keeps it in the note too (collapsed, '
-          'for reference) if you want it reachable there instead.',
+      fine: 'Nothing is lost - every version is backed up automatically '
+          'first. You get a direct link to it right after.',
       next: 'q2'),
   'q2': _WizardNode(
       type: _NodeType.question,
