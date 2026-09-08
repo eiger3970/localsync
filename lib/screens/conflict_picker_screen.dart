@@ -500,32 +500,53 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // list) - this one only ever shows backups that belong
                 // to this exact note, see BackupCompareListScreen.
                 // noteFilePath's own doc.
-                InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BackupCompareListScreen(
-                        repo: widget.repo,
-                        noteFilePath: entry.filePath,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BackupCompareListScreen(
+                            repo: widget.repo,
+                            noteFilePath: entry.filePath,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.difference_outlined,
+                                color: kTextMid, size: 16),
+                            const SizedBox(width: 6),
+                            Text('Compare with a backup',
+                                style: TextStyle(
+                                    color: kTextMid,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.underline)),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.difference_outlined,
-                            color: kTextMid, size: 16),
-                        const SizedBox(width: 6),
-                        Text('Compare with a backup',
-                            style: TextStyle(
-                                color: kTextMid,
-                                fontSize: 13,
-                                decoration: TextDecoration.underline)),
-                      ],
+                    // 2026-09-08: real feedback, live - "what does this
+                    // do, I need an i for information." Same pattern
+                    // as the other two info buttons on this screen.
+                    IconButton(
+                      icon: Icon(Icons.info_outline,
+                          color: kTextDim, size: 18),
+                      tooltip: 'What is this?',
+                      onPressed: () => _showInfo(
+                        'Compare with a backup',
+                        'Lists every backup ever saved for this exact '
+                            'note, from any past conflict resolution - '
+                            'in LocalSync/Conflict Backups. Open one to '
+                            'see what an older version looked like, '
+                            'side by side with what\'s in the note now.',
+                      ),
                     ),
-                  ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 // 2026-08-25: real feedback, live - "picking the top red
@@ -613,7 +634,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             minimumSize: const Size.fromHeight(0),
                           ),
-                          child: Text('MERGE PIECES INSTEAD',
+                          child: Text('MERGE TEXT INSTEAD',
                               style: TextStyle(
                                   color: kTextMid,
                                   fontSize: 12,
@@ -625,14 +646,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'What is this?',
+                        // 2026-09-08: real feedback, live - "the word
+                        // pieces sounds stupid, use a better word."
+                        // Reworded button + this text off "pieces"
+                        // entirely, to "sentence by sentence."
                         onPressed: () => _showInfo(
-                          'Merge pieces instead',
+                          'Merge text instead',
                           'Pick individual sentences from each side to '
                               'hand-build your own combined version - '
                               'more control, more work than Keep both. '
                               'A paid feature.\n\nYou choose exactly what '
-                              'stays and what goes, piece by piece, '
-                              'instead of keeping both sides whole.',
+                              'stays and what goes, sentence by '
+                              'sentence, instead of keeping both sides '
+                              'whole.',
                         ),
                       ),
                     ],
