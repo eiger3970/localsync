@@ -1402,11 +1402,21 @@ class _AppBarRepoStatus extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     )
                   else if (isSyncing)
-                    SizedBox(
-                      width: double.infinity,
-                      child: Text(repo.syncPhase.label,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: kTextMid, fontSize: 10)),
+                    Row(
+                      children: [
+                        // Mirrors the name row's leading _SpinningSync
+                        // (14px) + 6px gap above, so this line centers
+                        // within the same span the name does - a plain
+                        // full-width center here would center across
+                        // the whole row including that 20px the name
+                        // row doesn't have, landing visibly left of it.
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: Text(repo.syncPhase.label,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: kTextMid, fontSize: 10)),
+                        ),
+                      ],
                     ),
                   // 2026-08-28: real feedback, live - "remove the synced
                   // just now" - dropped the idle-state "synced Xm ago"
