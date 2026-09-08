@@ -34,4 +34,40 @@ void main() {
           isFalse);
     });
   });
+
+  group('oneContainsTheOther', () {
+    test('true when the longer side contains the shorter one verbatim', () {
+      expect(
+          oneContainsTheOther(
+              'Fixed the pairing screen this morning.',
+              'Fixed the pairing screen this morning. Also pushed the '
+                  'follow-up fix.'),
+          isTrue);
+    });
+
+    test('true regardless of argument order', () {
+      expect(
+          oneContainsTheOther(
+              'Fixed the pairing screen this morning. Also pushed the '
+                  'follow-up fix.',
+              'Fixed the pairing screen this morning.'),
+          isTrue);
+    });
+
+    test('false for genuinely different content, even if similar length',
+        () {
+      expect(
+          oneContainsTheOther(
+              'Fixed the pairing screen this morning.',
+              'Emailed about the domicile case this morning.'),
+          isFalse);
+    });
+
+    test('false when either side is empty - never claims containment on '
+        'nothing', () {
+      expect(oneContainsTheOther('', 'Real content here.'), isFalse);
+      expect(oneContainsTheOther('Real content here.', ''), isFalse);
+      expect(oneContainsTheOther('', ''), isFalse);
+    });
+  });
 }
