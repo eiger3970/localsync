@@ -5,6 +5,15 @@
 // into ConflictsScreen's own ListView - same reasoning as
 // binary_conflicts_screen.dart's own comment (fragile section index
 // math already, a fourth interleaved section makes it worse).
+//
+// 2026-09-08, same day: user's own words, "this 1 tap is a IAP" -
+// docs/product-tiers.md's Tier 3 now lists this as a planned premium
+// addition. Deliberately left fully working/ungated for now, same
+// reasoning as conflict_picker_upsell.dart's own header comment - no
+// funded Apple Developer account or real RevenueCat product exists to
+// buy yet, and this screen is exactly what's being real-device tested
+// right now. Gating it would break testing for no reason. Wiring an
+// actual purchase check here is a deliberate later step, not forgotten.
 
 import 'package:flutter/material.dart';
 import '../theme.dart';

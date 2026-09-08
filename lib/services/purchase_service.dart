@@ -47,6 +47,14 @@ const kConflictPickerEntitlementId = 'conflict_picker';
 // file's header comment.
 const kPkmSyncEntitlementId = 'pkm_sync';
 
+// 2026-09-08: Tier 3 addition (docs/product-tiers.md) - one-tap Undo
+// for Keep Both (kept_both_screen.dart). User's own words: "this 1 tap
+// is a IAP." Not yet wired to an actual purchase check anywhere - same
+// "no funded Apple Developer account / no real RevenueCat product yet"
+// blocker as kPkmSyncEntitlementId above. Registered here now so
+// wiring it in later is a one-line change, not a naming decision too.
+const kKeepBothUndoEntitlementId = 'keep_both_undo';
+
 class PurchaseService {
   bool _configured = false;
   bool get isConfigured => _configured;

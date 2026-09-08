@@ -77,6 +77,14 @@ pricing ladder diagram, which still apply on top of this.
 - **Already built today**: `merge_picker_screen.dart` +
   `line_diff.dart`. Currently ungated (free during testing), same
   reason as Tier 2.
+- **2026-09-08 addition**: one-tap Undo for "Keep Both" (swaps a merged
+  note back to an active, resolvable conflict exactly - see
+  `conflict_scanner.dart`'s `undoKeepBoth`/`kept_both_screen.dart`).
+  User's own framing: "this 1 tap is an IAP" - same convenience-premium
+  logic as the rest of this tier (free path is manual: delete a
+  paragraph by hand, or copy from the backup file). Same "ungated
+  during testing" status as everything else in this tier - not wired
+  to a real purchase check yet.
 
 ## Later: other PKMs
 
