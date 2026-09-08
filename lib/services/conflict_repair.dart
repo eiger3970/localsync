@@ -122,6 +122,41 @@ bool oneContainsTheOther(String a, String b) {
   return a.contains(b) || b.contains(a);
 }
 
+/// 2026-09-08: real feedback, live - "go with both" (the other one
+/// being hasDuplicateParagraph below). Flags when one side is tiny
+/// next to a substantial other side - a real shape for an accidental
+/// near-empty edit (a stray keystroke, a save before typing) rather
+/// than a genuine short entry. Deliberately two-part, not just an
+/// absolute length check: both a small absolute cap (so two genuinely
+/// short one-liner entries never trip this) and a large relative gap
+/// (so two similarly-sized real entries never trip it either) must
+/// hold at once.
+bool oneSideSuspiciouslyShort(String a, String b) {
+  final shortLen = a.trim().length < b.trim().length
+      ? a.trim().length
+      : b.trim().length;
+  final longLen = a.trim().length < b.trim().length
+      ? b.trim().length
+      : a.trim().length;
+  if (longLen == 0) return false;
+  return shortLen <= 15 && longLen >= 50 && shortLen / longLen < 0.15;
+}
+
+/// 2026-09-08: real feedback, live - "go with both." The exact real
+/// shape from this session's own Sep 7th conflict: the same paragraph
+/// pasted twice into one side, which a plain "keep both" wouldn't fix
+/// (it keeps whatever's already there, duplication included) - worth
+/// surfacing so a user notices before it goes any further, even
+/// though this app deliberately never auto-edits a user's own kept
+/// content. Reuses the same paragraph-splitting _splitParagraphs
+/// already uses for auto-merge, so "paragraph" means the same thing
+/// everywhere in this file. Ignores very short paragraphs (a lone
+/// blank-ish line duplicating trivially isn't a real signal).
+bool hasDuplicateParagraph(String body) {
+  final paras = _splitParagraphs(body).where((p) => p.length >= 20).toList();
+  return paras.length != paras.toSet().length;
+}
+
 /// 2026-09-08: real feedback, live - "fix the app as if a user doesn't
 /// have access to Claude AI." Every real conflict this session got
 /// resolved the same way: read both sides, notice they're two
