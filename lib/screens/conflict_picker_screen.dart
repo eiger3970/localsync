@@ -13,7 +13,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
-import '../services/conflict_repair.dart' show allHaveLeadingTime;
+import '../services/conflict_repair.dart'
+    show allHaveLeadingTime, oneContainsTheOther;
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -525,6 +526,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // themselves, without needing it read out loud to them.
     final looksLikeSeparateEntries =
         allHaveLeadingTime(versions.map((v) => v.body).toList());
+    // 2026-09-08: real feedback, live - "that's a useful hint... more
+    // of this." Second deterministic signal: one side's text fully
+    // contains the other's, meaning nothing is actually lost by
+    // keeping the longer one. Only checked pairwise (exactly 2
+    // versions, same gate useDiff already uses) and only shown when
+    // the time-based hint above doesn't already apply, so a note
+    // never shows two competing suggestions at once.
+    final oneSideHasEverything = !looksLikeSeparateEntries &&
+        versions.length == 2 &&
+        oneContainsTheOther(versions[0].body, versions[1].body);
 
     return Scaffold(
       // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
@@ -563,6 +574,27 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           'these look like two separate entries, not the '
                           'same thing edited twice. "Keep both" is '
                           'usually right here.',
+                          style: TextStyle(
+                              color: kGreen,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (oneSideHasEverything) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: kGreen, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'One version already contains all of the '
+                          'other\'s text, plus more - keeping the '
+                          'longer one loses nothing.',
                           style: TextStyle(
                               color: kGreen,
                               fontSize: 13,

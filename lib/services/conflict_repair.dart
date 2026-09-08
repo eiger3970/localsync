@@ -107,6 +107,21 @@ List<String> journalOrderedBodies(List<String> bodies) {
   return sorted;
 }
 
+/// 2026-09-08: real feedback, live - "that's a useful hint... more of
+/// this." One version fully containing the other's text as a
+/// substring means nothing is actually lost by keeping the longer
+/// side - a real, common shape for "someone kept typing/pasting more
+/// onto the same note" rather than two genuinely different edits.
+/// Deliberately conservative: exact substring only (never a fuzzy/
+/// approximate match, which risks a false "nothing lost" reassurance
+/// on content that only looks similar), and empty strings never
+/// qualify - two nothing-in-common empty sides shouldn't claim one
+/// contains the other.
+bool oneContainsTheOther(String a, String b) {
+  if (a.isEmpty || b.isEmpty) return false;
+  return a.contains(b) || b.contains(a);
+}
+
 /// 2026-09-08: real feedback, live - "fix the app as if a user doesn't
 /// have access to Claude AI." Every real conflict this session got
 /// resolved the same way: read both sides, notice they're two

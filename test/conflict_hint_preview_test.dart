@@ -78,4 +78,59 @@ void main() {
       matchesGoldenFile('goldens/conflict_hint_preview.png'),
     );
   });
+
+  testWidgets(
+      'shows the contains-everything hint when one side is a superset of the other',
+      (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const repo = Repository(
+      name: 'Obsidian_phone_vault',
+      remoteHost: '172.20.10.11',
+      remoteUser: 'rapi5',
+      remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
+      localPath: '',
+      obsidianVaultPath: '',
+    );
+    // Deliberately constructed, not sourced from a real note - unlike
+    // the leading-time hint above, "one side contains the other" is a
+    // general string property, not something specific to real journal
+    // content, so a clearly-labeled synthetic example is honest here
+    // rather than implying this exact text came from a live file.
+    const entry = ConflictEntry(
+      filePath: 'Journal/2026/09/example.md',
+      versions: [
+        ConflictVersion(
+            who: 'yours', body: 'Fixed the pairing screen this morning.'),
+        ConflictVersion(
+            who: 'desktop obsidian',
+            when: '202609081200',
+            body: 'Fixed the pairing screen this morning. Also pushed '
+                'the follow-up fix.'),
+      ],
+      isKanban: false,
+      matchStart: 0,
+      matchEnd: 10,
+    );
+
+    await tester.pumpWidget(const MaterialApp(
+      home: ConflictPickerScreen(repo: repo, entry: entry),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.textContaining('these look like two separate entries'),
+        findsNothing);
+    expect(
+        find.textContaining('already contains all of the other'),
+        findsOneWidget);
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/conflict_hint_contains_preview.png'),
+    );
+  });
 }
