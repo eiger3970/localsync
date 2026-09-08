@@ -371,7 +371,17 @@ class _BackupComparePickerScreenState
                         // applies for real detected conflicts - matched here
                         // rather than silently truncating or crashing on a
                         // large note.
-                        : Column(
+                        //
+                        // 2026-09-08: real feedback, live - "the live note
+                        // is above the below note, which is impossible for
+                        // humans to compare... needs to be left/right." A
+                        // Column here was the one place on this screen not
+                        // matching the side-by-side layout the Row branch
+                        // above (and the main conflict picker) already use -
+                        // now genuinely the same shape, just without word
+                        // diff highlighting.
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Expanded(
                                 child: _Panel(
@@ -384,7 +394,7 @@ class _BackupComparePickerScreenState
                                       : () => _choose(live),
                                 ),
                               ),
-                              const SizedBox(height: 10),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: _Panel(
                                   title: 'Backup (${widget.backupName})',
