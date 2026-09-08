@@ -115,40 +115,56 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // passes, since each dialog was edited independently. One shared
   // list, built once, used by both call sites below - can't drift
   // apart again because there's only one copy to edit.
+  // 2026-09-08, sixth pass - real feedback, live: "use my text and
+  // order." Order now matches exactly the sequence given (undo,
+  // backup, sort, both-kept, visible), not the earlier canonical
+  // order this file had settled on before.
   List<Widget> _keepBothDialogPoints() {
-    final otherCount = widget.entry.versions.length - 1;
     return [
       _DialogPoint(
-          icon: Icons.check_circle,
-          color: kGreen,
-          text: otherCount > 1
-              ? 'Keeps every version, as plain text'
-              : 'Keeps both versions, as plain text'),
-      _DialogPoint(
-        icon: Icons.visibility,
+        icon: Icons.undo,
         color: kGreen,
-        text: 'Nothing hidden - both texts stay as plain, visible '
-            'paragraphs in the note',
+        text: 'UNDO button appears right after, on the confirmation '
+            'message',
       ),
+      // 2026-09-08, seventh pass - real feedback, live: "image cannot
+      // be cloud as the privacy app is anti cloud... maybe a double
+      // tick, but must be a different double tick to the below double
+      // tick." Icons.backup is literally a cloud-with-upload-arrow
+      // glyph in Material Design - a real contradiction for an app
+      // whose entire promise is never touching a server. Went through
+      // verified (single badge) first, corrected - library_add_check
+      // (stacked pages + a check) reads as "multiple copies,
+      // confirmed," genuinely distinct from done_all's plain
+      // side-by-side ticks below.
       _DialogPoint(
-        icon: Icons.sort,
+        icon: Icons.library_add_check,
         color: kGreen,
-        text: 'Ordered by time when both start with a clock time - '
-            'otherwise left as they are',
-      ),
-      _DialogPoint(
-        icon: Icons.backup,
-        color: kGreen,
-        text: 'Every version backed up first, in ',
+        text: 'Backs up all versions first, in ',
         linkText: 'LocalSync/Conflict Backups',
         onLinkTap: () =>
             IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
       ),
       _DialogPoint(
-        icon: Icons.undo,
+        icon: Icons.sort,
         color: kGreen,
-        text: 'An UNDO button appears right after, on the confirmation '
-            'message',
+        text: 'Text sorted by time, if both texts start with a clock '
+            'time - otherwise left as is',
+      ),
+      // 2026-09-08, fifth pass - real feedback, live: icon review.
+      // done_all (two checks) reads as "both/every version," distinct
+      // from the single-check "verified" badge above - the two were
+      // easy to confuse as "the same tick" before.
+      _DialogPoint(
+        icon: Icons.done_all,
+        color: kGreen,
+        text: 'Text versions of both kept, as plain text',
+      ),
+      _DialogPoint(
+        icon: Icons.visibility,
+        color: kGreen,
+        text: 'Text visible, all kept as plain text paragraphs, nothing '
+            'hidden',
       ),
     ];
   }
