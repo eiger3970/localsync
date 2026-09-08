@@ -108,13 +108,55 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     );
   }
 
+  // 2026-09-08, fourth pass - real feedback, live: "the order is
+  // different... these can be made consistent." This info popup and
+  // _confirmAndKeepBoth's own confirm dialog covered the same 4-5
+  // facts but drifted apart in both wording and order across earlier
+  // passes, since each dialog was edited independently. One shared
+  // list, built once, used by both call sites below - can't drift
+  // apart again because there's only one copy to edit.
+  List<Widget> _keepBothDialogPoints() {
+    final otherCount = widget.entry.versions.length - 1;
+    return [
+      _DialogPoint(
+          icon: Icons.check_circle,
+          color: kGreen,
+          text: otherCount > 1
+              ? 'Keeps every version, as plain text'
+              : 'Keeps both versions, as plain text'),
+      _DialogPoint(
+        icon: Icons.visibility,
+        color: kGreen,
+        text: 'Nothing hidden - both texts stay as plain, visible '
+            'paragraphs in the note',
+      ),
+      _DialogPoint(
+        icon: Icons.sort,
+        color: kGreen,
+        text: 'Ordered by time when both start with a clock time - '
+            'otherwise left as they are',
+      ),
+      _DialogPoint(
+        icon: Icons.backup,
+        color: kGreen,
+        text: 'Every version backed up first, in ',
+        linkText: 'LocalSync/Conflict Backups',
+        onLinkTap: () =>
+            IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
+      ),
+      _DialogPoint(
+        icon: Icons.undo,
+        color: kGreen,
+        text: 'An UNDO button appears right after, on the confirmation '
+            'message',
+      ),
+    ];
+  }
+
   // 2026-09-07: real feedback, live - "still too afraid to tap KEEP
   // BOTH. The info needs clear non verbose text... that it's reversible
   // or an undo or it's backed up and a link to the backup, so it's easy
-  // for a user to recover with little brain strain." Same short
-  // icon+point shape as _confirmAndKeepBoth's own dialog (not a
-  // paragraph) - the safety facts (backed up, nothing deleted) lead,
-  // ordering logic comes last since it matters less to "am I safe."
+  // for a user to recover with little brain strain."
   void _showKeepBothInfo() {
     showDialog(
       context: context,
@@ -124,42 +166,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DialogPoint(
-              icon: Icons.backup,
-              color: kGreen,
-              text: 'Every version backed up first, in ',
-              linkText: 'LocalSync/Conflict Backups',
-              onLinkTap: () =>
-                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
-            ),
-            _DialogPoint(
-              icon: Icons.visibility,
-              color: kGreen,
-              text: 'Nothing hidden - both texts stay as plain, visible '
-                  'paragraphs in the note',
-            ),
-            // 2026-09-08, second pass - real feedback, live: "confusing,
-            // build an easier understanding." The first fix (real button,
-            // but only reachable via a screen the user had to go find)
-            // was still hard to discover. Now leads with the actual
-            // easiest path - an UNDO button on the very next message,
-            // right after tapping Keep Both - and only mentions the
-            // permanent Conflicts screen list as the fallback for later.
-            _DialogPoint(
-              icon: Icons.undo,
-              color: kGreen,
-              text: 'Changed your mind? An UNDO button appears on the '
-                  'next message - or later, in Conflicts → Merged '
-                  'conflicts',
-            ),
-            _DialogPoint(
-              icon: Icons.sort,
-              color: kGreen,
-              text: 'Put in time order only if every version starts with '
-                  'a clock time - otherwise left as they arrived',
-            ),
-          ],
+          children: _keepBothDialogPoints(),
         ),
         actions: [
           TextButton(
@@ -363,42 +370,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DialogPoint(
-                icon: Icons.check_circle,
-                color: kGreen,
-                text: widget.entry.versions.length > 2
-                    ? 'Keeps every version, as plain text'
-                    : 'Keeps both versions, as plain text'),
-            _DialogPoint(
-                icon: Icons.sort,
-                color: kGreen,
-                text: 'Ordered by time when both start with a clock '
-                    'time - otherwise left as they are'),
-            _DialogPoint(
-              icon: Icons.backup,
-              color: kGreen,
-              text: 'Every version backed up first, in ',
-              linkText: 'LocalSync/Conflict Backups',
-              onLinkTap: () =>
-                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
-            ),
-            // 2026-09-08, third pass - real feedback, live: "knowing
-            // Undo is possible in advance is as important as the
-            // button itself." Buried inside the optional (i) info
-            // popup, most people would tap Keep both without ever
-            // seeing it. Now shown here, in the confirm dialog itself,
-            // unavoidably, before the tap that needs it - same
-            // Icons.undo used on the real button (this dialog's own
-            // info popup, the SnackBar action, and the Merged
-            // conflicts tile) so it reads as the same thing everywhere.
-            _DialogPoint(
-              icon: Icons.undo,
-              color: kGreen,
-              text: 'An UNDO button appears right after, on the '
-                  'confirmation message',
-            ),
-          ],
+          children: _keepBothDialogPoints(),
         ),
         actions: [
           TextButton(
