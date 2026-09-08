@@ -531,9 +531,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         },
                         itemBuilder: (context, i) {
                           if (i == refHeaderIndex) {
+                            // 2026-09-08: real feedback, live - a user
+                            // read the whole flat list as "N conflicts,"
+                            // conflating this section with the active
+                            // conflicts above it. "Old versions" alone
+                            // didn't say these need a DIFFERENT action
+                            // (Delete/Undo/Merge, not Keep Both/Keep
+                            // this version) - now says so directly.
                             return Padding(
                               padding: const EdgeInsets.only(top: 8, bottom: 8),
-                              child: Text('Old versions (${refs.length})',
+                              child: Text(
+                                  'Already resolved (${refs.length}) - '
+                                  'not active conflicts',
                                   style: TextStyle(
                                       color: kTextMid,
                                       fontSize: 13,
