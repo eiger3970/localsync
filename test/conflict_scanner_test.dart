@@ -113,7 +113,12 @@ void main() {
       expect(entry.versions, hasLength(2));
 
       final content = await file.readAsString();
-      final updated = applyResolution(content, entry, entry.versions[0].body);
+      // 2026-09-08: keepLeftoverInNote is now opt-in (default changed to
+      // fully remove, matching the confirm dialog's own wording) - this
+      // test is specifically about the opt-in path, so it asks for it
+      // explicitly rather than relying on a default that no longer holds.
+      final updated = applyResolution(content, entry, entry.versions[0].body,
+          keepLeftoverInNote: true);
 
       // The chosen text is plain again - no longer flagged as a
       // conflict.
@@ -141,6 +146,43 @@ void main() {
       expect(rescanned, isEmpty);
     });
 
+    // 2026-09-08: real feedback, live - "gone entirely." The confirm
+    // dialog already promised "Removes the other version from this
+    // note" while the code actually kept it - this is the new default,
+    // matching that promise for real. keepLeftoverInNote defaults to
+    // false (see DatabaseService.getKeepLeftoverInNote's own doc).
+    test('by default, the other version is fully removed, not kept as a reference',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Journal entry.md');
+      await file.writeAsString(
+        '# Aug 24th\n'
+        '\n'
+        '> [!warning]+ SYNC CONFLICT — yours (review and delete one)\n'
+        '> Fixed the pairing screen this morning.\n'
+        '> [!warning]+ SYNC CONFLICT — desktop obsidian - 202608251230 (review and delete one)\n'
+        '> Emailed about the domicile case this afternoon.\n'
+        '\n'
+        'Next entry.\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      final entry = entries.single;
+      final content = await file.readAsString();
+      final updated = applyResolution(content, entry, entry.versions[0].body);
+
+      expect(updated, contains('Fixed the pairing screen this morning.'));
+      expect(updated,
+          isNot(contains('Emailed about the domicile case this afternoon.')));
+      expect(updated, isNot(contains('Already resolved')));
+      expect(updated, isNot(contains('[!question]-')));
+      expect(updated, contains('Next entry.'));
+
+      await file.writeAsString(updated);
+      expect(await scanForConflicts(dir.path), isEmpty);
+      expect(await scanForReferenceCallouts(dir.path), isEmpty);
+    });
   });
 
   group('applyKeepBoth - real 2026-09-07 case (NAB Bills incident review)',
@@ -305,8 +347,9 @@ void main() {
 
       final entries = await scanForConflicts(dir.path);
       final entry = entries.single;
-      final resolved =
-          applyResolution(await file.readAsString(), entry, entry.versions[0].body);
+      final resolved = applyResolution(
+          await file.readAsString(), entry, entry.versions[0].body,
+          keepLeftoverInNote: true);
       await file.writeAsString(resolved);
 
       // Real span exists now, so Undo is offered.
@@ -387,8 +430,9 @@ void main() {
       final entries = await scanForConflicts(dir.path);
       final entry = entries.single;
       // Keep the phone ("yours"/2105) side, same as the real incident.
-      final resolved =
-          applyResolution(await file.readAsString(), entry, entry.versions[0].body);
+      final resolved = applyResolution(
+          await file.readAsString(), entry, entry.versions[0].body,
+          keepLeftoverInNote: true);
       await file.writeAsString(resolved);
 
       final refs = await scanForReferenceCallouts(dir.path);

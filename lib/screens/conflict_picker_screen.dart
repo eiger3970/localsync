@@ -58,11 +58,23 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // device_name.dart) resolves this device's own name too, so both
   // sides are equally explicit - no more asymmetric clarity.
   String _myDeviceName = '';
+  // 2026-09-08: real feedback, live - the confirm dialog below used to
+  // unconditionally claim "Removes the other version" while the code
+  // actually kept it as a collapsed reference - a real mismatch between
+  // promise and behavior. Now genuinely tracks which is true so the
+  // dialog is never wrong, whichever way Settings has this configured.
+  bool _keepLeftoverInNote = false;
 
   @override
   void initState() {
     super.initState();
     _resolveMyDeviceName();
+    _loadKeepLeftoverSetting();
+  }
+
+  Future<void> _loadKeepLeftoverSetting() async {
+    final value = await DatabaseService().getKeepLeftoverInNote();
+    if (mounted) setState(() => _keepLeftoverInNote = value);
   }
 
   // 2026-09-07: real feedback, live - "needs a little i for info/
@@ -169,7 +181,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final otherCount = widget.entry.versions.length - 1;
     final proceed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setDialogState) => AlertDialog(
         backgroundColor: kSurface,
         title: Text('Keep this version?',
             style: TextStyle(color: kStar, fontSize: 17)),
@@ -184,9 +197,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             _DialogPoint(
                 icon: Icons.cancel,
                 color: _kBrightRed,
-                text: otherCount == 1
-                    ? 'Removes the other version from this note'
-                    : 'Removes the other $otherCount versions from this note'),
+                text: _keepLeftoverInNote
+                    ? (otherCount == 1
+                        ? 'Keeps the other version too, collapsed for reference'
+                        : 'Keeps the other $otherCount versions too, collapsed for reference')
+                    : (otherCount == 1
+                        ? 'Removes the other version from this note'
+                        : 'Removes the other $otherCount versions from this note')),
             // 2026-08-19: real feedback, live - this used check_circle
             // too, same glyph as the "keeps" line above, which read as
             // if the two were related (they're not - this is separate
@@ -212,6 +229,45 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               onLinkTap: () =>
                   IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
             ),
+            const SizedBox(height: 8),
+            // 2026-09-08: real feedback, live - "gone entirely" (today)
+            // vs "I need all or part of that data onto this device"
+            // (2026-08-25's own explicit ask) are genuinely opposite
+            // wants, not a bug to pick one winner for - a per-resolution
+            // toggle right here beats a buried Settings-screen entry
+            // nobody would find in the moment it actually matters.
+            // Changing it here also updates the saved default via
+            // DatabaseService, so the next resolution starts from
+            // whatever was picked last.
+            InkWell(
+              onTap: () {
+                final next = !_keepLeftoverInNote;
+                setDialogState(() {});
+                setState(() => _keepLeftoverInNote = next);
+                DatabaseService().setKeepLeftoverInNote(next);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                        _keepLeftoverInNote
+                            ? Icons.check_box
+                            : Icons.check_box_outline_blank,
+                        color: kGreen,
+                        size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                          'Keep the other version too, collapsed for '
+                          'reference in this note',
+                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -230,6 +286,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
+        ),
       ),
     );
     if (proceed == true) await _choose(chosen);

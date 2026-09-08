@@ -26,6 +26,14 @@ const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kDesktopVaultPathKey   = 'db_desktop_vault_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
+// 2026-09-08: real feedback, live - "gone entirely" vs "I need all or
+// part of that data onto this device" (2026-08-25's own explicit ask,
+// see applyResolution's doc) are genuinely opposite defaults different
+// users/moments want, not a bug to pick one winner for. Off (fully
+// remove, matching the confirm dialog's own "Removes the other
+// version" wording) is the default - on restores the 2026-08-25
+// collapsed-reference behavior for anyone who wants it back.
+const _kKeepLeftoverInNoteKey = 'db_keep_leftover_in_note';
 
 class DatabaseService {
   // ── In-memory store (web) ──────────────────────────────────────────────────
@@ -271,6 +279,24 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kSelectedSkinKey, id);
+  }
+
+  // ── Keep leftover in note (conflict resolution) ────────────────────────────
+  static bool _webKeepLeftoverInNote = false;
+
+  Future<bool> getKeepLeftoverInNote() async {
+    if (kIsWeb) return _webKeepLeftoverInNote;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kKeepLeftoverInNoteKey) ?? false;
+  }
+
+  Future<void> setKeepLeftoverInNote(bool value) async {
+    if (kIsWeb) {
+      _webKeepLeftoverInNote = value;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kKeepLeftoverInNoteKey, value);
   }
 
   // ── Resolved-conflict watchlist ────────────────────────────────────────────
