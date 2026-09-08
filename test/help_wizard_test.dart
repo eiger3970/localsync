@@ -196,11 +196,8 @@ void main() {
     expect(find.text('Any conflicts?'), findsOneWidget);
     expect(find.text('Pick version'), findsOneWidget);
     expect(
-        find.text(
-            'The version not picked is removed from the note - backed up '
-            'first, always, in Obsidian vault/LocalSync/Conflict Backups/note. '
-            'A checkbox in that screen keeps it in the note too (collapsed, '
-            'for reference) if you want it reachable there instead.'),
+        find.text('Nothing is lost - every version is backed up '
+            'automatically first. You get a direct link to it right after.'),
         findsOneWidget);
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
