@@ -25,6 +25,7 @@
 
 import 'dart:io';
 import 'conflict_repair.dart' show journalOrderedBodies;
+import 'database_service.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 
@@ -311,13 +312,14 @@ Future<String> _backupConflictBeforeResolving(
 /// it. Only written when there's actually a reference callout to pair
 /// it with (the same `notChosen.isEmpty`/Kanban gate below) - a plain
 /// pick with nothing dropped has nothing for Undo to swap against.
-String applyResolution(String content, ConflictEntry entry, String chosen) {
+String applyResolution(String content, ConflictEntry entry, String chosen,
+    {bool keepLeftoverInNote = false}) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
   final notChosen =
       entry.versions.where((v) => v.body != chosen).toList();
   String merged;
-  if (entry.isKanban || notChosen.isEmpty) {
+  if (entry.isKanban || notChosen.isEmpty || !keepLeftoverInNote) {
     merged = chosen;
   } else {
     final chosenIndex = entry.versions.indexWhere((v) => v.body == chosen);
@@ -637,7 +639,9 @@ Future<String> resolveConflict(
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
-  final updated = applyResolution(content, entry, chosen);
+  final keepLeftover = await DatabaseService().getKeepLeftoverInNote();
+  final updated = applyResolution(content, entry, chosen,
+      keepLeftoverInNote: keepLeftover);
   // 2026-08-19: coordinated (not plain) write - see
   // vault_folder_service.dart's coordinatedWrite for why: a resolution
   // written the plain way was found silently reverted by Obsidian's own
