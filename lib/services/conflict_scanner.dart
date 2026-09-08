@@ -23,6 +23,7 @@
 // the eventual "apply my pick" step replaces exactly that span with
 // whichever side won, nothing fuzzier than a direct substring replace.
 
+import 'dart:convert';
 import 'dart:io';
 import 'conflict_repair.dart' show journalOrderedBodies;
 import 'database_service.dart';
@@ -671,12 +672,132 @@ Future<String> resolveConflict(
 /// Pure string transform, no file I/O - same split as
 /// applyResolution/resolveConflict above, so this is unit-testable
 /// directly (see test/conflict_scanner_test.dart).
+// 2026-09-08: real feedback, live - "one tap" Undo for Keep Both too,
+// not just "Keep this version." Every original version (who/when/body)
+// is base64-JSON-encoded into an invisible HTML comment wrapping the
+// merged text - Obsidian renders `<!-- -->` as nothing in reading view,
+// so this adds zero visual clutter, unlike a callout. Base64 avoids
+// needing to escape quotes/newlines inside the comment's attribute.
+String _encodeKeptBothData(List<ConflictVersion> versions) {
+  final data = versions
+      .map((v) => {'who': v.who, 'when': v.when, 'body': v.body})
+      .toList();
+  return base64Encode(utf8.encode(jsonEncode(data)));
+}
+
+List<ConflictVersion> _decodeKeptBothData(String encoded) {
+  final data = jsonDecode(utf8.decode(base64Decode(encoded))) as List;
+  return data
+      .map((e) => ConflictVersion(
+          who: e['who'] as String,
+          when: e['when'] as String?,
+          body: e['body'] as String))
+      .toList();
+}
+
+final _keptBothPattern = RegExp(
+  r'<!-- LOCALSYNC-KEPTBOTH data="(.*?)" -->\n(.*?)\n<!-- LOCALSYNC-KEPTBOTH-END -->\n?',
+  dotAll: true,
+);
+
+/// Rebuilds a SYNC CONFLICT block from [versions], in the exact shape
+/// scanForConflicts' own patterns expect - same header/kind/label
+/// convention conflict_repair.dart's write side uses (index 0 is
+/// "yours"/!info, every other version is !warning), so an undone Keep
+/// Both re-enters the Conflicts list as a real, resolvable conflict
+/// again, not a dead end.
+String _rebuildConflictBlock(List<ConflictVersion> versions) {
+  final blocks = <String>[];
+  for (var i = 0; i < versions.length; i++) {
+    final kind = i == 0 ? '!info' : '!warning';
+    final label = i == 0
+        ? 'yours'
+        : (versions[i].when != null
+            ? '${versions[i].who} - ${versions[i].when}'
+            : versions[i].who);
+    final quoted = versions[i].body.split('\n').map((l) => '> $l').join('\n');
+    blocks.add('> [$kind]- SYNC CONFLICT - $label (review and delete one) - '
+        'open LocalSync → ⋮ → Conflicts\n$quoted');
+  }
+  return '${blocks.join('\n')}\n';
+}
+
 String applyKeepBoth(String content, ConflictEntry entry) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
   final bodies = journalOrderedBodies(entry.versions.map((v) => v.body).toList());
-  final merged = '${bodies.join('\n\n')}$trailingNewline';
-  return content.replaceRange(entry.matchStart, entry.matchEnd, merged);
+  final merged = bodies.join('\n\n');
+  final data = _encodeKeptBothData(entry.versions);
+  final wrapped = '<!-- LOCALSYNC-KEPTBOTH data="$data" -->\n'
+      '$merged\n'
+      '<!-- LOCALSYNC-KEPTBOTH-END -->$trailingNewline';
+  return content.replaceRange(entry.matchStart, entry.matchEnd, wrapped);
+}
+
+class KeptBothEntry {
+  final String filePath; // relative to the vault root
+  final List<ConflictVersion> versions;
+  final int matchStart;
+  final int matchEnd;
+  const KeptBothEntry({
+    required this.filePath,
+    required this.versions,
+    required this.matchStart,
+    required this.matchEnd,
+  });
+}
+
+/// Finds every "Keep Both" resolution still sitting in the vault -
+/// same walk/exclusion pattern as scanForReferenceCallouts. Available
+/// indefinitely, same as that Undo - the marker is invisible in
+/// reading view, so there's no clutter forcing a cleanup step the way
+/// a collapsed reference callout does.
+Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
+  final entries = <KeptBothEntry>[];
+  final dir = Directory(vaultPath);
+  if (!await dir.exists()) return entries;
+
+  await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    if (entity is! File || !entity.path.endsWith('.md')) continue;
+    if (entity.path.contains('/$kLocalSyncFolderName/')) continue;
+    if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
+    if (entity.path.contains('/LocalSync Vault Backup ')) continue;
+
+    final content = await entity.readAsString();
+    if (!content.contains('LOCALSYNC-KEPTBOTH')) continue;
+    final relPath = entity.path.substring(vaultPath.length + 1);
+
+    for (final m in _keptBothPattern.allMatches(content)) {
+      List<ConflictVersion> versions;
+      try {
+        versions = _decodeKeptBothData(m.group(1)!);
+      } catch (_) {
+        continue; // corrupted/foreign marker - skip rather than crash
+      }
+      entries.add(KeptBothEntry(
+        filePath: relPath,
+        versions: versions,
+        matchStart: m.start,
+        matchEnd: m.end,
+      ));
+    }
+  }
+  return entries;
+}
+
+/// Swaps a Keep Both resolution back to being an active, resolvable
+/// SYNC CONFLICT - the literal opposite of the merge that created it.
+/// Writes no separate backup first, same reasoning as
+/// undoReferenceCallout: nothing is discarded, the exact original
+/// content is simply restored from the marker's own embedded data.
+Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
+  final filePath = '$vaultPath/${entry.filePath}';
+  final content = await File(filePath).readAsString();
+  if (entry.matchEnd > content.length) return; // file changed since scan
+  final rebuilt = _rebuildConflictBlock(entry.versions);
+  final updated =
+      content.replaceRange(entry.matchStart, entry.matchEnd, rebuilt);
+  await VaultFolderService().coordinatedWrite(filePath, updated);
 }
 
 Future<String> mergeConflictKeepingBoth(
