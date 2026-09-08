@@ -383,6 +383,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               onLinkTap: () =>
                   IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
             ),
+            // 2026-09-08, third pass - real feedback, live: "knowing
+            // Undo is possible in advance is as important as the
+            // button itself." Buried inside the optional (i) info
+            // popup, most people would tap Keep both without ever
+            // seeing it. Now shown here, in the confirm dialog itself,
+            // unavoidably, before the tap that needs it - same
+            // Icons.undo used on the real button (this dialog's own
+            // info popup, the SnackBar action, and the Merged
+            // conflicts tile) so it reads as the same thing everywhere.
+            _DialogPoint(
+              icon: Icons.undo,
+              color: kGreen,
+              text: 'An UNDO button appears right after, on the '
+                  'confirmation message',
+            ),
           ],
         ),
         actions: [
