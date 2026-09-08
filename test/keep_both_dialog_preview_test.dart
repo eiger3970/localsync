@@ -66,11 +66,11 @@ void main() {
 
     // Canonical order, both dialogs must match this exactly.
     const confirmOrder = [
-      'Keeps both versions, as plain text',
-      'Nothing hidden - both texts stay as plain, visible paragraphs in the note',
-      'Ordered by time when both start with a clock time - otherwise left as they are',
-      'Every version backed up first',
-      'An UNDO button appears right after, on the confirmation message',
+      'UNDO button appears right after, on the confirmation message',
+      'Backs up all versions first',
+      'Text sorted by time, if both texts start with a clock time - otherwise left as is',
+      'Text versions of both kept, as plain text',
+      'Text visible, all kept as plain text paragraphs, nothing hidden',
     ];
 
     void checkOrder(String label) {
@@ -89,6 +89,12 @@ void main() {
     tester.takeException();
     expect(find.text('Keep both versions?'), findsOneWidget);
     checkOrder('confirm dialog');
+    // Real check this test exists to catch: no cloud-shaped icon
+    // anywhere in a privacy/local-only app's own dialog.
+    expect(find.byIcon(Icons.backup), findsNothing);
+    expect(find.byIcon(Icons.cloud), findsNothing);
+    expect(find.byIcon(Icons.done_all), findsOneWidget);
+    expect(find.byIcon(Icons.library_add_check), findsOneWidget);
 
     await expectLater(
       find.byType(MaterialApp),
