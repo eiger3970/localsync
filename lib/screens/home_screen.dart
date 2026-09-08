@@ -1402,8 +1402,12 @@ class _AppBarRepoStatus extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     )
                   else if (isSyncing)
-                    Text(repo.syncPhase.label,
-                        style: TextStyle(color: kTextMid, fontSize: 10)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Text(repo.syncPhase.label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: kTextMid, fontSize: 10)),
+                    ),
                   // 2026-08-28: real feedback, live - "remove the synced
                   // just now" - dropped the idle-state "synced Xm ago"
                   // line entirely; error/syncing status above are
