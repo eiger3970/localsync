@@ -14,7 +14,11 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/conflict_repair.dart'
-    show allHaveLeadingTime, oneContainsTheOther;
+    show
+        allHaveLeadingTime,
+        hasDuplicateParagraph,
+        oneContainsTheOther,
+        oneSideSuspiciouslyShort;
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -524,7 +528,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // that these are two separate entries, not an actual edit
     // conflict. Surfaced directly so a user can make that call
     // themselves, without needing it read out loud to them.
-    final looksLikeSeparateEntries =
+    // 2026-09-08: real feedback, live - "go with both." Computed
+    // before the two hints below so both can defer to it - a
+    // suspiciously short side is a warning worth checking before
+    // acting, not a reassurance, so it takes priority over both.
+    final oneSideTooShort = versions.length == 2 &&
+        oneSideSuspiciouslyShort(versions[0].body, versions[1].body);
+    final looksLikeSeparateEntries = !oneSideTooShort &&
         allHaveLeadingTime(versions.map((v) => v.body).toList());
     // 2026-09-08: real feedback, live - "that's a useful hint... more
     // of this." Second deterministic signal: one side's text fully
@@ -533,9 +543,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // versions, same gate useDiff already uses) and only shown when
     // the time-based hint above doesn't already apply, so a note
     // never shows two competing suggestions at once.
-    final oneSideHasEverything = !looksLikeSeparateEntries &&
+    final oneSideHasEverything = !oneSideTooShort &&
+        !looksLikeSeparateEntries &&
         versions.length == 2 &&
         oneContainsTheOther(versions[0].body, versions[1].body);
+    // 2026-09-08: real feedback, live - "go with both" (the other
+    // being oneSideSuspiciouslyShort above). This is about one
+    // side's own content quality, not about which button to press -
+    // shown independently, alongside whichever hint above fires,
+    // since it's a genuinely separate concern (the exact real Sep 7th
+    // shape: the same paragraph pasted twice into "yours").
+    final duplicateSide =
+        versions.indexWhere((v) => hasDuplicateParagraph(v.body));
 
     return Scaffold(
       // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
@@ -561,6 +580,27 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         : "Tap a version to review it, then confirm - "
                             'nothing is changed until you confirm.',
                     style: TextStyle(color: kStar, fontSize: 15)),
+                if (oneSideTooShort) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.amber, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'One side is much shorter than the other - '
+                          'check it\'s not an accidental empty edit '
+                          'before choosing it.',
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (looksLikeSeparateEntries) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -597,6 +637,27 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           'longer one loses nothing.',
                           style: TextStyle(
                               color: kGreen,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (duplicateSide != -1) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.amber, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '"${titleFor(duplicateSide)}" repeats the same '
+                          'paragraph twice - worth cleaning up after you '
+                          'resolve this.',
+                          style: TextStyle(
+                              color: Colors.amber,
                               fontSize: 13,
                               fontStyle: FontStyle.italic),
                         ),

@@ -133,4 +133,106 @@ void main() {
       matchesGoldenFile('goldens/conflict_hint_contains_preview.png'),
     );
   });
+
+  testWidgets('shows a warning when one side is suspiciously short',
+      (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const repo = Repository(
+      name: 'Obsidian_phone_vault',
+      remoteHost: '172.20.10.11',
+      remoteUser: 'rapi5',
+      remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
+      localPath: '',
+      obsidianVaultPath: '',
+    );
+    // Constructed example - one side genuinely tiny next to a
+    // substantial other side, the shape this warning exists for.
+    const entry = ConflictEntry(
+      filePath: 'Journal/2026/09/example.md',
+      versions: [
+        ConflictVersion(who: 'yours', body: 'ok'),
+        ConflictVersion(
+            who: 'desktop obsidian',
+            when: '202609081200',
+            body: 'Fixed the pairing screen this morning after a long '
+                'chase through every log file on the desktop side.'),
+      ],
+      isKanban: false,
+      matchStart: 0,
+      matchEnd: 10,
+    );
+
+    await tester.pumpWidget(const MaterialApp(
+      home: ConflictPickerScreen(repo: repo, entry: entry),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.textContaining('these look like two separate entries'),
+        findsNothing);
+    expect(find.textContaining('already contains all of the other'),
+        findsNothing);
+    expect(
+        find.textContaining('much shorter than the other'), findsOneWidget);
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/conflict_hint_short_preview.png'),
+    );
+  });
+
+  testWidgets('shows a warning when a side repeats the same paragraph twice',
+      (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const repo = Repository(
+      name: 'Obsidian_phone_vault',
+      remoteHost: '172.20.10.11',
+      remoteUser: 'rapi5',
+      remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
+      localPath: '',
+      obsidianVaultPath: '',
+    );
+    // Same shape as the real Sep 7th conflict this session hit - the
+    // same reminder paragraph pasted twice into "yours."
+    const entry = ConflictEntry(
+      filePath: 'Journal/2026/09/example.md',
+      versions: [
+        ConflictVersion(
+            who: 'yours',
+            body: '# Tonight\n\n'
+                '1. Hand him your phone and open the CV generator.\n\n'
+                '# Tonight\n\n'
+                '1. Hand him your phone and open the CV generator.'),
+        ConflictVersion(
+            who: 'desktop obsidian',
+            when: '202609081200',
+            body: '2105 La Soupe Populaire was quiet and calm.'),
+      ],
+      isKanban: false,
+      matchStart: 0,
+      matchEnd: 10,
+    );
+
+    await tester.pumpWidget(const MaterialApp(
+      home: ConflictPickerScreen(repo: repo, entry: entry),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.textContaining('repeats the same paragraph twice'),
+        findsOneWidget);
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/conflict_hint_duplicate_preview.png'),
+    );
+  });
 }
