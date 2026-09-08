@@ -332,8 +332,20 @@ class _BackupComparePickerScreenState
                       style: TextStyle(color: kTextMid, fontSize: 13)),
                   const SizedBox(height: 12),
                   Expanded(
-                    child: live.length <= maxDiffTokens * 6 &&
-                            widget.backupContent.length <= maxDiffTokens * 6
+                    // 2026-09-08: real feedback, live - "missing showing
+                    // differences." word_diff.dart's _diff is O(n*m) - the
+                    // *6 cap here (2,400 chars/side) is genuinely why a
+                    // real journal note (this session's ~3,000-char test
+                    // case) fell into the no-diff fallback below, not a
+                    // bug. Raised to *30 (12,000 chars/side, a 2,000x2,000
+                    // token worst case - still a small DP table) since
+                    // this screen is a deliberate, on-demand tap, not the
+                    // main picker's every-conflict-load hot path where the
+                    // tighter cap still applies. Not benchmarked on a real
+                    // device - if a genuinely huge note ever feels slow to
+                    // open here, lower this back down.
+                    child: live.length <= maxDiffTokens * 30 &&
+                            widget.backupContent.length <= maxDiffTokens * 30
                         ? Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
