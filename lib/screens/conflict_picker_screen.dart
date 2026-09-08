@@ -13,6 +13,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
+import '../services/conflict_repair.dart' show allHaveLeadingTime;
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -515,6 +516,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       return v.when != null ? '${v.who} - ${v.when}' : v.who;
     }
 
+    // 2026-09-08: real feedback, live - "fix the app as if a user
+    // doesn't have access to Claude AI." Every real conflict this
+    // session got resolved by reading the content and noticing each
+    // side starts with a different bare clock time - a real signal
+    // that these are two separate entries, not an actual edit
+    // conflict. Surfaced directly so a user can make that call
+    // themselves, without needing it read out loud to them.
+    final looksLikeSeparateEntries =
+        allHaveLeadingTime(versions.map((v) => v.body).toList());
+
     return Scaffold(
       // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
       // matching comment. ThemeData.scaffoldBackgroundColor is now
@@ -539,6 +550,28 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         : "Tap a version to review it, then confirm - "
                             'nothing is changed until you confirm.',
                     style: TextStyle(color: kStar, fontSize: 15)),
+                if (looksLikeSeparateEntries) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: kGreen, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Each side starts with a different clock time - '
+                          'these look like two separate entries, not the '
+                          'same thing edited twice. "Keep both" is '
+                          'usually right here.',
+                          style: TextStyle(
+                              color: kGreen,
+                              fontSize: 13,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 8),
                 // 2026-09-07: real feedback, live - "the button on the
                 // top right of Conflicts is better placed in the actual

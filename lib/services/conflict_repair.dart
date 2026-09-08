@@ -107,6 +107,19 @@ List<String> journalOrderedBodies(List<String> bodies) {
   return sorted;
 }
 
+/// 2026-09-08: real feedback, live - "fix the app as if a user doesn't
+/// have access to Claude AI." Every real conflict this session got
+/// resolved the same way: read both sides, notice they're two
+/// separate journal entries (not an actual edit conflict) because
+/// each starts with a different bare HHMM time, tap Keep Both. That's
+/// a deterministic, on-device check - conflict_picker_screen.dart
+/// surfaces it as a plain-language hint so a user can make that call
+/// themselves, without needing someone to read the content for them.
+/// Same underlying pattern journalOrderedBodies already uses, exposed
+/// as its own yes/no question rather than only as a sort.
+bool allHaveLeadingTime(List<String> bodies) =>
+    bodies.isNotEmpty && bodies.every((b) => _journalTimePattern.hasMatch(b));
+
 /// 2026-09-07: real feedback, live - two unrelated journal entries
 /// (each a paragraph starting with a bare HHMM time, this user's real
 /// journal convention - "2105 salad...", "0715 I left...") landing on
