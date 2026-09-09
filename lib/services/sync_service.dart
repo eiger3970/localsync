@@ -320,93 +320,127 @@ class SyncService {
   }) {
     late final StreamController<SyncEvent> controller;
     controller = StreamController<SyncEvent>(onListen: () async {
-      if (vaultBookmark.isEmpty) {
-        controller.add(SyncEvent.done(
-            const SyncFailed(LinkingError.vaultFolderAccessLost)));
-        await controller.close();
-        return;
-      }
-      final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
-      if (resolvedPath == null) {
-        controller.add(SyncEvent.done(
-            const SyncFailed(LinkingError.vaultFolderAccessLost)));
-        await controller.close();
-        return;
-      }
-      controller.add(SyncEvent.phase(phase));
-      // 2026-09-09: real feedback, live - "can progress be shown from
-      // 0-100%." SendPort is safe to cross the compute() isolate
-      // boundary (see _SyncParams's own comment on this field) - the
-      // isolate function's transferProgress callback (_withRepo) sends
-      // plain doubles here for the duration of the real fetch() call,
-      // entirely separate from compute()'s own return-value plumbing
-      // below, which is completely unchanged.
-      final progressPort = ReceivePort();
-      final progressSub = progressPort.listen((msg) {
-        if (msg is double) controller.add(SyncEvent.progress(msg));
-      });
-      final params = _SyncParams(
-        vaultPath: resolvedPath,
-        remoteUrl: _remoteUrl,
-        remoteUser: remoteUser,
-        branch: branch,
-        sshPrivateKeyPath: sshPrivateKeyPath,
-        sshPublicKeyPath: sshPublicKeyPath,
-        sshPassphrase: sshPassphrase,
-        commitMessage: commitMessage ?? _timestamp(),
-        deviceName: deviceName,
-        confirmed: confirmed,
-        progressSendPort: progressPort.sendPort,
-      );
-      // 2026-08-19: real device bug, found chasing "the conflict this
-      // pull just created doesn't show up in the Conflicts screen it
-      // auto-navigates to" - stopAccessing() used to run in a `finally`
-      // AFTER the `yield SyncEvent.done(...)` above. RepositoryProvider's
-      // `await for` loop returns as soon as it sees that done event
-      // (case SyncOkWithConflicts(): ...; return result;) - which cancels
-      // this generator's subscription, triggering the finally block, but
-      // does NOT wait for that cancellation's cleanup to actually finish
-      // before the caller's own Future resolves. So a caller could
-      // already be acting on the result - in this case, immediately
-      // starting a *fresh* startAccessing() for ConflictsScreen's own
-      // scan - while this pull's stopAccessing() on the very same
-      // bookmark was still in flight. Computing the result and releasing
-      // access BEFORE yielding the done event removes that race
-      // entirely, regardless of how a consumer handles stream
-      // cancellation.
-      SyncResult result;
+      // 2026-09-09, found chasing a real device report - "the security
+      // icon shows syncing even after the home page has finished."
+      // onListen is a fire-and-forget async callback - StreamController
+      // does NOT await it or watch it for errors, unlike the `async*`
+      // generator this replaced, where an uncaught exception
+      // automatically became a Stream.error event that
+      // RepositoryProvider's own `catch (e)` already handles. Without
+      // this wrapper, any exception here (compute() itself can throw,
+      // not just the SyncResult it normally returns) would vanish as an
+      // unhandled async error instead - status stuck at syncing
+      // forever, no error shown, nothing. addError below restores the
+      // exact behavior the generator always had.
       try {
-        result = await compute(isolateFn, params);
-        // 2026-09-06: real feedback - "will backups fill up a user's
-        // phone storage?" Best-effort, while the security-scoped bookmark
-        // is still open (see this method's own history with that race) -
-        // cheap and idempotent when there's nothing old to remove, so
-        // running it after every pull/push (not just once per app
-        // session) is fine.
-        //
-        // 2026-09-06, same day, real device crash: this call had no
-        // protection of its own here - any exception from it (pruning's
-        // own internal try/catch doesn't cover its first `dir.exists()`
-        // check) propagated straight out of this whole method, discarding
-        // the real, already-successful pull/push result and surfacing as
-        // a crash instead of the sync just completing normally. "Best-
-        // effort, never affects the sync's own result" was the intent
-        // from the start - this is what actually makes that true.
-        try {
-          await pruneOldConflictBackups(resolvedPath);
-        } catch (_) {
-          // Never let a cleanup failure discard a real, already-succeeded
-          // sync result.
-        }
-      } finally {
-        await progressSub.cancel();
-        progressPort.close();
-        await _vaultFolder.stopAccessing(vaultBookmark);
+        await _runBody(controller, phase, isolateFn,
+            commitMessage: commitMessage, confirmed: confirmed);
+      } catch (e, st) {
+        controller.addError(e, st);
+        await controller.close();
       }
-      controller.add(SyncEvent.done(result));
-      await controller.close();
     });
     return controller.stream;
+  }
+
+  Future<void> _runBody(
+    StreamController<SyncEvent> controller,
+    SyncPhase phase,
+    Future<SyncResult> Function(_SyncParams) isolateFn, {
+    String? commitMessage,
+    bool confirmed = false,
+  }) async {
+    if (vaultBookmark.isEmpty) {
+      controller.add(SyncEvent.done(
+          const SyncFailed(LinkingError.vaultFolderAccessLost)));
+      await controller.close();
+      return;
+    }
+    final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
+    if (resolvedPath == null) {
+      controller.add(SyncEvent.done(
+          const SyncFailed(LinkingError.vaultFolderAccessLost)));
+      await controller.close();
+      return;
+    }
+    controller.add(SyncEvent.phase(phase));
+    // 2026-09-09: real feedback, live - "can progress be shown from
+    // 0-100%." SendPort is safe to cross the compute() isolate
+    // boundary (see _SyncParams's own comment on this field) - the
+    // isolate function's transferProgress callback (_withRepo) sends
+    // plain doubles here for the duration of the real fetch() call,
+    // entirely separate from compute()'s own return-value plumbing
+    // below, which is completely unchanged.
+    final progressPort = ReceivePort();
+    final progressSub = progressPort.listen((msg) {
+      // 2026-09-09: real device report - "no new progress circle
+      // showing." Confirms whether messages sent from inside the
+      // isolate (see _withRepo's own matching debugPrint) actually
+      // arrive here at all - a real, testable question this Pi can't
+      // answer locally (git2dart doesn't run in `flutter test` here).
+      debugPrint('LocalSync _run: progress port received $msg');
+      if (msg is double) controller.add(SyncEvent.progress(msg));
+    });
+    final params = _SyncParams(
+      vaultPath: resolvedPath,
+      remoteUrl: _remoteUrl,
+      remoteUser: remoteUser,
+      branch: branch,
+      sshPrivateKeyPath: sshPrivateKeyPath,
+      sshPublicKeyPath: sshPublicKeyPath,
+      sshPassphrase: sshPassphrase,
+      commitMessage: commitMessage ?? _timestamp(),
+      deviceName: deviceName,
+      confirmed: confirmed,
+      progressSendPort: progressPort.sendPort,
+    );
+    // 2026-08-19: real device bug, found chasing "the conflict this
+    // pull just created doesn't show up in the Conflicts screen it
+    // auto-navigates to" - stopAccessing() used to run in a `finally`
+    // AFTER the `yield SyncEvent.done(...)` above. RepositoryProvider's
+    // `await for` loop returns as soon as it sees that done event
+    // (case SyncOkWithConflicts(): ...; return result;) - which cancels
+    // this generator's subscription, triggering the finally block, but
+    // does NOT wait for that cancellation's cleanup to actually finish
+    // before the caller's own Future resolves. So a caller could
+    // already be acting on the result - in this case, immediately
+    // starting a *fresh* startAccessing() for ConflictsScreen's own
+    // scan - while this pull's stopAccessing() on the very same
+    // bookmark was still in flight. Computing the result and releasing
+    // access BEFORE yielding the done event removes that race
+    // entirely, regardless of how a consumer handles stream
+    // cancellation.
+    SyncResult result;
+    try {
+      result = await compute(isolateFn, params);
+      // 2026-09-06: real feedback - "will backups fill up a user's
+      // phone storage?" Best-effort, while the security-scoped bookmark
+      // is still open (see this method's own history with that race) -
+      // cheap and idempotent when there's nothing old to remove, so
+      // running it after every pull/push (not just once per app
+      // session) is fine.
+      //
+      // 2026-09-06, same day, real device crash: this call had no
+      // protection of its own here - any exception from it (pruning's
+      // own internal try/catch doesn't cover its first `dir.exists()`
+      // check) propagated straight out of this whole method, discarding
+      // the real, already-successful pull/push result and surfacing as
+      // a crash instead of the sync just completing normally. "Best-
+      // effort, never affects the sync's own result" was the intent
+      // from the start - this is what actually makes that true.
+      try {
+        await pruneOldConflictBackups(resolvedPath);
+      } catch (_) {
+        // Never let a cleanup failure discard a real, already-succeeded
+        // sync result.
+      }
+    } finally {
+      await progressSub.cancel();
+      progressPort.close();
+      await _vaultFolder.stopAccessing(vaultBookmark);
+    }
+    controller.add(SyncEvent.done(result));
+    await controller.close();
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
@@ -925,6 +959,17 @@ Future<SyncResult> _withRepo(
     transferProgress: p.progressSendPort == null
         ? null
         : (tp) {
+            // 2026-09-09: real device report - "no new progress circle
+            // showing." Confirms two separate things this repo's own
+            // debugPrint-diagnostic convention already relies on
+            // elsewhere in this file (see the 2026-09-05 tracking-ref
+            // comment above): whether libgit2 actually calls this back
+            // at all for a given fetch (a trivial/already-up-to-date
+            // pull may genuinely never call it - real, not a bug), and
+            // what totalObjects/receivedObjects it reports when it does.
+            // Recoverable from `flutter logs`/Xcode console.
+            debugPrint('LocalSync transferProgress: '
+                'received=${tp.receivedObjects} total=${tp.totalObjects}');
             if (tp.totalObjects > 0) {
               p.progressSendPort!.send(tp.receivedObjects / tp.totalObjects);
             }
