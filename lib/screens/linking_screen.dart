@@ -488,10 +488,36 @@ class _IdleViewState extends State<_IdleView>
       // with the keyboard already open the whole time - no metrics
       // change ever fires, so nothing scrolls. Made explicit here
       // instead of assumed.
+      //
+      // 2026-09-09, round 3: real feedback, live - round 2's fix (scroll
+      // on the very next frame) landed step 3's identical-pattern fix
+      // for real but did nothing visible here. The one structural
+      // difference from step 3's now-working call: step 3 waits for the
+      // keyboard's viewport to actually settle before measuring it,
+      // this didn't. iOS can briefly reflow the effective keyboard
+      // height right as focus lands on a new secure field (password
+      // AutoFill / QuickType suggestion bar showing or hiding) -
+      // measuring mid-reflow computes a scroll against a viewport
+      // that's about to resize again, which the next layout pass can
+      // then silently undo. Poll for the height to stop CHANGING
+      // (not hit 0 - the keyboard never closes here, unlike step 3's
+      // case) instead of scrolling on the very next frame regardless.
       if (_confirmFocusNode.hasFocus) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          var last = MediaQuery.of(context).viewInsets.bottom;
+          var waited = 0;
+          while (mounted && waited < 500) {
+            await Future.delayed(const Duration(milliseconds: 50));
+            waited += 50;
+            if (!mounted) return;
+            final now = MediaQuery.of(context).viewInsets.bottom;
+            if (now == last) break;
+            last = now;
+          }
+          if (!mounted) return;
           final ctx = _shredKey2.currentContext;
-          if (ctx == null || !mounted) return;
+          if (ctx == null) return;
           Scrollable.ensureVisible(ctx,
               alignment: 0.5,
               duration: const Duration(milliseconds: 300),
