@@ -185,7 +185,8 @@ void main() {
     );
   });
 
-  testWidgets('shows a warning when a side repeats the same paragraph twice',
+  testWidgets(
+      'names both sides when only one duplicates, without telling the user which to keep',
       (tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 3.0;
@@ -227,12 +228,142 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.textContaining('repeats the same paragraph twice'),
+    // 2026-09-08, corrected same day - real feedback, live: "so this
+    // example needs both kept. Tapping right would keep the right and
+    // wipe the left which is wrong, right?" An earlier version of this
+    // hint told the user to tap the clean side instead - genuinely
+    // wrong here, since "yours" (the duplicated side) has real content
+    // ("desktop" doesn't) that has nothing to do with the other side's
+    // topic at all. The hint now only states the fact (which side, and
+    // that the other one doesn't share the problem) and leaves the
+    // actual keep/discard judgment to the user - it has no way to know
+    // whether the two sides are the same topic or not.
+    //
+    // 2026-09-08, later same day - real feedback, live: "how does merge
+    // delete the duplicate and keep the 1 copy and then add the right?,
+    // does that realy work?" Verified via a throwaway test calling
+    // mergeHunks() directly: when the two sides share zero common
+    // content (this fixture's shape - a duplicated CV reminder vs. an
+    // unrelated diary line), mergeHunks collapses to exactly one hunk,
+    // so Merge behaves identically to picking a whole side here - it
+    // does NOT let you keep one copy of the duplicate plus the other
+    // side. The hint's wording now branches on that (mergeWouldHelp)
+    // instead of always pointing at "Merge text instead".
+    expect(
+        find.textContaining(
+            '"This device" (left) repeats the same paragraph twice - '
+            '"desktop obsidian - 202609081200" doesn\'t have that '
+            'problem. The two sides share nothing in common, so '
+            'neither "Keep both" nor "Merge" can drop just the '
+            'duplicate - picking a whole side, or Keep Both plus a '
+            'manual cleanup after, are the real options.'),
         findsOneWidget);
+    expect(find.textContaining('"Merge text instead" below can'),
+        findsNothing);
 
     await expectLater(
       find.byType(MaterialApp),
       matchesGoldenFile('goldens/conflict_hint_duplicate_preview.png'),
     );
+  });
+
+  testWidgets(
+      'points at Merge when the sides share enough content for it to actually help',
+      (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const repo = Repository(
+      name: 'Obsidian_phone_vault',
+      remoteHost: '172.20.10.11',
+      remoteUser: 'rapi5',
+      remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
+      localPath: '',
+      obsidianVaultPath: '',
+    );
+    // Constructed so the two sides share a middle paragraph (verified
+    // separately via mergeHunks() to actually split into multiple
+    // hunks), unlike the fixture above where the sides share nothing -
+    // this is the case where pointing at "Merge text instead" is
+    // actually true.
+    const entry = ConflictEntry(
+      filePath: 'Journal/2026/09/example2.md',
+      versions: [
+        ConflictVersion(
+            who: 'yours',
+            body: 'First paragraph only on this device.\n\n'
+                'This paragraph is identical on both sides.\n\n'
+                'First paragraph only on this device.'),
+        ConflictVersion(
+            who: 'desktop obsidian',
+            when: '202609081200',
+            body: 'This paragraph is identical on both sides.\n\n'
+                'Desktop-only closing paragraph.'),
+      ],
+      isKanban: false,
+      matchStart: 0,
+      matchEnd: 10,
+    );
+
+    await tester.pumpWidget(const MaterialApp(
+      home: ConflictPickerScreen(repo: repo, entry: entry),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(
+        find.textContaining('"Merge text instead" below can keep one '
+            'copy plus everything from the other side.'),
+        findsOneWidget);
+    expect(find.textContaining('share nothing in common'), findsNothing);
+  });
+
+  testWidgets(
+      'falls back to the neutral wording when both sides duplicate - nothing to recommend',
+      (tester) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const repo = Repository(
+      name: 'Obsidian_phone_vault',
+      remoteHost: '172.20.10.11',
+      remoteUser: 'rapi5',
+      remotePath: '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/x.git',
+      localPath: '',
+      obsidianVaultPath: '',
+    );
+    // Constructed - both sides genuinely have a repeated paragraph, so
+    // there's no clean side left to recommend.
+    const entry = ConflictEntry(
+      filePath: 'Journal/2026/09/example.md',
+      versions: [
+        ConflictVersion(
+            who: 'yours',
+            body: 'First real paragraph of real length here.\n\n'
+                'First real paragraph of real length here.'),
+        ConflictVersion(
+            who: 'desktop obsidian',
+            when: '202609081200',
+            body: 'A different real paragraph of real length.\n\n'
+                'A different real paragraph of real length.'),
+      ],
+      isKanban: false,
+      matchStart: 0,
+      matchEnd: 10,
+    );
+
+    await tester.pumpWidget(const MaterialApp(
+      home: ConflictPickerScreen(repo: repo, entry: entry),
+    ));
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(find.textContaining('worth cleaning up after you resolve this'),
+        findsOneWidget);
+    expect(find.textContaining('instead'), findsNothing);
   });
 }
