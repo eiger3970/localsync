@@ -502,6 +502,17 @@ class _IdleViewState extends State<_IdleView>
       // then silently undo. Poll for the height to stop CHANGING
       // (not hit 0 - the keyboard never closes here, unlike step 3's
       // case) instead of scrolling on the very next frame regardless.
+      // 2026-09-09, round 4: real feedback, live - round 3's wait-for-
+      // settle fix ALSO produced zero visible movement, identical to
+      // round 2. Two different well-reasoned fixes both landing as
+      // no-ops, using the exact same Scrollable.ensureVisible API that
+      // is confirmed working for step 3, means guessing blind a third
+      // time isn't the right move - something concrete needs to be
+      // seen from the real device instead. Temporary on-screen SnackBar
+      // reporting the actual scroll-position numbers, same pattern
+      // (raw diagnostic surfaced on-screen) that broke open the
+      // swallowed-exceptions bug during initial real-device testing -
+      // see project history. Remove once the real cause is found.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
@@ -517,11 +528,32 @@ class _IdleViewState extends State<_IdleView>
           }
           if (!mounted) return;
           final ctx = _shredKey2.currentContext;
-          if (ctx == null) return;
-          Scrollable.ensureVisible(ctx,
-              alignment: 0.5,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut);
+          final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
+          final before = scrollable?.position.pixels;
+          final maxExtent = scrollable?.position.maxScrollExtent;
+          final viewportH = MediaQuery.of(context).size.height;
+          final insetBottom = MediaQuery.of(context).viewInsets.bottom;
+          if (ctx != null && scrollable != null) {
+            await Scrollable.ensureVisible(ctx,
+                alignment: 0.5,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut);
+          }
+          if (!mounted) return;
+          final after = scrollable?.position.pixels;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'DEBUG field2 scroll: ctx=${ctx != null} '
+                'scrollable=${scrollable != null} before=$before '
+                'after=$after max=$maxExtent viewportH=$viewportH '
+                'inset=$insetBottom',
+                style: const TextStyle(fontSize: 11),
+              ),
+              duration: const Duration(seconds: 12),
+              backgroundColor: Colors.deepPurple,
+            ),
+          );
         });
       }
     });
