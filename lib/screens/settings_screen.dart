@@ -970,6 +970,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // Opens externally (the phone's own browser, not an
                     // in-app webview) since browsing the real site is
                     // exactly the point.
+                    // 2026-09-09: real feedback, live - "the yellow
+                    // banner has a white line under kworld.space/
+                    // localsync, seems off, can this be a better colour
+                    // for a link, like underline blue or something?"
+                    // kVoid (this app's near-black) on Colors.amber
+                    // doesn't read as a real hyperlink - a proper link
+                    // blue (both the text and its underline, since
+                    // TextDecoration inherits the text color by
+                    // default) matches the universal "this is tappable"
+                    // convention instead.
                     GestureDetector(
                       onTap: () => launchUrl(
                           Uri.parse('https://kworld.space/localsync'),
@@ -977,11 +987,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                       child: Text('kworld.space/localsync',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: kVoid,
+                              color: Colors.blue.shade900,
                               fontFamily: 'monospace',
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
-                              decoration: TextDecoration.underline)),
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.blue.shade900)),
                     ),
                     const SizedBox(height: 12),
                     // 2026-09-04: real feedback, live - "no verbose

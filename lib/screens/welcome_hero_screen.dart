@@ -170,8 +170,14 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 // outright. Icon-prefixed instead, so each line scans
                 // visually first, text second, rather than three
                 // consecutive paragraphs.
+                // 2026-09-09: real feedback, live - "left image is a
+                // shield, but change to a cloud with a strike through
+                // it." A shield reads as "protected" - this line is
+                // specifically about there being no cloud at all, which
+                // cloud_off (a literal cloud + diagonal strike) states
+                // directly instead of implying.
                 _CaptionLine(
-                    icon: Icons.shield_outlined,
+                    icon: Icons.cloud_off,
                     text: 'No cloud. No account. Just you. Auto-detect '
                         'only looks on your own local network - nothing '
                         'leaves your devices.'),
@@ -188,8 +194,42 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 // pick a path, even pay for the Obsidian one, before
                 // discovering a one-time desktop step exists at all -
                 // this says it plainly before any of that.
+                // 2026-09-09: real feedback, live - "left image can you
+                // change to a phone bottom left and laptop/desktop top
+                // right, similar to the app icon, with a little
+                // diagonal line joining them." Phone+laptop is the same
+                // motif already used in the Conflicts list's "Push to
+                // sync" step and the Keep Both screen's push hint
+                // (Icons.north_east as the diagonal join), with an
+                // actual phone glyph added here too since this line
+                // names "your phone" explicitly, not just "push."
                 _CaptionLine(
-                    icon: Icons.devices_outlined,
+                    iconWidget: SizedBox(
+                      width: 20,
+                      height: 15,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            child: Icon(Icons.smartphone,
+                                color: wInkDim, size: 9),
+                          ),
+                          Positioned(
+                            top: 3,
+                            left: 6,
+                            child: Icon(Icons.north_east,
+                                color: wInkDim, size: 8),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Icon(Icons.laptop_mac,
+                                color: wInkDim, size: 10),
+                          ),
+                        ],
+                      ),
+                    ),
                     text: 'Needs your phone + a desktop (or NAS), '
                         'connected by Wi-Fi or cable, and a one-time '
                         'setup file run once on the desktop.'),
@@ -247,9 +287,18 @@ class _HeadlinePoint extends StatelessWidget {
 // call sites' own comments for why each line still needs to say what
 // it says).
 class _CaptionLine extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  // 2026-09-09: real feedback, live - the "Needs your phone + a
+  // desktop" line's icon should be a phone bottom-left + laptop
+  // top-right with a small diagonal line joining them, matching the
+  // app's own icon (icon_localsync_4objects_1024.svg) - no single
+  // Material glyph covers that, so a caller can pass a composed widget
+  // instead of one IconData. icon stays the plain path for every other
+  // caption line.
+  final Widget? iconWidget;
   final String text;
-  const _CaptionLine({required this.icon, required this.text});
+  const _CaptionLine({this.icon, this.iconWidget, required this.text})
+      : assert(icon != null || iconWidget != null);
 
   @override
   Widget build(BuildContext context) {
@@ -259,7 +308,7 @@ class _CaptionLine extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1),
-          child: Icon(icon, size: 13, color: wInkDim),
+          child: iconWidget ?? Icon(icon, size: 13, color: wInkDim),
         ),
         const SizedBox(width: 6),
         Flexible(
