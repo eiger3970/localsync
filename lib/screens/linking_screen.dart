@@ -364,6 +364,18 @@ class _IdleViewState extends State<_IdleView>
   final _confirmCtrl = TextEditingController();
   final _shredKey1 = GlobalKey<ShreddingPasswordFieldState>();
   final _shredKey2 = GlobalKey<ShreddingPasswordFieldState>();
+  // 2026-09-09, round 18: real feedback, live - "Password do not match
+  // was showing about the top half of the text, but need to show all
+  // of the text." The "Passwords match/should match" row sits BELOW
+  // field 2 (AnimatedSwitcher, matchEmpty/matchRow) and was never
+  // accounted for in _scrollBothFieldsVisible's target at all - only
+  // field 2's own bottom was measured. Keyed on the AnimatedSwitcher
+  // itself so its CURRENT child's real rendered bottom (zero-height
+  // while empty, real height once typing starts in field 2) can be
+  // measured directly, same RenderBox approach already proven accurate
+  // elsewhere in this flow.
+  final _matchRowKey = GlobalKey();
+  bool _matchRowRevealed = false;
   // 2026-09-09: real feedback, live - "step 3 to drag the left object
   // to the right is hidden behind the Apple keyboard and needs to drag
   // the screen up. The user may not be aware of work to do." Keyed so
@@ -585,6 +597,28 @@ class _IdleViewState extends State<_IdleView>
   // adjacent fields inside a real ~445px viewport essentially never
   // triggers, so in practice this is a much smaller, gentler nudge
   // than round 13-16's "pin field 1 near the top" approach.
+  // 2026-09-09, round 18: real feedback, live - "Password do not match
+  // was showing about the top half of the text, but need to show all
+  // of the text." The match-status row doesn't exist (zero height)
+  // until field 2 has any text at all, so the proactive scroll (fired
+  // once, when field 1 first gets focus, well before field 2 has been
+  // typed into) can never account for it. Called from build() every
+  // frame (cheap - _matchRowRevealed latches true) so it catches the
+  // exact moment _confirmCtrl.text first becomes non-empty. Waits past
+  // the match row's own 220ms fade-in (see the AnimatedSwitcher above)
+  // before re-measuring, so it reads the row's real settled height, not
+  // a mid-fade one.
+  void _rescrollWhenMatchRowAppears() {
+    if (_matchRowRevealed || _confirmCtrl.text.isEmpty) return;
+    _matchRowRevealed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 260));
+      if (!mounted) return;
+      await _scrollBothFieldsVisible();
+    });
+  }
+
   Future<void> _scrollBothFieldsVisible() async {
     if (!mounted) return;
     final ctx1 = _shredKey1.currentContext;
@@ -604,15 +638,27 @@ class _IdleViewState extends State<_IdleView>
     }
     final t1Top = box1.localToGlobal(Offset.zero).dy;
     final t2Top = box2.localToGlobal(Offset.zero).dy;
-    final t2Bottom = t2Top + box2.size.height;
+    var bottomOfContent = t2Top + box2.size.height;
+    // 2026-09-09, round 18: real feedback, live - "Password do not
+    // match was showing about the top half of the text, but need to
+    // show all of the text." The match-status row (only present once
+    // field 2 has text) sits below field 2 - if it's currently
+    // rendering, its own bottom (not field 2's) is the real bottom of
+    // the content that needs to clear the keyboard.
+    final matchCtx = _matchRowKey.currentContext;
+    final matchBox = matchCtx?.findRenderObject() as RenderBox?;
+    if (matchBox != null && matchBox.attached && matchBox.size.height > 0) {
+      final matchBottom = matchBox.localToGlobal(Offset.zero).dy + matchBox.size.height;
+      if (matchBottom > bottomOfContent) bottomOfContent = matchBottom;
+    }
     final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
     final visibleBottom = visibleTop + scrollable.position.viewportDimension;
 
     const margin = 16.0;
-    // Minimal scroll to bring field 2's bottom just inside the visible
-    // bottom - the real ask. Never negative (don't scroll backward if
-    // field 2 already fits).
-    var delta = t2Bottom - (visibleBottom - margin);
+    // Minimal scroll to bring the real bottom of content just inside
+    // the visible bottom - the real ask. Never negative (don't scroll
+    // backward if it already fits).
+    var delta = bottomOfContent - (visibleBottom - margin);
     if (delta < 0) delta = 0;
     // Only extend further if that alone would clip field 1's top above
     // the visible top - the one thing round 13's fix must not regress.
@@ -862,6 +908,7 @@ class _IdleViewState extends State<_IdleView>
   @override
   Widget build(BuildContext context) {
     _revealStage3IfUnlocked();
+    _rescrollWhenMatchRowAppears();
     final ctrl = widget.ctrl;
     // 2026-08-11: "page 2 images are smaller than page 1, why?" - real
     // gap, not perception: page 1's icon size *is* the real content
@@ -1439,6 +1486,7 @@ class _IdleViewState extends State<_IdleView>
                   // fades between nothing and the real row instead of
                   // popping it in instantly.
                   AnimatedSwitcher(
+                    key: _matchRowKey,
                     duration: const Duration(milliseconds: 220),
                     child: _confirmCtrl.text.isEmpty
                         ? const SizedBox.shrink(key: ValueKey('matchEmpty'))
@@ -1754,17 +1802,35 @@ class _IdleViewState extends State<_IdleView>
           // for this whole path is a real next step, not done here (see
           // the SyncMode.genericFolder header comment in
           // repository.dart), this is a working, reachable entry point.
+          // 2026-09-09: real feedback, live - "it's very easily missed
+          // in the quick setup page... if it's to sell a paying user to
+          // a free app, there needs to be at least an image and not
+          // just verbose text." Confirmed this stays (a real "wrong
+          // choice" recovery path, not removed) but needed real visual
+          // weight - Icons.folder_outlined is the same glyph the
+          // welcome screen's own free-tier "Sync my files" card uses
+          // (welcome_hero_screen.dart's _PathCard), so this reads as
+          // the same option rather than a new, unrelated one.
           if (widget.ctrl.preferredMode != SyncMode.genericFolder)
             GestureDetector(
               onTap: ctrl.startLinkingGenericFolder,
-              child: Text(
-                "Just want to sync plain files, no $kContainerName needed? Sync a folder directly",
-                style: TextStyle(
-                  color: kTextMid,
-                  fontSize: 13,
-                  decoration: TextDecoration.underline,
-                  decorationColor: kTextMid,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(Icons.folder_outlined, color: kGreen, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "Just want to sync plain files, no $kContainerName needed? Sync a folder directly",
+                      style: TextStyle(
+                        color: kTextMid,
+                        fontSize: 13,
+                        decoration: TextDecoration.underline,
+                        decorationColor: kTextMid,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
