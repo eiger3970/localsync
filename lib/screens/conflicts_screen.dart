@@ -227,8 +227,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         label: 'Conflict',
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
+                      // 2026-09-09: real feedback, live - "up arrows to
+                      // a cloud... this is a privacy app with no cloud,
+                      // so the images are wrong." Icons.backup is the
+                      // same cloud-with-upload-arrow glyph already
+                      // corrected for this exact reason in
+                      // conflict_picker_screen.dart's Keep Both dialog
+                      // (see _keepBothDialogPoints) - library_add_check
+                      // (stacked pages + check) is that same fix,
+                      // reused here for the same concept ("Backs up all
+                      // versions first, in LocalSync/Conflict Backups").
                       const _SafetyStep(
-                        icon: Icons.backup,
+                        icon: Icons.library_add_check,
                         label: 'Both saved',
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
@@ -245,8 +255,23 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       // directly for the missing step. Added here instead
                       // of only ever living in a chat answer.
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
-                      const _SafetyStep(
-                        icon: Icons.cloud_upload,
+                      // 2026-09-09: real feedback, live - same "no
+                      // cloud" problem as the "Both saved" step above.
+                      // Icons.cloud_upload is a literal cloud glyph.
+                      // First fix was Icons.publish (tray + up arrow) -
+                      // "ok, but what about a desktop image with an up
+                      // arrow under it?" - Icons.computer is the same
+                      // "desktop device" glyph this file's own device
+                      // icons (_droppedIsYours/_keptIsThisDevice below)
+                      // and settings_screen.dart already use.
+                      _SafetyStep(
+                        iconStack: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.computer, color: kGreen, size: 22),
+                            Icon(Icons.arrow_upward, color: kGreen, size: 14),
+                          ],
+                        ),
                         label: 'Push to sync',
                       ),
                     ],
@@ -1370,16 +1395,26 @@ class _EarlierDivider extends StatelessWidget {
 }
 
 class _SafetyStep extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final String label;
-  const _SafetyStep({required this.icon, required this.label});
+  // 2026-09-09: real feedback, live - "Push to sync" ok with
+  // Icons.publish, but "what about a desktop image with an up arrow
+  // under it?" - no single Material icon is "monitor + up arrow", so
+  // that one step passes iconStack instead of icon and gets a 2-piece
+  // composite (Icons.computer, same glyph settings_screen.dart and
+  // this file's own device icons already use for "desktop", above a
+  // smaller Icons.arrow_upward) in the same slot every other step's
+  // single Icon sits in.
+  final Widget? iconStack;
+  const _SafetyStep({this.icon, required this.label, this.iconStack})
+      : assert(icon != null || iconStack != null);
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: kGreen, size: 26),
+        iconStack ?? Icon(icon, color: kGreen, size: 26),
         const SizedBox(height: 4),
         // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
         // to kStar/14px - "too small and dark, make easier to read".
