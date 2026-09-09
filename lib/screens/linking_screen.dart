@@ -508,42 +508,69 @@ class _IdleViewState extends State<_IdleView>
       // it should ever do, so its semantics aren't trustworthy here;
       // this computes the exact pixel delta needed directly from the
       // same RenderBox positions round 7 confirmed accurate.
+      // 2026-09-09, round 10: real feedback, live - "there is no next on
+      // the keyboard." Every round since round 2 has triggered this
+      // scroll off _confirmFocusNode gaining focus - but that only
+      // happens via field 1's onSubmitted calling
+      // _confirmFocusNode.requestFocus(), which only fires if the user
+      // actually presses field 1's keyboard action button. Without a
+      // visible "Next" to press, that path may just never fire in real
+      // use - the user's actual workflow is dragging the screen up
+      // themselves to find and tap field 2 directly, which means by the
+      // time this listener's focus-gain fires, they've ALREADY done the
+      // work this scroll was trying to save them. Kept as a safety net
+      // (still fires correctly if Next IS pressed, or if the field is
+      // tapped directly once visible) - but see _onKeyPairingSettled for
+      // the real fix: proactively scrolling field 2 into view the
+      // moment field 1 first gets focus, before any field-2-specific
+      // event is needed at all.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           await Future.delayed(const Duration(milliseconds: 300));
           if (!mounted) return;
-          final ctx = _shredKey2.currentContext;
-          final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
-          if (ctx == null || scrollable == null) return;
-          final targetBox = ctx.findRenderObject() as RenderBox?;
-          final scrollBox =
-              scrollable.context.findRenderObject() as RenderBox?;
-          if (targetBox == null ||
-              !targetBox.attached ||
-              scrollBox == null ||
-              !scrollBox.attached) {
-            return;
-          }
-          final targetTop = targetBox.localToGlobal(Offset.zero).dy;
-          final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
-          // Want field 2's top to land 40px below the top of the
-          // visible area - close enough to leave most of the viewport
-          // as margin below (absorbing an unmeasured AutoFill bar),
-          // far enough not to sit flush under the app bar/progress bar.
-          const marginFromTop = 40.0;
-          final desiredTop = visibleTop + marginFromTop;
-          final delta = targetTop - desiredTop;
-          final newOffset = (scrollable.position.pixels + delta)
-              .clamp(0.0, scrollable.position.maxScrollExtent);
-          await scrollable.position.animateTo(newOffset,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut);
+          await _scrollFieldNearTop(_shredKey2);
         });
       }
     });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
+  }
+
+  // 2026-09-09, round 9/10: scrolls the SingleChildScrollView so
+  // `key`'s target lands 40px below the top of whatever Flutter thinks
+  // is currently visible - not centered/bottom-aligned, and not via
+  // Scrollable.ensureVisible's alignment parameter (round 7 measured
+  // alignment:1.0 producing a LOWER offset than alignment:0.5,
+  // backwards from what it should ever do, so that API's semantics
+  // aren't trusted here). Landing near the TOP leaves most of the
+  // viewport as unused margin below the target - real feedback showed
+  // Flutter's own "visible" accounting doesn't include iOS's Password
+  // AutoFill/QuickType suggestion bar for secure fields, so that margin
+  // is what actually absorbs an obstruction Flutter can't measure,
+  // rather than trying to compute its exact height.
+  Future<void> _scrollFieldNearTop(GlobalKey key) async {
+    if (!mounted) return;
+    final ctx = key.currentContext;
+    final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
+    if (ctx == null || scrollable == null) return;
+    final targetBox = ctx.findRenderObject() as RenderBox?;
+    final scrollBox = scrollable.context.findRenderObject() as RenderBox?;
+    if (targetBox == null ||
+        !targetBox.attached ||
+        scrollBox == null ||
+        !scrollBox.attached) {
+      return;
+    }
+    final targetTop = targetBox.localToGlobal(Offset.zero).dy;
+    final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
+    const marginFromTop = 40.0;
+    final desiredTop = visibleTop + marginFromTop;
+    final delta = targetTop - desiredTop;
+    final newOffset = (scrollable.position.pixels + delta)
+        .clamp(0.0, scrollable.position.maxScrollExtent);
+    await scrollable.position.animateTo(newOffset,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
 
   // 2026-09-09: real feedback, live - step 3's drag canvas unlocking
@@ -676,8 +703,23 @@ class _IdleViewState extends State<_IdleView>
     // the password field is still behind IgnorePointer(ignoring: true)
     // until the setState above actually rebuilds, and requesting focus
     // before that rebuild lands would be racing it.
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _passwordFocusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _passwordFocusNode.requestFocus();
+      // 2026-09-09, round 10: real feedback, live - "there is no next
+      // on the keyboard," meaning field 1's onSubmitted (the only
+      // other trigger for revealing field 2) may never fire in real
+      // use - the user's actual path is dragging the screen up
+      // themselves to find field 2, at which point any later scroll is
+      // moot. Proactively pulls field 2 into view right here, the
+      // moment the keyboard first opens for field 1, instead of
+      // waiting on a field-2-specific event that might not come. Fixed
+      // delay (not a viewInsets poll - round 6 found viewInsets.bottom
+      // reads 0 inside this Scaffold's body regardless of real keyboard
+      // state) gives the keyboard's opening animation time to finish
+      // before measuring.
+      await Future.delayed(const Duration(milliseconds: 400));
+      await _scrollFieldNearTop(_shredKey2);
+    });
     if (_needsSettings) {
       // 2026-08-30: real device incident - a SnackBar the user had to
       // spot and tap got mis-tapped instead (landed on Stage 2's
