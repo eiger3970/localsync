@@ -511,13 +511,24 @@ class _IdleViewState extends State<_IdleView>
     // uniformly), and removed the field-2-focus-triggered scroll
     // entirely now that the proactive one covers it without the
     // redundant re-scroll on tap.
+    // 2026-09-09, round 13: real feedback, live - "screen jumped to
+    // password1 top 25% hidden under top banner PKM VAULT SETUP."
+    // Targeting field 2's own key here pulled field 2 to 40px from the
+    // top, but field 1 sits ABOVE field 2 in the layout - scrolling
+    // that far pushed field 1's own top edge up past the scrollable
+    // viewport's top, under the app bar. "Best was with password1 and
+    // password2 just above the Apple keyboard" - field 1 is the one
+    // actually being typed into right now, so it's the one that needs
+    // to land safely below the app bar; field 2 sits close enough below
+    // it to come along into view without needing its own separate
+    // target.
     _passwordFocusNode.addListener(() {
       if (!_passwordFocusNode.hasFocus) return;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         await Future.delayed(const Duration(milliseconds: 400));
         if (!mounted) return;
-        await _scrollFieldNearTop(_shredKey2);
+        await _scrollFieldNearTop(_shredKey1);
       });
     });
     _confirmFocusNode.addListener(() {
