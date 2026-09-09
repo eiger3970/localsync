@@ -920,8 +920,37 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.cloud_upload_outlined,
-                        color: kTextMid, size: 14),
+                    // 2026-09-09: real feedback, live - "the image to
+                    // the left is a cloud with an up arrow. This is a
+                    // privacy app with no cloud, so change the image to
+                    // the image the Push to sync image is." Same fix
+                    // already applied to the Conflicts list's own
+                    // safety-steps row (conflicts_screen.dart's
+                    // "Push to sync" _SafetyStep, 2026-09-09) - phone
+                    // pushing to desktop (Icons.north_east into
+                    // Icons.computer, matching the app icon's own
+                    // diagonal beam), not a cloud upload. Reused here at
+                    // a smaller size to fit this row's 14px text.
+                    SizedBox(
+                      width: 16,
+                      height: 14,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            child: Icon(Icons.north_east,
+                                color: kTextMid, size: 10),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Icon(Icons.computer,
+                                color: kTextMid, size: 11),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
