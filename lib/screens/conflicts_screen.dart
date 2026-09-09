@@ -769,8 +769,28 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // file - see that same 2026-08-19 finding
                                   // above the header comment on this file for
                                   // why a direct deep-link isn't safe to try.
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
+                                  // 2026-09-09: real feedback, live -
+                                  // this used to be a 10-second
+                                  // SnackBar, but real testing found
+                                  // its auto-dismiss timer not firing
+                                  // reliably (still showing minutes
+                                  // later, continuous foreground use,
+                                  // no clear cause found) - and on
+                                  // reflection, a short auto-dismiss was
+                                  // the wrong design anyway: "users need
+                                  // to check phone and desktop are
+                                  // correct, then the undo would be
+                                  // needed... the undo needs to remain
+                                  // present." A SnackBar is meant to be
+                                  // transient by design; MaterialBanner
+                                  // is Flutter's own widget for exactly
+                                  // this - persists until explicitly
+                                  // dismissed, no timer to fight, with a
+                                  // real DISMISS action instead of an
+                                  // undiscoverable swipe-down gesture.
+                                  ScaffoldMessenger.of(context)
+                                      .showMaterialBanner(
+                                    MaterialBanner(
                                       backgroundColor: kSurface,
                                       content: Text.rich(
                                         TextSpan(
@@ -820,7 +840,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                           ],
                                         ),
                                       ),
-                                      duration: const Duration(seconds: 10),
                                       // 2026-09-08: real feedback, live -
                                       // "confusing, build an easier
                                       // understanding." Undo for a Keep
@@ -835,15 +854,34 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       // "Keep this version" path has
                                       // nothing equivalent to swap back to
                                       // from here.
-                                      action: result?.keptBoth == null
-                                          ? null
-                                          : SnackBarAction(
-                                              label: 'UNDO',
-                                              textColor: kGreen,
-                                              onPressed: () =>
-                                                  _undoKeptBothNow(
-                                                      result!.keptBoth!),
-                                            ),
+                                      actions: [
+                                        if (result?.keptBoth != null)
+                                          TextButton(
+                                            onPressed: () {
+                                              ScaffoldMessenger.of(context)
+                                                  .hideCurrentMaterialBanner();
+                                              _undoKeptBothNow(
+                                                  result!.keptBoth!);
+                                            },
+                                            child: Text('UNDO',
+                                                style:
+                                                    TextStyle(color: kGreen)),
+                                          ),
+                                        // 2026-09-09: real feedback, live -
+                                        // "a clearer function to dismiss
+                                        // the undo" - a real button, not
+                                        // the swipe gesture MaterialBanner
+                                        // would otherwise need to be
+                                        // dismissed some other way.
+                                        TextButton(
+                                          onPressed: () => ScaffoldMessenger
+                                                  .of(context)
+                                              .hideCurrentMaterialBanner(),
+                                          child: Text('DISMISS',
+                                              style:
+                                                  TextStyle(color: kTextDim)),
+                                        ),
+                                      ],
                                     ),
                                   );
                                 }
