@@ -953,10 +953,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ),
                     const SizedBox(width: 6),
                     // 2026-09-09: real feedback, live - "verbose, make
-                    // terse, kiss."
+                    // terse, kiss," then real feedback after actually
+                    // resolving a conflict - "should say need to push,
+                    // then pull the desktop for a full sync" - the
+                    // first terse pass dropped the pull step entirely.
                     Expanded(
                       child: Text(
-                        'Push after, to sync your desktop too.',
+                        'Push after, then pull on desktop, for a full sync.',
                         style: TextStyle(color: kTextMid, fontSize: 12),
                       ),
                     ),

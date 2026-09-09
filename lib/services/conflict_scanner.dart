@@ -695,7 +695,28 @@ List<ConflictVersion> _decodeKeptBothData(String encoded) {
       .toList();
 }
 
+// 2026-09-09: real feedback, live - "The LocalSync app... Obsidian
+// output is not normal, I usually just see the text I typed" - a real
+// KeptBoth marker showed up as literal visible text in Obsidian's
+// default Live Preview view. A generic HTML comment (<!-- -->) is
+// only reliably hidden in Obsidian's separate Reading view, not the
+// Live Preview mode most people actually read/edit in day to day -
+// this project already knows the right tool for genuinely-hidden-
+// everywhere text: Obsidian's own native %% comment %% syntax, already
+// used for the Kanban conflict markers (conflict_repair.dart's
+// CONFLICT-OTHER). Switched to match - the base64 data payload never
+// contains a literal "%%" (standard base64 alphabet has no %), so the
+// closing delimiter stays unambiguous.
 final _keptBothPattern = RegExp(
+  r'%% LOCALSYNC-KEPTBOTH data="(.*?)" %%\n(.*?)\n%% LOCALSYNC-KEPTBOTH-END %%\n?',
+  dotAll: true,
+);
+// 2026-09-09: legacy pattern for notes already written with the old
+// <!-- --> wrapper before the %% switch above - kept read-only (never
+// written again) so Undo still works on anything resolved before this
+// fix shipped, instead of silently losing that capability for
+// already-real notes.
+final _keptBothPatternLegacy = RegExp(
   r'<!-- LOCALSYNC-KEPTBOTH data="(.*?)" -->\n(.*?)\n<!-- LOCALSYNC-KEPTBOTH-END -->\n?',
   dotAll: true,
 );
@@ -728,9 +749,9 @@ String applyKeepBoth(String content, ConflictEntry entry) {
   final bodies = journalOrderedBodies(entry.versions.map((v) => v.body).toList());
   final merged = bodies.join('\n\n');
   final data = _encodeKeptBothData(entry.versions);
-  final wrapped = '<!-- LOCALSYNC-KEPTBOTH data="$data" -->\n'
+  final wrapped = '%% LOCALSYNC-KEPTBOTH data="$data" %%\n'
       '$merged\n'
-      '<!-- LOCALSYNC-KEPTBOTH-END -->$trailingNewline';
+      '%% LOCALSYNC-KEPTBOTH-END %%$trailingNewline';
   return content.replaceRange(entry.matchStart, entry.matchEnd, wrapped);
 }
 
@@ -767,7 +788,10 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
     if (!content.contains('LOCALSYNC-KEPTBOTH')) continue;
     final relPath = entity.path.substring(vaultPath.length + 1);
 
-    for (final m in _keptBothPattern.allMatches(content)) {
+    for (final m in [
+      ..._keptBothPattern.allMatches(content),
+      ..._keptBothPatternLegacy.allMatches(content),
+    ]) {
       List<ConflictVersion> versions;
       try {
         versions = _decodeKeptBothData(m.group(1)!);
