@@ -260,17 +260,37 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                       // Icons.cloud_upload is a literal cloud glyph.
                       // First fix was Icons.publish (tray + up arrow) -
                       // "ok, but what about a desktop image with an up
-                      // arrow under it?" - Icons.computer is the same
-                      // "desktop device" glyph this file's own device
-                      // icons (_droppedIsYours/_keptIsThisDevice below)
-                      // and settings_screen.dart already use.
+                      // arrow under it?" Then: "keep with the consistent
+                      // app icon" - icon_localsync_4objects_1024.svg's
+                      // own diagonal beam runs phone (bottom-left) to
+                      // laptop (top-right), so Icons.north_east (a
+                      // diagonal arrow, not a straight one) points at
+                      // Icons.computer the same way. Deliberately not
+                      // touching - "the arrow not touching is cleaner
+                      // and adds to the whole [idea of] the phone
+                      // pushing data through the ether", confirmed
+                      // against a live-rendered comparison (both
+                      // touching and gapped variants), not guessed.
                       _SafetyStep(
-                        iconStack: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.computer, color: kGreen, size: 22),
-                            Icon(Icons.arrow_upward, color: kGreen, size: 14),
-                          ],
+                        iconStack: SizedBox(
+                          width: 34,
+                          height: 30,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                child: Icon(Icons.north_east,
+                                    color: kGreen, size: 14),
+                              ),
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Icon(Icons.computer,
+                                    color: kGreen, size: 16),
+                              ),
+                            ],
+                          ),
                         ),
                         label: 'Push to sync',
                       ),
