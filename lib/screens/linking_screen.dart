@@ -364,6 +364,17 @@ class _IdleViewState extends State<_IdleView>
   final _confirmCtrl = TextEditingController();
   final _shredKey1 = GlobalKey<ShreddingPasswordFieldState>();
   final _shredKey2 = GlobalKey<ShreddingPasswordFieldState>();
+  // 2026-09-09: real feedback, live - "step 3 to drag the left object
+  // to the right is hidden behind the Apple keyboard and needs to drag
+  // the screen up. The user may not be aware of work to do." Keyed so
+  // _revealStage3IfUnlocked (called from build()) can scroll it into
+  // view the moment it unlocks - Scrollable.ensureVisible scrolls the
+  // EXISTING SingleChildScrollView Stage 2/3 already lives in (see
+  // that container's own 2026-08-25 "never an ancestor of the drag
+  // canvas" history), it doesn't add a new one, so this can't
+  // reintroduce that gesture-arena bug.
+  final _stage3Key = GlobalKey();
+  bool _stage3Revealed = false;
   // 2026-08-28: real feedback, live - cursor should be ready to type the
   // moment Stage 2 unlocks, not require an extra manual tap. See
   // ShreddingPasswordField's own comment for why this has to be a
@@ -461,6 +472,47 @@ class _IdleViewState extends State<_IdleView>
     });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
+  }
+
+  // 2026-09-09: real feedback, live - step 3's drag canvas unlocking
+  // behind an open keyboard, with nothing telling the user to scroll
+  // for it. Called from build() every frame (cheap - just an if check
+  // once _stage3Revealed flips true) rather than from a dedicated
+  // listener, since the real unlock condition depends on BOTH _paired
+  // (set via setState in two different places above) AND
+  // _passwordsMatch (recomputed from _passwordCtrl/_confirmCtrl's own
+  // listeners) - whichever happens last is what actually unlocks it,
+  // and build() is the one place both are already known to be current.
+  // The scroll itself waits a frame (addPostFrameCallback) since
+  // _stage3Key's context isn't attached to a render object until this
+  // build finishes.
+  void _revealStage3IfUnlocked() {
+    if (_stage3Revealed || !(_paired && _passwordsMatch)) return;
+    _stage3Revealed = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 2026-09-09: this most often becomes true right as field 2's
+      // "Done" submits, closing the keyboard - if ensureVisible runs
+      // before that close animation settles, it computes against a
+      // viewport that's still mid-resize and can land short.
+      // viewInsets.bottom hitting 0 is the real signal the keyboard is
+      // actually gone, not a fixed guess at how long that takes.
+      // Capped, not unbounded - if the keyboard somehow never reports
+      // fully closed (e.g. a hardware keyboard, or the user leaves
+      // without submitting), scrolling a little early beats never
+      // scrolling at all.
+      var waited = 0;
+      while (mounted &&
+          MediaQuery.of(context).viewInsets.bottom > 0 &&
+          waited < 2000) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        waited += 50;
+      }
+      if (!mounted) return;
+      final ctx = _stage3Key.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(ctx,
+          duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+    });
   }
 
   Future<void> _checkSettings() async {
@@ -638,6 +690,7 @@ class _IdleViewState extends State<_IdleView>
 
   @override
   Widget build(BuildContext context) {
+    _revealStage3IfUnlocked();
     final ctrl = widget.ctrl;
     // 2026-08-11: "page 2 images are smaller than page 1, why?" - real
     // gap, not perception: page 1's icon size *is* the real content
@@ -1090,6 +1143,21 @@ class _IdleViewState extends State<_IdleView>
                           // text - see its own declaration for why.
                           showSparkle: !_field1Done,
                           focusNode: _passwordFocusNode,
+                          // 2026-09-09: real feedback, live - "after I
+                          // enter password field1, I need to scroll
+                          // down to the hidden password field2." The
+                          // keyboard's own "Next" button moves focus
+                          // here instead of requiring the user to
+                          // already know field 2 exists somewhere
+                          // below the keyboard - Flutter's built-in
+                          // scroll-to-focused-field behavior (already
+                          // relied on for field 1's own initial
+                          // requestFocus() below) brings it on screen
+                          // the same way, just triggered by this
+                          // instead of a tap.
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) =>
+                              _confirmFocusNode.requestFocus(),
                         ),
                         // 2026-08-28: real feedback, live - "stars do
                         // stop inside the field, but there's remaining
@@ -1173,6 +1241,21 @@ class _IdleViewState extends State<_IdleView>
                         showSparkle: _passwordCtrl.text.isNotEmpty &&
                             !(_paired && _passwordsMatch),
                         focusNode: _confirmFocusNode,
+                        // 2026-09-09: real feedback, live - "the next
+                        // step 3 to drag the left object to the right
+                        // is hidden behind the Apple keyboard." Nothing
+                        // to move focus to from here (step 3 is a drag
+                        // gesture, not a field) - dismissing the
+                        // keyboard on submit is the real fix for THIS
+                        // field's own part of the problem, since it
+                        // frees the screen height the canvas needs.
+                        // The other half - actually scrolling step 3
+                        // into view once it unlocks - is
+                        // _revealStage3IfUnlocked below, triggered from
+                        // build() once _paired && _passwordsMatch,
+                        // whichever keyboard state got them there.
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _confirmFocusNode.unfocus(),
                       ),
                     ),
                   ),
@@ -1316,6 +1399,7 @@ class _IdleViewState extends State<_IdleView>
           // exact, given directly - "3. SET UP FOLDER SYNC", not a
           // paraphrase.
           Text(
+              key: _stage3Key,
               widget.ctrl.preferredMode == SyncMode.genericFolder
                   ? '3. SET UP FOLDER SYNC'
                   : '3. SET UP VAULT',

@@ -44,6 +44,16 @@ class ShreddingPasswordField extends StatefulWidget {
   // provides its own validation border suppress this field's default
   // one instead of the two competing silently.
   final bool showOwnBorder;
+  // 2026-09-09: real feedback, live - "after I enter password field1, I
+  // need to scroll down to the hidden password field2... a new user
+  // [might not] figure this out." Neither field had any keyboard
+  // action wired at all - the only way to reach field 2 was already
+  // knowing to blind-scroll past the open keyboard to find and tap it.
+  // textInputAction/onSubmitted are the standard Flutter "Next" keyboard
+  // button mechanism - optional, null by default, so any other caller
+  // of this widget is unaffected.
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
   const ShreddingPasswordField({
     super.key,
     required this.controller,
@@ -51,6 +61,8 @@ class ShreddingPasswordField extends StatefulWidget {
     this.showSparkle = false,
     this.focusNode,
     this.showOwnBorder = true,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   @override
@@ -135,6 +147,8 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
         focusNode: widget.focusNode,
         obscureText: _obscure,
         enabled: widget.enabled && !_shredding,
+        textInputAction: widget.textInputAction,
+        onSubmitted: widget.onSubmitted,
         style: TextStyle(color: kStar),
         // 2026-08-16: "this is a strong white as though is a solid
         // immutable text... should change to a faded text which is
