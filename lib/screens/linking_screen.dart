@@ -513,22 +513,22 @@ class _IdleViewState extends State<_IdleView>
     // redundant re-scroll on tap.
     // 2026-09-09, round 13: real feedback, live - "screen jumped to
     // password1 top 25% hidden under top banner PKM VAULT SETUP."
-    // Targeting field 2's own key here pulled field 2 to 40px from the
-    // top, but field 1 sits ABOVE field 2 in the layout - scrolling
-    // that far pushed field 1's own top edge up past the scrollable
-    // viewport's top, under the app bar. "Best was with password1 and
-    // password2 just above the Apple keyboard" - field 1 is the one
-    // actually being typed into right now, so it's the one that needs
-    // to land safely below the app bar; field 2 sits close enough below
-    // it to come along into view without needing its own separate
-    // target.
+    // Targeting only field 2's key pulled field 2 to 40px from the top,
+    // but field 1 sits ABOVE field 2 - that pushed field 1's own top
+    // edge up past the scrollable viewport's top, under the app bar.
+    // Targeting only field 1 instead fixed that but then, round 14,
+    // "password1 only appeared above the keyboard, so I had to scroll
+    // to password2" - anchoring either field alone can't reliably keep
+    // BOTH in view. _scrollBothFieldsVisible measures both fields'
+    // real positions and solves for one offset satisfying both at
+    // once - see its own comment for the exact math.
     _passwordFocusNode.addListener(() {
       if (!_passwordFocusNode.hasFocus) return;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         await Future.delayed(const Duration(milliseconds: 400));
         if (!mounted) return;
-        await _scrollFieldNearTop(_shredKey1);
+        await _scrollBothFieldsVisible();
       });
     });
     _confirmFocusNode.addListener(() {
@@ -540,36 +540,68 @@ class _IdleViewState extends State<_IdleView>
     _checkSettings();
   }
 
-  // 2026-09-09, round 9/10: scrolls the SingleChildScrollView so
-  // `key`'s target lands 40px below the top of whatever Flutter thinks
-  // is currently visible - not centered/bottom-aligned, and not via
-  // Scrollable.ensureVisible's alignment parameter (round 7 measured
+  // 2026-09-09, round 9/10: anchoring a single field near the top of
+  // the visible viewport (not centered/bottom-aligned, and not via
+  // Scrollable.ensureVisible's alignment parameter - round 7 measured
   // alignment:1.0 producing a LOWER offset than alignment:0.5,
   // backwards from what it should ever do, so that API's semantics
-  // aren't trusted here). Landing near the TOP leaves most of the
-  // viewport as unused margin below the target - real feedback showed
-  // Flutter's own "visible" accounting doesn't include iOS's Password
-  // AutoFill/QuickType suggestion bar for secure fields, so that margin
-  // is what actually absorbs an obstruction Flutter can't measure,
-  // rather than trying to compute its exact height.
-  Future<void> _scrollFieldNearTop(GlobalKey key) async {
+  // aren't trusted here).
+  //
+  // 2026-09-09, round 13: real feedback, live - anchoring field 2
+  // (round 10) sometimes pushed field 1's own top under the app bar;
+  // switching to anchor field 1 instead (round 13) fixed that but then
+  // "password1 only appeared above the Apple keyboard, so I had to
+  // scroll to password2" - a single fixed margin on ONE field can't
+  // reliably keep BOTH fields in view at once, since the real
+  // constraint is a relationship between both their positions, not a
+  // property of either field alone. Measures both fields directly and
+  // solves for one scroll offset that satisfies both: field 1's top
+  // stays at/below the visible top (never clipped under the app bar -
+  // the hard constraint from round 13's regression), while field 2's
+  // bottom is pulled up to the visible bottom if it would otherwise
+  // spill past it. Two short password fields comfortably fit inside the
+  // ~445px real viewport round 7 measured, so both constraints are
+  // normally satisfiable together, not competing.
+  Future<void> _scrollBothFieldsVisible() async {
     if (!mounted) return;
-    final ctx = key.currentContext;
-    final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
-    if (ctx == null || scrollable == null) return;
-    final targetBox = ctx.findRenderObject() as RenderBox?;
+    final ctx1 = _shredKey1.currentContext;
+    final ctx2 = _shredKey2.currentContext;
+    final scrollable = ctx1 == null ? null : Scrollable.maybeOf(ctx1);
+    if (ctx1 == null || ctx2 == null || scrollable == null) return;
+    final box1 = ctx1.findRenderObject() as RenderBox?;
+    final box2 = ctx2.findRenderObject() as RenderBox?;
     final scrollBox = scrollable.context.findRenderObject() as RenderBox?;
-    if (targetBox == null ||
-        !targetBox.attached ||
+    if (box1 == null ||
+        !box1.attached ||
+        box2 == null ||
+        !box2.attached ||
         scrollBox == null ||
         !scrollBox.attached) {
       return;
     }
-    final targetTop = targetBox.localToGlobal(Offset.zero).dy;
+    final t1Top = box1.localToGlobal(Offset.zero).dy;
+    final t2Top = box2.localToGlobal(Offset.zero).dy;
+    final t2Bottom = t2Top + box2.size.height;
     final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
-    const marginFromTop = 40.0;
-    final desiredTop = visibleTop + marginFromTop;
-    final delta = targetTop - desiredTop;
+    final visibleBottom = visibleTop + scrollable.position.viewportDimension;
+
+    const margin = 16.0;
+    // Prefer field 1 close to the top - maximizes the room left below
+    // for field 2.
+    var delta = t1Top - (visibleTop + margin);
+    // If that still leaves field 2's bottom past the visible bottom,
+    // scroll further to bring it in too.
+    final resultingT2Bottom = t2Bottom - delta;
+    final maxAllowedBottom = visibleBottom - margin;
+    if (resultingT2Bottom > maxAllowedBottom) {
+      delta += resultingT2Bottom - maxAllowedBottom;
+    }
+    // Never let field 1 end up ABOVE the visible top even after that -
+    // the one thing round 13's fix must not regress.
+    final resultingT1Top = t1Top - delta;
+    if (resultingT1Top < visibleTop) {
+      delta -= visibleTop - resultingT1Top;
+    }
     final newOffset = (scrollable.position.pixels + delta)
         .clamp(0.0, scrollable.position.maxScrollExtent);
     await scrollable.position.animateTo(newOffset,
