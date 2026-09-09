@@ -421,7 +421,16 @@ class HomeScreen extends StatelessWidget {
                         // alphabetical order above (deliberate new
                         // preference, not a bug) - matches the Settings
                         // screen's own field order swap and rename.
-                        subtitle: 'Desktop IP address\nGit bare repo path',
+                        //
+                        // 2026-09-09: real feedback, live - field names
+                        // drifted from Settings' own current labels
+                        // (that screen now says "Desktop sync folder"
+                        // and has since grown a real 4th field,
+                        // "Desktop vault path") - and listing every
+                        // field name here was "too much info in the
+                        // Kebab icon." One terse summary line instead of
+                        // an enumerated, now-stale field list.
+                        subtitle: 'Desktop connection & sync setup',
                       ),
                     ),
                     PopupMenuItem(
