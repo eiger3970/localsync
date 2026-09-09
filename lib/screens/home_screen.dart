@@ -428,9 +428,11 @@ class HomeScreen extends StatelessWidget {
                         // and has since grown a real 4th field,
                         // "Desktop vault path") - and listing every
                         // field name here was "too much info in the
-                        // Kebab icon." One terse summary line instead of
-                        // an enumerated, now-stale field list.
-                        subtitle: 'Desktop connection & sync setup',
+                        // Kebab icon." First terse rewrite dropped IP
+                        // address entirely - real pushback, live:
+                        // "where's the fucking IP address?" One compact
+                        // line naming all three real fields instead.
+                        subtitle: 'IP, sync folder & vault path',
                       ),
                     ),
                     PopupMenuItem(
