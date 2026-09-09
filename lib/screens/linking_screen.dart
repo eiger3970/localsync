@@ -524,18 +524,6 @@ class _IdleViewState extends State<_IdleView>
       if (_confirmFocusNode.hasFocus && !_field1Done) {
         setState(() => _field1Done = true);
       }
-      // 2026-09-09, round 11: real feedback, live - "when I completed
-      // password2, the screen scrolled too high to step3... how does
-      // the app know when a user finishes password2?" Before this,
-      // _revealStage3IfUnlocked fired the instant the typed text
-      // matched - mid-keystroke, cursor still active in field 2, no
-      // deliberate "done" signal at all. Field 2 losing focus (Done
-      // pressed, or tapping away) is a real, deliberate "finished"
-      // signal Flutter already gives for free - triggers a rebuild here
-      // so _revealStage3IfUnlocked (gated on !_confirmFocusNode.hasFocus
-      // now, see its own comment) gets a chance to run right when focus
-      // is actually released, not before.
-      if (!_confirmFocusNode.hasFocus) setState(() {});
     });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
@@ -590,21 +578,15 @@ class _IdleViewState extends State<_IdleView>
   // _stage3Key's context isn't attached to a render object until this
   // build finishes.
   // 2026-09-09, round 11: real feedback, live - "when I completed
-  // password2, the screen scrolled too high to step3... how does the
-  // app know when a user finishes password2?" Used to fire the instant
-  // _passwordsMatch went true - mid-keystroke, cursor still active in
-  // field 2, no deliberate "done" signal at all. Now also gated on
-  // !_confirmFocusNode.hasFocus (field 2 has actually lost focus - Done
-  // pressed, or tapping away) - a real, deliberate "finished" signal,
-  // not text equality alone. _confirmFocusNode's own listener (see
-  // initState) triggers a rebuild on focus loss so this gets evaluated
-  // right when that happens, not just on the next unrelated rebuild.
+  // password2, the screen scrolled too high to step3." Tried gating
+  // this on field 2 losing focus instead of text matching alone -
+  // explicit real-feedback pushback, same day: "passwords matching is
+  // a good trigger for password2, keep that." Reverted the gating back
+  // to _passwordsMatch alone; the "too high" complaint was about the
+  // scroll DISTANCE/position, not about which signal triggers it -
+  // don't conflate the two again.
   void _revealStage3IfUnlocked() {
-    if (_stage3Revealed ||
-        !(_paired && _passwordsMatch) ||
-        _confirmFocusNode.hasFocus) {
-      return;
-    }
+    if (_stage3Revealed || !(_paired && _passwordsMatch)) return;
     _stage3Revealed = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 2026-09-09, round 11: this used to poll
@@ -614,10 +596,9 @@ class _IdleViewState extends State<_IdleView>
       // real keyboard state (Scaffold's own resizeToAvoidBottomInset
       // zeroes it for body descendants), so that loop's condition was
       // false on its very first check every time - this never actually
-      // waited at all, contrary to its own original comment. Now gated
-      // on field 2 genuinely losing focus (see the caller above) instead
-      // of guessing keyboard state from a signal that doesn't work here
-      // - a short fixed delay covers the close animation itself.
+      // waited at all, contrary to its own original comment. Replaced
+      // with a fixed delay to cover the keyboard-close animation
+      // instead of polling a signal that doesn't work here.
       await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
       final ctx = _stage3Key.currentContext;
