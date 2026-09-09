@@ -223,7 +223,19 @@ class RepositoryProvider extends ChangeNotifier {
           _repos[i] = _repos[i].copyWith(
             status:    SyncStatus.syncing,
             syncPhase: event.phase,
+            // 2026-09-09: a new phase starting means any progress
+            // fraction from the previous phase (or a previous sync
+            // entirely) is stale - see Repository.syncProgress's own
+            // doc comment for why copyWith can't just be left to
+            // default it away on its own.
+            clearSyncProgress: true,
           );
+          notifyListeners();
+        } else if (event.progress != null) {
+          // 2026-09-09: real feedback, live - "can progress be shown
+          // from 0-100%." Real data from sync_service.dart's own
+          // ReceivePort plumbing - see SyncEvent.progress's doc comment.
+          _repos[i] = _repos[i].copyWith(syncProgress: event.progress);
           notifyListeners();
         } else if (event.result case final result?) {
           switch (result) {
@@ -243,6 +255,7 @@ class RepositoryProvider extends ChangeNotifier {
                 status:    SyncStatus.ok,
                 syncPhase: SyncPhase.done,
                 lastSync:  DateTime.now(),
+                clearSyncProgress: true,
               );
             // 2026-08-20: "show error in human language, how to fix it,
             // then the error code verbose details - some errors do
@@ -261,6 +274,7 @@ class RepositoryProvider extends ChangeNotifier {
                 lastError:           diagnosis,
                 lastErrorResolution: resolution,
                 lastErrorDebug:      debugDetail,
+                clearSyncProgress: true,
               );
             // 2026-08-18: not an error and not a completed sync - the
             // caller (a confirmation dialog) decides what happens next,
@@ -269,6 +283,7 @@ class RepositoryProvider extends ChangeNotifier {
               _repos[i] = _repos[i].copyWith(
                 status:    SyncStatus.idle,
                 syncPhase: SyncPhase.idle,
+                clearSyncProgress: true,
               );
           }
           notifyListeners();
@@ -292,6 +307,7 @@ class RepositoryProvider extends ChangeNotifier {
         lastErrorResolution:
             'Try again. If this keeps happening, check your connection to your desktop.',
         lastErrorDebug: e.toString(),
+        clearSyncProgress: true,
       );
       notifyListeners();
       await _db.updateRepository(_repos[i]);
@@ -354,7 +370,11 @@ class RepositoryProvider extends ChangeNotifier {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   void _setPhase(int idx, SyncStatus status, SyncPhase phase) {
-    _repos[idx] = _repos[idx].copyWith(status: status, syncPhase: phase);
+    _repos[idx] = _repos[idx].copyWith(
+      status: status,
+      syncPhase: phase,
+      clearSyncProgress: true,
+    );
     notifyListeners();
   }
 }

@@ -840,7 +840,14 @@ class _SyncGestureZone extends StatelessWidget {
 // ── Spinning sync icon ─────────────────────────────────────────────────────────
 
 class _SpinningSync extends StatefulWidget {
-  const _SpinningSync();
+  // 2026-09-09: real feedback, live - "can progress be shown from
+  // 0-100%... a circle outline that fills." Real data only exists
+  // during the pulling phase (see Repository.syncProgress's own doc
+  // comment for why - git2dart has no push-side progress binding at
+  // all) - null for every other phase, which keeps the exact
+  // indeterminate rotating icon this always showed, unchanged.
+  final double? progress;
+  const _SpinningSync({this.progress});
 
   @override
   State<_SpinningSync> createState() => _SpinningSyncState();
@@ -867,6 +874,19 @@ class _SpinningSyncState extends State<_SpinningSync>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.progress != null) {
+      // Same 14px footprint as the indeterminate icon below - see its
+      // own 2026-08-20 comment for why that size matters here.
+      return SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(
+          value: widget.progress,
+          color: kGreen,
+          strokeWidth: 2,
+        ),
+      );
+    }
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, child) => Transform.rotate(
@@ -1403,7 +1423,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       isSyncing
-                          ? const _SpinningSync()
+                          ? _SpinningSync(progress: repo.syncProgress)
                           : _StatusDot(status: repo.status),
                       const SizedBox(width: 6),
                       // 2026-08-30: Expanded spans the real leftover

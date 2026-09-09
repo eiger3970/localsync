@@ -40,9 +40,25 @@
 //   the setup flow's progress bar indeterminate instead of a fabricated
 //   percentage.
 //
+// 2026-09-09: the above no longer means "zero live updates, period" -
+// _run() below now ALSO opens a ReceivePort and passes its SendPort in
+// through _SyncParams (a SendPort, unlike everything else this file's
+// own comment above warns against, is one of the few types Dart
+// guarantees safe to send across an isolate boundary). git2dart's
+// transferProgress callback (see _withRepo) sends real fetch() progress
+// through that port while compute() is still running - the isolate
+// function itself, and compute()'s own single-final-result contract for
+// the actual SyncResult, are completely untouched. Still no live
+// fetching/committing/pushing PHASE text mid-call, and push() itself
+// still has zero progress data (see _withRepo's own note - a real
+// git2dart library limitation, not a gap in this wiring) - just a
+// number, only during the real fetch(), only when something asked for it.
+//
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
+import 'dart:async' show StreamController;
 import 'dart:io';
+import 'dart:isolate' show SendPort, ReceivePort;
 import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
@@ -142,9 +158,16 @@ class SyncNeedsConfirmation extends SyncResult {
 class SyncEvent {
   final SyncPhase? phase;
   final SyncResult? result;
-  const SyncEvent({this.phase, this.result});
+  // 2026-09-09: real feedback, live - "can progress be shown from
+  // 0-100%." A fraction (0.0-1.0), real data from git2dart's
+  // transferProgress callback (see _withRepo below) - never fabricated.
+  // Mutually exclusive with phase/result, same as those two are with
+  // each other - exactly one of the three is set per event.
+  final double? progress;
+  const SyncEvent({this.phase, this.result, this.progress});
   factory SyncEvent.phase(SyncPhase p) => SyncEvent(phase: p);
   factory SyncEvent.done(SyncResult r) => SyncEvent(result: r);
+  factory SyncEvent.progress(double p) => SyncEvent(progress: p);
 }
 
 /// Single source of truth for turning a SyncResult into user-facing text -
@@ -178,6 +201,14 @@ class _SyncParams {
   final String commitMessage;
   final String deviceName;
   final bool confirmed;
+  // 2026-09-09: SendPort is one of the few types Dart guarantees safe
+  // to send across an isolate boundary (unlike everything else in this
+  // class's own doc comment above - git2dart objects, native pointers)
+  // - carrying it in here doesn't violate "plain data only, deliberately".
+  // Null for any caller that doesn't care about live progress (this
+  // isolate function's own git logic never checks whether it's null,
+  // only _withRepo's Callbacks construction does).
+  final SendPort? progressSendPort;
   const _SyncParams({
     required this.vaultPath,
     required this.remoteUrl,
@@ -189,6 +220,7 @@ class _SyncParams {
     required this.commitMessage,
     required this.deviceName,
     this.confirmed = false,
+    this.progressSendPort,
   });
 }
 
@@ -271,80 +303,110 @@ class SyncService {
       _run(_pushInIsolate, SyncPhase.pushing,
           commitMessage: commitMessage, confirmed: confirmed);
 
+  // 2026-09-09: was `async*`, now built on a StreamController - the only
+  // structural change here is HOW events reach the caller, not what
+  // happens or in what order (every branch/comment below is unchanged
+  // logic, just `yield`/`return` translated to `controller.add`/
+  // `await controller.close(); return`). A generator's `yield` only
+  // works in the generator's own body - progress messages arrive in a
+  // ReceivePort listener callback instead, which needed a plain method
+  // call (`controller.add`) to feed them in between the phase/done
+  // events.
   Stream<SyncEvent> _run(
     Future<SyncResult> Function(_SyncParams) isolateFn,
     SyncPhase phase, {
     String? commitMessage,
     bool confirmed = false,
-  }) async* {
-    if (vaultBookmark.isEmpty) {
-      yield SyncEvent.done(
-          const SyncFailed(LinkingError.vaultFolderAccessLost));
-      return;
-    }
-    final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
-    if (resolvedPath == null) {
-      yield SyncEvent.done(
-          const SyncFailed(LinkingError.vaultFolderAccessLost));
-      return;
-    }
-    yield SyncEvent.phase(phase);
-    final params = _SyncParams(
-      vaultPath: resolvedPath,
-      remoteUrl: _remoteUrl,
-      remoteUser: remoteUser,
-      branch: branch,
-      sshPrivateKeyPath: sshPrivateKeyPath,
-      sshPublicKeyPath: sshPublicKeyPath,
-      sshPassphrase: sshPassphrase,
-      commitMessage: commitMessage ?? _timestamp(),
-      deviceName: deviceName,
-      confirmed: confirmed,
-    );
-    // 2026-08-19: real device bug, found chasing "the conflict this
-    // pull just created doesn't show up in the Conflicts screen it
-    // auto-navigates to" - stopAccessing() used to run in a `finally`
-    // AFTER the `yield SyncEvent.done(...)` above. RepositoryProvider's
-    // `await for` loop returns as soon as it sees that done event
-    // (case SyncOkWithConflicts(): ...; return result;) - which cancels
-    // this generator's subscription, triggering the finally block, but
-    // does NOT wait for that cancellation's cleanup to actually finish
-    // before the caller's own Future resolves. So a caller could
-    // already be acting on the result - in this case, immediately
-    // starting a *fresh* startAccessing() for ConflictsScreen's own
-    // scan - while this pull's stopAccessing() on the very same
-    // bookmark was still in flight. Computing the result and releasing
-    // access BEFORE yielding the done event removes that race
-    // entirely, regardless of how a consumer handles stream
-    // cancellation.
-    SyncResult result;
-    try {
-      result = await compute(isolateFn, params);
-      // 2026-09-06: real feedback - "will backups fill up a user's
-      // phone storage?" Best-effort, while the security-scoped bookmark
-      // is still open (see this method's own history with that race) -
-      // cheap and idempotent when there's nothing old to remove, so
-      // running it after every pull/push (not just once per app
-      // session) is fine.
-      //
-      // 2026-09-06, same day, real device crash: this call had no
-      // protection of its own here - any exception from it (pruning's
-      // own internal try/catch doesn't cover its first `dir.exists()`
-      // check) propagated straight out of this whole method, discarding
-      // the real, already-successful pull/push result and surfacing as
-      // a crash instead of the sync just completing normally. "Best-
-      // effort, never affects the sync's own result" was the intent
-      // from the start - this is what actually makes that true.
-      try {
-        await pruneOldConflictBackups(resolvedPath);
-      } catch (_) {
-        // Never let a cleanup failure discard a real, already-succeeded
-        // sync result.
+  }) {
+    late final StreamController<SyncEvent> controller;
+    controller = StreamController<SyncEvent>(onListen: () async {
+      if (vaultBookmark.isEmpty) {
+        controller.add(SyncEvent.done(
+            const SyncFailed(LinkingError.vaultFolderAccessLost)));
+        await controller.close();
+        return;
       }
-    } finally {
-      await _vaultFolder.stopAccessing(vaultBookmark);
-    }
-    yield SyncEvent.done(result);
+      final resolvedPath = await _vaultFolder.startAccessing(vaultBookmark);
+      if (resolvedPath == null) {
+        controller.add(SyncEvent.done(
+            const SyncFailed(LinkingError.vaultFolderAccessLost)));
+        await controller.close();
+        return;
+      }
+      controller.add(SyncEvent.phase(phase));
+      // 2026-09-09: real feedback, live - "can progress be shown from
+      // 0-100%." SendPort is safe to cross the compute() isolate
+      // boundary (see _SyncParams's own comment on this field) - the
+      // isolate function's transferProgress callback (_withRepo) sends
+      // plain doubles here for the duration of the real fetch() call,
+      // entirely separate from compute()'s own return-value plumbing
+      // below, which is completely unchanged.
+      final progressPort = ReceivePort();
+      final progressSub = progressPort.listen((msg) {
+        if (msg is double) controller.add(SyncEvent.progress(msg));
+      });
+      final params = _SyncParams(
+        vaultPath: resolvedPath,
+        remoteUrl: _remoteUrl,
+        remoteUser: remoteUser,
+        branch: branch,
+        sshPrivateKeyPath: sshPrivateKeyPath,
+        sshPublicKeyPath: sshPublicKeyPath,
+        sshPassphrase: sshPassphrase,
+        commitMessage: commitMessage ?? _timestamp(),
+        deviceName: deviceName,
+        confirmed: confirmed,
+        progressSendPort: progressPort.sendPort,
+      );
+      // 2026-08-19: real device bug, found chasing "the conflict this
+      // pull just created doesn't show up in the Conflicts screen it
+      // auto-navigates to" - stopAccessing() used to run in a `finally`
+      // AFTER the `yield SyncEvent.done(...)` above. RepositoryProvider's
+      // `await for` loop returns as soon as it sees that done event
+      // (case SyncOkWithConflicts(): ...; return result;) - which cancels
+      // this generator's subscription, triggering the finally block, but
+      // does NOT wait for that cancellation's cleanup to actually finish
+      // before the caller's own Future resolves. So a caller could
+      // already be acting on the result - in this case, immediately
+      // starting a *fresh* startAccessing() for ConflictsScreen's own
+      // scan - while this pull's stopAccessing() on the very same
+      // bookmark was still in flight. Computing the result and releasing
+      // access BEFORE yielding the done event removes that race
+      // entirely, regardless of how a consumer handles stream
+      // cancellation.
+      SyncResult result;
+      try {
+        result = await compute(isolateFn, params);
+        // 2026-09-06: real feedback - "will backups fill up a user's
+        // phone storage?" Best-effort, while the security-scoped bookmark
+        // is still open (see this method's own history with that race) -
+        // cheap and idempotent when there's nothing old to remove, so
+        // running it after every pull/push (not just once per app
+        // session) is fine.
+        //
+        // 2026-09-06, same day, real device crash: this call had no
+        // protection of its own here - any exception from it (pruning's
+        // own internal try/catch doesn't cover its first `dir.exists()`
+        // check) propagated straight out of this whole method, discarding
+        // the real, already-successful pull/push result and surfacing as
+        // a crash instead of the sync just completing normally. "Best-
+        // effort, never affects the sync's own result" was the intent
+        // from the start - this is what actually makes that true.
+        try {
+          await pruneOldConflictBackups(resolvedPath);
+        } catch (_) {
+          // Never let a cleanup failure discard a real, already-succeeded
+          // sync result.
+        }
+      } finally {
+        await progressSub.cancel();
+        progressPort.close();
+        await _vaultFolder.stopAccessing(vaultBookmark);
+      }
+      controller.add(SyncEvent.done(result));
+      await controller.close();
+    });
+    return controller.stream;
   }
 
   // 2026-08-15: reformatted YYYY-MM-DD HH:MM:SS -> YYYYMMDDhhmm and
@@ -849,6 +911,24 @@ Future<SyncResult> _withRepo(
     // libgit2 has no known_hosts on iOS - without this every fetch/push
     // fails with "invalid or unknown remote ssh hostkey".
     certificateCheck: (certificate, host, {required valid}) => true,
+    // 2026-09-09: real feedback, live - "can progress be shown from
+    // 0-100%." Confirmed against git2dart's own source
+    // (bindings/remote_callbacks.dart) before relying on it: this
+    // native callback only ever fires during remote.fetch() - there is
+    // no push-side transfer-progress binding in this package version
+    // at all, so this never fires during _pushWithRetry's push() call
+    // below. That's not a gap in this wiring - push() genuinely has no
+    // real progress data available from this library to report, so it
+    // correctly stays silent rather than fake one. totalObjects can be
+    // 0 early in a fetch (before the pack header's been read) - guarded
+    // to avoid a divide-by-zero, not a real progress value either way.
+    transferProgress: p.progressSendPort == null
+        ? null
+        : (tp) {
+            if (tp.totalObjects > 0) {
+              p.progressSendPort!.send(tp.receivedObjects / tp.totalObjects);
+            }
+          },
   );
 
   // Fixed 2026-08-09: the app's own private storage does not survive
