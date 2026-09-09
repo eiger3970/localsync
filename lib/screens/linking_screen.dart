@@ -474,64 +474,68 @@ class _IdleViewState extends State<_IdleView>
     );
     _passwordCtrl.addListener(() => setState(() {}));
     _confirmCtrl.addListener(() => setState(() {}));
+    // 2026-09-09, rounds 2-9: several explicit-scroll attempts triggered
+    // off _confirmFocusNode (field 2's own FocusNode) gaining focus -
+    // each either did nothing or actively made positioning worse (round
+    // 7/8's on-screen diagnostics: field 2 already inside Flutter's own
+    // calculated visible range, so extra explicit scrolling only ever
+    // pushed it around unnecessarily; separately, Flutter's "visible"
+    // accounting doesn't include iOS's Password AutoFill/QuickType
+    // suggestion bar for secure fields, which is the real reason
+    // "visible by Flutter's math" didn't mean "actually uncovered").
+    //
+    // 2026-09-09, round 10: real feedback, live - "there is no next on
+    // the keyboard." _confirmFocusNode only gains focus via field 1's
+    // onSubmitted calling requestFocus() (needs a Next button) or the
+    // user tapping field 2 directly once it's already visible - neither
+    // is a reliable trigger for "make field 2 visible in the first
+    // place." Real fix moved to _passwordFocusNode (field 1's own node,
+    // see its listener below): proactively scroll field 2 into view the
+    // moment field 1 gets focus and the keyboard first opens, before any
+    // field-2-specific event is needed at all.
+    //
+    // 2026-09-09, round 11: real feedback, live - round 10 worked for
+    // the direct _onKeyPairingSettled path, but "X'ed out, went back,
+    // 2nd setup had password1 showing but had to scroll up to see
+    // password2" - _skipStage1IfAlreadyPaired (the already-paired-on-
+    // relaunch path) sets _paired=true and unlocks Stage 2 WITHOUT ever
+    // calling _passwordFocusNode.requestFocus() itself, so a user who
+    // reaches field 1 via that path only gets there by tapping it
+    // themselves - a path this listener never covered. Also: "when I
+    // tapped on password2, scrolling moved, which is unnecessary" - the
+    // field-2-focus scroll below was firing AGAIN even when field 2 was
+    // already correctly positioned by the proactive scroll. Both fixed
+    // the same way: moved the trigger onto _passwordFocusNode's own
+    // FocusNode listener (fires on ANY path to field 1 gaining focus -
+    // programmatic OR a manual tap, covering every call site
+    // uniformly), and removed the field-2-focus-triggered scroll
+    // entirely now that the proactive one covers it without the
+    // redundant re-scroll on tap.
+    _passwordFocusNode.addListener(() {
+      if (!_passwordFocusNode.hasFocus) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        await _scrollFieldNearTop(_shredKey2);
+      });
+    });
     _confirmFocusNode.addListener(() {
       if (_confirmFocusNode.hasFocus && !_field1Done) {
         setState(() => _field1Done = true);
       }
-      // 2026-09-09, rounds 2-6: several explicit Scrollable.ensureVisible
-      // attempts (different alignments, different settle-wait
-      // strategies) each reported "no change" on the real device.
-      //
-      // 2026-09-09, round 7: on-screen diagnostics said field 2 was
-      // ALREADY inside Flutter's own calculated visible range (scrollY=
-      // 106, viewportDimension=445 -> [106,551]; field 2 at [436,484]).
-      // Round 8 trusted that and only scrolled when genuinely outside
-      // this range - real feedback after shipping it: "still hidden
-      // behind Apple keyboard until I drag up." Flutter's math said
-      // visible; the real device said covered. Both are true at once
-      // only one way: iOS shows a Password AutoFill / QuickType
-      // suggestion bar ABOVE the software keyboard for secure text
-      // fields, and that bar's height isn't included in the keyboard
-      // frame Flutter resizes the Scaffold body around - so a position
-      // Flutter considers "inside the resized viewport" can still be
-      // physically covered by this extra, Flutter-invisible overlay.
-      //
-      // Round 8's precise boundary math is exactly the wrong tool for
-      // an obstruction Flutter fundamentally can't measure. Stopped
-      // trying to compute the exact safe boundary - instead always pull
-      // field 2 up near the TOP of whatever Flutter does think is
-      // visible, leaving a large unused margin below it that can absorb
-      // an AutoFill bar of unknown height without needing to know that
-      // height. Manual position math (not Scrollable.ensureVisible's
-      // alignment parameter) - round 7 measured alignment:1.0 producing
-      // a LOWER scroll offset than alignment:0.5, backwards from what
-      // it should ever do, so its semantics aren't trustworthy here;
-      // this computes the exact pixel delta needed directly from the
-      // same RenderBox positions round 7 confirmed accurate.
-      // 2026-09-09, round 10: real feedback, live - "there is no next on
-      // the keyboard." Every round since round 2 has triggered this
-      // scroll off _confirmFocusNode gaining focus - but that only
-      // happens via field 1's onSubmitted calling
-      // _confirmFocusNode.requestFocus(), which only fires if the user
-      // actually presses field 1's keyboard action button. Without a
-      // visible "Next" to press, that path may just never fire in real
-      // use - the user's actual workflow is dragging the screen up
-      // themselves to find and tap field 2 directly, which means by the
-      // time this listener's focus-gain fires, they've ALREADY done the
-      // work this scroll was trying to save them. Kept as a safety net
-      // (still fires correctly if Next IS pressed, or if the field is
-      // tapped directly once visible) - but see _onKeyPairingSettled for
-      // the real fix: proactively scrolling field 2 into view the
-      // moment field 1 first gets focus, before any field-2-specific
-      // event is needed at all.
-      if (_confirmFocusNode.hasFocus) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
-          await Future.delayed(const Duration(milliseconds: 300));
-          if (!mounted) return;
-          await _scrollFieldNearTop(_shredKey2);
-        });
-      }
+      // 2026-09-09, round 11: real feedback, live - "when I completed
+      // password2, the screen scrolled too high to step3... how does
+      // the app know when a user finishes password2?" Before this,
+      // _revealStage3IfUnlocked fired the instant the typed text
+      // matched - mid-keystroke, cursor still active in field 2, no
+      // deliberate "done" signal at all. Field 2 losing focus (Done
+      // pressed, or tapping away) is a real, deliberate "finished"
+      // signal Flutter already gives for free - triggers a rebuild here
+      // so _revealStage3IfUnlocked (gated on !_confirmFocusNode.hasFocus
+      // now, see its own comment) gets a chance to run right when focus
+      // is actually released, not before.
+      if (!_confirmFocusNode.hasFocus) setState(() {});
     });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
@@ -585,27 +589,36 @@ class _IdleViewState extends State<_IdleView>
   // The scroll itself waits a frame (addPostFrameCallback) since
   // _stage3Key's context isn't attached to a render object until this
   // build finishes.
+  // 2026-09-09, round 11: real feedback, live - "when I completed
+  // password2, the screen scrolled too high to step3... how does the
+  // app know when a user finishes password2?" Used to fire the instant
+  // _passwordsMatch went true - mid-keystroke, cursor still active in
+  // field 2, no deliberate "done" signal at all. Now also gated on
+  // !_confirmFocusNode.hasFocus (field 2 has actually lost focus - Done
+  // pressed, or tapping away) - a real, deliberate "finished" signal,
+  // not text equality alone. _confirmFocusNode's own listener (see
+  // initState) triggers a rebuild on focus loss so this gets evaluated
+  // right when that happens, not just on the next unrelated rebuild.
   void _revealStage3IfUnlocked() {
-    if (_stage3Revealed || !(_paired && _passwordsMatch)) return;
+    if (_stage3Revealed ||
+        !(_paired && _passwordsMatch) ||
+        _confirmFocusNode.hasFocus) {
+      return;
+    }
     _stage3Revealed = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // 2026-09-09: this most often becomes true right as field 2's
-      // "Done" submits, closing the keyboard - if ensureVisible runs
-      // before that close animation settles, it computes against a
-      // viewport that's still mid-resize and can land short.
-      // viewInsets.bottom hitting 0 is the real signal the keyboard is
-      // actually gone, not a fixed guess at how long that takes.
-      // Capped, not unbounded - if the keyboard somehow never reports
-      // fully closed (e.g. a hardware keyboard, or the user leaves
-      // without submitting), scrolling a little early beats never
-      // scrolling at all.
-      var waited = 0;
-      while (mounted &&
-          MediaQuery.of(context).viewInsets.bottom > 0 &&
-          waited < 2000) {
-        await Future.delayed(const Duration(milliseconds: 50));
-        waited += 50;
-      }
+      // 2026-09-09, round 11: this used to poll
+      // MediaQuery.viewInsets.bottom waiting for it to hit 0 (keyboard
+      // fully closed) before measuring - round 6 found viewInsets.bottom
+      // reads 0 CONSTANTLY inside this Scaffold's body regardless of
+      // real keyboard state (Scaffold's own resizeToAvoidBottomInset
+      // zeroes it for body descendants), so that loop's condition was
+      // false on its very first check every time - this never actually
+      // waited at all, contrary to its own original comment. Now gated
+      // on field 2 genuinely losing focus (see the caller above) instead
+      // of guessing keyboard state from a signal that doesn't work here
+      // - a short fixed delay covers the close animation itself.
+      await Future.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
       final ctx = _stage3Key.currentContext;
       if (ctx == null) return;
@@ -703,23 +716,16 @@ class _IdleViewState extends State<_IdleView>
     // the password field is still behind IgnorePointer(ignoring: true)
     // until the setState above actually rebuilds, and requesting focus
     // before that rebuild lands would be racing it.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      _passwordFocusNode.requestFocus();
-      // 2026-09-09, round 10: real feedback, live - "there is no next
-      // on the keyboard," meaning field 1's onSubmitted (the only
-      // other trigger for revealing field 2) may never fire in real
-      // use - the user's actual path is dragging the screen up
-      // themselves to find field 2, at which point any later scroll is
-      // moot. Proactively pulls field 2 into view right here, the
-      // moment the keyboard first opens for field 1, instead of
-      // waiting on a field-2-specific event that might not come. Fixed
-      // delay (not a viewInsets poll - round 6 found viewInsets.bottom
-      // reads 0 inside this Scaffold's body regardless of real keyboard
-      // state) gives the keyboard's opening animation time to finish
-      // before measuring.
-      await Future.delayed(const Duration(milliseconds: 400));
-      await _scrollFieldNearTop(_shredKey2);
-    });
+    // 2026-09-09, round 11: the proactive field-2 scroll used to be
+    // called explicitly right here - moved onto _passwordFocusNode's
+    // own listener instead (see initState) so EVERY path to field 1
+    // gaining focus triggers it uniformly, not just this one call site
+    // (_skipStage1IfAlreadyPaired's already-paired path never called
+    // this, which was a real gap - see that listener's own comment).
+    // requestFocus() below still fires that listener the same as
+    // before.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _passwordFocusNode.requestFocus());
     if (_needsSettings) {
       // 2026-08-30: real device incident - a SnackBar the user had to
       // spot and tap got mis-tapped instead (landed on Stage 2's
