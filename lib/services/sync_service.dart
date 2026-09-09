@@ -372,14 +372,22 @@ class SyncService {
     // entirely separate from compute()'s own return-value plumbing
     // below, which is completely unchanged.
     final progressPort = ReceivePort();
+    // 2026-09-09, round 2: real feedback, live - "you forgot the
+    // spinning arrows aren't a progress circle," reported again after
+    // shipping. The debugPrint above only reaches Xcode/`flutter logs`
+    // console, which isn't reachable here - counting real arrivals and
+    // folding the count into the visible result message (below) instead
+    // gives the same "did this actually fire, and with what values"
+    // answer without needing device console access.
+    var progressMsgCount = 0;
+    double? lastProgressMsg;
     final progressSub = progressPort.listen((msg) {
-      // 2026-09-09: real device report - "no new progress circle
-      // showing." Confirms whether messages sent from inside the
-      // isolate (see _withRepo's own matching debugPrint) actually
-      // arrive here at all - a real, testable question this Pi can't
-      // answer locally (git2dart doesn't run in `flutter test` here).
       debugPrint('LocalSync _run: progress port received $msg');
-      if (msg is double) controller.add(SyncEvent.progress(msg));
+      if (msg is double) {
+        progressMsgCount++;
+        lastProgressMsg = msg;
+        controller.add(SyncEvent.progress(msg));
+      }
     });
     final params = _SyncParams(
       vaultPath: resolvedPath,
@@ -438,6 +446,14 @@ class SyncService {
       await progressSub.cancel();
       progressPort.close();
       await _vaultFolder.stopAccessing(vaultBookmark);
+    }
+    // 2026-09-09, round 2: temporary - folds the progress-port arrival
+    // count/last value into the visible result message so a real pull
+    // answers "did transferProgress ever fire, and with what" directly
+    // on screen. Remove once the progress-circle report is understood.
+    if (result case SyncOk(:final message)) {
+      result = SyncOk('$message [DEBUG progress msgs=$progressMsgCount '
+          'last=$lastProgressMsg]');
     }
     controller.add(SyncEvent.done(result));
     await controller.close();
