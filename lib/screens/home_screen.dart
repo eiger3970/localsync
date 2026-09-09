@@ -359,7 +359,30 @@ class HomeScreen extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            _StatusIcon(repos: provider.repos),
+                            // 2026-09-09: real feedback, live - "keep
+                            // the link to open How your data is
+                            // protected, but the image tapped shows
+                            // what the status means, just a few short
+                            // text words." A nested GestureDetector
+                            // wins the gesture arena over the
+                            // PopupMenuItem's own tap (same pattern as
+                            // an IconButton inside a ListTile) - tapping
+                            // the icon shows the status as a SnackBar
+                            // and stops there (PopupMenuItem.onTap
+                            // never fires, menu stays open), tapping
+                            // anywhere else in the row still closes the
+                            // menu and opens the full explanation
+                            // screen exactly as before.
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(
+                                content: Text(
+                                    _securityStatusLabel(provider.repos)),
+                                duration: const Duration(seconds: 2),
+                              )),
+                              child: _StatusIcon(repos: provider.repos),
+                            ),
                             const SizedBox(width: 12),
                             Text('Security',
                                 style: TextStyle(color: kStar, fontSize: 14)),
@@ -1251,6 +1274,22 @@ class _StatusDot extends StatelessWidget {
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
+}
+
+// 2026-09-09: same state order as _StatusIcon.build below, kept as one
+// small function instead of duplicated inline so the two can't drift
+// apart - the icon shown and the words describing it need to always
+// agree, this is what a real "what does this mean" tap is for.
+String _securityStatusLabel(List<Repository> repos) {
+  if (repos.isEmpty) return '';
+  final hasError = repos.any((r) => r.status == SyncStatus.error);
+  final hasSyncing = repos.any((r) => r.status == SyncStatus.syncing);
+  final allOk = repos.every((r) => r.status == SyncStatus.ok);
+
+  if (hasSyncing) return 'Syncing now';
+  if (hasError) return 'Sync error - tap Security for details';
+  if (allOk) return 'Secure - up to date';
+  return 'Not yet synced';
 }
 
 // ── Top-right status icon ──────────────────────────────────────────────────────
