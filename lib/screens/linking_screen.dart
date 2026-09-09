@@ -478,82 +478,28 @@ class _IdleViewState extends State<_IdleView>
       if (_confirmFocusNode.hasFocus && !_field1Done) {
         setState(() => _field1Done = true);
       }
-      // 2026-09-09, round 2: real feedback, live - "same after password
-      // field2" - the first attempt at this fix assumed moving focus via
-      // field 1's "Next" button would auto-scroll field 2 into view the
-      // same way Flutter auto-scrolled field 1 on ITS initial focus. It
-      // doesn't: field 1's case is a keyboard closed->open transition (a
-      // real viewport metrics change, which is what actually drives
-      // Flutter's built-in scroll-into-view), while Next->field2 happens
-      // with the keyboard already open the whole time - no metrics
-      // change ever fires, so nothing scrolls. Made explicit here
-      // instead of assumed.
+      // 2026-09-09, rounds 2-6: several explicit Scrollable.ensureVisible
+      // attempts (different alignments, different settle-wait
+      // strategies) each reported "no change" on the real device.
       //
-      // 2026-09-09, round 3: real feedback, live - round 2's fix (scroll
-      // on the very next frame) landed step 3's identical-pattern fix
-      // for real but did nothing visible here. The one structural
-      // difference from step 3's now-working call: step 3 waits for the
-      // keyboard's viewport to actually settle before measuring it,
-      // this didn't. iOS can briefly reflow the effective keyboard
-      // height right as focus lands on a new secure field (password
-      // AutoFill / QuickType suggestion bar showing or hiding) -
-      // measuring mid-reflow computes a scroll against a viewport
-      // that's about to resize again, which the next layout pass can
-      // then silently undo. Poll for the height to stop CHANGING
-      // (not hit 0 - the keyboard never closes here, unlike step 3's
-      // case) instead of scrolling on the very next frame regardless.
-      // 2026-09-09, round 4: real feedback, live - round 3's wait-for-
-      // settle fix ALSO produced zero visible movement, identical to
-      // round 2. Two different well-reasoned fixes both landing as
-      // no-ops, using the exact same Scrollable.ensureVisible API that
-      // is confirmed working for step 3, means guessing blind a third
-      // time isn't the right move - something concrete needs to be
-      // seen from the real device instead. Temporary on-screen SnackBar
-      // reporting the actual scroll-position numbers, same pattern
-      // (raw diagnostic surfaced on-screen) that broke open the
-      // swallowed-exceptions bug during initial real-device testing -
-      // see project history. Remove once the real cause is found.
+      // 2026-09-09, round 7: on-screen diagnostics (real on-device
+      // numbers, not guesses) finally explained why: field 2 was
+      // ALREADY inside the visible, keyboard-clear viewport BEFORE any
+      // of this listener's explicit scrolling ever ran (scrollY=106,
+      // viewportDimension=445 -> visible range [106,551]; field 2's own
+      // position was [436,484], comfortably inside). Flutter's own
+      // built-in scroll-into-view (triggered by focus/selection moving
+      // to field 2, not just by a keyboard-open metrics change as
+      // round 2 first assumed) was already doing the job correctly.
+      // Every explicit ensureVisible call since was REDUNDANT at best -
+      // and round 7's alignment:1.0 call proved actively HARMFUL,
+      // pushing field 2 from a safe [436,484] to [503,551], flush
+      // against the viewport's bottom edge with zero margin.
       //
-      // 2026-09-09, round 5: the round 4 SnackBar answered part of it -
-      // scrollable=true, before=306.6, after=398.0 (a real 91px move,
-      // well inside max=569) - the scroll genuinely moves.
-      //
-      // 2026-09-09, round 6: a SECOND SnackBar read (different session:
-      // before=255.3, same after=398.0, same max=569.0, inset STILL
-      // 0.0) settled it - inset=0.0 isn't a transient race, it's
-      // CONSTANT, and that's actually expected, not a bug: Scaffold's
-      // default resizeToAvoidBottomInset already resizes its own body
-      // around the keyboard, and deliberately zeroes viewInsets.bottom
-      // for body descendants once it has (avoiding double-applying the
-      // same inset twice) - documented Flutter Scaffold behavior, not
-      // specific to this app. Round 3 and round 5 were both chasing a
-      // signal that structurally can never read nonzero inside this
-      // Scaffold's body - that's WHY neither wait-loop ever did
-      // anything different. The settle-polling is gone; a short fixed
-      // delay covers any real transition instead.
-      //
-      // The scroll itself lands at the identical 398.0 both times
-      // (deterministic, not racy) - genuinely real, just short of
-      // clearing the keyboard. alignment: 0.5 (center) leaves as much
-      // room below the target as above it, but nothing below field 2
-      // matters while typing it (step 3 stays dimmed/inert until
-      // passwords match anyway) - alignment: 1.0 (bottom-align) uses
-      // that slack instead, pushing field 2 as far down/clear of the
-      // keyboard as the content allows.
-      // 2026-09-09, round 7: real feedback, live - alignment 1.0
-      // produced after=199.5, LOWER than round 5/6's alignment-0.5
-      // result (398.0) and even lower than THIS round's own before
-      // (241.65) - bottom-aligning scrolled LESS than centering did,
-      // backwards from what alignment 1.0 vs 0.5 should ever produce.
-      // viewportH in the old SnackBar was MediaQuery.size.height (the
-      // constant 896 device height, unaffected by keyboard - a red
-      // herring, never the real scroll viewport size) - genuinely never
-      // measured the number that actually drives ensureVisible's math.
-      // Now reading it directly: viewportDimension (the real, possibly
-      // keyboard-shrunk scroll viewport height Flutter itself uses),
-      // plus the target's actual on-screen Y position/height before and
-      // after, so this round settles it from real numbers instead of
-      // guessing a fourth alignment value blind.
+      // Fixed for real: only scroll if field 2 is ACTUALLY outside the
+      // visible viewport when this fires - trust Flutter's own native
+      // behavior otherwise, since fighting a mechanism that already
+      // works is exactly what rounds 2-7 kept doing.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
@@ -561,44 +507,27 @@ class _IdleViewState extends State<_IdleView>
           if (!mounted) return;
           final ctx = _shredKey2.currentContext;
           final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
-          final targetBoxBefore = ctx?.findRenderObject() as RenderBox?;
-          final targetYBefore =
-              (targetBoxBefore != null && targetBoxBefore.attached)
-                  ? targetBoxBefore.localToGlobal(Offset.zero).dy
-                  : null;
-          final targetH = targetBoxBefore?.size.height;
-          final scrollBox = scrollable?.context.findRenderObject() as RenderBox?;
-          final scrollY = (scrollBox != null && scrollBox.attached)
-              ? scrollBox.localToGlobal(Offset.zero).dy
-              : null;
-          final viewportDim = scrollable?.position.viewportDimension;
-          final before = scrollable?.position.pixels;
-          final maxExtent = scrollable?.position.maxScrollExtent;
-          if (ctx != null && scrollable != null) {
-            await Scrollable.ensureVisible(ctx,
-                alignment: 1.0,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut);
+          if (ctx == null || scrollable == null) return;
+          final targetBox = ctx.findRenderObject() as RenderBox?;
+          final scrollBox =
+              scrollable.context.findRenderObject() as RenderBox?;
+          if (targetBox == null ||
+              !targetBox.attached ||
+              scrollBox == null ||
+              !scrollBox.attached) {
+            return;
           }
-          if (!mounted) return;
-          final after = scrollable?.position.pixels;
-          final targetBoxAfter = ctx?.findRenderObject() as RenderBox?;
-          final targetYAfter =
-              (targetBoxAfter != null && targetBoxAfter.attached)
-                  ? targetBoxAfter.localToGlobal(Offset.zero).dy
-                  : null;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'DEBUG2: before=$before after=$after max=$maxExtent '
-                'viewportDim=$viewportDim scrollY=$scrollY '
-                'tYbefore=$targetYBefore tYafter=$targetYAfter tH=$targetH',
-                style: const TextStyle(fontSize: 10),
-              ),
-              duration: const Duration(seconds: 15),
-              backgroundColor: Colors.deepPurple,
-            ),
-          );
+          final targetTop = targetBox.localToGlobal(Offset.zero).dy;
+          final targetBottom = targetTop + targetBox.size.height;
+          final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
+          final visibleBottom = visibleTop + scrollable.position.viewportDimension;
+          if (targetTop >= visibleTop && targetBottom <= visibleBottom) {
+            return;
+          }
+          await Scrollable.ensureVisible(ctx,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut);
         });
       }
     });
