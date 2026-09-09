@@ -67,6 +67,18 @@ class Repository {
   final bool       autoSync;
   final SyncStatus status;
   final SyncPhase  syncPhase;
+  // 2026-09-09: real feedback, live - "can progress be shown from
+  // 0-100%... a circle outline that fills." Only ever non-null during
+  // SyncPhase.pulling - git2dart's transferProgress callback (see
+  // sync_service.dart's _withRepo) only fires for fetch(), not push(),
+  // a real limitation of the library version this app is pinned to,
+  // not a gap in this app's own wiring. Every other phase (detecting/
+  // committing/pushing/merging) has no real byte-level progress to
+  // report at all - same "don't fake progress you can't measure"
+  // reasoning already established for the setup flow's own progress
+  // bar (see sync_service.dart's file-level comment). Transient like
+  // syncPhase - not persisted, not in toMap/fromMap.
+  final double?    syncProgress;
   final DateTime?  lastSync;
   // 2026-08-20: "show error in human language, how to fix it, then the
   // error code verbose details - you've done this format with some
@@ -99,6 +111,7 @@ class Repository {
     this.autoSync     = true,
     this.status       = SyncStatus.idle,
     this.syncPhase    = SyncPhase.idle,
+    this.syncProgress,
     this.lastSync,
     this.lastError,
     this.lastErrorResolution,
@@ -121,6 +134,14 @@ class Repository {
     bool?        autoSync,
     SyncStatus?  status,
     SyncPhase?   syncPhase,
+    double?      syncProgress,
+    // 2026-09-09: syncProgress needs to go back to "unknown" (null) at
+    // the start of every new phase (a stale 80% ring left over from
+    // the previous pull must not show under a fresh "checking for
+    // changes" label) - the ??-falls-back-to-old-value pattern every
+    // other field here uses can't express "clear this," so this is the
+    // one field with its own explicit reset flag instead.
+    bool         clearSyncProgress = false,
     DateTime?    lastSync,
     String?      lastError,
     String?      lastErrorResolution,
@@ -141,6 +162,7 @@ class Repository {
     autoSync:          autoSync         ?? this.autoSync,
     status:            status           ?? this.status,
     syncPhase:         syncPhase        ?? this.syncPhase,
+    syncProgress:      clearSyncProgress ? null : (syncProgress ?? this.syncProgress),
     lastSync:          lastSync         ?? this.lastSync,
     lastError:         lastError        ?? this.lastError,
     lastErrorResolution: lastErrorResolution ?? this.lastErrorResolution,
