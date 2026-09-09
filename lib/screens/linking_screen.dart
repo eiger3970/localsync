@@ -602,8 +602,33 @@ class _IdleViewState extends State<_IdleView>
     if (resultingT1Top < visibleTop) {
       delta -= visibleTop - resultingT1Top;
     }
-    final newOffset = (scrollable.position.pixels + delta)
-        .clamp(0.0, scrollable.position.maxScrollExtent);
+    final currentPixels = scrollable.position.pixels;
+    final maxExtent = scrollable.position.maxScrollExtent;
+    final newOffset = (currentPixels + delta).clamp(0.0, maxExtent);
+    // 2026-09-09, round 15: real feedback, live - "same" after round 14
+    // shipped the two-field solver. Temporary diagnostic, same pattern
+    // proven useful in rounds 4-7 - reports the exact inputs/outputs of
+    // this computation so the next report is real numbers, not another
+    // guess. Remove once confirmed working.
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'DEBUG3: t1Top=${t1Top.toStringAsFixed(0)} '
+            't2Bottom=${t2Bottom.toStringAsFixed(0)} '
+            'visTop=${visibleTop.toStringAsFixed(0)} '
+            'visBot=${visibleBottom.toStringAsFixed(0)} '
+            'delta=${delta.toStringAsFixed(0)} '
+            'cur=${currentPixels.toStringAsFixed(0)} '
+            'new=${newOffset.toStringAsFixed(0)} '
+            'max=${maxExtent.toStringAsFixed(0)}',
+            style: const TextStyle(fontSize: 10),
+          ),
+          duration: const Duration(seconds: 15),
+          backgroundColor: Colors.deepPurple,
+        ),
+      );
+    }
     await scrollable.position.animateTo(newOffset,
         duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
