@@ -571,16 +571,20 @@ class _IdleViewState extends State<_IdleView>
   // switching to anchor field 1 instead (round 13) fixed that but then
   // "password1 only appeared above the Apple keyboard, so I had to
   // scroll to password2" - a single fixed margin on ONE field can't
-  // reliably keep BOTH fields in view at once, since the real
-  // constraint is a relationship between both their positions, not a
-  // property of either field alone. Measures both fields directly and
-  // solves for one scroll offset that satisfies both: field 1's top
-  // stays at/below the visible top (never clipped under the app bar -
-  // the hard constraint from round 13's regression), while field 2's
-  // bottom is pulled up to the visible bottom if it would otherwise
-  // spill past it. Two short password fields comfortably fit inside the
-  // ~445px real viewport round 7 measured, so both constraints are
-  // normally satisfiable together, not competing.
+  // reliably keep BOTH fields in view at once.
+  //
+  // 2026-09-09, round 17: real feedback, live, confirmed via the round
+  // 15/16 diagnostics that this DOES reach the computed target
+  // correctly - "scrolls password1 and password2 to the top" - but
+  // that target itself over-corrected: "I just need password2 to be
+  // above the Apple keyboard," not both fields dragged all the way up.
+  // Flipped the priority: compute the MINIMAL scroll that brings field
+  // 2's bottom to just inside the visible bottom (the actual ask),
+  // only pulling further if that alone would still clip field 1's top
+  // above the visible top (round 13's regression) - which two short
+  // adjacent fields inside a real ~445px viewport essentially never
+  // triggers, so in practice this is a much smaller, gentler nudge
+  // than round 13-16's "pin field 1 near the top" approach.
   Future<void> _scrollBothFieldsVisible() async {
     if (!mounted) return;
     final ctx1 = _shredKey1.currentContext;
@@ -605,49 +609,21 @@ class _IdleViewState extends State<_IdleView>
     final visibleBottom = visibleTop + scrollable.position.viewportDimension;
 
     const margin = 16.0;
-    // Prefer field 1 close to the top - maximizes the room left below
-    // for field 2.
-    var delta = t1Top - (visibleTop + margin);
-    // If that still leaves field 2's bottom past the visible bottom,
-    // scroll further to bring it in too.
-    final resultingT2Bottom = t2Bottom - delta;
-    final maxAllowedBottom = visibleBottom - margin;
-    if (resultingT2Bottom > maxAllowedBottom) {
-      delta += resultingT2Bottom - maxAllowedBottom;
-    }
-    // Never let field 1 end up ABOVE the visible top even after that -
-    // the one thing round 13's fix must not regress.
+    // Minimal scroll to bring field 2's bottom just inside the visible
+    // bottom - the real ask. Never negative (don't scroll backward if
+    // field 2 already fits).
+    var delta = t2Bottom - (visibleBottom - margin);
+    if (delta < 0) delta = 0;
+    // Only extend further if that alone would clip field 1's top above
+    // the visible top - the one thing round 13's fix must not regress.
     final resultingT1Top = t1Top - delta;
-    if (resultingT1Top < visibleTop) {
-      delta -= visibleTop - resultingT1Top;
+    if (resultingT1Top < visibleTop + margin) {
+      delta -= (visibleTop + margin) - resultingT1Top;
+      if (delta < 0) delta = 0;
     }
-    final currentPixels = scrollable.position.pixels;
-    final maxExtent = scrollable.position.maxScrollExtent;
-    final newOffset = (currentPixels + delta).clamp(0.0, maxExtent);
-    // 2026-09-09, round 15: real feedback, live - "same" after round 14
-    // shipped the two-field solver. Temporary diagnostic, same pattern
-    // proven useful in rounds 4-7 - reports the exact inputs/outputs of
-    // this computation so the next report is real numbers, not another
-    // guess. Remove once confirmed working.
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'DEBUG3: t1Top=${t1Top.toStringAsFixed(0)} '
-            't2Bottom=${t2Bottom.toStringAsFixed(0)} '
-            'visTop=${visibleTop.toStringAsFixed(0)} '
-            'visBot=${visibleBottom.toStringAsFixed(0)} '
-            'delta=${delta.toStringAsFixed(0)} '
-            'cur=${currentPixels.toStringAsFixed(0)} '
-            'new=${newOffset.toStringAsFixed(0)} '
-            'max=${maxExtent.toStringAsFixed(0)}',
-            style: const TextStyle(fontSize: 10),
-          ),
-          duration: const Duration(seconds: 15),
-          backgroundColor: Colors.deepPurple,
-        ),
-      );
-    }
+    if (delta == 0) return;
+    final newOffset = (scrollable.position.pixels + delta)
+        .clamp(0.0, scrollable.position.maxScrollExtent);
     await scrollable.position.animateTo(newOffset,
         duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
   }
