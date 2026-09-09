@@ -482,24 +482,32 @@ class _IdleViewState extends State<_IdleView>
       // attempts (different alignments, different settle-wait
       // strategies) each reported "no change" on the real device.
       //
-      // 2026-09-09, round 7: on-screen diagnostics (real on-device
-      // numbers, not guesses) finally explained why: field 2 was
-      // ALREADY inside the visible, keyboard-clear viewport BEFORE any
-      // of this listener's explicit scrolling ever ran (scrollY=106,
-      // viewportDimension=445 -> visible range [106,551]; field 2's own
-      // position was [436,484], comfortably inside). Flutter's own
-      // built-in scroll-into-view (triggered by focus/selection moving
-      // to field 2, not just by a keyboard-open metrics change as
-      // round 2 first assumed) was already doing the job correctly.
-      // Every explicit ensureVisible call since was REDUNDANT at best -
-      // and round 7's alignment:1.0 call proved actively HARMFUL,
-      // pushing field 2 from a safe [436,484] to [503,551], flush
-      // against the viewport's bottom edge with zero margin.
+      // 2026-09-09, round 7: on-screen diagnostics said field 2 was
+      // ALREADY inside Flutter's own calculated visible range (scrollY=
+      // 106, viewportDimension=445 -> [106,551]; field 2 at [436,484]).
+      // Round 8 trusted that and only scrolled when genuinely outside
+      // this range - real feedback after shipping it: "still hidden
+      // behind Apple keyboard until I drag up." Flutter's math said
+      // visible; the real device said covered. Both are true at once
+      // only one way: iOS shows a Password AutoFill / QuickType
+      // suggestion bar ABOVE the software keyboard for secure text
+      // fields, and that bar's height isn't included in the keyboard
+      // frame Flutter resizes the Scaffold body around - so a position
+      // Flutter considers "inside the resized viewport" can still be
+      // physically covered by this extra, Flutter-invisible overlay.
       //
-      // Fixed for real: only scroll if field 2 is ACTUALLY outside the
-      // visible viewport when this fires - trust Flutter's own native
-      // behavior otherwise, since fighting a mechanism that already
-      // works is exactly what rounds 2-7 kept doing.
+      // Round 8's precise boundary math is exactly the wrong tool for
+      // an obstruction Flutter fundamentally can't measure. Stopped
+      // trying to compute the exact safe boundary - instead always pull
+      // field 2 up near the TOP of whatever Flutter does think is
+      // visible, leaving a large unused margin below it that can absorb
+      // an AutoFill bar of unknown height without needing to know that
+      // height. Manual position math (not Scrollable.ensureVisible's
+      // alignment parameter) - round 7 measured alignment:1.0 producing
+      // a LOWER scroll offset than alignment:0.5, backwards from what
+      // it should ever do, so its semantics aren't trustworthy here;
+      // this computes the exact pixel delta needed directly from the
+      // same RenderBox positions round 7 confirmed accurate.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
@@ -518,14 +526,17 @@ class _IdleViewState extends State<_IdleView>
             return;
           }
           final targetTop = targetBox.localToGlobal(Offset.zero).dy;
-          final targetBottom = targetTop + targetBox.size.height;
           final visibleTop = scrollBox.localToGlobal(Offset.zero).dy;
-          final visibleBottom = visibleTop + scrollable.position.viewportDimension;
-          if (targetTop >= visibleTop && targetBottom <= visibleBottom) {
-            return;
-          }
-          await Scrollable.ensureVisible(ctx,
-              alignment: 0.5,
+          // Want field 2's top to land 40px below the top of the
+          // visible area - close enough to leave most of the viewport
+          // as margin below (absorbing an unmeasured AutoFill bar),
+          // far enough not to sit flush under the app bar/progress bar.
+          const marginFromTop = 40.0;
+          final desiredTop = visibleTop + marginFromTop;
+          final delta = targetTop - desiredTop;
+          final newOffset = (scrollable.position.pixels + delta)
+              .clamp(0.0, scrollable.position.maxScrollExtent);
+          await scrollable.position.animateTo(newOffset,
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut);
         });
