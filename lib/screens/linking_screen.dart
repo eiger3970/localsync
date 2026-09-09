@@ -514,35 +514,36 @@ class _IdleViewState extends State<_IdleView>
       // swallowed-exceptions bug during initial real-device testing -
       // see project history. Remove once the real cause is found.
       //
-      // 2026-09-09, round 5: the round 4 SnackBar answered it -
+      // 2026-09-09, round 5: the round 4 SnackBar answered part of it -
       // scrollable=true, before=306.6, after=398.0 (a real 91px move,
-      // well inside max=569) but inset=0.0 while genuinely focused in a
-      // password field with the keyboard visibly open. The scroll isn't
-      // broken - it moved against a viewport that, for one instant,
-      // had NO keyboard. iOS is known to briefly hide-and-reshow the
-      // keyboard when focus moves between two adjacent secure/password
-      // fields (a Password AutoFill/QuickType refresh quirk) - round
-      // 3's "stop as soon as two consecutive reads match" logic could
-      // latch onto that transient dip to zero as "settled" before the
-      // keyboard actually reopened, computing a scroll against a
-      // keyboard-free viewport that a moment later isn't keyboard-free
-      // anymore. Zero is never a trustworthy settled value here (the
-      // user is actively focused in a password field - the keyboard
-      // WILL be open) - only a REPEATED NONZERO reading counts as
-      // settled now.
+      // well inside max=569) - the scroll genuinely moves.
+      //
+      // 2026-09-09, round 6: a SECOND SnackBar read (different session:
+      // before=255.3, same after=398.0, same max=569.0, inset STILL
+      // 0.0) settled it - inset=0.0 isn't a transient race, it's
+      // CONSTANT, and that's actually expected, not a bug: Scaffold's
+      // default resizeToAvoidBottomInset already resizes its own body
+      // around the keyboard, and deliberately zeroes viewInsets.bottom
+      // for body descendants once it has (avoiding double-applying the
+      // same inset twice) - documented Flutter Scaffold behavior, not
+      // specific to this app. Round 3 and round 5 were both chasing a
+      // signal that structurally can never read nonzero inside this
+      // Scaffold's body - that's WHY neither wait-loop ever did
+      // anything different. The settle-polling is gone; a short fixed
+      // delay covers any real transition instead.
+      //
+      // The scroll itself lands at the identical 398.0 both times
+      // (deterministic, not racy) - genuinely real, just short of
+      // clearing the keyboard. alignment: 0.5 (center) leaves as much
+      // room below the target as above it, but nothing below field 2
+      // matters while typing it (step 3 stays dimmed/inert until
+      // passwords match anyway) - alignment: 1.0 (bottom-align) uses
+      // that slack instead, pushing field 2 as far down/clear of the
+      // keyboard as the content allows.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
-          var last = MediaQuery.of(context).viewInsets.bottom;
-          var waited = 0;
-          while (mounted && waited < 800) {
-            await Future.delayed(const Duration(milliseconds: 50));
-            waited += 50;
-            if (!mounted) return;
-            final now = MediaQuery.of(context).viewInsets.bottom;
-            if (now == last && now > 0) break;
-            last = now;
-          }
+          await Future.delayed(const Duration(milliseconds: 300));
           if (!mounted) return;
           final ctx = _shredKey2.currentContext;
           final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
@@ -552,7 +553,7 @@ class _IdleViewState extends State<_IdleView>
           final insetBottom = MediaQuery.of(context).viewInsets.bottom;
           if (ctx != null && scrollable != null) {
             await Scrollable.ensureVisible(ctx,
-                alignment: 0.5,
+                alignment: 1.0,
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut);
           }
