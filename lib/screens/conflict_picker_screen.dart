@@ -952,11 +952,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
+                    // 2026-09-09: real feedback, live - "verbose, make
+                    // terse, kiss."
                     Expanded(
                       child: Text(
-                        'Whichever you pick only changes this device - '
-                        'swipe PUSH on the home screen afterward so your '
-                        'desktop gets it too.',
+                        'Push after, to sync your desktop too.',
                         style: TextStyle(color: kTextMid, fontSize: 12),
                       ),
                     ),
@@ -1070,33 +1070,37 @@ class _ConflictPanel extends StatelessWidget {
                     fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis),
             const SizedBox(height: 6),
-            // 2026-08-25: real feedback, live - "too much eye bleed."
-            // Bold + underline + saturated color on the changed text
-            // itself read as shouting. A soft background wash (like a
-            // highlighter marker, ~20% opacity) behind just the
-            // differing words instead - equal text stays plain, so the
-            // eye still jumps straight to what changed, without every
-            // difference looking like an alarm.
-            tokens == null
-                ? Text(plainText,
-                    style: TextStyle(color: kStar, fontSize: 14))
-                : Text.rich(
-                    TextSpan(
-                      children: tokens!
-                          .map((t) => TextSpan(
-                                text: t.text,
-                                style: t.op == DiffOp.equal
-                                    ? TextStyle(color: kStar, fontSize: 14)
-                                    : TextStyle(
-                                        color: kStar,
-                                        fontSize: 14,
-                                        backgroundColor:
-                                            highlightColor.withValues(alpha: 0.28),
-                                      ),
-                              ))
-                          .toList(),
-                    ),
-                  ),
+            // 2026-09-09: real feedback, live - "can't see all of the
+            // text, which is cut off at the bottom and doesn't scroll."
+            // The Column above had no scrollable ancestor at all -
+            // long content simply overflowed past the panel's fixed
+            // height with no way to read the rest. Expanded+
+            // SingleChildScrollView lets it scroll within the panel's
+            // own bounds instead.
+            Expanded(
+              child: SingleChildScrollView(
+                child: tokens == null
+                    ? Text(plainText,
+                        style: TextStyle(color: kStar, fontSize: 14))
+                    : Text.rich(
+                        TextSpan(
+                          children: tokens!
+                              .map((t) => TextSpan(
+                                    text: t.text,
+                                    style: t.op == DiffOp.equal
+                                        ? TextStyle(color: kStar, fontSize: 14)
+                                        : TextStyle(
+                                            color: kStar,
+                                            fontSize: 14,
+                                            backgroundColor: highlightColor
+                                                .withValues(alpha: 0.28),
+                                          ),
+                                  ))
+                              .toList(),
+                        ),
+                      ),
+              ),
+            ),
           ],
         ),
       ),
