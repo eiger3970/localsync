@@ -373,6 +373,15 @@ class _IdleViewState extends State<_IdleView>
   // that container's own 2026-08-25 "never an ancestor of the drag
   // canvas" history), it doesn't add a new one, so this can't
   // reintroduce that gesture-arena bug.
+  //
+  // 2026-09-09, round 2: real feedback, live - "same after password
+  // field2" (no change). Round 1 keyed the section HEADING text, not
+  // the actual draggable row - ensureVisible only scrolls the minimum
+  // distance to reveal whatever it's keyed to, so it was satisfied the
+  // instant that small label peeked on-screen, with zero guarantee the
+  // drag glyphs underneath it (what the user actually needs to touch)
+  // cleared the keyboard. Now keyed directly on the drag row itself,
+  // down in the Padding/Row that holds the Draggable+DragTarget.
   final _stage3Key = GlobalKey();
   bool _stage3Revealed = false;
   // 2026-08-28: real feedback, live - cursor should be ready to type the
@@ -469,6 +478,26 @@ class _IdleViewState extends State<_IdleView>
       if (_confirmFocusNode.hasFocus && !_field1Done) {
         setState(() => _field1Done = true);
       }
+      // 2026-09-09, round 2: real feedback, live - "same after password
+      // field2" - the first attempt at this fix assumed moving focus via
+      // field 1's "Next" button would auto-scroll field 2 into view the
+      // same way Flutter auto-scrolled field 1 on ITS initial focus. It
+      // doesn't: field 1's case is a keyboard closed->open transition (a
+      // real viewport metrics change, which is what actually drives
+      // Flutter's built-in scroll-into-view), while Next->field2 happens
+      // with the keyboard already open the whole time - no metrics
+      // change ever fires, so nothing scrolls. Made explicit here
+      // instead of assumed.
+      if (_confirmFocusNode.hasFocus) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = _shredKey2.currentContext;
+          if (ctx == null || !mounted) return;
+          Scrollable.ensureVisible(ctx,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut);
+        });
+      }
     });
     _skipStage1IfAlreadyPaired();
     _checkSettings();
@@ -510,8 +539,15 @@ class _IdleViewState extends State<_IdleView>
       if (!mounted) return;
       final ctx = _stage3Key.currentContext;
       if (ctx == null) return;
+      // 2026-09-09, round 2: alignment 0.5 (center), not the default
+      // 0.0 - default only scrolls the minimum distance to the nearest
+      // edge, which can leave the bottom of this row (the actual
+      // DragTarget) flush against the viewport's bottom edge with no
+      // margin. Centering leaves real room on both sides.
       Scrollable.ensureVisible(ctx,
-          duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut);
     });
   }
 
@@ -1399,7 +1435,6 @@ class _IdleViewState extends State<_IdleView>
           // exact, given directly - "3. SET UP FOLDER SYNC", not a
           // paraphrase.
           Text(
-              key: _stage3Key,
               widget.ctrl.preferredMode == SyncMode.genericFolder
                   ? '3. SET UP FOLDER SYNC'
                   : '3. SET UP VAULT',
@@ -1418,6 +1453,18 @@ class _IdleViewState extends State<_IdleView>
               child: Column(
                 children: [
                   Padding(
+                    // 2026-09-09, round 2: real feedback, live - "same
+                    // after password field2" applied to step 3 too: the
+                    // first attempt keyed the small heading label above
+                    // ("3. SET UP VAULT") instead of this row.
+                    // Scrollable.ensureVisible only scrolls the minimum
+                    // distance to bring the KEYED widget on-screen - once
+                    // that tiny heading peeked into view, it stopped,
+                    // with no guarantee the actual drag glyphs below it
+                    // (what the user needs to touch) cleared the
+                    // keyboard. Keyed here instead, on the row that's
+                    // actually draggable.
+                    key: _stage3Key,
                     padding: const EdgeInsets.symmetric(horizontal: rowPadding),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
