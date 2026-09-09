@@ -23,6 +23,7 @@ import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
 import '../services/ios_app_service.dart';
+import '../services/line_diff.dart' show mergeHunks;
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
@@ -547,14 +548,32 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         !looksLikeSeparateEntries &&
         versions.length == 2 &&
         oneContainsTheOther(versions[0].body, versions[1].body);
-    // 2026-09-08: real feedback, live - "go with both" (the other
-    // being oneSideSuspiciouslyShort above). This is about one
-    // side's own content quality, not about which button to press -
-    // shown independently, alongside whichever hint above fires,
-    // since it's a genuinely separate concern (the exact real Sep 7th
-    // shape: the same paragraph pasted twice into "yours").
+    // 2026-09-08, second pass - real feedback, live: "why isn't this
+    // suggestion with a reason a hint on the app?" The first version
+    // of this hint only named which side had a repeat - it stopped
+    // short of the actual actionable reasoning (this session's own
+    // real Sep 7th case: 'yours' repeats, 'desktop' doesn't, so
+    // 'desktop' is the one to keep). Now checks that specifically -
+    // exactly one side affected, not both - and recommends the clean
+    // one by name when it can. Falls back to the neutral "worth
+    // cleaning up" wording when both sides have the problem (nothing
+    // to recommend) or when there are 3+ versions (which side is
+    // "the other one" stops being a single, unambiguous answer).
     final duplicateSide =
         versions.indexWhere((v) => hasDuplicateParagraph(v.body));
+    final onlyOneSideDuplicates = versions.length == 2 &&
+        duplicateSide != -1 &&
+        !hasDuplicateParagraph(versions[1 - duplicateSide].body);
+    // 2026-09-08: real feedback, live - "does that really work?" It
+    // didn't, for the case that matters most (two sides with nothing
+    // in common - the real Sep 7th shape). mergeHunks collapses to one
+    // all-or-nothing hunk when nothing aligns between the sides, same
+    // limitation as picking a whole side - it only genuinely splits
+    // into separate pickable pieces when there's some shared content
+    // to anchor the alignment on. Checked for real (not assumed) so
+    // Merge is only pointed at when it would actually help.
+    final mergeWouldHelp = onlyOneSideDuplicates &&
+        mergeHunks(versions[0].body, versions[1].body).length > 1;
 
     return Scaffold(
       // 2026-08-22: explicit kVoid removed - see settings_screen.dart's
@@ -653,9 +672,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '"${titleFor(duplicateSide)}" repeats the same '
-                          'paragraph twice - worth cleaning up after you '
-                          'resolve this.',
+                          !onlyOneSideDuplicates
+                              ? '"${titleFor(duplicateSide)}" repeats the '
+                                  'same paragraph twice - worth cleaning up '
+                                  'after you resolve this.'
+                              : '"${titleFor(duplicateSide)}" (${duplicateSide == 0 ? 'left' : 'right'}) '
+                                  'repeats the same paragraph twice - '
+                                  '"${titleFor(1 - duplicateSide)}" doesn\'t '
+                                  'have that problem. '
+                                  '${mergeWouldHelp ? '"Merge text instead" below can keep one copy plus everything from the other side.' : 'The two sides share nothing in common, so neither "Keep both" nor "Merge" can drop just the duplicate - picking a whole side, or Keep Both plus a manual cleanup after, are the real options.'}',
                           style: TextStyle(
                               color: Colors.amber,
                               fontSize: 13,
@@ -880,6 +905,31 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       // replaced with the same short icon+point list the
                       // confirm dialog already uses, safety facts first.
                       onPressed: () => _showKeepBothInfo(),
+                    ),
+                  ],
+                ),
+                // 2026-09-08: real feedback, live - "the push after is
+                // in another section... this disjointed info is
+                // missed, so all in 1 hint is clear." Resolving here
+                // only ever changes this device (see sync_service.dart
+                // - conflicts are pull-side only) - the reminder to
+                // push already existed in the Conflicts list's own
+                // safety-steps row and the "?" wizard, but not on the
+                // one screen where a user is actually about to act.
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.cloud_upload_outlined,
+                        color: kTextMid, size: 14),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Whichever you pick only changes this device - '
+                        'swipe PUSH on the home screen afterward so your '
+                        'desktop gets it too.',
+                        style: TextStyle(color: kTextMid, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
