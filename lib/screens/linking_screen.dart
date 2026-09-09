@@ -513,17 +513,34 @@ class _IdleViewState extends State<_IdleView>
       // (raw diagnostic surfaced on-screen) that broke open the
       // swallowed-exceptions bug during initial real-device testing -
       // see project history. Remove once the real cause is found.
+      //
+      // 2026-09-09, round 5: the round 4 SnackBar answered it -
+      // scrollable=true, before=306.6, after=398.0 (a real 91px move,
+      // well inside max=569) but inset=0.0 while genuinely focused in a
+      // password field with the keyboard visibly open. The scroll isn't
+      // broken - it moved against a viewport that, for one instant,
+      // had NO keyboard. iOS is known to briefly hide-and-reshow the
+      // keyboard when focus moves between two adjacent secure/password
+      // fields (a Password AutoFill/QuickType refresh quirk) - round
+      // 3's "stop as soon as two consecutive reads match" logic could
+      // latch onto that transient dip to zero as "settled" before the
+      // keyboard actually reopened, computing a scroll against a
+      // keyboard-free viewport that a moment later isn't keyboard-free
+      // anymore. Zero is never a trustworthy settled value here (the
+      // user is actively focused in a password field - the keyboard
+      // WILL be open) - only a REPEATED NONZERO reading counts as
+      // settled now.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           var last = MediaQuery.of(context).viewInsets.bottom;
           var waited = 0;
-          while (mounted && waited < 500) {
+          while (mounted && waited < 800) {
             await Future.delayed(const Duration(milliseconds: 50));
             waited += 50;
             if (!mounted) return;
             final now = MediaQuery.of(context).viewInsets.bottom;
-            if (now == last) break;
+            if (now == last && now > 0) break;
             last = now;
           }
           if (!mounted) return;
