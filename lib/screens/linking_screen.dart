@@ -540,6 +540,20 @@ class _IdleViewState extends State<_IdleView>
       // passwords match anyway) - alignment: 1.0 (bottom-align) uses
       // that slack instead, pushing field 2 as far down/clear of the
       // keyboard as the content allows.
+      // 2026-09-09, round 7: real feedback, live - alignment 1.0
+      // produced after=199.5, LOWER than round 5/6's alignment-0.5
+      // result (398.0) and even lower than THIS round's own before
+      // (241.65) - bottom-aligning scrolled LESS than centering did,
+      // backwards from what alignment 1.0 vs 0.5 should ever produce.
+      // viewportH in the old SnackBar was MediaQuery.size.height (the
+      // constant 896 device height, unaffected by keyboard - a red
+      // herring, never the real scroll viewport size) - genuinely never
+      // measured the number that actually drives ensureVisible's math.
+      // Now reading it directly: viewportDimension (the real, possibly
+      // keyboard-shrunk scroll viewport height Flutter itself uses),
+      // plus the target's actual on-screen Y position/height before and
+      // after, so this round settles it from real numbers instead of
+      // guessing a fourth alignment value blind.
       if (_confirmFocusNode.hasFocus) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
@@ -547,10 +561,19 @@ class _IdleViewState extends State<_IdleView>
           if (!mounted) return;
           final ctx = _shredKey2.currentContext;
           final scrollable = ctx == null ? null : Scrollable.maybeOf(ctx);
+          final targetBoxBefore = ctx?.findRenderObject() as RenderBox?;
+          final targetYBefore =
+              (targetBoxBefore != null && targetBoxBefore.attached)
+                  ? targetBoxBefore.localToGlobal(Offset.zero).dy
+                  : null;
+          final targetH = targetBoxBefore?.size.height;
+          final scrollBox = scrollable?.context.findRenderObject() as RenderBox?;
+          final scrollY = (scrollBox != null && scrollBox.attached)
+              ? scrollBox.localToGlobal(Offset.zero).dy
+              : null;
+          final viewportDim = scrollable?.position.viewportDimension;
           final before = scrollable?.position.pixels;
           final maxExtent = scrollable?.position.maxScrollExtent;
-          final viewportH = MediaQuery.of(context).size.height;
-          final insetBottom = MediaQuery.of(context).viewInsets.bottom;
           if (ctx != null && scrollable != null) {
             await Scrollable.ensureVisible(ctx,
                 alignment: 1.0,
@@ -559,16 +582,20 @@ class _IdleViewState extends State<_IdleView>
           }
           if (!mounted) return;
           final after = scrollable?.position.pixels;
+          final targetBoxAfter = ctx?.findRenderObject() as RenderBox?;
+          final targetYAfter =
+              (targetBoxAfter != null && targetBoxAfter.attached)
+                  ? targetBoxAfter.localToGlobal(Offset.zero).dy
+                  : null;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'DEBUG field2 scroll: ctx=${ctx != null} '
-                'scrollable=${scrollable != null} before=$before '
-                'after=$after max=$maxExtent viewportH=$viewportH '
-                'inset=$insetBottom',
-                style: const TextStyle(fontSize: 11),
+                'DEBUG2: before=$before after=$after max=$maxExtent '
+                'viewportDim=$viewportDim scrollY=$scrollY '
+                'tYbefore=$targetYBefore tYafter=$targetYAfter tH=$targetH',
+                style: const TextStyle(fontSize: 10),
               ),
-              duration: const Duration(seconds: 12),
+              duration: const Duration(seconds: 15),
               backgroundColor: Colors.deepPurple,
             ),
           );
