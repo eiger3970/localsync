@@ -522,11 +522,30 @@ class _IdleViewState extends State<_IdleView>
     // BOTH in view. _scrollBothFieldsVisible measures both fields'
     // real positions and solves for one offset satisfying both at
     // once - see its own comment for the exact math.
+    // 2026-09-09, round 16: real feedback, live - the round 15
+    // diagnostic showed a provably correct computation (delta=376,
+    // new=519, well inside max=569 - hand-traced and matches the
+    // formula exactly) that still didn't produce the right result on
+    // screen. If the math is right but the outcome is wrong, something
+    // else must be moving the scroll position AFTER this runs -
+    // Flutter's own built-in "scroll the newly-focused field into
+    // view" behavior is the likely candidate, since field 1 gaining
+    // focus is also what triggers the keyboard's own opening animation,
+    // and that native behavior may fire on ITS OWN schedule, later than
+    // this listener's fixed 400ms delay, overriding this position with
+    // its own (field-1-only, doesn't know field 2 exists) target.
+    // Re-applies the same computation a second time, later, so this
+    // fix - not Flutter's own single-field behavior - has the last
+    // word. Idempotent if nothing moved (recomputes ~0 delta).
     _passwordFocusNode.addListener(() {
       if (!_passwordFocusNode.hasFocus) return;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         await Future.delayed(const Duration(milliseconds: 400));
+        if (!mounted) return;
+        await _scrollBothFieldsVisible();
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
         if (!mounted) return;
         await _scrollBothFieldsVisible();
       });
