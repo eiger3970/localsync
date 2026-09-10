@@ -631,13 +631,26 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             );
                           }
                           if (hasRefs && i == hintIndex) {
+                            // 2026-09-10: real feedback, live - "needs an
+                            // image on the left." No arrow here (unlike the
+                            // push/pull icon above) - deleting sends
+                            // nothing anywhere, it just stays on this
+                            // phone until the next sync.
                             return Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                  'Delete only affects this device until you sync.',
-                                  textAlign: TextAlign.center,
-                                  style:
-                                      TextStyle(color: kTextDim, fontSize: 12)),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.smartphone,
+                                      color: kTextDim, size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                      'Delete only affects this device '
+                                      'until you sync.',
+                                      style: TextStyle(
+                                          color: kTextDim, fontSize: 12)),
+                                ],
+                              ),
                             );
                           }
                           if (i > refHeaderIndex) {
