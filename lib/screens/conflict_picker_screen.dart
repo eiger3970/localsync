@@ -92,29 +92,6 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     if (mounted) setState(() => _keepLeftoverInNote = value);
   }
 
-  // 2026-09-07: real feedback, live - "needs a little i for info/
-  // details" on both KEEP BOTH and MERGE PIECES INSTEAD, since neither
-  // button's name alone explains what it actually does or how the two
-  // differ. Same plain title+message dialog pattern settings_screen.dart
-  // already uses for its own (i) buttons.
-  void _showInfo(String title, String message) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
-        content: Text(message,
-            style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Got it', style: TextStyle(color: kGreen)),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 2026-09-08, fourth pass - real feedback, live: "the order is
   // different... these can be made consistent." This info popup and
   // _confirmAndKeepBoth's own confirm dialog covered the same 4-5
@@ -210,6 +187,50 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               color: kGreen,
               text: 'Works anytime - even long after a conflict is '
                   'already resolved',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2026-09-10: real feedback, live - "eye bleed, kiss, point form with
+  // images" on the old one-paragraph _showInfo() version of this dialog.
+  // Same _DialogPoint pattern as _keepBothDialogPoints below, which the
+  // user confirmed is already good as-is.
+  void _showMergeInfo() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Merge text instead',
+            style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(
+              icon: Icons.checklist,
+              color: kGreen,
+              text: 'Pick individual sentences from each side to build '
+                  'your own version',
+            ),
+            _DialogPoint(
+              icon: Icons.tune,
+              color: kGreen,
+              text: 'More control than Keep Both, but more work - '
+                  'sentence by sentence, not whole sides',
+            ),
+            _DialogPoint(
+              icon: Icons.lock,
+              color: kGreen,
+              text: 'A paid feature',
             ),
           ],
         ),
@@ -589,16 +610,29 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                    versions.length > 2
-                        ? "This note has ${versions.length} unresolved "
-                            'versions stacked up - they were never fully '
-                            'resolved before another change arrived. Tap '
-                            'the one to keep; the rest are still saved to '
-                            '"LocalSync/Conflict Backups".'
-                        : "Tap a version to review it, then confirm - "
-                            'nothing is changed until you confirm.',
-                    style: TextStyle(color: kStar, fontSize: 15)),
+                // 2026-09-10: real feedback, live - "needs an image on
+                // the left." touch_app matches the instruction itself
+                // (tap a version below to act on it).
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.touch_app, color: kStar, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                          versions.length > 2
+                              ? "This note has ${versions.length} unresolved "
+                                  'versions stacked up - they were never '
+                                  'fully resolved before another change '
+                                  'arrived. Tap the one to keep; the rest '
+                                  'are still saved to "LocalSync/Conflict '
+                                  'Backups".'
+                              : "Tap a version to review it, then confirm - "
+                                  'nothing is changed until you confirm.',
+                          style: TextStyle(color: kStar, fontSize: 15)),
+                    ),
+                  ],
+                ),
                 if (oneSideTooShort) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -803,7 +837,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: OutlinedButton.icon(
                           onPressed: () async {
                             final result =
                                 await Navigator.push<ConflictResolvedResult>(
@@ -825,7 +859,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             minimumSize: const Size.fromHeight(0),
                           ),
-                          child: Text('MERGE TEXT INSTEAD',
+                          // 2026-09-10: real feedback, live - "needs
+                          // images to the left of them" (both buttons).
+                          icon: Icon(Icons.merge, color: kTextMid, size: 18),
+                          label: Text('MERGE TEXT INSTEAD',
                               style: TextStyle(
                                   color: kTextMid,
                                   fontSize: 12,
@@ -837,20 +874,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         icon: Icon(Icons.info_outline,
                             color: kTextDim, size: 20),
                         tooltip: 'What is this?',
-                        // 2026-09-08: real feedback, live - "the word
-                        // pieces sounds stupid, use a better word."
-                        // Reworded button + this text off "pieces"
-                        // entirely, to "sentence by sentence."
-                        onPressed: () => _showInfo(
-                          'Merge text instead',
-                          'Pick individual sentences from each side to '
-                              'hand-build your own combined version - '
-                              'more control, more work than Keep both. '
-                              'A paid feature.\n\nYou choose exactly what '
-                              'stays and what goes, sentence by '
-                              'sentence, instead of keeping both sides '
-                              'whole.',
-                        ),
+                        // 2026-09-10: real feedback, live - "eye bleed,
+                        // kiss, point form with images" - was one dense
+                        // paragraph, same fix already applied to the Keep
+                        // Both dialog below (_keepBothDialogPoints):
+                        // short icon+label lines instead of prose.
+                        onPressed: () => _showMergeInfo(),
                       ),
                     ],
                   ),
@@ -878,14 +907,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBoth,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: kGreen),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
-                        child: Text('KEEP BOTH',
+                        // 2026-09-10: real feedback, live - "needs images
+                        // to the left." Same glyph _keepBothDialogPoints
+                        // already uses for "both kept," reused here.
+                        icon: Icon(Icons.done_all, color: kGreen, size: 18),
+                        label: Text('KEEP BOTH',
                             style: TextStyle(
                                 color: kGreen,
                                 fontSize: 12,
