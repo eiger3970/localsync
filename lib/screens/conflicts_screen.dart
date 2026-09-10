@@ -538,11 +538,47 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 8),
                         color: kSurface,
-                        child: Text(
-                          'Pick a version below to resolve, then tap PUSH '
-                          'on the home screen to sync your desktop - '
-                          'resolving here only updates this phone.',
-                          style: TextStyle(color: kTextMid, fontSize: 13),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 2026-09-10: real feedback, live - this banner
+                            // and the conflict picker's own reminder said
+                            // almost the same thing, but this one dropped
+                            // the "pull on desktop" step entirely. Reworded
+                            // to match the picker's terser phrasing and
+                            // reused its phone-pushing-to-desktop icon
+                            // (conflict_picker_screen.dart, 2026-09-09)
+                            // instead of a bare text line.
+                            SizedBox(
+                              width: 16,
+                              height: 14,
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    child: Icon(Icons.north_east,
+                                        color: kTextMid, size: 10),
+                                  ),
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: Icon(Icons.computer,
+                                        color: kTextMid, size: 11),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Pick a version below. Push here, then pull '
+                                'on desktop, for a full sync.',
+                                style:
+                                    TextStyle(color: kTextMid, fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     // 2026-08-29: real feedback, live - "this IAP would
