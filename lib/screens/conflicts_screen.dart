@@ -599,6 +599,31 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         child: ConflictPickerUpsell(
                             purchases: context.watch<PurchaseService>()),
                       ),
+                    // 2026-09-12: real feedback, live - "only shows 3
+                    // lines, unsure what to do" - the subtitle below is a
+                    // short preview (who/when or a version count), not
+                    // the full conflicting text, and that wasn't obvious.
+                    // Same visual pattern as the "Delete only affects this
+                    // device" hint further down for the old-versions
+                    // section, so a returning user reads both the same
+                    // way.
+                    if (entries.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.visibility_outlined,
+                                color: kTextDim, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                                'Preview only - tap a conflict to see the '
+                                'full note.',
+                                style:
+                                    TextStyle(color: kTextDim, fontSize: 12)),
+                          ],
+                        ),
+                      ),
                     Expanded(
                       child: ListView.separated(
                         padding: const EdgeInsets.all(16),
