@@ -437,7 +437,7 @@ while IFS= read -r -d '' d; do
     MATCH_LABELS+=("$d - empty, safe to use")
     MATCH_HAS_IDENTITY+=(false)
     MATCH_EPOCH+=(0)
-  elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* ]]; then
+  elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* || "$msg" == "Merge desktop and phone"* || "$msg" == "Merge conflicts (both sides kept)"* ]]; then
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
     MATCH_LABELS+=("$d$name_hint - last used $when")
