@@ -97,6 +97,25 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // against for the part that actually gets written).
   String? _precedingContext;
   bool _contextLoadFailed = false;
+  // 2026-09-14: real feedback, live - "the text for 0953 isn't on same
+  // levels. Vimdiff would add auto spacing there so that the duplicate
+  // text would be on the same lines." Both panels now split the shared
+  // context at the identical point (previous fix), but the disputed
+  // text itself is rarely the same length on both sides - one panel's
+  // highlighted middle can wrap to several lines while the other's is
+  // one short line, which pushes the shared text below it down by a
+  // different amount on each side even though the text is identical.
+  // Real vimdiff/side-by-side diff tools pad the shorter side with
+  // blank space to compensate - can't compute that padding up front in
+  // Flutter (wrapped height depends on the actual device's width, not
+  // known until a real layout pass happens), so this measures both
+  // disputed-text blocks after they first render, then pads the
+  // shorter one to match. GlobalKeys read real RenderBox sizes after
+  // layout; the padding fields feed back into a second, final build.
+  final _leftDisputedKey = GlobalKey();
+  final _rightDisputedKey = GlobalKey();
+  double _leftExtraPad = 0;
+  double _rightExtraPad = 0;
 
   @override
   void initState() {
@@ -104,6 +123,32 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     _resolveMyDeviceName();
     _loadKeepLeftoverSetting();
     _loadPrecedingContext();
+  }
+
+  void _equalizeDisputedHeights() {
+    final leftBox =
+        _leftDisputedKey.currentContext?.findRenderObject() as RenderBox?;
+    final rightBox =
+        _rightDisputedKey.currentContext?.findRenderObject() as RenderBox?;
+    if (leftBox == null || rightBox == null) return;
+    final leftHeight = leftBox.size.height;
+    final rightHeight = rightBox.size.height;
+    final newLeftPad =
+        rightHeight > leftHeight ? rightHeight - leftHeight : 0.0;
+    final newRightPad =
+        leftHeight > rightHeight ? leftHeight - rightHeight : 0.0;
+    // Guard against an infinite measure->pad->remeasure loop - only
+    // rebuild when the computed padding actually changed, and only by
+    // more than a fraction of a pixel (adding padding itself changes
+    // this widget's own height by exactly that padding, but never the
+    // OTHER side's, so this settles after one correction, not never).
+    if ((newLeftPad - _leftExtraPad).abs() > 0.5 ||
+        (newRightPad - _rightExtraPad).abs() > 0.5) {
+      setState(() {
+        _leftExtraPad = newLeftPad;
+        _rightExtraPad = newRightPad;
+      });
+    }
   }
 
   Future<void> _loadKeepLeftoverSetting() async {
@@ -568,6 +613,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Re-measures after every build (cheap - two RenderBox reads, and
+    // _equalizeDisputedHeights itself no-ops once the padding is
+    // already correct) so a rotation, a font-size change, or the very
+    // first frame all converge to matching heights without any extra
+    // wiring at each individual call site that could rebuild this
+    // screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _equalizeDisputedHeights();
+    });
     final entry = widget.entry;
     final versions = entry.versions;
     // 2026-08-19: word-diff is inherently pairwise (LCS between exactly
@@ -927,6 +981,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             highlightColor: _kBrightRed,
                             beforeContext: sharedBeforeContext,
                             afterContext: sharedAfterContext,
+                            disputedKey: _leftDisputedKey,
+                            extraPadBelowDisputed: _leftExtraPad,
                             onTap: () => _confirmAndChoose(
                                 titleFor(0), versions[0].body),
                           ),
@@ -949,6 +1005,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             highlightColor: kGreen,
                             beforeContext: sharedBeforeContext,
                             afterContext: sharedAfterContext,
+                            disputedKey: _rightDisputedKey,
+                            extraPadBelowDisputed: _rightExtraPad,
                             onTap: () => _confirmAndChoose(
                                 titleFor(1), versions[1].body),
                           ),
@@ -1219,6 +1277,16 @@ class _ConflictPanel extends StatelessWidget {
   // side - simpler than a nullable check at every call site.
   final String beforeContext;
   final String afterContext;
+  // 2026-09-14: real feedback, live - "the text for 0953 isn't on same
+  // levels. Vimdiff would add auto spacing there." disputedKey lets the
+  // parent screen read this panel's real rendered height after layout
+  // (see _ConflictPickerScreenState._equalizeDisputedHeights);
+  // extraPadBelowDisputed is the gap it computed to insert on the
+  // shorter side, so afterContext starts at the same row as the taller
+  // side's. Both null/0 outside the side-by-side vimdiff layout (the
+  // 3+-stacked-versions case has no "same row" to align against).
+  final Key? disputedKey;
+  final double extraPadBelowDisputed;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1228,6 +1296,8 @@ class _ConflictPanel extends StatelessWidget {
     required this.onTap,
     this.beforeContext = '',
     this.afterContext = '',
+    this.disputedKey,
+    this.extraPadBelowDisputed = 0,
   });
 
   @override
@@ -1291,7 +1361,9 @@ class _ConflictPanel extends StatelessWidget {
                         child: Text(beforeContext,
                             style: TextStyle(color: kTextDim, fontSize: 13)),
                       ),
-                    disputedText(),
+                    Container(key: disputedKey, child: disputedText()),
+                    if (extraPadBelowDisputed > 0)
+                      SizedBox(height: extraPadBelowDisputed),
                     if (afterContext.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
