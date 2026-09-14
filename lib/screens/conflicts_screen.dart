@@ -111,7 +111,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       final refs = await scanForReferenceCallouts(path);
       final binary = scanBinaryConflictLog(path);
       final keptBoth = await scanForKeptBoth(path);
-      return (conflicts: entries, refs: refs, binary: binary, keptBoth: keptBoth);
+      return (
+        conflicts: entries,
+        refs: refs,
+        binary: binary,
+        keptBoth: keptBoth
+      );
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
@@ -423,16 +428,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                 // inside this one.
                 final hasRefs = refs.isNotEmpty;
                 final refHeaderIndex = entries.length;
-                // 2026-08-26: real feedback, live, from the validated
-                // the design mockup - a closing
-                // line on Delete's scope, same idea as the "resolving
-                // here only updates this phone" banner above but scoped
-                // to this section specifically. One more trailing slot
-                // in the same flat list, only when there's actually a
-                // reference section to close out.
-                final hintIndex = refHeaderIndex + refs.length + 1;
+                // 2026-09-14: real feedback, live - the trailing "Delete
+                // only affects this device" hint that used to sit here (one
+                // more slot after every ref entry) moved up to the fixed
+                // hint cluster near the top of the page - "easily missed"
+                // at the bottom of a long scroll. One fewer slot in this
+                // flat list's count now that it's gone from here.
                 final totalCount =
-                    entries.length + (hasRefs ? 2 + refs.length : 0);
+                    entries.length + (hasRefs ? 1 + refs.length : 0);
                 return Column(
                   children: [
                     // 2026-08-27: whole-file (non-markdown) conflicts -
@@ -570,12 +573,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // 2026-09-14: real feedback, live - "verbose."
                             Expanded(
                               child: Text(
-                                'Pick a version below. Push here, then pull '
-                                'on desktop, for a full sync.',
-                                style:
-                                    TextStyle(color: kTextMid, fontSize: 13),
+                                'Pick a version below, then push and pull '
+                                'on desktop.',
+                                style: TextStyle(color: kTextMid, fontSize: 13),
                               ),
                             ),
                           ],
@@ -604,9 +607,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     // short preview (who/when or a version count), not
                     // the full conflicting text, and that wasn't obvious.
                     // Same visual pattern as the "Delete only affects this
-                    // device" hint further down for the old-versions
-                    // section, so a returning user reads both the same
-                    // way.
+                    // device" hint just below, so a returning user reads
+                    // both the same way.
                     if (entries.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -616,9 +618,33 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             Icon(Icons.visibility_outlined,
                                 color: kTextDim, size: 14),
                             const SizedBox(width: 6),
+                            // 2026-09-14: real feedback, live - "verbose."
+                            Text('Tap a conflict for the full note.',
+                                style:
+                                    TextStyle(color: kTextDim, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    // 2026-09-14: real feedback, live - "this line is at
+                    // the bottom and easily missed. Move to top under the
+                    // other small text." Used to sit inside the scrollable
+                    // list, past every active conflict and the whole
+                    // "Already resolved" section header - by the time a
+                    // user scrolled that far, the two hints above it were
+                    // long off-screen. Same fixed position as those now,
+                    // still gated on hasRefs (Delete only exists in the
+                    // reference-cleanup section, not the active-conflict
+                    // list above it).
+                    if (hasRefs)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.smartphone, color: kTextDim, size: 14),
+                            const SizedBox(width: 6),
                             Text(
-                                'Preview only - tap a conflict to see the '
-                                'full note.',
+                                'Delete only affects this device until you sync.',
                                 style:
                                     TextStyle(color: kTextDim, fontSize: 12)),
                           ],
@@ -655,29 +681,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       fontWeight: FontWeight.w600)),
                             );
                           }
-                          if (hasRefs && i == hintIndex) {
-                            // 2026-09-10: real feedback, live - "needs an
-                            // image on the left." No arrow here (unlike the
-                            // push/pull icon above) - deleting sends
-                            // nothing anywhere, it just stays on this
-                            // phone until the next sync.
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.smartphone,
-                                      color: kTextDim, size: 14),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                      'Delete only affects this device '
-                                      'until you sync.',
-                                      style: TextStyle(
-                                          color: kTextDim, fontSize: 12)),
-                                ],
-                              ),
-                            );
-                          }
                           if (i > refHeaderIndex) {
                             final ref = refs[i - refHeaderIndex - 1];
                             // 2026-09-07: real feedback, live - "still
@@ -697,14 +700,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(ref.filePath,
-                                  style:
-                                      TextStyle(color: kStar, fontSize: 15)),
+                                  style: TextStyle(color: kStar, fontSize: 15)),
                               subtitle: Text(
                                 ref.label.isEmpty
                                     ? 'An earlier edit, not kept'
                                     : '${ref.label} - not kept',
-                                style:
-                                    TextStyle(color: kTextMid, fontSize: 14),
+                                style: TextStyle(color: kTextMid, fontSize: 14),
                               ),
                               trailing:
                                   Icon(Icons.chevron_right, color: kTextDim),
@@ -890,8 +891,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                 },
                                             ),
                                             const TextSpan(
-                                                text:
-                                                    ' in LocalSync/Conflict '
+                                                text: ' in LocalSync/Conflict '
                                                     'Backups'),
                                             // 2026-08-26: real feedback, live -
                                             // "these user actions like reboot
@@ -948,9 +948,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                         // would otherwise need to be
                                         // dismissed some other way.
                                         TextButton(
-                                          onPressed: () => ScaffoldMessenger
-                                                  .of(context)
-                                              .hideCurrentMaterialBanner(),
+                                          onPressed: () =>
+                                              ScaffoldMessenger.of(context)
+                                                  .hideCurrentMaterialBanner(),
                                           child: Text('DISMISS',
                                               style:
                                                   TextStyle(color: kTextDim)),
@@ -1204,253 +1204,246 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
           Builder(builder: (context) {
             final keptBox = Expanded(
               child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: kGreen.withValues(alpha: 0.08),
-                      border: Border.all(color: kGreen.withValues(alpha: 0.35)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      // 2026-08-26: real feedback, live - "phone image and
-                      // text to vertically align with desktop icon and
-                      // text." Was MainAxisAlignment.center on both sides
-                      // independently - fine when both boxes hold the same
-                      // amount of content, but the amber side gained a
-                      // Delete button (see below) making it taller, so
-                      // centering each block within its own now-different
-                      // total height pushed the icon/devname rows out of
-                      // alignment with each other. Anchoring both to the
-                      // top instead means they start at the same Y
-                      // regardless of what either side has below them.
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Icon(_keptIcon, color: kGreen, size: 22),
-                        const SizedBox(height: 4),
-                        Text(_keptDisplayName,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: kTextMid, fontSize: 11)),
-                        const SizedBox(height: 2),
-                        // 2026-08-26: real feedback, live - "have a
-                        // dropdown text for the phone side" too, mirroring
-                        // the amber side's expandable preview. Uses
-                        // entry.keptPreview (conflict_scanner.dart) - the
-                        // kept side's text has no marker of its own, so
-                        // it's recovered positionally rather than tagged,
-                        // unlike the dropped side's entry.body.
-                        Theme(
-                          data: Theme.of(context)
-                              .copyWith(dividerColor: Colors.transparent),
-                          child: ExpansionTile(
-                            dense: true,
-                            tilePadding: EdgeInsets.zero,
-                            childrenPadding:
-                                const EdgeInsets.fromLTRB(4, 0, 4, 10),
-                            iconColor: kGreen,
-                            collapsedIconColor: kGreen,
-                            // 2026-08-26: real feedback, live - same fix
-                            // as the amber side's matching comment just
-                            // below: built into title now (top-aligned,
-                            // static), not controlAffinity, so this stays
-                            // consistent with the amber side even though
-                            // "IN NOTE NOW" itself is short enough not to
-                            // wrap today.
-                            trailing: const SizedBox.shrink(),
-                            onExpansionChanged: (v) =>
-                                setState(() => _keptExpanded = v),
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: AnimatedRotation(
-                                    turns: _keptExpanded ? 0.25 : 0,
-                                    duration: const Duration(milliseconds: 200),
-                                    child: Icon(Icons.chevron_right,
-                                        size: 16, color: kGreen),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Expanded(
-                                  child: Text('IN NOTE NOW',
-                                      style: TextStyle(
-                                          color: kGreen,
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.4)),
-                                ),
-                              ],
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: kGreen.withValues(alpha: 0.08),
+                  border: Border.all(color: kGreen.withValues(alpha: 0.35)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  // 2026-08-26: real feedback, live - "phone image and
+                  // text to vertically align with desktop icon and
+                  // text." Was MainAxisAlignment.center on both sides
+                  // independently - fine when both boxes hold the same
+                  // amount of content, but the amber side gained a
+                  // Delete button (see below) making it taller, so
+                  // centering each block within its own now-different
+                  // total height pushed the icon/devname rows out of
+                  // alignment with each other. Anchoring both to the
+                  // top instead means they start at the same Y
+                  // regardless of what either side has below them.
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Icon(_keptIcon, color: kGreen, size: 22),
+                    const SizedBox(height: 4),
+                    Text(_keptDisplayName,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: kTextMid, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    // 2026-08-26: real feedback, live - "have a
+                    // dropdown text for the phone side" too, mirroring
+                    // the amber side's expandable preview. Uses
+                    // entry.keptPreview (conflict_scanner.dart) - the
+                    // kept side's text has no marker of its own, so
+                    // it's recovered positionally rather than tagged,
+                    // unlike the dropped side's entry.body.
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        dense: true,
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                        iconColor: kGreen,
+                        collapsedIconColor: kGreen,
+                        // 2026-08-26: real feedback, live - same fix
+                        // as the amber side's matching comment just
+                        // below: built into title now (top-aligned,
+                        // static), not controlAffinity, so this stays
+                        // consistent with the amber side even though
+                        // "IN NOTE NOW" itself is short enough not to
+                        // wrap today.
+                        trailing: const SizedBox.shrink(),
+                        onExpansionChanged: (v) =>
+                            setState(() => _keptExpanded = v),
+                        title: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: AnimatedRotation(
+                                turns: _keptExpanded ? 0.25 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                child: Icon(Icons.chevron_right,
+                                    size: 16, color: kGreen),
+                              ),
                             ),
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                    entry.keptPreview.isEmpty
-                                        ? '(nothing else above this in the note)'
-                                        : entry.keptPreview,
-                                    style: TextStyle(
-                                        color: kStar,
-                                        fontSize: 12,
-                                        height: 1.4)),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // 2026-08-27: real feedback, live - "build the
-                        // undo." Mirrors the amber side's DELETE NOTE
-                        // button below - same width/placement pattern,
-                        // green-accented to match this side. Left off
-                        // entirely (not shown disabled) when onUndo is
-                        // null - see ReferenceCalloutTile's own doc.
-                        if (onUndo != null) ...[
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: onUndo,
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: kGreen),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: Text('UNDO',
+                            const SizedBox(width: 2),
+                            Expanded(
+                              child: Text('IN NOTE NOW',
                                   style: TextStyle(
                                       color: kGreen,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700)),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4)),
                             ),
+                          ],
+                        ),
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                                entry.keptPreview.isEmpty
+                                    ? '(nothing else above this in the note)'
+                                    : entry.keptPreview,
+                                style: TextStyle(
+                                    color: kStar, fontSize: 12, height: 1.4)),
                           ),
                         ],
-                      ],
+                      ),
                     ),
+                    // 2026-08-27: real feedback, live - "build the
+                    // undo." Mirrors the amber side's DELETE NOTE
+                    // button below - same width/placement pattern,
+                    // green-accented to match this side. Left off
+                    // entirely (not shown disabled) when onUndo is
+                    // null - see ReferenceCalloutTile's own doc.
+                    if (onUndo != null) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: onUndo,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: kGreen),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          child: Text('UNDO',
+                              style: TextStyle(
+                                  color: kGreen,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             );
             final droppedBox = Expanded(
               child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.08),
-                      border: Border.all(
-                          color: Colors.amber.withValues(alpha: 0.4)),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Icon(_droppedIcon, color: Colors.amber, size: 22),
-                        const SizedBox(height: 4),
-                        Text(_droppedDisplayName,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: kTextMid, fontSize: 11)),
-                        const SizedBox(height: 2),
-                        // 2026-08-26: real feedback, live - checked
-                        // against resolveConflict (conflict_scanner.dart):
-                        // this content is already written to LocalSync/
-                        // Conflict Backups the moment the conflict was
-                        // resolved, before this callout was even folded
-                        // into the note. "IN CONFLICT BACKUPS" is a fact
-                        // about what already happened, not a promise
-                        // about what Delete below will do - matches the
-                        // finished mockup at
-                        // the design mockup.
-                        Theme(
-                          data: Theme.of(context)
-                              .copyWith(dividerColor: Colors.transparent),
-                          child: ExpansionTile(
-                            dense: true,
-                            tilePadding: EdgeInsets.zero,
-                            childrenPadding:
-                                const EdgeInsets.fromLTRB(4, 0, 4, 10),
-                            iconColor: Colors.amber,
-                            collapsedIconColor: Colors.amber,
-                            // 2026-08-26: real feedback, live - "left
-                            // arrow to be left of IN" - controlAffinity's
-                            // built-in leading icon vertically centers
-                            // against the WHOLE title block, so once "IN
-                            // CONFLICT BACKUPS" wraps to two lines the
-                            // arrow floats between them, not next to "IN"
-                            // specifically. ExpansionTile has no
-                            // titleAlignment passthrough (checked against
-                            // the installed 3.44.9 SDK source directly),
-                            // so the icon is built into title itself here,
-                            // top-aligned via the Row's own
-                            // crossAxisAlignment - trailing suppressed so
-                            // the built-in icon doesn't also show. 2026-08-27:
-                            // rotated manually via _droppedExpanded now the
-                            // tile tracks its own state - see the State
-                            // class just above this widget's declaration.
-                            trailing: const SizedBox.shrink(),
-                            onExpansionChanged: (v) =>
-                                setState(() => _droppedExpanded = v),
-                            title: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: AnimatedRotation(
-                                    turns: _droppedExpanded ? 0.25 : 0,
-                                    duration: const Duration(milliseconds: 200),
-                                    child: const Icon(Icons.chevron_right,
-                                        size: 16, color: Colors.amber),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Expanded(
-                                  child: Text('IN CONFLICT BACKUPS',
-                                      style: TextStyle(
-                                          color: Colors.amber,
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 0.4)),
-                                ),
-                              ],
-                            ),
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(entry.body,
-                                    style: TextStyle(
-                                        color: kStar,
-                                        fontSize: 12,
-                                        height: 1.4)),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.08),
+                  border:
+                      Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Icon(_droppedIcon, color: Colors.amber, size: 22),
+                    const SizedBox(height: 4),
+                    Text(_droppedDisplayName,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: kTextMid, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    // 2026-08-26: real feedback, live - checked
+                    // against resolveConflict (conflict_scanner.dart):
+                    // this content is already written to LocalSync/
+                    // Conflict Backups the moment the conflict was
+                    // resolved, before this callout was even folded
+                    // into the note. "IN CONFLICT BACKUPS" is a fact
+                    // about what already happened, not a promise
+                    // about what Delete below will do - matches the
+                    // finished mockup at
+                    // the design mockup.
+                    Theme(
+                      data: Theme.of(context)
+                          .copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        dense: true,
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                        iconColor: Colors.amber,
+                        collapsedIconColor: Colors.amber,
+                        // 2026-08-26: real feedback, live - "left
+                        // arrow to be left of IN" - controlAffinity's
+                        // built-in leading icon vertically centers
+                        // against the WHOLE title block, so once "IN
+                        // CONFLICT BACKUPS" wraps to two lines the
+                        // arrow floats between them, not next to "IN"
+                        // specifically. ExpansionTile has no
+                        // titleAlignment passthrough (checked against
+                        // the installed 3.44.9 SDK source directly),
+                        // so the icon is built into title itself here,
+                        // top-aligned via the Row's own
+                        // crossAxisAlignment - trailing suppressed so
+                        // the built-in icon doesn't also show. 2026-08-27:
+                        // rotated manually via _droppedExpanded now the
+                        // tile tracks its own state - see the State
+                        // class just above this widget's declaration.
+                        trailing: const SizedBox.shrink(),
+                        onExpansionChanged: (v) =>
+                            setState(() => _droppedExpanded = v),
+                        title: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: AnimatedRotation(
+                                turns: _droppedExpanded ? 0.25 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                child: const Icon(Icons.chevron_right,
+                                    size: 16, color: Colors.amber),
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // 2026-08-26: real feedback, live - "make button
-                        // same width and vertically aligned with right
-                        // section." A separate Row below, sized to match
-                        // via identical flex proportions, wasn't reliably
-                        // exact - nested directly inside this same amber
-                        // Expanded instead, so the width match is exact
-                        // by construction, not by two Rows happening to
-                        // agree. "Change DELETE image, to DELETE NOTE" -
-                        // device icon replaced with a second word, per
-                        // direct instruction. Worth a second look though:
-                        // this only ever removes the folded callout block
-                        // from the note (see deleteReferenceCallout,
-                        // conflict_repair.dart), never the note itself -
-                        // "DELETE NOTE" reads as more destructive than
-                        // what actually happens.
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton(
-                            onPressed: onDelete,
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.redAccent),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
-                            child: const Text('DELETE NOTE',
-                                style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700)),
-                          ),
+                            const SizedBox(width: 2),
+                            const Expanded(
+                              child: Text('IN CONFLICT BACKUPS',
+                                  style: TextStyle(
+                                      color: Colors.amber,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4)),
+                            ),
+                          ],
                         ),
-                      ],
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(entry.body,
+                                style: TextStyle(
+                                    color: kStar, fontSize: 12, height: 1.4)),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(height: 8),
+                    // 2026-08-26: real feedback, live - "make button
+                    // same width and vertically aligned with right
+                    // section." A separate Row below, sized to match
+                    // via identical flex proportions, wasn't reliably
+                    // exact - nested directly inside this same amber
+                    // Expanded instead, so the width match is exact
+                    // by construction, not by two Rows happening to
+                    // agree. "Change DELETE image, to DELETE NOTE" -
+                    // device icon replaced with a second word, per
+                    // direct instruction. Worth a second look though:
+                    // this only ever removes the folded callout block
+                    // from the note (see deleteReferenceCallout,
+                    // conflict_repair.dart), never the note itself -
+                    // "DELETE NOTE" reads as more destructive than
+                    // what actually happens.
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: onDelete,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        child: const Text('DELETE NOTE',
+                            style: TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
             const gap = SizedBox(width: 12);
