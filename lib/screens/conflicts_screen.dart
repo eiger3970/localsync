@@ -602,54 +602,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         child: ConflictPickerUpsell(
                             purchases: context.watch<PurchaseService>()),
                       ),
-                    // 2026-09-12: real feedback, live - "only shows 3
-                    // lines, unsure what to do" - the subtitle below is a
-                    // short preview (who/when or a version count), not
-                    // the full conflicting text, and that wasn't obvious.
-                    // Same visual pattern as the "Delete only affects this
-                    // device" hint just below, so a returning user reads
-                    // both the same way.
-                    if (entries.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.visibility_outlined,
-                                color: kTextDim, size: 14),
-                            const SizedBox(width: 6),
-                            // 2026-09-14: real feedback, live - "verbose."
-                            Text('Tap a conflict for the full note.',
-                                style:
-                                    TextStyle(color: kTextDim, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                    // 2026-09-14: real feedback, live - "this line is at
-                    // the bottom and easily missed. Move to top under the
-                    // other small text." Used to sit inside the scrollable
-                    // list, past every active conflict and the whole
-                    // "Already resolved" section header - by the time a
-                    // user scrolled that far, the two hints above it were
-                    // long off-screen. Same fixed position as those now,
-                    // still gated on hasRefs (Delete only exists in the
-                    // reference-cleanup section, not the active-conflict
-                    // list above it).
-                    if (hasRefs)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.smartphone, color: kTextDim, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                                'Delete only affects this device until you sync.',
-                                style:
-                                    TextStyle(color: kTextDim, fontSize: 12)),
-                          ],
-                        ),
-                      ),
+                    // 2026-09-14: real feedback, live - "shouldn't be on
+                    // this page, as Pick a version below, then push and
+                    // pull on desktop is already here." Both of the
+                    // removed hints were true but redundant once that
+                    // top line already establishes "everything here
+                    // needs a sync." "Tap a conflict for the full note"
+                    // is also stale now that tapping in shows everything
+                    // immediately (the full-note-context fix) rather
+                    // than a partial view needing a second expand step -
+                    // "that can be self evident" for a real oversized
+                    // note if one ever needs its own scroll/fold, not
+                    // something to explain up front for every note.
                     Expanded(
                       child: ListView.separated(
                         padding: const EdgeInsets.all(16),
