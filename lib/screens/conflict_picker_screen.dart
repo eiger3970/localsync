@@ -9,6 +9,8 @@
 // it; the file gets rewritten with exactly that span replaced - see
 // conflict_scanner.dart's resolveConflict.
 
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
@@ -79,17 +81,59 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // promise and behavior. Now genuinely tracks which is true so the
   // dialog is never wrong, whichever way Settings has this configured.
   bool _keepLeftoverInNote = false;
+  // 2026-09-14: real feedback, live - "I've said all along to include
+  // all the text." The panels below only ever showed the disputed
+  // span itself (versions[i].body) - correct for what actually needs a
+  // decision, but it meant anything written earlier in the same note
+  // (the rest of that day's journal entry, in the real case that
+  // prompted this) was invisible here even though it's identical on
+  // both devices and gives real context for judging the conflict.
+  // Loaded once, read-only, never re-fetched - this screen never edits
+  // anything outside the conflict span itself, so a stale copy here
+  // has no consequence beyond a possibly-outdated context view (the
+  // same file-changed-since-scan risk resolveConflict already guards
+  // against for the part that actually gets written).
+  String? _precedingContext;
+  bool _contextLoadFailed = false;
 
   @override
   void initState() {
     super.initState();
     _resolveMyDeviceName();
     _loadKeepLeftoverSetting();
+    _loadPrecedingContext();
   }
 
   Future<void> _loadKeepLeftoverSetting() async {
     final value = await DatabaseService().getKeepLeftoverInNote();
     if (mounted) setState(() => _keepLeftoverInNote = value);
+  }
+
+  Future<void> _loadPrecedingContext() async {
+    final vaultFolder = VaultFolderService();
+    String? vaultPath;
+    try {
+      vaultPath = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
+      if (vaultPath == null) {
+        if (mounted) setState(() => _contextLoadFailed = true);
+        return;
+      }
+      final entry = widget.entry;
+      final file = File('$vaultPath/${entry.filePath}');
+      final content = await file.readAsString();
+      if (entry.matchStart > content.length) {
+        if (mounted) setState(() => _contextLoadFailed = true);
+        return;
+      }
+      final preceding = content.substring(0, entry.matchStart).trimRight();
+      if (mounted) setState(() => _precedingContext = preceding);
+    } catch (_) {
+      if (mounted) setState(() => _contextLoadFailed = true);
+    } finally {
+      if (vaultPath != null) {
+        await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+      }
+    }
   }
 
   // 2026-09-08, fourth pass - real feedback, live: "the order is
@@ -623,6 +667,60 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // 2026-09-14: real feedback, live - "I've said all along
+                // to include all the fucking text." The panels below only
+                // ever showed the disputed span - correct for the actual
+                // decision, but left everything written earlier in the
+                // same note invisible here, even though it's identical on
+                // both devices and gives real context. Shown fully
+                // expanded (not behind a tap/expand - the exact complaint
+                // that started this), in its own bounded scroll area so
+                // a long day's journal doesn't push the actual decision
+                // panels off past several screens of scrolling. Read-only
+                // - this screen never touches anything outside the
+                // conflict span itself.
+                if (_precedingContext != null &&
+                    _precedingContext!.isNotEmpty) ...[
+                  Text('Rest of this note (same on both devices):',
+                      style: TextStyle(
+                          color: kTextMid,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: kSurface,
+                      border: Border.all(color: kTextDim),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(_precedingContext!,
+                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ] else if (_contextLoadFailed) ...[
+                  Row(
+                    children: [
+                      Icon(Icons.warning_amber, color: Colors.amber, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            "Couldn't load the rest of this note for "
+                            'context - the two versions below are still '
+                            'complete and safe to decide from.',
+                            style: TextStyle(
+                                color: Colors.amber,
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 // 2026-09-10: real feedback, live - "needs an image on
                 // the left." touch_app matches the instruction itself
                 // (tap a version below to act on it).
