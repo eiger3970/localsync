@@ -343,109 +343,109 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Text('Keep this version?',
-            style: TextStyle(color: kStar, fontSize: 17)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DialogPoint(
-                icon: Icons.check_circle,
+          backgroundColor: kSurface,
+          title: Text('Keep this version?',
+              style: TextStyle(color: kStar, fontSize: 17)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DialogPoint(
+                  icon: Icons.check_circle,
+                  color: kGreen,
+                  text: 'Keeps "$label"'),
+              _DialogPoint(
+                  icon: Icons.cancel,
+                  color: _kBrightRed,
+                  text: _keepLeftoverInNote
+                      ? (otherCount == 1
+                          ? 'Keeps the other version too, collapsed for reference'
+                          : 'Keeps the other $otherCount versions too, collapsed for reference')
+                      : (otherCount == 1
+                          ? 'Removes the other version from this note'
+                          : 'Removes the other $otherCount versions from this note')),
+              // 2026-08-19: real feedback, live - this used check_circle
+              // too, same glyph as the "keeps" line above, which read as
+              // if the two were related (they're not - this is separate
+              // reassurance info, not part of the keep/remove decision).
+              // Icons.backup matches conflicts_screen.dart's own
+              // _SafetyStep row, which already uses this exact icon for
+              // the same concept.
+              //
+              // 2026-08-20: tappable link, same as the post-resolve
+              // snackbar (conflicts_screen.dart) - opens the vault in
+              // general (widget.repo.name is already the vault folder
+              // name, set at link time, no extra vault access needed).
+              // A same-session A/B test confirmed which note Obsidian
+              // shows afterward tracks whatever was on-screen in Obsidian
+              // right before switching away, not this button - reverted
+              // an earlier "open Obsidian" rewording that tried to hedge
+              // around that, per direct instruction not to.
+              _DialogPoint(
+                icon: Icons.backup,
                 color: kGreen,
-                text: 'Keeps "$label"'),
-            _DialogPoint(
-                icon: Icons.cancel,
-                color: _kBrightRed,
-                text: _keepLeftoverInNote
-                    ? (otherCount == 1
-                        ? 'Keeps the other version too, collapsed for reference'
-                        : 'Keeps the other $otherCount versions too, collapsed for reference')
-                    : (otherCount == 1
-                        ? 'Removes the other version from this note'
-                        : 'Removes the other $otherCount versions from this note')),
-            // 2026-08-19: real feedback, live - this used check_circle
-            // too, same glyph as the "keeps" line above, which read as
-            // if the two were related (they're not - this is separate
-            // reassurance info, not part of the keep/remove decision).
-            // Icons.backup matches conflicts_screen.dart's own
-            // _SafetyStep row, which already uses this exact icon for
-            // the same concept.
-            //
-            // 2026-08-20: tappable link, same as the post-resolve
-            // snackbar (conflicts_screen.dart) - opens the vault in
-            // general (widget.repo.name is already the vault folder
-            // name, set at link time, no extra vault access needed).
-            // A same-session A/B test confirmed which note Obsidian
-            // shows afterward tracks whatever was on-screen in Obsidian
-            // right before switching away, not this button - reverted
-            // an earlier "open Obsidian" rewording that tried to hedge
-            // around that, per direct instruction not to.
-            _DialogPoint(
-              icon: Icons.backup,
-              color: kGreen,
-              text: 'Every version backed up first, in ',
-              linkText: 'LocalSync/Conflict Backups',
-              onLinkTap: () =>
-                  IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
-            ),
-            const SizedBox(height: 8),
-            // 2026-09-08: real feedback, live - "gone entirely" (today)
-            // vs "I need all or part of that data onto this device"
-            // (2026-08-25's own explicit ask) are genuinely opposite
-            // wants, not a bug to pick one winner for - a per-resolution
-            // toggle right here beats a buried Settings-screen entry
-            // nobody would find in the moment it actually matters.
-            // Changing it here also updates the saved default via
-            // DatabaseService, so the next resolution starts from
-            // whatever was picked last.
-            InkWell(
-              onTap: () {
-                final next = !_keepLeftoverInNote;
-                setDialogState(() {});
-                setState(() => _keepLeftoverInNote = next);
-                DatabaseService().setKeepLeftoverInNote(next);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                        _keepLeftoverInNote
-                            ? Icons.check_box
-                            : Icons.check_box_outline_blank,
-                        color: kGreen,
-                        size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                          'Keep the other version too, collapsed for '
-                          'reference in this note',
-                          style: TextStyle(color: kTextMid, fontSize: 13)),
-                    ),
-                  ],
+                text: 'Every version backed up first, in ',
+                linkText: 'LocalSync/Conflict Backups',
+                onLinkTap: () => IosAppServiceImpl()
+                    .openObsidian(vaultName: widget.repo.name),
+              ),
+              const SizedBox(height: 8),
+              // 2026-09-08: real feedback, live - "gone entirely" (today)
+              // vs "I need all or part of that data onto this device"
+              // (2026-08-25's own explicit ask) are genuinely opposite
+              // wants, not a bug to pick one winner for - a per-resolution
+              // toggle right here beats a buried Settings-screen entry
+              // nobody would find in the moment it actually matters.
+              // Changing it here also updates the saved default via
+              // DatabaseService, so the next resolution starts from
+              // whatever was picked last.
+              InkWell(
+                onTap: () {
+                  final next = !_keepLeftoverInNote;
+                  setDialogState(() {});
+                  setState(() => _keepLeftoverInNote = next);
+                  DatabaseService().setKeepLeftoverInNote(next);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                          _keepLeftoverInNote
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank,
+                          color: kGreen,
+                          size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                            'Keep the other version too, collapsed for '
+                            'reference in this note',
+                            style: TextStyle(color: kTextMid, fontSize: 13)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            ],
+          ),
+          actions: [
+            // 2026-08-20: real feedback, live - kTextDim read as a
+            // disabled/dead button, not a live but de-emphasized one.
+            // kTextMid is still visibly secondary next to "Keep this
+            // version"'s bright kStar, without looking inert.
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text('Not now',
+                  style: TextStyle(color: kTextMid, fontSize: 15)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text('Keep this version',
+                  style: TextStyle(color: kStar, fontSize: 15)),
             ),
           ],
-        ),
-        actions: [
-          // 2026-08-20: real feedback, live - kTextDim read as a
-          // disabled/dead button, not a live but de-emphasized one.
-          // kTextMid is still visibly secondary next to "Keep this
-          // version"'s bright kStar, without looking inert.
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Not now',
-                style: TextStyle(color: kTextMid, fontSize: 15)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Keep this version',
-                style: TextStyle(color: kStar, fontSize: 15)),
-          ),
-        ],
         ),
       ),
     );
@@ -517,8 +517,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('Keep both',
-                style: TextStyle(color: kStar, fontSize: 15)),
+            child:
+                Text('Keep both', style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
       ),
@@ -582,6 +582,42 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final useDiff = versions.length == 2 &&
         versions[0].body.length <= maxDiffTokens * 6 &&
         versions[1].body.length <= maxDiffTokens * 6;
+
+    // 2026-09-14: real feedback, live - "the left and right sides need to
+    // have the similar text on the same row, similar to vimdiff... this
+    // has pushed all the right text lower and not aligned with the
+    // left text. Humans struggle to match the similar left and right
+    // text." Placing the disputed text by ITS OWN leading time (the
+    // previous fix) meant each panel could split the shared context at
+    // a different point - correct in isolation, but it broke the one
+    // thing a side-by-side view depends on: identical context sitting
+    // at the identical row on both sides. Computed once here instead of
+    // per-panel, from whichever version actually has a leading time
+    // (there's normally at most one in a real two-way conflict - an
+    // untimed side like a Kanban card or "Phone have less functions..."
+    // has nothing to place by anyway) - both panels now split the same
+    // shared text at the exact same point, so only the highlighted
+    // middle differs, never the alignment.
+    final contextParagraphs =
+        _precedingContext == null || _precedingContext!.isEmpty
+            ? const <String>[]
+            : splitIntoParagraphs(_precedingContext!);
+    final sharedInsertIdx = contextParagraphs.isEmpty
+        ? 0
+        : () {
+            for (final v in versions) {
+              if (allHaveLeadingTime([v.body])) {
+                return insertionIndexByTime(contextParagraphs, v.body);
+              }
+            }
+            return 0;
+          }();
+    final sharedBeforeContext = contextParagraphs.isEmpty
+        ? ''
+        : contextParagraphs.sublist(0, sharedInsertIdx).join('\n\n');
+    final sharedAfterContext = contextParagraphs.isEmpty
+        ? ''
+        : contextParagraphs.sublist(sharedInsertIdx).join('\n\n');
 
     // 2026-09-14: real feedback, live - "the 2 sides don't correspond to
     // what I'm seeing on the desktop and phone versions." This used to
@@ -661,8 +697,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       // transparent so the global FlagBackdrop shows through instead.
       appBar: AppBar(
         backgroundColor: kVoid,
-        title: Text(entry.filePath,
-            style: TextStyle(color: kStar, fontSize: 16)),
+        title:
+            Text(entry.filePath, style: TextStyle(color: kStar, fontSize: 16)),
       ),
       body: _resolving
           ? Center(child: CircularProgressIndicator(color: kGreen))
@@ -857,8 +893,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     // do, I need an i for information." Same pattern
                     // as the other two info buttons on this screen.
                     IconButton(
-                      icon: Icon(Icons.info_outline,
-                          color: kTextDim, size: 18),
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 18),
                       tooltip: 'What is this?',
                       onPressed: _showCompareBackupInfo,
                     ),
@@ -890,7 +925,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                 versions[0].body, versions[1].body),
                             plainText: versions[0].body,
                             highlightColor: _kBrightRed,
-                            leadingContext: _precedingContext,
+                            beforeContext: sharedBeforeContext,
+                            afterContext: sharedAfterContext,
                             onTap: () => _confirmAndChoose(
                                 titleFor(0), versions[0].body),
                           ),
@@ -911,7 +947,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                 versions[0].body, versions[1].body),
                             plainText: versions[1].body,
                             highlightColor: kGreen,
-                            leadingContext: _precedingContext,
+                            beforeContext: sharedBeforeContext,
+                            afterContext: sharedAfterContext,
                             onTap: () => _confirmAndChoose(
                                 titleFor(1), versions[1].body),
                           ),
@@ -964,8 +1001,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.info_outline,
-                            color: kTextDim, size: 20),
+                        icon:
+                            Icon(Icons.info_outline, color: kTextDim, size: 20),
                         tooltip: 'What is this?',
                         // 2026-09-10: real feedback, live - "eye bleed,
                         // kiss, point form with images" - was one dense
@@ -984,7 +1021,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       tokens: null,
                       plainText: versions[i].body,
                       highlightColor: i == 0 ? _kBrightRed : kGreen,
-                      leadingContext: _precedingContext,
+                      beforeContext: sharedBeforeContext,
+                      afterContext: sharedAfterContext,
                       onTap: () =>
                           _confirmAndChoose(titleFor(i), versions[i].body),
                     ),
@@ -1072,8 +1110,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           Positioned(
                             top: 0,
                             right: 0,
-                            child: Icon(Icons.computer,
-                                color: kTextMid, size: 11),
+                            child:
+                                Icon(Icons.computer, color: kTextMid, size: 11),
                           ),
                         ],
                       ),
@@ -1135,8 +1173,7 @@ class _DialogPoint extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: linkText == null
-                ? Text(text,
-                    style: TextStyle(color: kStar, fontSize: 15))
+                ? Text(text, style: TextStyle(color: kStar, fontSize: 15))
                 : Text.rich(
                     TextSpan(
                       style: TextStyle(color: kStar, fontSize: 15),
@@ -1149,8 +1186,7 @@ class _DialogPoint extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
                           ),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = onLinkTap,
+                          recognizer: TapGestureRecognizer()..onTap = onLinkTap,
                         ),
                       ],
                     ),
@@ -1168,17 +1204,21 @@ class _ConflictPanel extends StatelessWidget {
   final String plainText;
   final Color highlightColor;
   final VoidCallback onTap;
-  // 2026-09-14: real feedback, live - a separate gray block above both
-  // panels read as "disjointed, messy and confusing" - "why not have
-  // the text in the left red or right green text?" Folded into the
-  // panel itself instead: shared text (identical either way) muted,
-  // this side's own disputed text in its normal highlighted style right
-  // after it - each panel now reads as a real preview of the whole note
-  // as it would look if this side is kept, not two disconnected things
-  // to mentally stitch together. Null/empty when there's nothing before
-  // the conflict (a note that starts with the disputed span itself) -
-  // no leading block shown in that case.
-  final String? leadingContext;
+  // 2026-09-14: real feedback, live, two rounds - first "why not have
+  // the text in the left red or right green text?" (folded a separate
+  // gray block into each panel), then "the left and right sides need
+  // to have the similar text on the same row, similar to vimdiff...
+  // humans struggle to match the similar left and right text" (each
+  // panel picking its own split point by its own disputed text's time
+  // broke that alignment). Both beforeContext/afterContext are now
+  // computed once by the parent screen, from whichever version
+  // actually has a leading time, and passed down identically to every
+  // panel - same shared text lands at the same row on every side,
+  // only the highlighted middle (this panel's own disputed text)
+  // differs. Empty strings (not null) when there's nothing on that
+  // side - simpler than a nullable check at every call site.
+  final String beforeContext;
+  final String afterContext;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1186,32 +1226,12 @@ class _ConflictPanel extends StatelessWidget {
     required this.plainText,
     required this.highlightColor,
     required this.onTap,
-    this.leadingContext,
+    this.beforeContext = '',
+    this.afterContext = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    // 2026-09-14: real feedback, live - "this time 0950 clearly if in
-    // between 0800 and 0953. Or do you read text time data where the
-    // text was entered later?" When the disputed text itself starts
-    // with the same bare HHMM time this user's journal always uses,
-    // its real position among the shared context is knowable, not just
-    // "before" or "after" as a fixed rule - insertionIndexByTime finds
-    // it. When it doesn't (most Kanban cards, to-dos, ordinary prose),
-    // there's nothing to place it by, so this falls back to the
-    // previous fix's rule: disputed text first, full context below.
-    final hasOwnTime = allHaveLeadingTime([plainText]);
-    final contextParagraphs = leadingContext == null || leadingContext!.isEmpty
-        ? const <String>[]
-        : splitIntoParagraphs(leadingContext!);
-    final insertIdx = hasOwnTime && contextParagraphs.isNotEmpty
-        ? insertionIndexByTime(contextParagraphs, plainText)
-        : 0;
-    final beforeContext =
-        contextParagraphs.isEmpty ? '' : contextParagraphs.sublist(0, insertIdx).join('\n\n');
-    final afterContext =
-        contextParagraphs.isEmpty ? '' : contextParagraphs.sublist(insertIdx).join('\n\n');
-
     Widget disputedText() => tokens == null
         ? Text(plainText, style: TextStyle(color: kStar, fontSize: 14))
         : Text.rich(
