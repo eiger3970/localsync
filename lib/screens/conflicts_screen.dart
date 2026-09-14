@@ -73,6 +73,22 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   // of its own and filePath is unique enough for this app's one-conflict-
   // per-note-in-practice usage.
   Set<String> _revertedPaths = {};
+  // 2026-09-14: real feedback, live - "the user's eye is trained and
+  // trusted on this same location, rather than new information
+  // appearing at the Resolved step... So Tap a conflict below can be
+  // glowing green. Then the push and pull on desktop can glow green
+  // when the conflict is complete." Step 1 is always green whenever
+  // this whole hint shows at all (it's only shown when entries.isNotEmpty
+  // - nothing else to gate). Step 2 needs real state: green right after
+  // resolving something, reset back to grey the moment a conflict newer
+  // than the one just resolved shows up (a fresh, unpushed round of its
+  // own). Entries have no stable id (see _revertedPaths' own doc above)
+  // but they do have sortable YYYYMMDDhhmm `when` strings already used
+  // for sort order - tracking the newest `when` seen at resolve time and
+  // comparing against each fresh scan's newest is precise without
+  // needing an id.
+  bool _pushReminderGlowing = false;
+  String? _newestWhenAtLastResolve;
 
   @override
   void initState() {
@@ -109,6 +125,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       // no timestamp (shouldn't normally happen - every stacked entry
       // has at least one non-"yours" version) sort last, not first.
       entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
+      // 2026-09-14: real feedback, live - the push-reminder glow
+      // (_pushReminderGlowing) should reset the moment a conflict newer
+      // than the one just resolved shows up - a fresh, unpushed round of
+      // its own, not still covered by "you already resolved this."
+      // Plain field mutation, not setState - FutureBuilder already
+      // rebuilds when this scan's Future completes, and _scan runs after
+      // an await (never during the initial synchronous build), so
+      // there's no unmounted-widget risk either.
+      final newestWhen = entries.isNotEmpty ? entries.first.when : null;
+      if (_pushReminderGlowing &&
+          _newestWhenAtLastResolve != null &&
+          newestWhen != null &&
+          newestWhen.compareTo(_newestWhenAtLastResolve!) > 0) {
+        _pushReminderGlowing = false;
+      }
       await _checkForReverts(entries);
       final refs = await scanForReferenceCallouts(path);
       final binary = scanBinaryConflictLog(path);
@@ -487,47 +518,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           ),
                         ),
                       ),
-                    // 2026-09-08: real feedback, live - "one tap" Undo for
-                    // Keep Both. Same reasoning as the binary-conflicts
-                    // banner above: its own screen, not interleaved into
-                    // this list's already-fragile section index math.
-                    if (keptBoth.isNotEmpty)
-                      Material(
-                        color: kGreen.withValues(alpha: 0.08),
-                        child: InkWell(
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    KeptBothScreen(repo: widget.repo),
-                              ),
-                            );
-                            if (mounted) setState(() => _future = _scan());
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                Icon(Icons.undo, color: kGreen, size: 20),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    '${keptBoth.length} merged '
-                                    '${keptBoth.length == 1 ? 'conflict' : 'conflicts'} '
-                                    '(Keep Both) - tap to undo any of them',
-                                    style:
-                                        TextStyle(color: kStar, fontSize: 13.5),
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right,
-                                    color: kTextDim, size: 20),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                     // 2026-08-26: real feedback, live - "these steps are
                     // needed in the moment, not some obscure guide."
                     // Moved here (only shown when there is actually
@@ -575,12 +565,41 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // 2026-09-14: real feedback, live - "verbose."
+                            // 2026-09-14: real feedback, live - "the
+                            // user's eye is trained and trusted on this
+                            // same location, rather than new information
+                            // appearing at the Resolved step... Tap a
+                            // conflict below can be glowing green. Then
+                            // the push and pull on desktop can glow green
+                            // when the conflict is complete." Step 1 is
+                            // always green here - this whole block only
+                            // ever renders when entries.isNotEmpty, so
+                            // there's nothing else step 1 needs to
+                            // condition on. Step 2 glows once
+                            // _pushReminderGlowing is true (see its own
+                            // doc on the state field above).
                             Expanded(
-                              child: Text(
-                                'Pick a conflict below, then push and pull '
-                                'on desktop.',
-                                style: TextStyle(color: kTextMid, fontSize: 13),
+                              child: Text.rich(
+                                TextSpan(
+                                  style:
+                                      TextStyle(color: kTextMid, fontSize: 13),
+                                  children: [
+                                    TextSpan(
+                                        text: 'Tap a conflict below',
+                                        style: TextStyle(
+                                            color: kGreen,
+                                            fontWeight: FontWeight.w600)),
+                                    const TextSpan(text: ', then '),
+                                    TextSpan(
+                                        text: 'push and pull on desktop',
+                                        style: _pushReminderGlowing
+                                            ? TextStyle(
+                                                color: kGreen,
+                                                fontWeight: FontWeight.w600)
+                                            : null),
+                                    const TextSpan(text: '.'),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
@@ -603,6 +622,50 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                         child: ConflictPickerUpsell(
                             purchases: context.watch<PurchaseService>()),
+                      ),
+                    // 2026-09-14: real feedback, live - "this new message
+                    // seems out of place" - sitting above "Tap a conflict
+                    // below" made a notification about an already-done
+                    // action compete with the actual primary instruction
+                    // for this page. Moved to right before the list it's
+                    // adjacent to in spirit (both are "something to tap"),
+                    // letting the real instruction lead the page instead.
+                    if (keptBoth.isNotEmpty)
+                      Material(
+                        color: kGreen.withValues(alpha: 0.08),
+                        child: InkWell(
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    KeptBothScreen(repo: widget.repo),
+                              ),
+                            );
+                            if (mounted) setState(() => _future = _scan());
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(Icons.undo, color: kGreen, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${keptBoth.length} merged '
+                                    '${keptBoth.length == 1 ? 'conflict' : 'conflicts'} '
+                                    '(Keep Both) - tap to undo any of them',
+                                    style:
+                                        TextStyle(color: kStar, fontSize: 13.5),
+                                  ),
+                                ),
+                                Icon(Icons.chevron_right,
+                                    color: kTextDim, size: 20),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     // 2026-09-14: real feedback, live - "shouldn't be on
                     // this page, as Pick a version below, then push and
@@ -745,7 +808,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 ),
                               );
                               if (result?.resolved == true) {
-                                setState(() => _future = _scan());
+                                setState(() {
+                                  _pushReminderGlowing = true;
+                                  _newestWhenAtLastResolve = entries.isNotEmpty
+                                      ? entries.first.when
+                                      : e.when;
+                                  _future = _scan();
+                                });
                                 // 2026-08-19: tried deep-linking straight to
                                 // the exact backup note (obsidian://open?
                                 // vault=...&file=...) - real device testing
