@@ -808,8 +808,20 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                   'arrived. Tap the one to keep; the rest '
                                   'are still saved to "LocalSync/Conflict '
                                   'Backups".'
-                              : "Tap a version to review it, then confirm - "
-                                  'nothing is changed until you confirm.',
+                              // 2026-09-14: real feedback, live - "I
+                              // don't need to tap, as I already see,
+                              // read and can review right now in this
+                              // screen. Tapping will only be for an
+                              // action to fix something, not to
+                              // review it." Correct, and stale copy
+                              // from before the full-note-context fix
+                              // - both versions are already fully
+                              // readable on screen with no tap needed,
+                              // so "review" framing on the tap itself
+                              // was wrong. Tapping is the one real
+                              // action here: keep that version.
+                              : 'Tap a version to keep - nothing changed '
+                                  'until confirmed.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                   ],
