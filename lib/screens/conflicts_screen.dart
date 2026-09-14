@@ -576,7 +576,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             // 2026-09-14: real feedback, live - "verbose."
                             Expanded(
                               child: Text(
-                                'Pick a version below, then push and pull '
+                                'Pick a conflict below, then push and pull '
                                 'on desktop.',
                                 style: TextStyle(color: kTextMid, fontSize: 13),
                               ),

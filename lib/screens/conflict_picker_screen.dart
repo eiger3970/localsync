@@ -416,7 +416,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               _DialogPoint(
                 icon: Icons.backup,
                 color: kGreen,
-                text: 'Every version backed up first, in ',
+                text: 'All text backed up first, in ',
                 linkText: 'LocalSync/Conflict Backups',
                 onLinkTap: () => IosAppServiceImpl()
                     .openObsidian(vaultName: widget.repo.name),
@@ -433,8 +433,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   icon: Icons.cancel,
                   color: _kBrightRed,
                   text: otherCount == 1
-                      ? 'Removes the other version from this note'
-                      : 'Removes the other $otherCount versions from this note'),
+                      ? 'Removes the other text from this note'
+                      : 'Removes the other $otherCount texts from this note'),
               // 2026-09-08: real feedback, live - "gone entirely" (today)
               // vs "I need all or part of that data onto this device"
               // (2026-08-25's own explicit ask) are genuinely opposite
@@ -471,9 +471,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     Expanded(
                       child: Text(
                           otherCount == 1
-                              ? 'Keep the other version in this note '
+                              ? 'Keep the other text in this note '
                                   'too, collapsed for reference'
-                              : 'Keep the other $otherCount versions '
+                              : 'Keep the other $otherCount texts '
                                   'in this note too, collapsed for '
                                   'reference',
                           style: TextStyle(color: kTextMid, fontSize: 13)),
@@ -499,24 +499,46 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               ),
             ],
           ),
+          // 2026-09-14: real feedback, live - "Not now (is pushed to
+          // right rather the left side) and Keep desktop obsidian -
+          // 202609140910 (pushed to bottom left rather than being on
+          // right side)." AlertDialog's default `actions` row
+          // (OverflowBar) right-aligns two buttons on one line only
+          // when they fit - $label can be long and dynamic (a real
+          // device name plus a timestamp), and once it doesn't fit,
+          // OverflowBar's own wrap behavior stacks and reorders both
+          // buttons unpredictably rather than just wrapping the text
+          // within a button. Explicit full-width stacked buttons
+          // instead - same position every time regardless of how long
+          // $label happens to be, matching this screen's own established
+          // full-width OutlinedButton pattern (KEEP BOTH, MERGE TEXT
+          // INSTEAD below).
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           actions: [
-            // 2026-08-20: real feedback, live - kTextDim read as a
-            // disabled/dead button, not a live but de-emphasized one.
-            // kTextMid is still visibly secondary next to "Keep this
-            // version"'s bright kStar, without looking inert.
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text('Not now',
-                  style: TextStyle(color: kTextMid, fontSize: 15)),
-            ),
-            // 2026-09-14: real feedback, live - "Change Keep this
-            // version, to Keep iPhone" - names the actual device
-            // instead of the generic "this version," matching the
-            // title above.
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text('Keep $label',
-                  style: TextStyle(color: kStar, fontSize: 15)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: kGreen),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text('Keep $label',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: kStar, fontSize: 15)),
+                ),
+                const SizedBox(height: 8),
+                // 2026-08-20: real feedback, live - kTextDim read as a
+                // disabled/dead button, not a live but de-emphasized
+                // one. kTextMid is still visibly secondary next to
+                // "Keep $label"'s bright kStar, without looking inert.
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text('Not now',
+                      style: TextStyle(color: kTextMid, fontSize: 15)),
+                ),
+              ],
             ),
           ],
         ),
@@ -852,7 +874,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               // button text directly.
                               // 2026-09-14: "this text and the Conflict
                               // text need to not be verbose."
-                              : 'Tap a version to keep.',
+                              : 'Tap your text to keep.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                   ],
