@@ -668,59 +668,37 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 // 2026-09-14: real feedback, live - "I've said all along
-                // to include all the fucking text." The panels below only
-                // ever showed the disputed span - correct for the actual
-                // decision, but left everything written earlier in the
-                // same note invisible here, even though it's identical on
-                // both devices and gives real context. Shown fully
-                // expanded (not behind a tap/expand - the exact complaint
-                // that started this), in its own bounded scroll area so
-                // a long day's journal doesn't push the actual decision
-                // panels off past several screens of scrolling. Read-only
-                // - this screen never touches anything outside the
-                // conflict span itself.
-                if (_precedingContext != null &&
-                    _precedingContext!.isNotEmpty) ...[
-                  Text('Rest of this note (same on both devices):',
-                      style: TextStyle(
-                          color: kTextMid,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: double.infinity,
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: kSurface,
-                      border: Border.all(color: kTextDim),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Text(_precedingContext!,
-                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                // to include all the fucking text", then "disjointed,
+                // messy and confusing... why not have the text in the
+                // left red or right green text?" A separate gray context
+                // block above the two colored panels read as a third,
+                // disconnected thing rather than part of either choice.
+                // Folded into each panel instead (see _ConflictPanel's
+                // leadingContext) - each one now reads as a real preview
+                // of what the whole note looks like if that side is kept,
+                // shared text muted, that side's own addition in its own
+                // color, no separate block to reconcile against.
+                if (_contextLoadFailed)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber,
+                            color: Colors.amber, size: 14),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                              "Couldn't load the rest of this note for "
+                              'context - the two versions below are still '
+                              'complete and safe to decide from.',
+                              style: TextStyle(
+                                  color: Colors.amber,
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic)),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 14),
-                ] else if (_contextLoadFailed) ...[
-                  Row(
-                    children: [
-                      Icon(Icons.warning_amber, color: Colors.amber, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                            "Couldn't load the rest of this note for "
-                            'context - the two versions below are still '
-                            'complete and safe to decide from.',
-                            style: TextStyle(
-                                color: Colors.amber,
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                ],
                 // 2026-09-10: real feedback, live - "needs an image on
                 // the left." touch_app matches the instruction itself
                 // (tap a version below to act on it).
@@ -910,6 +888,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                 versions[0].body, versions[1].body),
                             plainText: versions[0].body,
                             highlightColor: _kBrightRed,
+                            leadingContext: _precedingContext,
                             onTap: () => _confirmAndChoose(
                                 titleFor(0), versions[0].body),
                           ),
@@ -930,6 +909,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                 versions[0].body, versions[1].body),
                             plainText: versions[1].body,
                             highlightColor: kGreen,
+                            leadingContext: _precedingContext,
                             onTap: () => _confirmAndChoose(
                                 titleFor(1), versions[1].body),
                           ),
@@ -1002,6 +982,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       tokens: null,
                       plainText: versions[i].body,
                       highlightColor: i == 0 ? _kBrightRed : kGreen,
+                      leadingContext: _precedingContext,
                       onTap: () =>
                           _confirmAndChoose(titleFor(i), versions[i].body),
                     ),
@@ -1185,6 +1166,17 @@ class _ConflictPanel extends StatelessWidget {
   final String plainText;
   final Color highlightColor;
   final VoidCallback onTap;
+  // 2026-09-14: real feedback, live - a separate gray block above both
+  // panels read as "disjointed, messy and confusing" - "why not have
+  // the text in the left red or right green text?" Folded into the
+  // panel itself instead: shared text (identical either way) muted,
+  // this side's own disputed text in its normal highlighted style right
+  // after it - each panel now reads as a real preview of the whole note
+  // as it would look if this side is kept, not two disconnected things
+  // to mentally stitch together. Null/empty when there's nothing before
+  // the conflict (a note that starts with the disputed span itself) -
+  // no leading block shown in that case.
+  final String? leadingContext;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1192,6 +1184,7 @@ class _ConflictPanel extends StatelessWidget {
     required this.plainText,
     required this.highlightColor,
     required this.onTap,
+    this.leadingContext,
   });
 
   @override
@@ -1226,7 +1219,16 @@ class _ConflictPanel extends StatelessWidget {
             // own bounds instead.
             Expanded(
               child: SingleChildScrollView(
-                child: tokens == null
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (leadingContext != null && leadingContext!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(leadingContext!,
+                            style: TextStyle(color: kTextDim, fontSize: 13)),
+                      ),
+                    tokens == null
                     ? Text(plainText,
                         style: TextStyle(color: kStar, fontSize: 14))
                     : Text.rich(
@@ -1246,6 +1248,8 @@ class _ConflictPanel extends StatelessWidget {
                               .toList(),
                         ),
                       ),
+                  ],
+                ),
               ),
             ),
           ],
