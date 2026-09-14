@@ -107,6 +107,44 @@ List<String> journalOrderedBodies(List<String> bodies) {
   return sorted;
 }
 
+/// 2026-09-14: real feedback, live - "this time 0950 clearly if in
+/// between 0800 and 0953" - the conflict picker was showing a disputed
+/// paragraph's context in file order (whatever came before it), not
+/// where it actually belongs on the clock. journalOrderedBodies above
+/// only ever sorts when EVERY paragraph has a leading time - a real
+/// journal mixes timed entries ("0800 entry at...") with untimed ones
+/// ("Metro pearl clutchers.") throughout the same day, so that
+/// all-or-nothing check bails on exactly the case this needs to handle.
+/// This only needs ONE side of that: where does [candidate] (the
+/// disputed paragraph) sit among [contextParagraphs] (the note's
+/// already-shared paragraphs, kept in their original order, never
+/// reordered relative to each other)? Untimed context paragraphs are
+/// never used as anchors - only timed ones - so a mix is safe: finds
+/// the first context paragraph whose own leading time is later than
+/// candidate's, and says insert right before it. Returns
+/// contextParagraphs.length (append at the end - the existing
+/// behavior before this fix) when candidate has no leading time of its
+/// own, or no later-timed anchor exists to place it before.
+int insertionIndexByTime(List<String> contextParagraphs, String candidate) {
+  final m = _journalTimePattern.firstMatch(candidate);
+  if (m == null) return contextParagraphs.length;
+  final candidateTime = int.parse(m.group(1)!);
+  for (var i = 0; i < contextParagraphs.length; i++) {
+    final cm = _journalTimePattern.firstMatch(contextParagraphs[i]);
+    if (cm != null && int.parse(cm.group(1)!) > candidateTime) {
+      return i;
+    }
+  }
+  return contextParagraphs.length;
+}
+
+/// Public alias of the same paragraph split every function on this page
+/// already shares privately - conflict_picker_screen.dart needs it too,
+/// to actually build the [contextParagraphs] list insertionIndexByTime
+/// above expects, without duplicating the blank-line-split rule
+/// somewhere it could drift out of sync with this file's own copy.
+List<String> splitIntoParagraphs(String text) => _splitParagraphs(text);
+
 /// 2026-09-08: real feedback, live - "that's a useful hint... more of
 /// this." One version fully containing the other's text as a
 /// substring means nothing is actually lost by keeping the longer

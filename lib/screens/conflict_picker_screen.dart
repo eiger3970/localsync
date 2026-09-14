@@ -19,8 +19,10 @@ import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
         hasDuplicateParagraph,
+        insertionIndexByTime,
         oneContainsTheOther,
-        oneSideSuspiciouslyShort;
+        oneSideSuspiciouslyShort,
+        splitIntoParagraphs;
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -1189,6 +1191,47 @@ class _ConflictPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-09-14: real feedback, live - "this time 0950 clearly if in
+    // between 0800 and 0953. Or do you read text time data where the
+    // text was entered later?" When the disputed text itself starts
+    // with the same bare HHMM time this user's journal always uses,
+    // its real position among the shared context is knowable, not just
+    // "before" or "after" as a fixed rule - insertionIndexByTime finds
+    // it. When it doesn't (most Kanban cards, to-dos, ordinary prose),
+    // there's nothing to place it by, so this falls back to the
+    // previous fix's rule: disputed text first, full context below.
+    final hasOwnTime = allHaveLeadingTime([plainText]);
+    final contextParagraphs = leadingContext == null || leadingContext!.isEmpty
+        ? const <String>[]
+        : splitIntoParagraphs(leadingContext!);
+    final insertIdx = hasOwnTime && contextParagraphs.isNotEmpty
+        ? insertionIndexByTime(contextParagraphs, plainText)
+        : 0;
+    final beforeContext =
+        contextParagraphs.isEmpty ? '' : contextParagraphs.sublist(0, insertIdx).join('\n\n');
+    final afterContext =
+        contextParagraphs.isEmpty ? '' : contextParagraphs.sublist(insertIdx).join('\n\n');
+
+    Widget disputedText() => tokens == null
+        ? Text(plainText, style: TextStyle(color: kStar, fontSize: 14))
+        : Text.rich(
+            TextSpan(
+              children: tokens!
+                  .map((t) => TextSpan(
+                        text: t.text,
+                        style: t.op == DiffOp.equal
+                            ? TextStyle(color: kStar, fontSize: 14)
+                            : TextStyle(
+                                color: kStar,
+                                fontSize: 14,
+                                backgroundColor:
+                                    highlightColor.withValues(alpha: 0.28),
+                              ),
+                      ))
+                  .toList(),
+            ),
+          );
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -1222,38 +1265,17 @@ class _ConflictPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 2026-09-14: real feedback, live - "the questioned
-                    // text is at the bottom, this might be better at the
-                    // top as the first thing the user sees, and can then
-                    // choose to scroll down and view the grey text if
-                    // needed." The actual decision (this side's disputed
-                    // text) now comes first; the shared, already-known
-                    // context is the thing you scroll for, not the thing
-                    // you scroll past.
-                    tokens == null
-                    ? Text(plainText,
-                        style: TextStyle(color: kStar, fontSize: 14))
-                    : Text.rich(
-                        TextSpan(
-                          children: tokens!
-                              .map((t) => TextSpan(
-                                    text: t.text,
-                                    style: t.op == DiffOp.equal
-                                        ? TextStyle(color: kStar, fontSize: 14)
-                                        : TextStyle(
-                                            color: kStar,
-                                            fontSize: 14,
-                                            backgroundColor: highlightColor
-                                                .withValues(alpha: 0.28),
-                                          ),
-                                  ))
-                              .toList(),
-                        ),
+                    if (beforeContext.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(beforeContext,
+                            style: TextStyle(color: kTextDim, fontSize: 13)),
                       ),
-                    if (leadingContext != null && leadingContext!.isNotEmpty)
+                    disputedText(),
+                    if (afterContext.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 10),
-                        child: Text(leadingContext!,
+                        child: Text(afterContext,
                             style: TextStyle(color: kTextDim, fontSize: 13)),
                       ),
                   ],
