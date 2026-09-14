@@ -739,8 +739,20 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // acting, not a reassurance, so it takes priority over both.
     final oneSideTooShort = versions.length == 2 &&
         oneSideSuspiciouslyShort(versions[0].body, versions[1].body);
-    final looksLikeSeparateEntries = !oneSideTooShort &&
-        allHaveLeadingTime(versions.map((v) => v.body).toList());
+    // 2026-09-14: real feedback, live - real case, Sep 12th conflict:
+    // "1315 2 guys pushed in at different times..." (timed) vs.
+    // "Obsidian desktop has about 10 sispnuits reminders, fix." (no
+    // time at all) - two genuinely separate, unrelated notes, but this
+    // hint never fired because it required EVERY side to carry a
+    // leading time, not just one. A real edit of existing timestamped
+    // prose essentially never strips the leading time entirely - one
+    // side timed and the other with no time marker at all is itself a
+    // safe, distinct signal these are different things, not a weaker
+    // version of the "every side timed" case. Still purely advisory
+    // (never says which one to keep, only that Keep Both is usually
+    // right) - this widens WHEN the hint shows, not what it claims.
+    final anyHasLeadingTime = versions.any((v) => allHaveLeadingTime([v.body]));
+    final looksLikeSeparateEntries = !oneSideTooShort && anyHasLeadingTime;
     // 2026-09-08: real feedback, live - "that's a useful hint... more
     // of this." Second deterministic signal: one side's text fully
     // contains the other's, meaning nothing is actually lost by
@@ -858,7 +870,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               // button text directly.
                               // 2026-09-14: "this text and the Conflict
                               // text need to not be verbose."
-                              : 'Tap your text to keep.',
+                              : 'Tap your preferred text to keep.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                   ],
@@ -893,10 +905,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Each side starts with a different clock time - '
-                          'these look like two separate entries, not the '
-                          'same thing edited twice. "Keep both" is '
-                          'usually right here.',
+                          allHaveLeadingTime(
+                                  versions.map((v) => v.body).toList())
+                              ? 'Each side starts with a different clock '
+                                  'time - these look like two separate '
+                                  'entries, not the same thing edited '
+                                  'twice. "Keep both" is usually right '
+                                  'here.'
+                              : 'One side has a clock time, the other has '
+                                  'none at all - these look like two '
+                                  'separate entries, not the same thing '
+                                  'edited twice. "Keep both" is usually '
+                                  'right here.',
                           style: TextStyle(
                               color: kGreen,
                               fontSize: 13,

@@ -836,12 +836,30 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // into its own "view backup"
                                             // line below instead of being
                                             // read out mid-sentence.
+                                            // 2026-09-14: real feedback,
+                                            // live - "I'm unclear on the
+                                            // next step. Next step is to
+                                            // push, so the reminder needs
+                                            // to be above View or
+                                            // restore." Reordered to
+                                            // match the actual sequence
+                                            // of what to do: push/pull
+                                            // first (the one actual next
+                                            // step), then the two
+                                            // reference/recovery lines
+                                            // that only matter if
+                                            // something looks wrong.
                                             const TextSpan(
-                                                text: 'Resolved. If text '
-                                                    'still looks wrong in '
-                                                    'Obsidian, close and '
-                                                    'reopen to refresh the '
-                                                    'note.\n\n'),
+                                                text: 'Resolved. Now tap '
+                                                    'PUSH on the home '
+                                                    'screen, then pull on '
+                                                    'desktop, for a full '
+                                                    'sync.\n\n'),
+                                            const TextSpan(
+                                                text: 'If text still looks '
+                                                    'wrong in Obsidian, '
+                                                    'close and reopen to '
+                                                    'refresh the note.\n\n'),
                                             const TextSpan(
                                                 text: 'View or restore '),
                                             TextSpan(
@@ -916,9 +934,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   );
                                                 },
                                             ),
-                                            const TextSpan(
-                                                text: ' in LocalSync/Conflict '
-                                                    'Backups.'),
                                             // 2026-08-26: real feedback, live -
                                             // "these user actions like reboot
                                             // tab or vault needs to be noted in
@@ -933,18 +948,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // hadn't noticed. Told here, right
                                             // where a resolution just wrote to
                                             // this exact note.
-                                            //
-                                            // 2026-09-14: real feedback, live -
-                                            // "Push needs to remind to pull
-                                            // the desktop too" - matches the
-                                            // "push then pull" phrasing
-                                            // already used in both confirm
-                                            // dialogs, not just "push."
                                             const TextSpan(
-                                                text: '\n\nNow tap PUSH on '
-                                                    'the home screen, then '
-                                                    'pull on desktop, for a '
-                                                    'full sync.'),
+                                                text: ' in LocalSync/Conflict '
+                                                    'Backups.'),
                                           ],
                                         ),
                                       ),
