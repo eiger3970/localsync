@@ -200,15 +200,6 @@ run_technical_setup() {
     sudo systemsetup -setremotelogin on
   fi
 
-  # ── Git bare repository ────────────────────────────────────────────────
-  if [[ -d "$BARE_REPO_PATH" ]]; then
-    log "Bare repo already exists at $BARE_REPO_PATH - skipping"
-  else
-    log "Creating the bare repo at $BARE_REPO_PATH"
-    mkdir -p "$BARE_REPO_DIR"
-    git init --bare "$BARE_REPO_PATH"
-  fi
-
   # ── Auto-discovery (optional) ─────────────────────────────────────────
   if [[ "$SKIP_DISCOVERY" == true ]]; then
     log "Skipping auto-discovery setup (--skip-discovery)"
@@ -434,8 +425,12 @@ while IFS= read -r -d '' d; do
   if [[ -z "$msg" ]]; then
     FOUND_MATCH=true
     MATCH_PATHS+=("$d")
-    MATCH_LABELS+=("$d - empty, safe to use")
-    MATCH_HAS_IDENTITY+=(false)
+    MATCH_LABELS+=("$d$name_hint - empty, safe to use")
+    if [[ -n "$name_hint" ]]; then
+      MATCH_HAS_IDENTITY+=(true)
+    else
+      MATCH_HAS_IDENTITY+=(false)
+    fi
     MATCH_EPOCH+=(0)
   elif [[ "$msg" == "Desktop sync"* || "$msg" == "Desktop conflicting edit"* || "$msg" == "Initial sync from phone"* || "$msg" == "Merge desktop and phone"* || "$msg" == "Merge conflicts (both sides kept)"* ]]; then
     FOUND_MATCH=true
@@ -559,6 +554,21 @@ else
   echo "time setup. Enter this path into LocalSync's Settings on your"
   echo "phone:"
   echo "  ${GREEN}$BARE_REPO_PATH${RESET}"
+fi
+
+# ── Git bare repository ──────────────────────────────────────────────────
+# Moved here (was in run_technical_setup, ran unconditionally before this
+# scan ever ran) - creating the default skeleton before checking for a
+# real match meant every single run left behind an empty, identity-less
+# bare repo that then showed up as a decoy candidate in every future scan
+# on this machine, forever. Only creates now, as a genuine last resort,
+# once BARE_REPO_PATH holds its real, final, scan-informed value.
+if [[ -d "$BARE_REPO_PATH" ]]; then
+  echo "Bare repo already exists at ${GREEN}$BARE_REPO_PATH${RESET} - skipping"
+else
+  echo "Creating the bare repo at ${GREEN}$BARE_REPO_PATH${RESET}"
+  mkdir -p "$(dirname "$BARE_REPO_PATH")"
+  git init --bare "$BARE_REPO_PATH"
 fi
 
 # 2026-09-07: real feedback, live - "real life needs to cater for...
