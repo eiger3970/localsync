@@ -241,6 +241,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         text: 'Text visible, all kept as plain text paragraphs, nothing '
             'hidden',
       ),
+      // 2026-09-14: real feedback, live - same fix as _confirmAndChoose's
+      // dialog above: the push/pull reminder used to be a static banner
+      // shown before any choice was made, easy to miss by the time it
+      // mattered. Right before the button that actually resolves it.
+      _DialogPoint(
+        icon: Icons.sync,
+        color: kGreen,
+        text: 'Push here after, then pull on desktop, for a full sync',
+      ),
     ];
   }
 
@@ -472,6 +481,22 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ],
                   ),
                 ),
+              ),
+              // 2026-09-14: real feedback, live - "Push after, then pull
+              // on desktop... needs to be at the right position and
+              // timing for the user... maybe the remember to push pull
+              // needs to go here?" It used to sit as a static banner at
+              // the bottom of the whole screen, shown before any choice
+              // was even made - easy to have already scrolled past or
+              // ignored by the time it actually mattered. This is the
+              // literal moment it matters: the last thing shown before
+              // the button that actually resolves it.
+              const SizedBox(height: 4),
+              _DialogPoint(
+                icon: Icons.sync,
+                color: kGreen,
+                text: 'Push here after, then pull on desktop, for a full '
+                    'sync',
               ),
             ],
           ),
@@ -822,8 +847,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               // which read as a mismatch rather than
                               // the same step. Now names the real
                               // button text directly.
-                              : 'Tap a version, then tap "Keep this '
-                                  'version" to confirm.',
+                              // 2026-09-14: "this text and the Conflict
+                              // text need to not be verbose."
+                              : 'Tap a version to keep.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                   ],
@@ -1145,63 +1171,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ),
                   ],
                 ),
-                // 2026-09-08: real feedback, live - "the push after is
-                // in another section... this disjointed info is
-                // missed, so all in 1 hint is clear." Resolving here
-                // only ever changes this device (see sync_service.dart
-                // - conflicts are pull-side only) - the reminder to
-                // push already existed in the Conflicts list's own
-                // safety-steps row and the "?" wizard, but not on the
-                // one screen where a user is actually about to act.
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 2026-09-09: real feedback, live - "the image to
-                    // the left is a cloud with an up arrow. This is a
-                    // privacy app with no cloud, so change the image to
-                    // the image the Push to sync image is." Same fix
-                    // already applied to the Conflicts list's own
-                    // safety-steps row (conflicts_screen.dart's
-                    // "Push to sync" _SafetyStep, 2026-09-09) - phone
-                    // pushing to desktop (Icons.north_east into
-                    // Icons.computer, matching the app icon's own
-                    // diagonal beam), not a cloud upload. Reused here at
-                    // a smaller size to fit this row's 14px text.
-                    SizedBox(
-                      width: 16,
-                      height: 14,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            child: Icon(Icons.north_east,
-                                color: kTextMid, size: 10),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child:
-                                Icon(Icons.computer, color: kTextMid, size: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    // 2026-09-09: real feedback, live - "verbose, make
-                    // terse, kiss," then real feedback after actually
-                    // resolving a conflict - "should say need to push,
-                    // then pull the desktop for a full sync" - the
-                    // first terse pass dropped the pull step entirely.
-                    Expanded(
-                      child: Text(
-                        'Push after, then pull on desktop, for a full sync.',
-                        style: TextStyle(color: kTextMid, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
+                // 2026-09-14: real feedback, live - "needs to be at the
+                // right position and timing for the user... maybe the
+                // remember to push pull needs to go here?" Moved into the
+                // confirm dialog itself (_confirmAndChoose's own dialog,
+                // above the checkbox), right before the button that
+                // actually resolves it - closer to the real moment of
+                // action than a static banner sitting here regardless of
+                // whether any choice has been made yet.
               ],
             ),
     );
