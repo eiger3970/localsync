@@ -48,8 +48,8 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
   Future<void> _loadOffering() async {
     final offerings = await widget.purchases.getOfferings();
     final package = offerings?.current?.availablePackages
-        .where((p) => p.storeProduct.identifier
-            .contains(kConflictPickerEntitlementId))
+        .where((p) =>
+            p.storeProduct.identifier.contains(kConflictPickerEntitlementId))
         .firstOrNull;
     if (!mounted || package == null) return;
     setState(() {
@@ -88,9 +88,11 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('See both versions side by side, tap to keep',
+                Text('See both conflicts side by side, tap to keep',
                     style: TextStyle(
-                        color: kStar, fontSize: 13, fontWeight: FontWeight.w600)),
+                        color: kStar,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(
                   'Optional - manual resolution in Obsidian already works',
@@ -104,7 +106,8 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
               ? SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+                  child:
+                      CircularProgressIndicator(strokeWidth: 2, color: kGreen),
                 )
               : OutlinedButton(
                   onPressed: _package == null ? null : _buy,
