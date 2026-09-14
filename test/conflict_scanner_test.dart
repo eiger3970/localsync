@@ -49,12 +49,14 @@ void main() {
       final content = await file.readAsString();
       final updated = applyResolution(content, entry, entry.versions[0].body);
 
-      expect(updated, contains('- [ ] Kanban round 3 phone edit 202608201339\n## Done'));
+      expect(updated,
+          contains('- [ ] Kanban round 3 phone edit 202608201339\n## Done'));
       // The real bug: no newline between the card and the heading.
       expect(updated, isNot(contains('202608201339## Done')));
     });
 
-    test('resolving a conflict that is the last thing in the file adds no stray newline',
+    test(
+        'resolving a conflict that is the last thing in the file adds no stray newline',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -90,7 +92,8 @@ void main() {
   // fix (append non-chosen versions as a [!question]- callout in the
   // same file, not just a backup).
   group('applyResolution - non-Kanban merge', () {
-    test('picking a version keeps the other version\'s text in the file, not just the backup',
+    test(
+        'picking a version keeps the other version\'s text in the file, not just the backup',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -125,8 +128,8 @@ void main() {
       expect(updated, contains('Fixed the pairing screen this morning.'));
       // The other version's text is still IN THE FILE, not just backed
       // up elsewhere.
-      expect(updated,
-          contains('Emailed about the domicile case this afternoon.'));
+      expect(
+          updated, contains('Emailed about the domicile case this afternoon.'));
       // 2026-08-26: real feedback, live - "What do I do? Is this an
       // Obsidian error?" - wording changed to spell out "already
       // resolved, not active" directly instead of relying on the
@@ -151,7 +154,8 @@ void main() {
     // note" while the code actually kept it - this is the new default,
     // matching that promise for real. keepLeftoverInNote defaults to
     // false (see DatabaseService.getKeepLeftoverInNote's own doc).
-    test('by default, the other version is fully removed, not kept as a reference',
+    test(
+        'by default, the other version is fully removed, not kept as a reference',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -185,9 +189,9 @@ void main() {
     });
   });
 
-  group('applyKeepBoth - real 2026-09-07 case (NAB Bills incident review)',
-      () {
-    test('two unrelated entries land as plain text, ordered chronologically '
+  group('applyKeepBoth - real 2026-09-07 case (NAB Bills incident review)', () {
+    test(
+        'two unrelated entries land as plain text, ordered chronologically '
         'when both have a leading HHMM time', () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -268,8 +272,10 @@ void main() {
       expect(updated, contains('second round'));
       expect(updated, contains('third round'));
       // All three have a leading HHMM - chronological: 0800, 0900, 1000.
-      expect(updated.indexOf('third round'), lessThan(updated.indexOf('first round')));
-      expect(updated.indexOf('first round'), lessThan(updated.indexOf('second round')));
+      expect(updated.indexOf('third round'),
+          lessThan(updated.indexOf('first round')));
+      expect(updated.indexOf('first round'),
+          lessThan(updated.indexOf('second round')));
     });
 
     // 2026-09-08: real feedback, live - "one tap" Undo for Keep Both,
@@ -311,8 +317,7 @@ void main() {
       expect(reverted.single.versions, hasLength(2));
       expect(reverted.single.versions[0].body,
           contains('2105 salad Caucasian Swiss'));
-      expect(reverted.single.versions[1].body,
-          contains('0715 Clothes washed'));
+      expect(reverted.single.versions[1].body, contains('0715 Clothes washed'));
       expect(await scanForKeptBoth(dir.path), isEmpty);
     });
 
@@ -341,7 +346,8 @@ void main() {
   });
 
   group('applyResolution - non-Kanban merge (continued)', () {
-    test('Kanban conflicts are never merge-appended - a card is one line', () async {
+    test('Kanban conflicts are never merge-appended - a card is one line',
+        () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/Board daily stuff.md');
@@ -373,7 +379,8 @@ void main() {
   // merge" plus a direct ask to build Undo. See undoReferenceCallout's
   // own doc (conflict_scanner.dart) for why this writes no extra backup.
   group('undoReferenceCallout', () {
-    test('swaps the kept text and the reference callout, and undo is reversible',
+    test(
+        'swaps the kept text and the reference callout, and undo is reversible',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -407,7 +414,8 @@ void main() {
       final afterUndo = await file.readAsString();
 
       // The previously-dropped side is now the active, kept content.
-      expect(afterUndo, contains('Emailed about the domicile case this afternoon.'));
+      expect(afterUndo,
+          contains('Emailed about the domicile case this afternoon.'));
       // The previously-kept side is now the reference leftover.
       expect(afterUndo, contains('Already resolved'));
       expect(afterUndo, contains("This is Your version's version"));
@@ -419,9 +427,10 @@ void main() {
       expect(refsAfter.single.keptMarkerStart, isNotNull);
       await undoReferenceCallout(dir.path, refsAfter.single);
       final afterSecondUndo = await file.readAsString();
-      expect(afterSecondUndo, contains('Fixed the pairing screen this morning.'));
       expect(
-          afterSecondUndo, contains("This is desktop obsidian - 202608251230's version"));
+          afterSecondUndo, contains('Fixed the pairing screen this morning.'));
+      expect(afterSecondUndo,
+          contains("This is desktop obsidian - 202608251230's version"));
     });
 
     test('an old note with no LOCALSYNC-KEPT marker has no undoable span',
@@ -452,8 +461,7 @@ void main() {
     });
   });
 
-  group('mergeReferenceKeepingBoth - real 2026-09-07 case (Aug 24th note)',
-      () {
+  group('mergeReferenceKeepingBoth - real 2026-09-07 case (Aug 24th note)', () {
     test(
         'chronologically combines the kept and dropped sides when both have a leading time',
         () async {
@@ -503,10 +511,12 @@ void main() {
       expect(backups, hasLength(1));
       final backupContent = await File(backups.single.path).readAsString();
       expect(backupContent, contains('2105 salad and rice for dinner.'));
-      expect(backupContent, contains('1500 went to Point D\'eau for a shower.'));
+      expect(
+          backupContent, contains('1500 went to Point D\'eau for a shower.'));
     });
 
-    test('an old note with no LOCALSYNC-KEPT marker has nothing to merge against',
+    test(
+        'an old note with no LOCALSYNC-KEPT marker has nothing to merge against',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -530,10 +540,10 @@ void main() {
     });
   });
 
-  group('scanForConflicts - real 2026-09-14 case (journal, two independent '
+  group(
+      'scanForConflicts - real 2026-09-14 case (journal, two independent '
       'stacked conflicts, one info + one warning, in the same note)', () {
-    test('both stacked conflicts are detected, not silently dropped',
-        () async {
+    test('both stacked conflicts are detected, not silently dropped', () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
       final journalDir = Directory('${dir.path}/Journal/2026/09');
@@ -579,6 +589,130 @@ void main() {
           entry.versions
               .any((v) => v.body.contains('less functions thank a desktop')),
           isTrue);
+    });
+  });
+
+  group(
+      'applyKeepBoth/applyResolution - real 2026-09-12 case ("the times '
+      'are wrong again... your future conflict resolutions correctly '
+      'clean up the clock text data right?")', () {
+    // Exact real content from the note before the conflict, verbatim
+    // (the actual Sep 12th case this fix is for) - the conflict lands
+    // after "1338 phone pushed..." even though the disputed text's own
+    // time (1315) belongs between "0803 security..." and "1330 old
+    // swiss german...".
+    const realBefore =
+        '0755 some strange possible cleaners walk by intimidatingly, but '
+        'not actually picking up or cleaning things.\n'
+        '\n'
+        "0800 thugs outside started yelling, startling me. They often do "
+        'the verbal scare, like the La Soupe Populaire Portuguese gold '
+        'cross necklace head cook, with his underling homeless he gives '
+        'festival and ski resort jobs to.\n'
+        '\n'
+        '0801 elderly librarian gave a judgemental look upon my entry.\n'
+        '\n'
+        '0803 security overzealous guard came racing and thumping '
+        "downstairs to check me in my library locker, I asked him if he "
+        'was ok.\n'
+        '\n'
+        '1330 old swiss german possibly drunk thug yelling in street '
+        "then in woman/partner's face, so as I walked past him I coughed "
+        "loudly so he knew the loudest voice in the space wasn't him. He "
+        'said to shut up in swiss german (schnora zua), I continued '
+        'walking.\n'
+        '\n'
+        '1338 phone pushed and taken to Conflicts,\n'
+        '\n';
+    const oursBody =
+        '1315 2 guys pushed in at different times, said they were there '
+        'before.';
+    const theirsBody =
+        'Obsidian desktop has about 10 sispnuits reminders, fix.';
+
+    ConflictEntry buildEntry(String content) => ConflictEntry(
+          filePath: 'Journal/2026/09/Sep 12th, 2026.md',
+          isKanban: false,
+          matchStart: realBefore.length,
+          matchEnd: content.length,
+          versions: const [
+            ConflictVersion(who: 'yours', body: oursBody),
+            ConflictVersion(
+                who: 'desktop obsidian',
+                when: '202609121250',
+                body: theirsBody),
+          ],
+        );
+
+    test(
+        'applyResolution (Keep iPhone) moves the 1315 text between 0803 '
+        'and 1330, not after 1338', () {
+      const content = '$realBefore[conflict markup placeholder]\n';
+      final entry = buildEntry(content);
+      final result = applyResolution(content, entry, oursBody);
+
+      expect(result, isNot(contains('[conflict markup placeholder]')));
+      // The real assertion: 1315 now sits textually BEFORE 1330, not
+      // after 1338 - chronological order restored, not just preserved
+      // in file order.
+      expect(
+          result.indexOf('1315 2 guys'), lessThan(result.indexOf('1330 old')));
+      expect(result.indexOf('0803 security'),
+          lessThan(result.indexOf('1315 2 guys')));
+      // Nothing else in the note was altered - same text, just the one
+      // paragraph relocated.
+      expect(result, contains('0755 some strange'));
+      expect(result, contains('1338 phone pushed'));
+      expect(result, isNot(contains(theirsBody)),
+          reason: 'Keep iPhone drops the other side by default');
+    });
+
+    test(
+        'applyKeepBoth moves the whole %% LOCALSYNC-KEPTBOTH %% block '
+        '(marker included) to the same correct position, atomically', () {
+      const content = '$realBefore[conflict markup placeholder]\n';
+      final entry = buildEntry(content);
+      final result = applyKeepBoth(content, entry);
+
+      expect(
+          result.indexOf('1315 2 guys'), lessThan(result.indexOf('1330 old')));
+      expect(result.indexOf('0803 security'),
+          lessThan(result.indexOf('1315 2 guys')));
+      // Both real texts survive - Keep Both drops neither.
+      expect(result, contains(oursBody));
+      expect(result, contains(theirsBody));
+      // The marker moved WITH its content, not left behind or split -
+      // both appear on the same side of "1330 old", right next to each
+      // other.
+      expect(result.indexOf('LOCALSYNC-KEPTBOTH data'),
+          lessThan(result.indexOf('1330 old')));
+      expect(result.indexOf('LOCALSYNC-KEPTBOTH-END'),
+          lessThan(result.indexOf('1330 old')));
+      expect(result, contains('0755 some strange'));
+      expect(result, contains('1338 phone pushed'));
+    });
+
+    test(
+        'an untimed replacement (no leading HHMM) is completely '
+        'unaffected - falls straight through to plain replaceRange, '
+        'byte-identical to the pre-fix behavior', () {
+      const untimedBody = 'Obsidian desktop has about 10 sispnuits '
+          'reminders, fix.';
+      const content = '${realBefore}PLACEHOLDER\n';
+      final entry = ConflictEntry(
+        filePath: 'Journal/2026/09/Sep 12th, 2026.md',
+        isKanban: false,
+        matchStart: realBefore.length,
+        matchEnd: content.length,
+        versions: const [
+          ConflictVersion(who: 'yours', body: untimedBody),
+          ConflictVersion(
+              who: 'desktop obsidian', when: '202609121250', body: oursBody),
+        ],
+      );
+      final expected = content.replaceRange(
+          entry.matchStart, entry.matchEnd, '$untimedBody\n');
+      expect(applyResolution(content, entry, untimedBody), expected);
     });
   });
 }

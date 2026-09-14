@@ -25,7 +25,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'conflict_repair.dart' show journalOrderedBodies;
+import 'conflict_repair.dart' show journalOrderedBodies, repositionedReplace;
 import 'database_service.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
@@ -317,8 +317,7 @@ String applyResolution(String content, ConflictEntry entry, String chosen,
     {bool keepLeftoverInNote = false}) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
-  final notChosen =
-      entry.versions.where((v) => v.body != chosen).toList();
+  final notChosen = entry.versions.where((v) => v.body != chosen).toList();
   String merged;
   if (entry.isKanban || notChosen.isEmpty || !keepLeftoverInNote) {
     merged = chosen;
@@ -335,7 +334,16 @@ String applyResolution(String content, ConflictEntry entry, String chosen,
     merged = '$keptBlock${notChosen.map(_mergeCallout).join('\n')}';
   }
   final replacement = '$merged$trailingNewline';
-  return content.replaceRange(entry.matchStart, entry.matchEnd, replacement);
+  // 2026-09-14: real feedback, live, two real cases - "the times are
+  // wrong again... your future conflict resolutions correctly clean up
+  // the clock text data right?" They didn't until now - see
+  // repositionedReplace's own doc (conflict_repair.dart) for why. Falls
+  // straight through to the old plain replaceRange whenever replacement
+  // has no leading time of its own (including the keepLeftoverInNote
+  // case just above, which wraps $merged in an HTML comment - never a
+  // bare HHMM time, so nothing to reposition by, same as before).
+  return repositionedReplace(
+      content, entry.matchStart, entry.matchEnd, replacement);
 }
 
 /// One collapsed "kept for reference" callout for a version that wasn't
@@ -421,8 +429,9 @@ final _keptMarkerPattern = RegExp(
 );
 
 String _truncateToPreview(String text) {
-  final tail =
-      text.length <= _maxLookback ? text : text.substring(text.length - _maxLookback);
+  final tail = text.length <= _maxLookback
+      ? text
+      : text.substring(text.length - _maxLookback);
   final lastParagraphBreak = tail.lastIndexOf('\n\n');
   final truncated = text.length > _maxLookback && lastParagraphBreak == -1;
   final shown =
@@ -539,8 +548,8 @@ Future<void> undoReferenceCallout(
     body: entry.keptContent!,
   ));
 
-  final updated = content.replaceRange(
-      entry.keptMarkerStart!, entry.matchEnd, '$newKept$newRef$trailingNewline');
+  final updated = content.replaceRange(entry.keptMarkerStart!, entry.matchEnd,
+      '$newKept$newRef$trailingNewline');
   await VaultFolderService().coordinatedWrite(filePath, updated);
 }
 
@@ -564,7 +573,11 @@ String applyMergeReference(String content, ReferenceEntry entry) {
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
   final bodies = journalOrderedBodies([entry.keptContent!, entry.body]);
   final merged = '${bodies.join('\n\n')}$trailingNewline';
-  return content.replaceRange(entry.keptMarkerStart!, entry.matchEnd, merged);
+  // 2026-09-14: real feedback, live - same fix as applyResolution/
+  // applyKeepBoth above. $merged is plain text, no wrapper, so the
+  // default (checkText == replacement) applies directly.
+  return repositionedReplace(
+      content, entry.keptMarkerStart!, entry.matchEnd, merged);
 }
 
 /// Backs up both sides first (same safety convention as every other
@@ -639,10 +652,11 @@ Future<String> resolveConflict(
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
-  if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
+  if (entry.matchEnd > content.length)
+    return backupRelPath; // file changed since scan
   final keepLeftover = await DatabaseService().getKeepLeftoverInNote();
-  final updated = applyResolution(content, entry, chosen,
-      keepLeftoverInNote: keepLeftover);
+  final updated =
+      applyResolution(content, entry, chosen, keepLeftoverInNote: keepLeftover);
   // 2026-08-19: coordinated (not plain) write - see
   // vault_folder_service.dart's coordinatedWrite for why: a resolution
   // written the plain way was found silently reverted by Obsidian's own
@@ -746,13 +760,22 @@ String _rebuildConflictBlock(List<ConflictVersion> versions) {
 String applyKeepBoth(String content, ConflictEntry entry) {
   final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
-  final bodies = journalOrderedBodies(entry.versions.map((v) => v.body).toList());
+  final bodies =
+      journalOrderedBodies(entry.versions.map((v) => v.body).toList());
   final merged = bodies.join('\n\n');
   final data = _encodeKeptBothData(entry.versions);
   final wrapped = '%% LOCALSYNC-KEPTBOTH data="$data" %%\n'
       '$merged\n'
       '%% LOCALSYNC-KEPTBOTH-END %%$trailingNewline';
-  return content.replaceRange(entry.matchStart, entry.matchEnd, wrapped);
+  // 2026-09-14: real feedback, live - same fix as applyResolution above,
+  // but $wrapped itself always starts with the %% marker, never a bare
+  // time - checking $wrapped directly would never find one to place it
+  // by. $merged (already chronologically sorted by journalOrderedBodies
+  // just above, so its own leading time is whichever body is earliest)
+  // is the real thing to check the leading time on; $wrapped, marker
+  // included, is what actually moves as one atomic block.
+  return repositionedReplace(content, entry.matchStart, entry.matchEnd, wrapped,
+      timeCheckText: merged);
 }
 
 class KeptBothEntry {
@@ -831,7 +854,8 @@ Future<String> mergeConflictKeepingBoth(
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
-  if (entry.matchEnd > content.length) return backupRelPath; // file changed since scan
+  if (entry.matchEnd > content.length)
+    return backupRelPath; // file changed since scan
   final updated = applyKeepBoth(content, entry);
   await VaultFolderService().coordinatedWrite(filePath, updated);
   return backupRelPath;

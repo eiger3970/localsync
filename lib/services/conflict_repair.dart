@@ -70,7 +70,8 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
 
   final oursSet =
       oursLines.map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
-  final remainingNonBlank = remaining.where((l) => l.trim().isNotEmpty).toList();
+  final remainingNonBlank =
+      remaining.where((l) => l.trim().isNotEmpty).toList();
   if (remainingNonBlank.isNotEmpty &&
       remainingNonBlank.every((l) => !oursSet.contains(l.trim()))) {
     final theirsRemaining = remaining.join('\n').trim();
@@ -145,6 +146,63 @@ int insertionIndexByTime(List<String> contextParagraphs, String candidate) {
 /// somewhere it could drift out of sync with this file's own copy.
 List<String> splitIntoParagraphs(String text) => _splitParagraphs(text);
 
+/// 2026-09-14: real feedback, live, two real cases (Sep 14th, then Sep
+/// 12th) - "the times are wrong again... your future conflict
+/// resolutions correctly clean up the clock text data right?" They
+/// didn't - insertionIndexByTime/splitIntoParagraphs above were only
+/// ever used for the conflict picker's DISPLAY (later reverted, since
+/// display-only positioning without matching write behavior was worse
+/// than no positioning at all - see conflict_picker_screen.dart's own
+/// 2026-09-14 revert comment). The actual write path
+/// (conflict_scanner.dart's applyResolution/applyKeepBoth) always
+/// replaced the conflict span in place - wherever the marker happened
+/// to be (typically appended near the end), never where the resolved
+/// text's own leading time says it belongs. This is that real fix,
+/// reusing the same tested insertionIndexByTime/splitIntoParagraphs
+/// rather than inventing new logic: finds where [replacement] (already
+/// the exact final string a caller would otherwise pass straight to
+/// content.replaceRange) belongs among the paragraphs BEFORE
+/// [matchStart], and splices it in there instead, leaving [matchStart]
+/// (untimed, or content.substring(matchEnd) - genuinely nothing to
+/// place it by) untouched - identical byte-for-byte to the old plain
+/// replaceRange in that case, so nothing regresses for non-journal
+/// content (Kanban cards, plain prose, to-dos).
+///
+/// [timeCheckText] defaults to [replacement] itself, but a caller whose
+/// actual [replacement] is wrapped in something else first (Keep Both's
+/// %% LOCALSYNC-KEPTBOTH ... %% marker - the wrapper itself never starts
+/// with a bare time, so checking the wrapped string directly would
+/// never find one to place it by) can pass the real inner content
+/// separately - the leading-time check and insertionIndexByTime lookup
+/// use [timeCheckText], but the full [replacement] (wrapper included)
+/// is what actually gets spliced in, atomically, never split apart.
+String repositionedReplace(
+    String content, int matchStart, int matchEnd, String replacement,
+    {String? timeCheckText}) {
+  final checkText = timeCheckText ?? replacement;
+  if (!allHaveLeadingTime([checkText])) {
+    return content.replaceRange(matchStart, matchEnd, replacement);
+  }
+  final before = content.substring(0, matchStart);
+  final after = content.substring(matchEnd);
+  final beforeParas = _splitParagraphs(before);
+  if (beforeParas.isEmpty) {
+    return content.replaceRange(matchStart, matchEnd, replacement);
+  }
+  final idx = insertionIndexByTime(beforeParas, checkText);
+  if (idx >= beforeParas.length) {
+    // Belongs after everything already in `before` - same place the
+    // conflict marker already was. No real repositioning to do.
+    return content.replaceRange(matchStart, matchEnd, replacement);
+  }
+  final earlierParas = beforeParas.sublist(0, idx).join('\n\n');
+  final laterParas = beforeParas.sublist(idx).join('\n\n');
+  final rebuiltBefore = earlierParas.isEmpty
+      ? '$replacement\n\n$laterParas\n\n'
+      : '$earlierParas\n\n$replacement\n\n$laterParas\n\n';
+  return '$rebuiltBefore$after';
+}
+
 /// 2026-09-08: real feedback, live - "that's a useful hint... more of
 /// this." One version fully containing the other's text as a
 /// substring means nothing is actually lost by keeping the longer
@@ -170,12 +228,10 @@ bool oneContainsTheOther(String a, String b) {
 /// (so two similarly-sized real entries never trip it either) must
 /// hold at once.
 bool oneSideSuspiciouslyShort(String a, String b) {
-  final shortLen = a.trim().length < b.trim().length
-      ? a.trim().length
-      : b.trim().length;
-  final longLen = a.trim().length < b.trim().length
-      ? b.trim().length
-      : a.trim().length;
+  final shortLen =
+      a.trim().length < b.trim().length ? a.trim().length : b.trim().length;
+  final longLen =
+      a.trim().length < b.trim().length ? b.trim().length : a.trim().length;
   if (longLen == 0) return false;
   return shortLen <= 15 && longLen >= 50 && shortLen / longLen < 0.15;
 }
@@ -222,7 +278,10 @@ bool allHaveLeadingTime(List<String> bodies) =>
 /// order untouched. Only ever reorders whole paragraphs; never drops,
 /// splits, or duplicates one.
 String? chronologicallyOrderedIfJournal(String ours, String theirsRemaining) {
-  final paras = [..._splitParagraphs(ours), ..._splitParagraphs(theirsRemaining)];
+  final paras = [
+    ..._splitParagraphs(ours),
+    ..._splitParagraphs(theirsRemaining)
+  ];
   final ordered = journalOrderedBodies(paras);
   return identical(ordered, paras) ? null : ordered.join('\n\n');
 }
@@ -306,8 +365,7 @@ String? mergeThreeWayLines(String base, String ours, String theirs) {
   final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
 
   final oursKept = List<bool>.filled(baseLines.length, true);
-  final oursGapInserts =
-      List.generate(baseLines.length + 1, (_) => <String>[]);
+  final oursGapInserts = List.generate(baseLines.length + 1, (_) => <String>[]);
   _fillFromDiff(oursDiff, oursKept, oursGapInserts);
 
   final theirsKept = List<bool>.filled(baseLines.length, true);
@@ -421,8 +479,9 @@ List<StackedVersion> extractStackedVersions(String text) {
     final bodyStart = headers[i].end + 1;
     final bodyEnd =
         i + 1 < headers.length ? headers[i + 1].start : unquoted.length;
-    final body =
-        bodyEnd > bodyStart ? unquoted.substring(bodyStart, bodyEnd).trim() : '';
+    final body = bodyEnd > bodyStart
+        ? unquoted.substring(bodyStart, bodyEnd).trim()
+        : '';
     if (body.isEmpty) continue;
     versions.add((label: headers[i].group(1)!, body: body));
   }
@@ -486,10 +545,10 @@ String repairConflictMarkers(String content,
     // leaves the whole list in its original arrival order untouched -
     // this never guesses.
     if (versions.every((v) => _journalTimePattern.hasMatch(v.body))) {
-      versions.sort((a, b) =>
-          int.parse(_journalTimePattern.firstMatch(a.body)!.group(1)!)
-              .compareTo(
-                  int.parse(_journalTimePattern.firstMatch(b.body)!.group(1)!)));
+      versions.sort((a, b) => int.parse(
+              _journalTimePattern.firstMatch(a.body)!.group(1)!)
+          .compareTo(
+              int.parse(_journalTimePattern.firstMatch(b.body)!.group(1)!)));
     }
     final blocks = <String>[];
     for (var i = 0; i < versions.length; i++) {
