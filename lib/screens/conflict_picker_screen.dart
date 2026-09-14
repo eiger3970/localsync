@@ -248,7 +248,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       _DialogPoint(
         icon: Icons.sync,
         color: kGreen,
-        text: 'Push here after, then pull on desktop, for a full sync',
+        text: 'Push app after, then pull on desktop, for a full sync',
       ),
     ];
   }
@@ -398,16 +398,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
           backgroundColor: kSurface,
-          title: Text('Keep this version?',
+          // 2026-09-14: real feedback, live - "Keep this version? and
+          // Keeps iPhone, change to 1 line Keeps iPhone." The title
+          // asked a question the first content point immediately
+          // answered - one line instead of two saying the same thing.
+          title: Text('Keeps $label',
               style: TextStyle(color: kStar, fontSize: 17)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DialogPoint(
-                  icon: Icons.check_circle,
-                  color: kGreen,
-                  text: 'Keeps "$label"'),
               // 2026-09-14: real feedback, live - "Move Every version
               // backed up first, to line 2." Reassurance now comes
               // right after what's kept, before the (by-default) loss
@@ -471,9 +471,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     Expanded(
                       child: Text(
                           otherCount == 1
-                              ? 'Keep this other version in this note '
+                              ? 'Keep the other version in this note '
                                   'too, collapsed for reference'
-                              : 'Keep these other $otherCount versions '
+                              : 'Keep the other $otherCount versions '
                                   'in this note too, collapsed for '
                                   'reference',
                           style: TextStyle(color: kTextMid, fontSize: 13)),
@@ -494,7 +494,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               _DialogPoint(
                 icon: Icons.sync,
                 color: kGreen,
-                text: 'Push here after, then pull on desktop, for a full '
+                text: 'Push app after, then pull on desktop, for a full '
                     'sync',
               ),
             ],
@@ -509,9 +509,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               child: Text('Not now',
                   style: TextStyle(color: kTextMid, fontSize: 15)),
             ),
+            // 2026-09-14: real feedback, live - "Change Keep this
+            // version, to Keep iPhone" - names the actual device
+            // instead of the generic "this version," matching the
+            // title above.
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text('Keep this version',
+              child: Text('Keep $label',
                   style: TextStyle(color: kStar, fontSize: 15)),
             ),
           ],
