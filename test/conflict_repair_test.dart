@@ -364,4 +364,45 @@ void main() {
       expect(mergeThreeWayLines(base, ours, theirs), 'A\nB\nC');
     });
   });
+
+  group('insertionIndexByTime - real 2026-09-14 case (conflict picker '
+      'context, "0950 clearly if in between 0800 and 0953")', () {
+    test('a timed candidate is placed right before the first later-timed '
+        'context paragraph, untimed ones in between are never used as '
+        'anchors', () {
+      final context = [
+        '0750 ex-druggies on community work with tongs.',
+        'Metro pearl clutchers.', // no leading time - never an anchor
+        '0800 entry at Palais de Rumine opened 3rd floor.',
+        '0953 met Anerban at Riponne metro.',
+      ];
+      const candidate = '0951 Lausanne has general intimidation of '
+          'vulnerable people.';
+      expect(insertionIndexByTime(context, candidate), 3);
+    });
+
+    test('a candidate with no leading time appends at the end - today\'s '
+        'existing behavior, unchanged', () {
+      final context = [
+        '0800 entry at Palais de Rumine.',
+        '0953 met Anerban at Riponne metro.',
+      ];
+      const candidate = 'Phone have less functions thank a desktop.';
+      expect(insertionIndexByTime(context, candidate), context.length);
+    });
+
+    test('no later-timed anchor exists - appends at the end', () {
+      final context = [
+        '0655 putting on washed clothes.',
+        '0750 ex-druggies on community work.',
+      ];
+      const candidate = '2200 winding down for the night.';
+      expect(insertionIndexByTime(context, candidate), context.length);
+    });
+
+    test('empty context - always appends (index 0, the only valid slot)',
+        () {
+      expect(insertionIndexByTime(const [], '0951 Something happened.'), 0);
+    });
+  });
 }
