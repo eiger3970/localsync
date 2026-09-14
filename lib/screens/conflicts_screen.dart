@@ -1774,17 +1774,6 @@ class _GlowingHintState extends State<_GlowingHint>
     super.dispose();
   }
 
-  TextStyle _glowStyle(double t) => TextStyle(
-        color: kGreen,
-        fontWeight: FontWeight.w600,
-        shadows: [
-          Shadow(
-            color: kGreen.withValues(alpha: 0.3 + 0.35 * t),
-            blurRadius: 4 + 6 * t,
-          ),
-        ],
-      );
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -1795,16 +1784,55 @@ class _GlowingHintState extends State<_GlowingHint>
           TextSpan(
             style: TextStyle(color: kTextMid, fontSize: 13),
             children: [
-              TextSpan(text: 'Tap a conflict below', style: _glowStyle(t)),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: _GlowPhrase(text: 'Tap a conflict below', t: t),
+              ),
               const TextSpan(text: ', then '),
-              TextSpan(
-                  text: 'push and pull on desktop',
-                  style: widget.pushGlowing ? _glowStyle(t) : null),
+              widget.pushGlowing
+                  ? WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child:
+                          _GlowPhrase(text: 'push and pull on desktop', t: t),
+                    )
+                  : const TextSpan(text: 'push and pull on desktop'),
               const TextSpan(text: '.'),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+// 2026-09-14: real feedback, live - "sideloaded and no glowing text,
+// just the image." A plain text-shadow on 13px glyphs (the first
+// attempt, above) reads as barely-there anti-aliasing, not a glow -
+// nothing like the icons' clearly-visible spreading BoxShadow halo.
+// Same fix as _PulsingGlow: an actual halo BEHIND the phrase, not a
+// shadow ON it, so text and icon finally read as the same effect.
+class _GlowPhrase extends StatelessWidget {
+  final String text;
+  final double t;
+  const _GlowPhrase({required this.text, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: [
+          BoxShadow(
+            color: kGreen.withValues(alpha: 0.4 + 0.35 * t),
+            blurRadius: 6 + 10 * t,
+            spreadRadius: 0.5 + 2 * t,
+          ),
+        ],
+      ),
+      child: Text(text,
+          style: TextStyle(
+              color: kGreen, fontWeight: FontWeight.w600, fontSize: 13)),
     );
   }
 }
