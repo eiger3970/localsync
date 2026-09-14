@@ -89,6 +89,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
   // needing an id.
   bool _pushReminderGlowing = false;
   String? _newestWhenAtLastResolve;
+  // 2026-09-14: real feedback, live - "can the images glow too... so
+  // Conflict can be glowing at the conflict, then... Push to sync image
+  // to glow when the text for push and pull on desktop can glow as
+  // well, for a double confirmation." The safety-steps row lives above
+  // (outside) the FutureBuilder that owns `entries`, so it needs its own
+  // plain field to know whether there's an active conflict right now -
+  // same pattern as _pushReminderGlowing, updated in _scan().
+  bool _hasActiveConflicts = false;
 
   @override
   void initState() {
@@ -125,6 +133,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       // no timestamp (shouldn't normally happen - every stacked entry
       // has at least one non-"yours" version) sort last, not first.
       entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
+      // 2026-09-14: unlike _pushReminderGlowing below (read inside this
+      // same FutureBuilder's own subtree, so its rebuild already covers
+      // it), the safety-steps row using this field lives in the OUTER
+      // Scaffold's build(), above/outside the FutureBuilder entirely - a
+      // plain mutation here wouldn't trigger that outer widget to
+      // rebuild at all. Needs its own explicit setState.
+      if (mounted) setState(() => _hasActiveConflicts = entries.isNotEmpty);
       // 2026-09-14: real feedback, live - the push-reminder glow
       // (_pushReminderGlowing) should reset the moment a conflict newer
       // than the one just resolved shows up - a fresh, unpushed round of
@@ -260,9 +275,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      const _SafetyStep(
+                      _SafetyStep(
                         icon: Icons.compare_arrows,
                         label: 'Conflict',
+                        glowing: _hasActiveConflicts,
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
                       // 2026-09-09: real feedback, live - "up arrows to
@@ -331,6 +347,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           ),
                         ),
                         label: 'Push to sync',
+                        glowing: _pushReminderGlowing,
                       ),
                     ],
                   ),
@@ -1640,15 +1657,39 @@ class _SafetyStep extends StatelessWidget {
   // smaller Icons.arrow_upward) in the same slot every other step's
   // single Icon sits in.
   final Widget? iconStack;
-  const _SafetyStep({this.icon, required this.label, this.iconStack})
+  // 2026-09-14: real feedback, live - "can the images glow too... for a
+  // double confirmation" alongside the matching text (see
+  // _pushReminderGlowing/_hasActiveConflicts above). These icons are
+  // already always green (illustrating the concept, not live state), so
+  // "glowing" needed a real distinct effect, not a color toggle that'd
+  // be invisible against an already-green icon - a soft BoxShadow halo,
+  // shown only for the step actually relevant right now.
+  final bool glowing;
+  const _SafetyStep(
+      {this.icon, required this.label, this.iconStack, this.glowing = false})
       : assert(icon != null || iconStack != null);
 
   @override
   Widget build(BuildContext context) {
+    final iconWidget = iconStack ?? Icon(icon, color: kGreen, size: 26);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        iconStack ?? Icon(icon, color: kGreen, size: 26),
+        glowing
+            ? Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: kGreen.withValues(alpha: 0.55),
+                      blurRadius: 14,
+                      spreadRadius: 3,
+                    ),
+                  ],
+                ),
+                child: iconWidget,
+              )
+            : iconWidget,
         const SizedBox(height: 4),
         // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
         // to kStar/14px - "too small and dark, make easier to read".
