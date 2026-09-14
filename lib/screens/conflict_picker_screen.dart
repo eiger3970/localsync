@@ -808,20 +808,22 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                   'arrived. Tap the one to keep; the rest '
                                   'are still saved to "LocalSync/Conflict '
                                   'Backups".'
-                              // 2026-09-14: real feedback, live - "I
-                              // don't need to tap, as I already see,
-                              // read and can review right now in this
-                              // screen. Tapping will only be for an
-                              // action to fix something, not to
-                              // review it." Correct, and stale copy
-                              // from before the full-note-context fix
-                              // - both versions are already fully
-                              // readable on screen with no tap needed,
-                              // so "review" framing on the tap itself
-                              // was wrong. Tapping is the one real
-                              // action here: keep that version.
-                              : 'Tap a version to keep - nothing changed '
-                                  'until confirmed.',
+                              // 2026-09-14: real feedback, live, two
+                              // rounds - first "I don't need to tap, as
+                              // I already see, read and can review
+                              // right now in this screen" (dropped the
+                              // stale "review" framing), then "this
+                              // text Keep this version must be the same
+                              // as the Tap a version, then tap Keep
+                              // this version, at the top" - the actual
+                              // confirm button says "Keep this
+                              // version" verbatim; this line described
+                              // the same action in different words,
+                              // which read as a mismatch rather than
+                              // the same step. Now names the real
+                              // button text directly.
+                              : 'Tap a version, then tap "Keep this '
+                                  'version" to confirm.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                   ],
