@@ -19,10 +19,8 @@ import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
         hasDuplicateParagraph,
-        insertionIndexByTime,
         oneContainsTheOther,
-        oneSideSuspiciouslyShort,
-        splitIntoParagraphs;
+        oneSideSuspiciouslyShort;
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -693,41 +691,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         versions[0].body.length <= maxDiffTokens * 6 &&
         versions[1].body.length <= maxDiffTokens * 6;
 
-    // 2026-09-14: real feedback, live - "the left and right sides need to
-    // have the similar text on the same row, similar to vimdiff... this
-    // has pushed all the right text lower and not aligned with the
-    // left text. Humans struggle to match the similar left and right
-    // text." Placing the disputed text by ITS OWN leading time (the
-    // previous fix) meant each panel could split the shared context at
-    // a different point - correct in isolation, but it broke the one
-    // thing a side-by-side view depends on: identical context sitting
-    // at the identical row on both sides. Computed once here instead of
-    // per-panel, from whichever version actually has a leading time
-    // (there's normally at most one in a real two-way conflict - an
-    // untimed side like a Kanban card or "Phone have less functions..."
-    // has nothing to place by anyway) - both panels now split the same
-    // shared text at the exact same point, so only the highlighted
-    // middle differs, never the alignment.
-    final contextParagraphs =
-        _precedingContext == null || _precedingContext!.isEmpty
-            ? const <String>[]
-            : splitIntoParagraphs(_precedingContext!);
-    final sharedInsertIdx = contextParagraphs.isEmpty
-        ? 0
-        : () {
-            for (final v in versions) {
-              if (allHaveLeadingTime([v.body])) {
-                return insertionIndexByTime(contextParagraphs, v.body);
-              }
-            }
-            return 0;
-          }();
-    final sharedBeforeContext = contextParagraphs.isEmpty
-        ? ''
-        : contextParagraphs.sublist(0, sharedInsertIdx).join('\n\n');
-    final sharedAfterContext = contextParagraphs.isEmpty
-        ? ''
-        : contextParagraphs.sublist(sharedInsertIdx).join('\n\n');
+    // 2026-09-14: real feedback, live - "Desktop Sep 14 text now wrong
+    // with 0953 before 0951 text... I'm confused, did I type the times
+    // wrong?" Not a typing error - the picker briefly tried placing the
+    // disputed text at its real chronological spot among the shared
+    // context (a same-day fix, since reverted), but resolveConflict/
+    // applyResolution (conflict_scanner.dart) only ever replaces the
+    // conflict span in place - it never actually moves anything in the
+    // file. The picker's smart-looking preview was promising a
+    // reordering the write never delivered, leaving the resolved text
+    // sitting wherever the conflict marker originally was (often the
+    // end of the note) regardless of what time it claimed. Back to the
+    // simple, honest version: shared context always shown after the
+    // disputed text, matching exactly where resolving actually puts it.
+    final sharedAfterContext = _precedingContext ?? '';
+    const sharedBeforeContext = '';
 
     // 2026-09-14: real feedback, live - "the 2 sides don't correspond to
     // what I'm seeing on the desktop and phone versions." This used to

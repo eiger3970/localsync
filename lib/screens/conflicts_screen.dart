@@ -7,6 +7,8 @@
 // in Obsidian by hand for now - the tap-to-pick resolution UI is the
 // deliberately deferred step 2, once this list itself proves useful.
 
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,13 +17,13 @@ import '../models/repository.dart';
 import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
-import '../services/ios_app_service.dart';
 import '../services/purchase_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/conflict_picker_upsell.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
+import 'backup_compare_screen.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
 import 'kept_both_screen.dart';
@@ -763,14 +765,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 // link.
                                 final vaultName = result?.vaultName;
                                 if (vaultName != null && context.mounted) {
-                                  // 2026-08-19: real bug, live - "Both
-                                  // versions" is wrong once a note has 3+
-                                  // stacked versions (see the Kanban
-                                  // multi-version test this session), not
-                                  // just the common 2-way case.
-                                  final versionWord = e.versions.length == 2
-                                      ? 'Both versions'
-                                      : 'All ${e.versions.length} versions';
                                   // 2026-09-07: real feedback, live - "needs
                                   // to inform the user that a full backup is
                                   // created, to a path which is linked for
@@ -836,9 +830,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                           style: TextStyle(
                                               color: kStar, fontSize: 15),
                                           children: [
-                                            TextSpan(
-                                                text: 'Resolved. $versionWord '
-                                                    'backed up as '),
+                                            // 2026-09-14: real feedback,
+                                            // live - shortened lead line;
+                                            // the backup filename moved
+                                            // into its own "view backup"
+                                            // line below instead of being
+                                            // read out mid-sentence.
+                                            const TextSpan(
+                                                text: 'Resolved. If text '
+                                                    'still looks wrong in '
+                                                    'Obsidian, close and '
+                                                    'reopen to refresh the '
+                                                    'note.\n\n'),
+                                            const TextSpan(
+                                                text: 'View or restore '),
                                             TextSpan(
                                               text: backupFileName,
                                               style: TextStyle(
@@ -847,16 +852,73 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                 decoration:
                                                     TextDecoration.underline,
                                               ),
+                                              // 2026-09-14: real feedback,
+                                              // live - "why would a restore
+                                              // be needed? It's similar to
+                                              // re-reading the backup
+                                              // right? ... if you can build
+                                              // the restore to access the
+                                              // backup and cleanly present
+                                              // like the real restore, this
+                                              // is better." Not a new
+                                              // write-back mechanism - one
+                                              // already exists
+                                              // (BackupComparePickerScreen's
+                                              // own _choose, used elsewhere
+                                              // for exactly this). This tap
+                                              // just reads the specific
+                                              // backup this resolution wrote
+                                              // and opens that same real
+                                              // compare/restore screen
+                                              // directly, instead of
+                                              // punting to Obsidian and
+                                              // making the user find and
+                                              // read the file by hand.
                                               recognizer: TapGestureRecognizer()
-                                                ..onTap = () {
-                                                  IosAppServiceImpl()
-                                                      .openObsidian(
-                                                          vaultName: vaultName);
+                                                ..onTap = () async {
+                                                  if (backupRelPath == null) {
+                                                    return;
+                                                  }
+                                                  final vf =
+                                                      VaultFolderService();
+                                                  final vaultPath = await vf
+                                                      .startAccessing(widget
+                                                          .repo.vaultBookmark);
+                                                  if (vaultPath == null) {
+                                                    return;
+                                                  }
+                                                  String backupContent;
+                                                  try {
+                                                    backupContent = await File(
+                                                            '$vaultPath/$backupRelPath')
+                                                        .readAsString();
+                                                  } finally {
+                                                    await vf.stopAccessing(
+                                                        widget.repo
+                                                            .vaultBookmark);
+                                                  }
+                                                  if (!context.mounted) return;
+                                                  ScaffoldMessenger.of(context)
+                                                      .hideCurrentMaterialBanner();
+                                                  await Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          BackupComparePickerScreen(
+                                                        repo: widget.repo,
+                                                        livePath: e.filePath,
+                                                        backupName:
+                                                            backupFileName,
+                                                        backupContent:
+                                                            backupContent,
+                                                      ),
+                                                    ),
+                                                  );
                                                 },
                                             ),
                                             const TextSpan(
                                                 text: ' in LocalSync/Conflict '
-                                                    'Backups'),
+                                                    'Backups.'),
                                             // 2026-08-26: real feedback, live -
                                             // "these user actions like reboot
                                             // tab or vault needs to be noted in
@@ -871,10 +933,18 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // hadn't noticed. Told here, right
                                             // where a resolution just wrote to
                                             // this exact note.
+                                            //
+                                            // 2026-09-14: real feedback, live -
+                                            // "Push needs to remind to pull
+                                            // the desktop too" - matches the
+                                            // "push then pull" phrasing
+                                            // already used in both confirm
+                                            // dialogs, not just "push."
                                             const TextSpan(
-                                                text: '. If it still looks '
-                                                    'unchanged in Obsidian, '
-                                                    'close and reopen the note.'),
+                                                text: '\n\nNow tap PUSH on '
+                                                    'the home screen, then '
+                                                    'pull on desktop, for a '
+                                                    'full sync.'),
                                           ],
                                         ),
                                       ),
