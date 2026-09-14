@@ -1222,12 +1222,14 @@ class _ConflictPanel extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (leadingContext != null && leadingContext!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(leadingContext!,
-                            style: TextStyle(color: kTextDim, fontSize: 13)),
-                      ),
+                    // 2026-09-14: real feedback, live - "the questioned
+                    // text is at the bottom, this might be better at the
+                    // top as the first thing the user sees, and can then
+                    // choose to scroll down and view the grey text if
+                    // needed." The actual decision (this side's disputed
+                    // text) now comes first; the shared, already-known
+                    // context is the thing you scroll for, not the thing
+                    // you scroll past.
                     tokens == null
                     ? Text(plainText,
                         style: TextStyle(color: kStar, fontSize: 14))
@@ -1247,6 +1249,12 @@ class _ConflictPanel extends StatelessWidget {
                                   ))
                               .toList(),
                         ),
+                      ),
+                    if (leadingContext != null && leadingContext!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(leadingContext!,
+                            style: TextStyle(color: kTextDim, fontSize: 13)),
                       ),
                   ],
                 ),
