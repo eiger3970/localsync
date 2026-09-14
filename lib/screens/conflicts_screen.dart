@@ -1675,21 +1675,11 @@ class _SafetyStep extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        glowing
-            ? Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: kGreen.withValues(alpha: 0.55),
-                      blurRadius: 14,
-                      spreadRadius: 3,
-                    ),
-                  ],
-                ),
-                child: iconWidget,
-              )
-            : iconWidget,
+        // 2026-09-14: real feedback, live - "Glow needs to be flowing,
+        // not static, adds liveliness to the page." _PulsingGlow (below)
+        // replaces the fixed BoxShadow with a real, continuously
+        // repeating animation.
+        glowing ? _PulsingGlow(child: iconWidget) : iconWidget,
         const SizedBox(height: 4),
         // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
         // to kStar/14px - "too small and dark, make easier to read".
@@ -1697,6 +1687,64 @@ class _SafetyStep extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(color: kStar, fontSize: 12)),
       ],
+    );
+  }
+}
+
+// 2026-09-14: real feedback, live - "Glow needs to be flowing, not
+// static, adds liveliness to the page." A repeating AnimationController
+// driving blur/spread/opacity between a dim and a bright state - a
+// genuine breathing pulse, not the single fixed BoxShadow this replaced.
+// Its own widget (not inlined into _SafetyStep) since _SafetyStep is a
+// StatelessWidget and this needs a real Ticker.
+class _PulsingGlow extends StatefulWidget {
+  final Widget child;
+  const _PulsingGlow({required this.child});
+
+  @override
+  State<_PulsingGlow> createState() => _PulsingGlowState();
+}
+
+class _PulsingGlowState extends State<_PulsingGlow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value;
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: kGreen.withValues(alpha: 0.3 + 0.35 * t),
+                blurRadius: 8 + 12 * t,
+                spreadRadius: 1 + 3 * t,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
