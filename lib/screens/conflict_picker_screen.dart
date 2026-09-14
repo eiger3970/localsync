@@ -215,7 +215,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       _DialogPoint(
         icon: Icons.library_add_check,
         color: kGreen,
-        text: 'Backs up all versions first, in ',
+        text: 'Backs up all text first, in ',
         linkText: 'LocalSync/Conflict Backups',
         onLinkTap: () =>
             IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
@@ -233,7 +233,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       _DialogPoint(
         icon: Icons.done_all,
         color: kGreen,
-        text: 'Text versions of both kept, as plain text',
+        text: 'Both texts kept, as plain text',
       ),
       _DialogPoint(
         icon: Icons.visibility,
@@ -319,7 +319,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               icon: Icons.checklist,
               color: kGreen,
               text: 'Pick individual sentences from each side to build '
-                  'your own version',
+                  'your own text',
             ),
             _DialogPoint(
               icon: Icons.tune,
@@ -413,8 +413,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               // right after what's kept, before the (by-default) loss
               // of the other side - so the safety net is read before
               // the thing it's a safety net FOR, not after.
+              // 2026-09-14: real feedback, live - "Image is a cloud, but
+              // no cloud. Use same backup image as Keep both versions?"
+              // Icons.backup is the same cloud-with-upload-arrow glyph
+              // already corrected for this exact reason in
+              // _keepBothDialogPoints below - library_add_check matches
+              // it here too.
               _DialogPoint(
-                icon: Icons.backup,
+                icon: Icons.library_add_check,
                 color: kGreen,
                 text: 'All text backed up first, in ',
                 linkText: 'LocalSync/Conflict Backups',
@@ -597,7 +603,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('Keep both versions?',
+        title: Text('Keep both texts?',
             style: TextStyle(color: kStar, fontSize: 17)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
