@@ -537,9 +537,22 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         versions[0].body.length <= maxDiffTokens * 6 &&
         versions[1].body.length <= maxDiffTokens * 6;
 
+    // 2026-09-14: real feedback, live - "the 2 sides don't correspond to
+    // what I'm seeing on the desktop and phone versions." This used to
+    // label index 0 as "This device" unconditionally - correct only by
+    // coincidence when 'yours' happened to be the first callout written
+    // to the file. Nothing guarantees that ordering (versions are built
+    // in whatever order the callouts physically appear - see
+    // conflict_scanner.dart's non-Kanban parsing loop), so a file where
+    // the other device's edit landed first mislabeled it as this
+    // device's own edit. Checks the actual who value instead of
+    // position, so the label always matches the real data regardless of
+    // file order.
     String titleFor(int i) {
-      if (i == 0) return _myDeviceName.isEmpty ? 'This device' : _myDeviceName;
       final v = versions[i];
+      if (v.who == 'yours') {
+        return _myDeviceName.isEmpty ? 'This device' : _myDeviceName;
+      }
       return v.when != null ? '${v.who} - ${v.when}' : v.who;
     }
 
