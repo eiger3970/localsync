@@ -529,4 +529,56 @@ void main() {
       expect(await file.readAsString(), before);
     });
   });
+
+  group('scanForConflicts - real 2026-09-14 case (journal, two independent '
+      'stacked conflicts, one info + one warning, in the same note)', () {
+    test('both stacked conflicts are detected, not silently dropped',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final journalDir = Directory('${dir.path}/Journal/2026/09');
+      await journalDir.create(recursive: true);
+      final file = File('${journalDir.path}/Sep 14th, 2026.md');
+      await file.writeAsString(
+        '0953 met Anerban at Riponne metro, visited EVAM, SPOP and Adecco. '
+        'Email Marco,helpful staffer who search but I\'m not in the system '
+        'from a previous cv sent 1 or 2 years ago.\n'
+        '\n'
+        '> [!info]- SYNC CONFLICT - yours (review and delete one) - open '
+        'LocalSync → ⋮ → Conflicts\n'
+        '> 0951 Lausanne has general intimidation of vulnerable people, '
+        'walking in front of them and in their way.\n'
+        '> \n'
+        '> Hub.lausanne@adecco.ch Marco.\n'
+        '\n'
+        '> [!warning]- SYNC CONFLICT - desktop obsidian - 202609140910 '
+        '(review and delete one) - open LocalSync → ⋮ → Conflicts\n'
+        '> Phone have less functions thank a desktop.\n'
+        '\n',
+      );
+
+      final entries = await scanForConflicts(dir.path);
+      expect(entries, hasLength(1),
+          reason: 'both callouts belong to the same note - one '
+              'ConflictEntry, stacked versions, not two separate entries '
+              'a user would have to hunt for in two different places');
+      final entry = entries.single;
+      // the "yours" callout + the "desktop obsidian" callout - the base
+      // paragraph above them is the note's own kept text, not itself a
+      // conflict version.
+      expect(entry.versions, hasLength(2));
+      expect(entry.versions.map((v) => v.who),
+          containsAll(['yours', 'desktop obsidian']));
+      expect(entry.versions.map((v) => v.when), contains('202609140910'));
+      expect(
+          entry.versions.any((v) => v.body.contains('Hub.lausanne@adecco.ch')),
+          isTrue,
+          reason: 'the actually-needed content (the email address) must '
+              'survive scanning, not get lost in the stacked-block regex');
+      expect(
+          entry.versions
+              .any((v) => v.body.contains('less functions thank a desktop')),
+          isTrue);
+    });
+  });
 }
