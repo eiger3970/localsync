@@ -595,28 +595,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             // condition on. Step 2 glows once
                             // _pushReminderGlowing is true (see its own
                             // doc on the state field above).
+                            // 2026-09-14: real feedback, live - "make Tap
+                            // a conflict below also glow, so it's a part
+                            // of the glowing image. Then same for Push to
+                            // sync with text." Text can't take a
+                            // BoxShadow the way an icon can, but it can
+                            // take an animated text-shadow - _GlowingHint
+                            // (below) drives both this phrase and the
+                            // Push-to-sync phrase with the same repeating
+                            // pulse as their matching icons, so text and
+                            // icon read as one glowing unit, not two
+                            // separately-timed effects.
                             Expanded(
-                              child: Text.rich(
-                                TextSpan(
-                                  style:
-                                      TextStyle(color: kTextMid, fontSize: 13),
-                                  children: [
-                                    TextSpan(
-                                        text: 'Tap a conflict below',
-                                        style: TextStyle(
-                                            color: kGreen,
-                                            fontWeight: FontWeight.w600)),
-                                    const TextSpan(text: ', then '),
-                                    TextSpan(
-                                        text: 'push and pull on desktop',
-                                        style: _pushReminderGlowing
-                                            ? TextStyle(
-                                                color: kGreen,
-                                                fontWeight: FontWeight.w600)
-                                            : null),
-                                    const TextSpan(text: '.'),
-                                  ],
-                                ),
+                              child: _GlowingHint(
+                                pushGlowing: _pushReminderGlowing,
                               ),
                             ),
                           ],
@@ -1745,6 +1737,74 @@ class _PulsingGlowState extends State<_PulsingGlow>
         );
       },
       child: widget.child,
+    );
+  }
+}
+
+// 2026-09-14: real feedback, live - "make Tap a conflict below also
+// glow, so it's a part of the glowing image. Then same for Push to
+// sync with text." Same idea as _PulsingGlow, but text needs a
+// text-shadow rather than a BoxShadow - one shared AnimationController
+// driving both phrases so they pulse in the same rhythm as their
+// matching icons.
+class _GlowingHint extends StatefulWidget {
+  final bool pushGlowing;
+  const _GlowingHint({required this.pushGlowing});
+
+  @override
+  State<_GlowingHint> createState() => _GlowingHintState();
+}
+
+class _GlowingHintState extends State<_GlowingHint>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  TextStyle _glowStyle(double t) => TextStyle(
+        color: kGreen,
+        fontWeight: FontWeight.w600,
+        shadows: [
+          Shadow(
+            color: kGreen.withValues(alpha: 0.3 + 0.35 * t),
+            blurRadius: 4 + 6 * t,
+          ),
+        ],
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = _controller.value;
+        return Text.rich(
+          TextSpan(
+            style: TextStyle(color: kTextMid, fontSize: 13),
+            children: [
+              TextSpan(text: 'Tap a conflict below', style: _glowStyle(t)),
+              const TextSpan(text: ', then '),
+              TextSpan(
+                  text: 'push and pull on desktop',
+                  style: widget.pushGlowing ? _glowStyle(t) : null),
+              const TextSpan(text: '.'),
+            ],
+          ),
+        );
+      },
     );
   }
 }
