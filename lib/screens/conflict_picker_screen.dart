@@ -408,33 +408,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   icon: Icons.check_circle,
                   color: kGreen,
                   text: 'Keeps "$label"'),
-              _DialogPoint(
-                  icon: Icons.cancel,
-                  color: _kBrightRed,
-                  text: _keepLeftoverInNote
-                      ? (otherCount == 1
-                          ? 'Keeps the other version too, collapsed for reference'
-                          : 'Keeps the other $otherCount versions too, collapsed for reference')
-                      : (otherCount == 1
-                          ? 'Removes the other version from this note'
-                          : 'Removes the other $otherCount versions from this note')),
-              // 2026-08-19: real feedback, live - this used check_circle
-              // too, same glyph as the "keeps" line above, which read as
-              // if the two were related (they're not - this is separate
-              // reassurance info, not part of the keep/remove decision).
-              // Icons.backup matches conflicts_screen.dart's own
-              // _SafetyStep row, which already uses this exact icon for
-              // the same concept.
-              //
-              // 2026-08-20: tappable link, same as the post-resolve
-              // snackbar (conflicts_screen.dart) - opens the vault in
-              // general (widget.repo.name is already the vault folder
-              // name, set at link time, no extra vault access needed).
-              // A same-session A/B test confirmed which note Obsidian
-              // shows afterward tracks whatever was on-screen in Obsidian
-              // right before switching away, not this button - reverted
-              // an earlier "open Obsidian" rewording that tried to hedge
-              // around that, per direct instruction not to.
+              // 2026-09-14: real feedback, live - "Move Every version
+              // backed up first, to line 2." Reassurance now comes
+              // right after what's kept, before the (by-default) loss
+              // of the other side - so the safety net is read before
+              // the thing it's a safety net FOR, not after.
               _DialogPoint(
                 icon: Icons.backup,
                 color: kGreen,
@@ -443,7 +421,20 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 onLinkTap: () => IosAppServiceImpl()
                     .openObsidian(vaultName: widget.repo.name),
               ),
-              const SizedBox(height: 8),
+              // 2026-09-14: real feedback, live - "it doesn't make sense
+              // holistically, with the other Keep this version points."
+              // This used to be the one place stating the live
+              // consequence, phrased two different ways depending on
+              // the switch below - now a fixed statement of the
+              // default (switch off), with the switch immediately
+              // below it as the one place to change that, instead of
+              // two texts trying to describe the same live state.
+              _DialogPoint(
+                  icon: Icons.cancel,
+                  color: _kBrightRed,
+                  text: otherCount == 1
+                      ? 'Removes the other version from this note'
+                      : 'Removes the other $otherCount versions from this note'),
               // 2026-09-08: real feedback, live - "gone entirely" (today)
               // vs "I need all or part of that data onto this device"
               // (2026-08-25's own explicit ask) are genuinely opposite
@@ -453,33 +444,41 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               // Changing it here also updates the saved default via
               // DatabaseService, so the next resolution starts from
               // whatever was picked last.
-              InkWell(
-                onTap: () {
-                  final next = !_keepLeftoverInNote;
-                  setDialogState(() {});
-                  setState(() => _keepLeftoverInNote = next);
-                  DatabaseService().setKeepLeftoverInNote(next);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                          _keepLeftoverInNote
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank,
-                          color: kGreen,
-                          size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                            'Keep the other version too, collapsed for '
-                            'reference in this note',
-                            style: TextStyle(color: kTextMid, fontSize: 13)),
-                      ),
-                    ],
-                  ),
+              // 2026-09-14: real feedback, live - "I didn't realise
+              // that's a real and live tick box... the image looks like
+              // an svg graphic for a desktop or something." A checkbox
+              // icon read as decorative, not an interactive control - a
+              // real Switch is unambiguous, and its own on/off state is
+              // now the only thing that needs to change (the red point
+              // above states the default in fixed text; this row is the
+              // one live control for it, with the switch itself showing
+              // current state - no second text trying to track it).
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Switch(
+                      value: _keepLeftoverInNote,
+                      activeTrackColor: kGreen,
+                      onChanged: (next) {
+                        setDialogState(() {});
+                        setState(() => _keepLeftoverInNote = next);
+                        DatabaseService().setKeepLeftoverInNote(next);
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                          otherCount == 1
+                              ? 'Keep this other version in this note '
+                                  'too, collapsed for reference'
+                              : 'Keep these other $otherCount versions '
+                                  'in this note too, collapsed for '
+                                  'reference',
+                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                    ),
+                  ],
                 ),
               ),
               // 2026-09-14: real feedback, live - "Push after, then pull
