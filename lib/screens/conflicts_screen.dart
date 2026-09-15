@@ -948,16 +948,32 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // points at the home screen's
                                             // real controls again instead
                                             // of duplicating them here.
-                                            const TextSpan(text: 'Resolved. Now tap '),
+                                            // 2026-09-15, same session:
+                                            // real feedback, live -
+                                            // "phone is a swipe up, not a
+                                            // tap" - PUSH's real gesture
+                                            // is swipe-up
+                                            // (gif_swipe_trigger.dart's
+                                            // swipeDown: false), not a
+                                            // tap; "tap" described the
+                                            // wrong motion entirely, not
+                                            // just imprecise wording.
+                                            // Also "why is [pull] not
+                                            // upper case like PUSH" -
+                                            // both name the same kind of
+                                            // thing (this app's own
+                                            // action), inconsistent
+                                            // casing read as if only one
+                                            // were a real button.
+                                            const TextSpan(text: 'Resolved.\n'),
+                                            const TextSpan(text: 'Swipe '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(
-                                                text: ' PUSH on the home '
-                                                    'screen, then '),
+                                            const TextSpan(text: ' PUSH, then '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
@@ -966,8 +982,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' pull on desktop, '
-                                                    'for a full sync.\n\n'),
+                                                text: ' PULL on desktop, '
+                                                    'completing sync.\n\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
