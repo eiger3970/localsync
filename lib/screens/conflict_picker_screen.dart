@@ -978,7 +978,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               // button text directly.
                               // 2026-09-14: "this text and the Conflict
                               // text need to not be verbose."
-                              : 'Tap to keep text you prefer.',
+                              // 2026-09-15: real feedback, live - "change
+                              // to: Tap to keep iPhone or desktop obsidian
+                              // - 202..." Names the actual two versions
+                              // (titleFor already resolves each to a real
+                              // device name or who/when) instead of the
+                              // generic "text you prefer," so this line
+                              // says exactly what's being chosen between.
+                              : 'Tap to keep ${titleFor(0)} or ${titleFor(1)}.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                     // 2026-09-15: real feedback, live - a small dimmed
@@ -1006,6 +1013,33 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       onPressed: () => _showDiffColorInfo(),
                     ),
                   ],
+                ),
+                // 2026-09-15: real feedback, live - "Move Unsure? text to
+                // under the Tap to keep text you prefer and above tips
+                // that appear in Conflicts." Used to sit directly under
+                // the KEEP BOTH button further down; now it's the first
+                // thing read after the tap instruction, before any of
+                // the conflict-shape-specific hints below. "Colour
+                // Unsure? to white with the image" - kGreen (tied to the
+                // KEEP BOTH button specifically) no longer makes sense
+                // once this text stands on its own, disconnected from
+                // that button - kStar matches every other plain
+                // instructional line on this screen.
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined, color: kStar, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            'Unsure? KEEP BOTH never loses data - worst '
+                            'case, delete a duplicate line after.',
+                            style: TextStyle(color: kStar, fontSize: 12)),
+                      ),
+                    ],
+                  ),
                 ),
                 if (oneSideTooShort) ...[
                   const SizedBox(height: 8),
@@ -1159,17 +1193,24 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBoth,
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: kGreen),
+                          side: BorderSide(color: kStar),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
                         // 2026-09-10: real feedback, live - "needs images
                         // to the left." Same glyph _keepBothDialogPoints
                         // already uses for "both kept," reused here.
-                        icon: Icon(Icons.done_all, color: kGreen, size: 18),
+                        // 2026-09-15: real feedback, live - "KEEP BOTH
+                        // button to be white" - kGreen matched the
+                        // adjacent Unsure? tip when that tip sat directly
+                        // under this button; now that the tip moved up
+                        // near the top of the screen (see above), kStar
+                        // keeps this button visually consistent with the
+                        // now-white MERGE TEXT INSTEAD button below it.
+                        icon: Icon(Icons.done_all, color: kStar, size: 18),
                         label: Text('KEEP BOTH',
                             style: TextStyle(
-                                color: kGreen,
+                                color: kStar,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
@@ -1187,77 +1228,6 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       // replaced with the same short icon+point list the
                       // confirm dialog already uses, safety facts first.
                       onPressed: () => _showKeepBothInfo(),
-                    ),
-                  ],
-                ),
-                // 2026-09-15: real feedback, live - "keep both will
-                // duplicate data, but also and more importantly it won't
-                // lose data, which is the priority... data is NEVER to
-                // be lost is the top priority." Picking a side risks
-                // losing whatever's unique to the other one if that's
-                // misjudged; Keep Both never can, worst case is a
-                // duplicate line, always safe to delete after. Said
-                // plainly here, not just in the info dialog someone has
-                // to tap into first.
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.shield_outlined, color: kGreen, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                            'Unsure? KEEP BOTH never loses data - worst '
-                            'case, delete a duplicate line after.',
-                            style: TextStyle(color: kGreen, fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                ),
-                // 2026-09-15: real feedback, live - "Move Compare with
-                // a backup to under Unsure? KEEP BOTH text." Stays
-                // directly under that tip even after KEEP BOTH itself
-                // moved above MERGE - this proximity was the actual ask,
-                // not the button's position relative to Merge.
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BackupCompareListScreen(
-                            repo: widget.repo,
-                            noteFilePath: entry.filePath,
-                          ),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.difference_outlined,
-                                color: kTextMid, size: 16),
-                            const SizedBox(width: 6),
-                            Text('Compare with a backup',
-                                style: TextStyle(
-                                    color: kTextMid,
-                                    fontSize: 13,
-                                    decoration: TextDecoration.underline)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // 2026-09-08: real feedback, live - "what does this
-                    // do, I need an i for information." Same pattern
-                    // as the other two info buttons on this screen.
-                    IconButton(
-                      icon: Icon(Icons.info_outline, color: kTextDim, size: 18),
-                      tooltip: 'What is this?',
-                      onPressed: _showCompareBackupInfo,
                     ),
                   ],
                 ),
@@ -1338,6 +1308,53 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ],
                   ),
                 ],
+                // 2026-09-15: real feedback, live - "Move Compare with a
+                // backup under MERGE TEXT INSTEAD." Previously sat right
+                // under the Unsure? tip, back when that tip was still
+                // directly below KEEP BOTH - now that the tip moved up
+                // near the top of the screen, this follows the last
+                // action button instead.
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BackupCompareListScreen(
+                            repo: widget.repo,
+                            noteFilePath: entry.filePath,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.difference_outlined,
+                                color: kTextMid, size: 16),
+                            const SizedBox(width: 6),
+                            Text('Compare with a backup',
+                                style: TextStyle(
+                                    color: kTextMid,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.underline)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 2026-09-08: real feedback, live - "what does this
+                    // do, I need an i for information." Same pattern
+                    // as the other two info buttons on this screen.
+                    IconButton(
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 18),
+                      tooltip: 'What is this?',
+                      onPressed: _showCompareBackupInfo,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 if (useDiff && versions.length == 2) ...[
                   IntrinsicHeight(
