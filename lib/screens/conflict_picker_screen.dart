@@ -342,6 +342,60 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     );
   }
 
+  // 2026-09-15: real feedback, live - "I see nothing about the hidden
+  // meanings of coloured text... too dark and small to read and too
+  // easy to overlook. This can be a large text in an i for info
+  // section, with images and colours, less verbose, more imagery."
+  // Same _DialogPoint pattern as the other info dialogs on this screen
+  // (icon + 15px text, not a small dim caption) - reached from the "i"
+  // next to "Tap your preferred text to keep" above.
+  void _showDiffColorInfo() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('What do the colors mean?',
+            style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DialogPoint(
+              icon: Icons.notes,
+              color: kTextMid,
+              text: 'Dimmed text - the same on every version, nothing '
+                  'to decide here',
+            ),
+            _DialogPoint(
+              icon: Icons.highlight,
+              color: kGreen,
+              text: 'Highlighted text - only on THAT version. Read it '
+                  'before you choose',
+            ),
+            _DialogPoint(
+              icon: Icons.warning_amber,
+              color: Colors.amber,
+              text: 'Amber note - a heads-up worth reading before you '
+                  'decide, like a repeated paragraph',
+            ),
+            _DialogPoint(
+              icon: Icons.shield_outlined,
+              color: kGreen,
+              text: 'Not sure which to pick? KEEP BOTH never loses '
+                  'data - worst case, delete a duplicate line after',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // 2026-09-07: real feedback, live - "still too afraid to tap KEEP
   // BOTH. The info needs clear non verbose text... that it's reversible
   // or an undo or it's backed up and a link to the backup, so it's easy
@@ -873,6 +927,20 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               : 'Tap your preferred text to keep.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
+                    // 2026-09-15: real feedback, live - a small dimmed
+                    // caption above the diff ("grey text too dark and
+                    // small... too easy to overlook") failed exactly
+                    // the way it was warned it might. Replaced with the
+                    // same info-button pattern already proven readable
+                    // elsewhere on this screen (Keep Both, Merge,
+                    // Compare with a backup) - an icon here, a real
+                    // dialog with big colored icon+text lines when
+                    // tapped, not a caption easy to skim past.
+                    IconButton(
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
+                      tooltip: 'What do the colors mean?',
+                      onPressed: () => _showDiffColorInfo(),
+                    ),
                   ],
                 ),
                 if (oneSideTooShort) ...[
@@ -964,7 +1032,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                   'repeats the same paragraph twice - '
                                   '"${titleFor(1 - duplicateSide)}" doesn\'t '
                                   'have that problem. '
-                                  '${mergeWouldHelp ? '"Merge text instead" below can keep one copy plus everything from the other side.' : 'The two sides share nothing in common, so neither "Keep both" nor "Merge" can drop just the duplicate - picking a whole side, or Keep Both plus a manual cleanup after, are the real options.'}',
+                                  '${mergeWouldHelp ? '"Merge text instead" below can keep one copy plus everything from the other side.' : 'The two sides share nothing else in common, so neither "Keep both" nor "Merge" can drop just the duplicate on its own. KEEP BOTH, then manually delete the extra copy after - picking a side would drop whatever unique text is on the other one.'}',
                           style: TextStyle(
                               color: Colors.amber,
                               fontSize: 13,
@@ -1036,29 +1104,6 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // matches how vimdiff itself reads (highlighted region,
                 // not shouting text). Landscape gives each column real
                 // width; portrait still works, just narrower.
-                // 2026-09-15: real feedback, live - "grey is identical is
-                // not clear to the user... colour graphics needed so user
-                // knows green is content on right has and red is content
-                // only left has." The dimmed/highlighted split was only
-                // ever explained in code comments, never to the person
-                // actually looking at the screen - this makes it
-                // conspicuous instead of assumed. Unconditional, not
-                // buried in an info dialog someone has to think to tap.
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.palette_outlined, color: kTextDim, size: 14),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                          'Dimmed text is the same on every side. '
-                          'Highlighted text is what only THIS side has - '
-                          'read it before you decide.',
-                          style: TextStyle(color: kTextDim, fontSize: 12)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
                 if (useDiff && versions.length == 2) ...[
                   IntrinsicHeight(
                     child: Row(
