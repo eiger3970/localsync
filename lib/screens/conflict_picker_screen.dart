@@ -402,21 +402,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             _DialogPoint(
               icon: Icons.highlight,
               color: kGreen,
-              textColor: kGreen,
+              highlightBackground: kGreen.withValues(alpha: 0.28),
               text: 'Highlighted text - only on THAT version. Read it '
                   'before you choose',
             ),
             _DialogPoint(
               icon: Icons.highlight,
               color: kBlue,
-              textColor: kBlue,
+              highlightBackground: kBlue.withValues(alpha: 0.28),
               text: 'Highlighted text - only on THAT version. Read it '
                   'before you choose',
             ),
             _DialogPoint(
               icon: Icons.warning_amber,
               color: Colors.amber,
-              textColor: Colors.amber,
+              highlightBackground: Colors.amber.withValues(alpha: 0.35),
               text: 'Amber note - a heads-up worth reading before you '
                   'decide, like a repeated paragraph',
             ),
@@ -1170,16 +1170,26 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             }
                           },
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: kTextMid),
+                            side: BorderSide(color: kBlue),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             minimumSize: const Size.fromHeight(0),
                           ),
                           // 2026-09-10: real feedback, live - "needs
                           // images to the left of them" (both buttons).
-                          icon: Icon(Icons.merge, color: kTextMid, size: 18),
+                          // 2026-09-15: real feedback, live - "grey
+                          // looks like a dead button." kTextMid is
+                          // deliberately low-contrast everywhere else
+                          // on this screen (it's the de-emphasized-text
+                          // color), so a real, always-tappable button
+                          // in that same color read as disabled. kBlue
+                          // is already an active color on this screen
+                          // (the "theirs" panel's highlight) - reads as
+                          // a live second option, not KEEP BOTH's green
+                          // primary and not disabled.
+                          icon: Icon(Icons.merge, color: kBlue, size: 18),
                           label: Text('MERGE TEXT INSTEAD',
                               style: TextStyle(
-                                  color: kTextMid,
+                                  color: kBlue,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.3)),
@@ -1427,6 +1437,19 @@ class _DialogPoint extends StatelessWidget {
   // that's the one dialog where the text itself needs to demonstrate
   // the color, not just the icon next to it.
   final Color? textColor;
+  // 2026-09-15: real feedback, live - "the Tap to keep text you prefer
+  // colour explainer compared to the [real Sep 7th] conflict... having
+  // amber highlighted text, specifically #Tonight." The dialog was
+  // previewing green/blue/amber as solid, full-opacity colored TEXT -
+  // but _ConflictPanel never colors text itself for these three, it
+  // puts plain white text on a translucent colored BACKGROUND (28%
+  // for green/blue, 35% for amber - see highlightColor.withValues and
+  // Colors.amber.withValues above). Solid amber text next to a
+  // washed-out 35%-opacity chip don't look alike, which is exactly
+  // what was being pointed at. Set for the three highlight entries
+  // only - dimmed/white stay genuinely colored text with no
+  // background, matching their own real usage.
+  final Color? highlightBackground;
   const _DialogPoint({
     required this.icon,
     required this.color,
@@ -1434,11 +1457,13 @@ class _DialogPoint extends StatelessWidget {
     this.linkText,
     this.onLinkTap,
     this.textColor,
+    this.highlightBackground,
   });
 
   @override
   Widget build(BuildContext context) {
-    final resolvedTextColor = textColor ?? kStar;
+    final resolvedTextColor =
+        highlightBackground != null ? kStar : (textColor ?? kStar);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -1448,7 +1473,11 @@ class _DialogPoint extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: linkText == null
-                ? Text(text, style: TextStyle(color: resolvedTextColor, fontSize: 15))
+                ? Text(text,
+                    style: TextStyle(
+                        color: resolvedTextColor,
+                        fontSize: 15,
+                        backgroundColor: highlightBackground))
                 : Text.rich(
                     TextSpan(
                       style: TextStyle(color: resolvedTextColor, fontSize: 15),
@@ -1509,20 +1538,26 @@ class _ConflictPanel extends StatelessWidget {
   // to delete is." Set only for the panel whose own body actually
   // contains the repeat (see duplicateSide in the parent screen) - null
   // everywhere else, same as beforeContext/afterContext's empty-string
-  // convention. Both occurrences get an orange background.
+  // convention. Both occurrences get a background in Colors.amber -
+  // 2026-09-15, real feedback, live: it used to be Colors.orange, a
+  // different color to the "Amber note" dialog entry/warning icon
+  // describing it despite both meaning the same thing - "they should
+  // be the same fucking colour, the text description is exactly there
+  // to explain the colours." Now literally the same Color value as the
+  // warning icon/text below the panels.
   // 2026-09-15, same day, real bug found by tracing the actual Sep 7th
-  // note: this used to lay the orange over plain text INSTEAD of the
-  // word-diff tokens, reasoning that "this paragraph repeats" and
+  // note: this used to lay the highlight over plain text INSTEAD of
+  // the word-diff tokens, reasoning that "this paragraph repeats" and
   // "this word differs from the other side" would fight for the same
   // visual channel. That threw away real information - the panel's
   // own YouTube URL (never on the other side at all, genuinely
   // one-sided, needing to be synced) rendered identical plain white to
   // truly-shared text, because plain-text mode had no idea what the
-  // other side even said. disputedText() now combines both: orange
-  // wins where a span falls inside a duplicate occurrence, green/blue
-  // still applies everywhere else a token is one-sided - no channel
-  // conflict in practice since a token position needs at most one of
-  // the two.
+  // other side even said. disputedText() now combines both: the amber
+  // duplicate highlight wins where a span falls inside a duplicate
+  // occurrence, green/blue still applies everywhere else a token is
+  // one-sided - no channel conflict in practice since a token position
+  // needs at most one of the two.
   final String? duplicateParagraph;
   const _ConflictPanel({
     super.key,
@@ -1544,7 +1579,7 @@ class _ConflictPanel extends StatelessWidget {
   // because plain-text substring highlighting had no idea what the
   // other side even said. "White text is text only on 1 side and
   // needing syncing, right?" - yes, for this exact gap: a one-sided
-  // line could hide unflagged right next to an orange duplicate,
+  // line could hide unflagged right next to an amber duplicate,
   // which is a real risk given this app's top priority is never
   // losing data (see feedback_never_lose_data_priority memory). Only
   // used when tokens == null (oversized fallback, no word-diff
@@ -1564,7 +1599,7 @@ class _ConflictPanel extends StatelessWidget {
       }
       spans.add(TextSpan(
         text: duplicate,
-        style: TextStyle(backgroundColor: Colors.orange.withValues(alpha: 0.35)),
+        style: TextStyle(backgroundColor: Colors.amber.withValues(alpha: 0.35)),
       ));
       start = idx + duplicate.length;
     }
@@ -1624,7 +1659,7 @@ class _ConflictPanel extends StatelessWidget {
                   ? TextStyle(
                       color: kStar,
                       fontSize: 14,
-                      backgroundColor: Colors.orange.withValues(alpha: 0.35))
+                      backgroundColor: Colors.amber.withValues(alpha: 0.35))
                   : t.op == DiffOp.equal
                       ? TextStyle(color: kStar, fontSize: 14)
                       : TextStyle(
