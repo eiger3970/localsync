@@ -18,11 +18,15 @@ import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/purchase_service.dart';
+import '../services/repository_provider.dart';
 import '../services/resolved_watchlist.dart';
+import '../services/sync_service.dart';
 import '../services/vault_folder_service.dart';
+import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/conflict_picker_upsell.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
+import '../widgets/sync_confirm_dialog.dart';
 import 'backup_compare_screen.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
@@ -224,6 +228,93 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
     if (mounted) setState(() => _future = _scan());
+  }
+
+  // 2026-09-15: real feedback, live - "the user needs the next step to
+  // be push, so do that, to test each conflict is really resolved and
+  // not just another error, then onto the next conflict later." The
+  // resolved-conflict banner only ever told the user to go to the home
+  // screen and swipe PUSH there themselves - a real navigation detour
+  // in the middle of working through a stack of conflicts one at a
+  // time. This calls the exact same RepositoryProvider.pushRepository
+  // home_screen.dart's own swipe gesture calls, right from here.
+  //
+  // 2026-09-15, same feedback: "this is a stress point confusing the
+  // user in the middle of a conflict repair, so try to add some code to
+  // ease the fix." The real error hit live was
+  // LinkingError.cannotFastForward - the desktop has commits this phone
+  // hasn't pulled yet, so git correctly refuses to push over them. The
+  // app already has the right fix (its own resolution text says "Tap
+  // PULL first... Then push again") but never acted on its own advice -
+  // it left the user to read a bare diagnosis and go find PULL
+  // themselves. This does exactly what the resolution text already
+  // promises: pull, then retry the push automatically, only bothering
+  // the user if that doesn't clear it (pull itself needs confirmation,
+  // or still fails afterwards).
+  Future<void> _pushNow(BuildContext context) async {
+    final provider = context.read<RepositoryProvider>();
+    final id = widget.repo.id;
+    if (id == null) return;
+    await _runPushWithAutoRecovery(context, provider, id);
+  }
+
+  Future<void> _runPushWithAutoRecovery(
+      BuildContext context, RepositoryProvider provider, int id,
+      {bool alreadyRecovered = false}) async {
+    var result = await provider.pushRepository(id);
+    if (!context.mounted || result == null) return;
+    if (result case SyncNeedsConfirmation()) {
+      final proceed = await showSyncConfirmDialog(context, result);
+      if (proceed != true || !context.mounted) return;
+      result = await provider.pushRepository(id, confirmed: true);
+      if (!context.mounted || result == null) return;
+    }
+    if (result case SyncFailed(error: LinkingError.cannotFastForward)
+        when !alreadyRecovered) {
+      final pullResult = await provider.pullRepository(id);
+      if (!context.mounted || pullResult == null) return;
+      if (pullResult case SyncNeedsConfirmation()) {
+        final proceed = await showSyncConfirmDialog(context, pullResult);
+        if (proceed != true || !context.mounted) return;
+        final confirmedPull =
+            await provider.pullRepository(id, confirmed: true);
+        if (!context.mounted || confirmedPull == null) return;
+        if (confirmedPull is SyncFailed) {
+          _showSyncSnackBar(context, syncResultMessage(confirmedPull));
+          return;
+        }
+      } else if (pullResult is SyncFailed) {
+        _showSyncSnackBar(context, syncResultMessage(pullResult));
+        return;
+      }
+      // Pull cleared the way - retry the push once, not recursively
+      // (alreadyRecovered: true), so a second, different
+      // cannotFastForward can't loop forever.
+      await _runPushWithAutoRecovery(context, provider, id,
+          alreadyRecovered: true);
+      return;
+    }
+    _showSyncSnackBar(context, syncResultMessage(result));
+    if (result case SyncOkWithConflicts() when context.mounted) {
+      setState(() => _future = _scan());
+    }
+  }
+
+  // Same look as home_screen.dart's own sync SnackBar (_runAndShow) -
+  // one consistent style for "here's what a push/pull just did"
+  // wherever it's triggered from.
+  void _showSyncSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text(message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kStar, fontSize: 16)),
+        ),
+        duration: const Duration(seconds: 12),
+      ),
+    );
   }
 
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
@@ -927,17 +1018,55 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // reference/recovery lines
                                             // that only matter if
                                             // something looks wrong.
+                                            // 2026-09-15: real feedback,
+                                            // live - "add the images."
+                                            // Small upload/download icons
+                                            // inline before PUSH/pull,
+                                            // not the cloud glyph (a real
+                                            // contradiction for an app
+                                            // whose whole promise is no
+                                            // cloud - same reasoning
+                                            // _keepBothDialogPoints
+                                            // already settled on above).
+                                            // Also no longer says "on the
+                                            // home screen" - PUSH is the
+                                            // real button right below
+                                            // this text now, not a
+                                            // separate screen to find.
+                                            const TextSpan(text: 'Resolved. Now tap '),
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.upload_rounded,
+                                                  color: kStar, size: 16),
+                                            ),
                                             const TextSpan(
-                                                text: 'Resolved. Now tap '
-                                                    'PUSH on the home '
-                                                    'screen, then pull on '
-                                                    'desktop, for a full '
-                                                    'sync.\n\n'),
+                                                text: ' PUSH below, then '),
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(
+                                                  Icons.download_rounded,
+                                                  color: kStar, size: 16),
+                                            ),
+                                            const TextSpan(
+                                                text: ' pull on desktop, '
+                                                    'for a full sync.\n\n'),
+                                            // 2026-09-15: real feedback,
+                                            // live - "should this be
+                                            // Desktop Obsidian?" This
+                                            // warning is specifically
+                                            // about the OTHER device
+                                            // needing a refresh after
+                                            // your phone pushes - "in
+                                            // Obsidian" alone didn't say
+                                            // which one.
                                             const TextSpan(
                                                 text: 'If text still looks '
-                                                    'wrong in Obsidian, '
-                                                    'close and reopen to '
-                                                    'refresh the note.\n\n'),
+                                                    'wrong in desktop '
+                                                    'Obsidian, close and '
+                                                    'reopen to refresh the '
+                                                    'note.\n\n'),
                                             const TextSpan(
                                                 text: 'View or restore '),
                                             TextSpan(
@@ -1047,6 +1176,33 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       // nothing equivalent to swap back to
                                       // from here.
                                       actions: [
+                                        // 2026-09-15: real feedback, live -
+                                        // "the user needs the next step to
+                                        // be push, so do that, to test each
+                                        // conflict is really resolved and
+                                        // not just another error, then onto
+                                        // the next conflict later." Working
+                                        // through a stack of conflicts one
+                                        // at a time used to mean leaving
+                                        // this screen for the home screen's
+                                        // swipe gesture after every single
+                                        // one, just to confirm the
+                                        // resolution actually synced clean.
+                                        // Calls the real push right here -
+                                        // see _pushNow/_runPushWithAutoRecovery
+                                        // above for the cannotFastForward
+                                        // auto-pull-and-retry this also
+                                        // fixes.
+                                        TextButton(
+                                          onPressed: () {
+                                            ScaffoldMessenger.of(context)
+                                                .hideCurrentMaterialBanner();
+                                            _pushNow(context);
+                                          },
+                                          child: Text('PUSH',
+                                              style:
+                                                  TextStyle(color: kGreen)),
+                                        ),
                                         if (result?.keptBoth != null)
                                           TextButton(
                                             onPressed: () {
