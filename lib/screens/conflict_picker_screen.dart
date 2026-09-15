@@ -979,9 +979,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'One side is much shorter than the other - '
-                          'check it\'s not an accidental empty edit '
-                          'before choosing it.',
+                          'Check it\'s not an accidental empty edit '
+                          'before choosing it - one side is much '
+                          'shorter than the other.',
                           style: TextStyle(
                               color: Colors.amber,
                               fontSize: 13,
@@ -1002,16 +1002,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         child: Text(
                           allHaveLeadingTime(
                                   versions.map((v) => v.body).toList())
-                              ? 'Each side starts with a different clock '
-                                  'time - these look like two separate '
-                                  'entries, not the same thing edited '
-                                  'twice. "Keep both" is usually right '
-                                  'here.'
-                              : 'One side has a clock time, the other has '
-                                  'none at all - these look like two '
+                              ? '"Keep both" is usually right here - '
+                                  'each side starts with a different '
+                                  'clock time, these look like two '
                                   'separate entries, not the same thing '
-                                  'edited twice. "Keep both" is usually '
-                                  'right here.',
+                                  'edited twice.'
+                              : '"Keep both" is usually right here - '
+                                  'one side has a clock time, the other '
+                                  'has none at all, these look like two '
+                                  'separate entries, not the same thing '
+                                  'edited twice.',
                           style: TextStyle(
                               color: kGreen,
                               fontSize: 13,
@@ -1030,9 +1030,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'One version already contains all of the '
-                          'other\'s text, plus more - keeping the '
-                          'longer one loses nothing.',
+                          'Keeping the longer version loses nothing - '
+                          'it already contains all of the other\'s '
+                          'text, plus more.',
                           style: TextStyle(
                               color: kGreen,
                               fontSize: 13,
@@ -1052,14 +1052,27 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       Expanded(
                         child: Text(
                           !onlyOneSideDuplicates
-                              ? '"${titleFor(duplicateSide)}" repeats the '
-                                  'same paragraph twice - worth cleaning up '
-                                  'after you resolve this.'
-                              : '"${titleFor(duplicateSide)}" (${duplicateSide == 0 ? 'left' : 'right'}) '
-                                  'repeats the same paragraph twice - '
-                                  '"${titleFor(1 - duplicateSide)}" doesn\'t '
-                                  'have that problem. '
-                                  '${mergeWouldHelp ? '"Merge text instead" below can keep one copy plus everything from the other side.' : 'The two sides share nothing else in common, so neither "Keep both" nor "Merge" can drop just the duplicate on its own. KEEP BOTH, then manually delete the extra copy after - picking a side would drop whatever unique text is on the other one.'}',
+                              ? 'Worth cleaning up after you resolve this '
+                                  '- "${titleFor(duplicateSide)}" repeats '
+                                  'the same paragraph twice.'
+                              : mergeWouldHelp
+                                  ? '"Merge text instead" below can keep '
+                                      'one copy plus everything from the '
+                                      'other side - "${titleFor(duplicateSide)}" '
+                                      '(${duplicateSide == 0 ? 'left' : 'right'}) '
+                                      'repeats the same paragraph twice, '
+                                      '"${titleFor(1 - duplicateSide)}" '
+                                      'doesn\'t have that problem.'
+                                  : 'KEEP BOTH, then manually delete the '
+                                      'extra copy after - picking a side '
+                                      'would drop whatever unique text is '
+                                      'on the other one. "${titleFor(duplicateSide)}" '
+                                      '(${duplicateSide == 0 ? 'left' : 'right'}) '
+                                      'repeats the same paragraph twice, '
+                                      '"${titleFor(1 - duplicateSide)}" '
+                                      'doesn\'t have that problem, and the '
+                                      'two sides share nothing else in '
+                                      'common.',
                           style: TextStyle(
                               color: Colors.amber,
                               fontSize: 13,
