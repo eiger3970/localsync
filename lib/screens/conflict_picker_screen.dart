@@ -355,7 +355,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('What do the colors mean?',
+        title: Text('What do the colours mean?',
             style: TextStyle(color: kStar, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -391,8 +391,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               icon: Icons.text_fields,
               color: kStar,
               textColor: kStar,
-              text: 'Plain white text - no special meaning on its own, '
-                  'just what\'s left when nothing else is flagged',
+              text: 'White text - text left when nothing to flag',
             ),
             _DialogPoint(
               icon: Icons.highlight,
@@ -995,7 +994,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     // every other inline element in this row.
                     IconButton(
                       icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
-                      tooltip: 'What do the colors mean?',
+                      tooltip: 'What do the colours mean?',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () => _showDiffColorInfo(),
@@ -1035,12 +1034,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           allHaveLeadingTime(
                                   versions.map((v) => v.body).toList())
                               ? '"KEEP BOTH" is usually right here\n'
-                                  'each side starts with a different '
+                                  '- each side starts with a different '
                                   'clock time, these look like two '
                                   'separate entries, not the same thing '
                                   'edited twice.'
                               : '"KEEP BOTH" is usually right here\n'
-                                  'one side has a clock time, the other '
+                                  '- one side has a clock time, the other '
                                   'has none at all, these look like two '
                                   'separate entries, not the same thing '
                                   'edited twice.',
