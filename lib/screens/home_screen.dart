@@ -13,6 +13,7 @@ import '../services/device_name.dart';
 import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
+import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/diag_card.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/help_wizard.dart';
@@ -560,10 +561,23 @@ class HomeScreen extends StatelessWidget {
                 ({bool confirmed = false}) =>
                     provider.pullRepository(repo.id!, confirmed: confirmed),
                 repo: repo),
+            // 2026-09-15: real feedback, live - "when a user with no
+            // claudeai has this error, will it be fixed by the app?"
+            // Fixed for the Conflicts screen's own PUSH button
+            // (conflicts_screen.dart's _runPushWithAutoRecovery) but
+            // this everyday swipe gesture is the actual common path
+            // most users hit cannotFastForward through - fixing one and
+            // not the other would leave the far more frequent case
+            // still showing a bare error with no self-recovery.
+            // pullFallback wires the exact same auto-pull-then-retry
+            // into _runAndShow itself.
             onPush: () => _runAndShow(
                 context,
                 ({bool confirmed = false}) =>
-                    provider.pushRepository(repo.id!, confirmed: confirmed)),
+                    provider.pushRepository(repo.id!, confirmed: confirmed),
+                repo: repo,
+                pullFallback: ({bool confirmed = false}) =>
+                    provider.pullRepository(repo.id!, confirmed: confirmed)),
           );
           // 2026-08-27: real feedback, live - "the free app can then
           // setup obsidian with the special recipe algorithm... running
@@ -913,24 +927,44 @@ class _SpinningSyncState extends State<_SpinningSync>
 // trigger a plain yes/no dialog and then re-run the exact same
 // pull/push with confirmed:true - see sync_service.dart.
 //
-// 2026-08-19: [repo] is optional and only used for the new
+// 2026-08-19: [repo] is optional and only used for the
 // SyncOkWithConflicts case below - "way too convoluted, automate it"
 // was the real complaint: a successful-looking pull gave no signal a
 // conflict needed attention, so the only way to discover one was
 // already knowing to check a menu with no badge on it (mapped out in
-// this session's own mermaid flowchart). Push never produces this
-// result (a conflict can only come from a pull's merge), so its call
-// site below doesn't pass [repo] and this branch is simply
-// unreachable there.
+// this session's own mermaid flowchart).
+// 2026-09-15: real feedback, live - "when a user with no claudeai has
+// this error, will it be fixed by the app?" A plain push can never
+// return SyncOkWithConflicts directly (a conflict can only come from a
+// pull's merge - see sync_service.dart's _pushInIsolate, which never
+// constructs one), so the note below about push's call site is still
+// accurate for [op] itself - but [pullFallback] changes the picture:
+// when push fails with cannotFastForward and this recovers by pulling
+// instead, THAT pull genuinely can surface SyncOkWithConflicts, and it
+// needs the same navigation as an ordinary pull would get. So the push
+// call site now passes [repo] too, purely so this recovery path can
+// still navigate correctly - a successful plain push still never hits
+// that branch on its own.
 //
 // 2026-08-21: moved out of HomeScreen (never used `this`/instance
 // state) - _showFullError's new TRY AGAIN button needs to call this
 // too, and it lives in a different private class (_AppBarRepoStatus),
 // which can't reach a HomeScreen instance method.
+//
+// 2026-09-15: [pullFallback], when given, is what turns a bare
+// cannotFastForward error into a real fix instead of a dead end - the
+// exact same auto-pull-then-retry conflicts_screen.dart's own PUSH
+// button already does (see that file's _runPushWithAutoRecovery),
+// pulled up into this shared helper so the ordinary Home screen swipe-
+// to-push gesture - the actual common path most users hit this
+// through, not just the post-conflict-resolution one - gets it too.
+// null (every call site except the push gesture) means "no recovery,
+// behave exactly as before."
 Future<void> _runAndShow(
   BuildContext context,
   Future<SyncResult?> Function({bool confirmed}) op, {
   Repository? repo,
+  Future<SyncResult?> Function({bool confirmed})? pullFallback,
 }) async {
   var result = await op();
   if (!context.mounted || result == null) return;
@@ -939,6 +973,30 @@ Future<void> _runAndShow(
     if (proceed != true || !context.mounted) return;
     result = await op(confirmed: true);
     if (!context.mounted || result == null) return;
+  }
+  if (result case SyncFailed(error: LinkingError.cannotFastForward)
+      when pullFallback != null) {
+    var pullResult = await pullFallback();
+    if (!context.mounted || pullResult == null) return;
+    if (pullResult case SyncNeedsConfirmation()) {
+      final proceed = await showSyncConfirmDialog(context, pullResult);
+      if (proceed != true || !context.mounted) return;
+      pullResult = await pullFallback(confirmed: true);
+      if (!context.mounted || pullResult == null) return;
+    }
+    if (pullResult is SyncFailed) {
+      // The pull itself didn't clear the way - show what actually went
+      // wrong there instead of pretending the original push failure is
+      // still the relevant message.
+      result = pullResult;
+    } else {
+      // Pull cleared it - retry the push once. Not recursive (no
+      // pullFallback passed through), so a second, different
+      // cannotFastForward shows as a plain error rather than looping.
+      final retried = await op();
+      if (!context.mounted) return;
+      result = retried ?? pullResult;
+    }
   }
   // 2026-08-18: "make text size larger... on the main page 0's bottom
   // of screen message" - was relying on Flutter's default SnackBar
