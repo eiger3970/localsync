@@ -360,27 +360,44 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-09-15: real feedback, live - "make it dimmes, not
+            // white... make it red and also a green example... make it
+            // amber." Each line's own text now renders in the actual
+            // color it's describing (via _DialogPoint's textColor),
+            // and highlighted gets both real examples - red AND green
+            // are both used across the two panels, not just one.
             _DialogPoint(
               icon: Icons.notes,
-              color: kTextMid,
+              color: kTextDim,
+              textColor: kTextDim,
               text: 'Dimmed text - the same on every version, nothing '
                   'to decide here',
             ),
             _DialogPoint(
               icon: Icons.highlight,
-              color: kGreen,
+              color: _kBrightRed,
+              textColor: _kBrightRed,
               text: 'Highlighted text - only on THAT version. Read it '
                   'before you choose',
             ),
             _DialogPoint(
+              icon: Icons.highlight,
+              color: kGreen,
+              textColor: kGreen,
+              text: 'Same meaning in green - the color just marks which '
+                  'side, not good or bad',
+            ),
+            _DialogPoint(
               icon: Icons.warning_amber,
               color: Colors.amber,
+              textColor: Colors.amber,
               text: 'Amber note - a heads-up worth reading before you '
                   'decide, like a repeated paragraph',
             ),
             _DialogPoint(
               icon: Icons.shield_outlined,
               color: kGreen,
+              textColor: kGreen,
               text: 'Not sure which to pick? KEEP BOTH never loses '
                   'data - worst case, delete a duplicate line after',
             ),
@@ -895,7 +912,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // the left." touch_app matches the instruction itself
                 // (tap a version below to act on it).
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(Icons.touch_app, color: kStar, size: 18),
                     const SizedBox(width: 8),
@@ -936,9 +953,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     // Compare with a backup) - an icon here, a real
                     // dialog with big colored icon+text lines when
                     // tapped, not a caption easy to skim past.
+                    // 2026-09-15: real feedback, live - "the i is lower
+                    // than the line... stop wasting space." IconButton's
+                    // default 48x48 minimum tap target was taller than
+                    // this row's text, pushing its centered icon lower
+                    // than the text above it and inflating the row's
+                    // height for no reason. Zero padding + tight
+                    // constraints makes it exactly icon-sized, same as
+                    // every other inline element in this row.
                     IconButton(
                       icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
                       tooltip: 'What do the colors mean?',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       onPressed: () => _showDiffColorInfo(),
                     ),
                   ],
@@ -1325,16 +1352,26 @@ class _DialogPoint extends StatelessWidget {
   // which have nothing to link to.
   final String? linkText;
   final VoidCallback? onLinkTap;
+  // 2026-09-15: real feedback, live - the "What do the colors mean?"
+  // dialog described dimmed/amber/highlighted text but every line's
+  // own text still rendered in plain kStar white, contradicting the
+  // point being made. null (every other call site) keeps the existing
+  // kStar text - only _showDiffColorInfo passes a real value, since
+  // that's the one dialog where the text itself needs to demonstrate
+  // the color, not just the icon next to it.
+  final Color? textColor;
   const _DialogPoint({
     required this.icon,
     required this.color,
     required this.text,
     this.linkText,
     this.onLinkTap,
+    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedTextColor = textColor ?? kStar;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -1344,10 +1381,10 @@ class _DialogPoint extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: linkText == null
-                ? Text(text, style: TextStyle(color: kStar, fontSize: 15))
+                ? Text(text, style: TextStyle(color: resolvedTextColor, fontSize: 15))
                 : Text.rich(
                     TextSpan(
-                      style: TextStyle(color: kStar, fontSize: 15),
+                      style: TextStyle(color: resolvedTextColor, fontSize: 15),
                       children: [
                         TextSpan(text: text),
                         TextSpan(
