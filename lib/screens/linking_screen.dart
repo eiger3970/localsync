@@ -1759,10 +1759,44 @@ class _IdleViewState extends State<_IdleView>
             ),
           ),
           if (_pairing) ...[
-            const SizedBox(height: 16),
-            Text('Pairing…',
-                style: TextStyle(color: kTextMid, fontSize: 13),
-                textAlign: TextAlign.center),
+            // 2026-09-15: real feedback, live - "Pairing... is too
+            // small, needs to be a major clear activity showing, so
+            // user doesn't have to wonder or search for what's
+            // happening." A 13px dim caption with no motion was easy
+            // to miss entirely - a real card with a spinner (motion is
+            // the actual "something is happening" signal) and large
+            // bright text is unmissable instead of something you have
+            // to go looking for.
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              decoration: BoxDecoration(
+                color: kSurface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kGreen, width: 1.5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.5, color: kGreen),
+                  ),
+                  const SizedBox(width: 14),
+                  Flexible(
+                    child: Text('Pairing with your desktop…',
+                        style: TextStyle(
+                            color: kStar,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center),
+                  ),
+                ],
+              ),
+            ),
           ],
           // 2026-09-01: real feedback - "are these options redundant?"
           // Yes, one of them: both links used to show unconditionally on
