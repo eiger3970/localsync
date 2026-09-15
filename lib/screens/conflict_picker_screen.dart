@@ -826,6 +826,23 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       return v.when != null ? '${v.who} - ${v.when}' : v.who;
     }
 
+    // 2026-09-15: real feedback, live - real Sep 6th note: "desktop
+    // obsidian in green on the left and iPhone in blue on the right,
+    // what's wrong?" Nothing crashing - titleFor above already solved
+    // labeling correctly by identity (who == 'yours'), not position,
+    // back on 2026-09-14 - but the PANEL COLORS were never given the
+    // same fix, still hardcoded kGreen for index 0 / kBlue for index 1
+    // regardless of which device that happened to be. Since versions'
+    // array order is file-dependent, not device-dependent (same
+    // 2026-09-14 finding), that meant green/blue tracked screen
+    // position, not "this device" vs "desktop" - exactly backwards
+    // from what "make iPhone green, desktop blue" (a few messages
+    // earlier, on the Tap-to-keep caption) asked for. colorFor uses the
+    // same identity check titleFor already does, so whichever index is
+    // genuinely "yours" is green and the other is blue, regardless of
+    // which side of the file/screen it lands on.
+    Color colorFor(int i) => versions[i].who == 'yours' ? kGreen : kBlue;
+
     // 2026-09-08: real feedback, live - "fix the app as if a user
     // doesn't have access to Claude AI." Every real conflict this
     // session got resolved by reading the content and noticing each
@@ -989,10 +1006,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           // 2026-09-15, same day: "can you make iPhone
                           // green and desktop obsidian blue?" - each
                           // name now colored to match its own panel's
-                          // highlightColor below (kGreen for panel 0,
-                          // kBlue for panel 1), so the caption itself
-                          // previews which side is which before the
-                          // panels are even read.
+                          // highlightColor below, via colorFor(i) (by
+                          // device identity, not panel position - see
+                          // colorFor's own comment for why position
+                          // alone got this backwards on a real note),
+                          // so the caption itself previews which side is
+                          // which before the panels are even read.
                           : Text.rich(
                               TextSpan(
                                 style:
@@ -1002,13 +1021,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                   TextSpan(
                                       text: titleFor(0),
                                       style: TextStyle(
-                                          color: kGreen,
+                                          color: colorFor(0),
                                           fontWeight: FontWeight.bold)),
                                   const TextSpan(text: ' or '),
                                   TextSpan(
                                       text: titleFor(1),
                                       style: TextStyle(
-                                          color: kBlue,
+                                          color: colorFor(1),
                                           fontWeight: FontWeight.bold)),
                                   const TextSpan(text: '.'),
                                 ],
@@ -1366,7 +1385,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
+                          // 2026-09-15: real feedback, live - "you forgot
+                          // to move the text Compare with a backup, to
+                          // the right as well." The outer Expanded only
+                          // pushed the trailing info button to the row's
+                          // right edge - this inner Row's own content
+                          // still defaulted to hugging its own left edge
+                          // inside that Expanded space. end pulls the
+                          // icon+text over too, so the whole link sits
+                          // right next to the info button, not stranded
+                          // on the left with empty space in between.
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
                               Icon(Icons.difference_outlined,
                                   color: kTextMid, size: 16),
@@ -1408,7 +1438,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             // acceptable." Red implied one side was the
                             // wrong/bad choice - neither is, it's just
                             // the other version. Green/blue instead.
-                            highlightColor: kGreen,
+                            // 2026-09-15, later same day: colorFor, not
+                            // a bare kGreen - see colorFor's own comment
+                            // above for why hardcoding by index instead
+                            // of identity put desktop in green on a real
+                            // note where it happened to load first.
+                            highlightColor: colorFor(0),
                             duplicateParagraph:
                                 duplicateSide == 0 ? duplicateParagraph : null,
                             beforeContext: sharedBeforeContext,
@@ -1434,7 +1469,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             tokens: wordDiffTheirs(
                                 versions[0].body, versions[1].body),
                             plainText: versions[1].body,
-                            highlightColor: kBlue,
+                            highlightColor: colorFor(1),
                             duplicateParagraph:
                                 duplicateSide == 1 ? duplicateParagraph : null,
                             beforeContext: sharedBeforeContext,
@@ -1455,7 +1490,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       title: titleFor(i),
                       tokens: null,
                       plainText: versions[i].body,
-                      highlightColor: i == 0 ? kGreen : kBlue,
+                      highlightColor: colorFor(i),
                       duplicateParagraph:
                           i == duplicateSide ? duplicateParagraph : null,
                       beforeContext: sharedBeforeContext,
