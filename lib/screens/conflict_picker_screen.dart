@@ -378,20 +378,24 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             ),
             // 2026-09-15: real feedback, live, several rounds - "so
             // explain what white means" then "White is plain text left
-            // when nothing is flagged, this is the definition." Earlier
-            // wording tried to describe white via word-diff matching
-            // specifically, which broke down the moment a panel used
-            // the duplicate-highlighter instead of word-diff (white
-            // meant something different there) - this is the actual,
-            // mode-independent definition: white carries no meaning of
-            // its own, it's just what's left once everything that DOES
-            // mean something (orange, green/blue, amber) is accounted
-            // for.
+            // when nothing is flagged, this is the definition." Then
+            // "if white is identical on both sides, why isn't it grey
+            // text?" - the dimmed entry above is context OUTSIDE the
+            // disputed paragraph (beforeContext/afterContext, never
+            // part of a difference at all); white is INSIDE the
+            // disputed paragraph - it matches on both sides, but it's
+            // still part of a sentence that has a real difference
+            // sitting right next to it, so it stays full-size/bright
+            // rather than dimmed - dimming it would bury the
+            // highlighted words in grey noise. Kept mode-independent
+            // (no mention of word-diff specifically) since a panel can
+            // also reach white via the duplicate-highlighter path.
             _DialogPoint(
               icon: Icons.text_fields,
               color: kStar,
               textColor: kStar,
-              text: 'White text - text left when nothing to flag',
+              text: 'White text - matches both versions, but sits next '
+                  'to a highlighted difference - read it for context',
             ),
             _DialogPoint(
               icon: Icons.highlight,
