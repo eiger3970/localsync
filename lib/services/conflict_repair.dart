@@ -253,19 +253,40 @@ bool hasDuplicateParagraph(String body) {
 
 /// 2026-09-15: real feedback, live - "colour the relevant text orange...
 /// easy for the user's eye to see where the duplicate text to delete
-/// is." hasDuplicateParagraph above only ever answered yes/no - this
-/// returns the actual repeated paragraph so the picker screen can
-/// highlight both of its occurrences directly, not just say a
-/// duplicate exists somewhere. Same split/length floor as
-/// hasDuplicateParagraph, so the two never disagree about whether one
-/// exists.
+/// is." First version of this only ever returned a single repeated
+/// PARAGRAPH - real feedback on the real Sep 7th case: a whole
+/// multi-paragraph block ("# Tonight" through a "no explanation of
+/// why" line, several list items and headings in between) was pasted
+/// in twice, and only the first paragraph of it got highlighted, not
+/// the whole repeated block. Rebuilt as a line-level longest-common-
+/// contiguous-run search instead of a per-paragraph one - a heading
+/// like "# Tonight" is short enough to fall under the old 20-char
+/// paragraph floor on its own, but is still part of the real repeated
+/// block once whole lines (not paragraphs) are the unit being
+/// compared, so it's correctly included as the block's start.
 String? findDuplicateParagraph(String body) {
-  final paras = _splitParagraphs(body).where((p) => p.length >= 20).toList();
-  final seen = <String>{};
-  for (final p in paras) {
-    if (!seen.add(p)) return p;
+  final lines = body.split('\n');
+  String? best;
+  var bestLen = 0;
+  for (var i = 0; i < lines.length; i++) {
+    for (var j = i + 1; j < lines.length; j++) {
+      var k = 0;
+      while (i + k < j &&
+          j + k < lines.length &&
+          lines[i + k] == lines[j + k]) {
+        k++;
+      }
+      if (k == 0) continue;
+      final block = lines.sublist(j, j + k).join('\n').trim();
+      // Same 20-char floor as before - long enough to be a genuine
+      // repeat, not a coincidental blank-line/short-line alignment.
+      if (block.length >= 20 && block.length > bestLen) {
+        bestLen = block.length;
+        best = block;
+      }
+    }
   }
-  return null;
+  return best;
 }
 
 /// 2026-09-08: real feedback, live - "fix the app as if a user doesn't
