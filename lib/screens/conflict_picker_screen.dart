@@ -778,8 +778,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // end of the note) regardless of what time it claimed. Back to the
     // simple, honest version: shared context always shown after the
     // disputed text, matching exactly where resolving actually puts it.
-    final sharedAfterContext = _precedingContext ?? '';
-    const sharedBeforeContext = '';
+    // 2026-09-15: real bug, confirmed against the actual file on disk
+    // (real Sep 7th case: 1603 at line 1, 2105 - inside the conflict
+    // block - at line 36) - _precedingContext is genuinely the text
+    // BEFORE the conflict marker in the file, but it was wired into
+    // afterContext, which _ConflictPanel renders AFTER the disputed
+    // text. That put file-earlier, time-earlier content (1603) below
+    // the disputed text (2105) instead of above it. beforeContext was
+    // never anything but a hardcoded empty string - there is no
+    // "following" context loaded anywhere in this screen, only
+    // preceding, so it belongs in beforeContext, not afterContext.
+    final sharedBeforeContext = _precedingContext ?? '';
+    const sharedAfterContext = '';
 
     // 2026-09-14: real feedback, live - "the 2 sides don't correspond to
     // what I'm seeing on the desktop and phone versions." This used to
