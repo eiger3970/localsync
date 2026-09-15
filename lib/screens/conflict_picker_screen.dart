@@ -360,12 +360,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 2026-09-15: real feedback, live - "make it dimmes, not
-            // white... make it red and also a green example... make it
-            // amber." Each line's own text now renders in the actual
-            // color it's describing (via _DialogPoint's textColor),
-            // and highlighted gets both real examples - red AND green
-            // are both used across the two panels, not just one.
+            // 2026-09-15: real feedback, live - "red means danger, but
+            // both sides are acceptable" - panels are green/blue now,
+            // not red/green (see the two _ConflictPanel highlightColor
+            // sites above), so these examples match. Both highlighted
+            // lines say the exact same thing, just recolored - neither
+            // side reads as the "bad" one. "Not sure which to pick?" is
+            // white/neutral, not tied to either panel's color, since
+            // it isn't about either specific side.
             _DialogPoint(
               icon: Icons.notes,
               color: kTextDim,
@@ -375,17 +377,17 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             ),
             _DialogPoint(
               icon: Icons.highlight,
-              color: _kBrightRed,
-              textColor: _kBrightRed,
+              color: kGreen,
+              textColor: kGreen,
               text: 'Highlighted text - only on THAT version. Read it '
                   'before you choose',
             ),
             _DialogPoint(
               icon: Icons.highlight,
-              color: kGreen,
-              textColor: kGreen,
-              text: 'Same meaning in green - the color just marks which '
-                  'side, not good or bad',
+              color: kBlue,
+              textColor: kBlue,
+              text: 'Highlighted text - only on THAT version. Read it '
+                  'before you choose',
             ),
             _DialogPoint(
               icon: Icons.warning_amber,
@@ -396,8 +398,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             ),
             _DialogPoint(
               icon: Icons.shield_outlined,
-              color: kGreen,
-              textColor: kGreen,
+              color: kStar,
+              textColor: kStar,
               text: 'Not sure which to pick? KEEP BOTH never loses '
                   'data - worst case, delete a duplicate line after',
             ),
@@ -1155,7 +1157,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             tokens: wordDiffOurs(
                                 versions[0].body, versions[1].body),
                             plainText: versions[0].body,
-                            highlightColor: _kBrightRed,
+                            // 2026-09-15: real feedback, live - "red
+                            // means danger, but both sides are
+                            // acceptable." Red implied one side was the
+                            // wrong/bad choice - neither is, it's just
+                            // the other version. Green/blue instead.
+                            highlightColor: kGreen,
                             beforeContext: sharedBeforeContext,
                             afterContext: sharedAfterContext,
                             disputedKey: _leftDisputedKey,
@@ -1179,7 +1186,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             tokens: wordDiffTheirs(
                                 versions[0].body, versions[1].body),
                             plainText: versions[1].body,
-                            highlightColor: kGreen,
+                            highlightColor: kBlue,
                             beforeContext: sharedBeforeContext,
                             afterContext: sharedAfterContext,
                             disputedKey: _rightDisputedKey,
@@ -1255,7 +1262,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       title: titleFor(i),
                       tokens: null,
                       plainText: versions[i].body,
-                      highlightColor: i == 0 ? _kBrightRed : kGreen,
+                      highlightColor: i == 0 ? kGreen : kBlue,
                       beforeContext: sharedBeforeContext,
                       afterContext: sharedAfterContext,
                       onTap: () =>
