@@ -18,15 +18,12 @@ import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/purchase_service.dart';
-import '../services/repository_provider.dart';
 import '../services/resolved_watchlist.dart';
-import '../services/sync_service.dart';
 import '../services/vault_folder_service.dart';
-import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/conflict_picker_upsell.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
-import '../widgets/sync_confirm_dialog.dart';
+import '../main.dart' show rootNavigatorKey;
 import 'backup_compare_screen.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
@@ -228,93 +225,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
     if (mounted) setState(() => _future = _scan());
-  }
-
-  // 2026-09-15: real feedback, live - "the user needs the next step to
-  // be push, so do that, to test each conflict is really resolved and
-  // not just another error, then onto the next conflict later." The
-  // resolved-conflict banner only ever told the user to go to the home
-  // screen and swipe PUSH there themselves - a real navigation detour
-  // in the middle of working through a stack of conflicts one at a
-  // time. This calls the exact same RepositoryProvider.pushRepository
-  // home_screen.dart's own swipe gesture calls, right from here.
-  //
-  // 2026-09-15, same feedback: "this is a stress point confusing the
-  // user in the middle of a conflict repair, so try to add some code to
-  // ease the fix." The real error hit live was
-  // LinkingError.cannotFastForward - the desktop has commits this phone
-  // hasn't pulled yet, so git correctly refuses to push over them. The
-  // app already has the right fix (its own resolution text says "Tap
-  // PULL first... Then push again") but never acted on its own advice -
-  // it left the user to read a bare diagnosis and go find PULL
-  // themselves. This does exactly what the resolution text already
-  // promises: pull, then retry the push automatically, only bothering
-  // the user if that doesn't clear it (pull itself needs confirmation,
-  // or still fails afterwards).
-  Future<void> _pushNow(BuildContext context) async {
-    final provider = context.read<RepositoryProvider>();
-    final id = widget.repo.id;
-    if (id == null) return;
-    await _runPushWithAutoRecovery(context, provider, id);
-  }
-
-  Future<void> _runPushWithAutoRecovery(
-      BuildContext context, RepositoryProvider provider, int id,
-      {bool alreadyRecovered = false}) async {
-    var result = await provider.pushRepository(id);
-    if (!context.mounted || result == null) return;
-    if (result case SyncNeedsConfirmation()) {
-      final proceed = await showSyncConfirmDialog(context, result);
-      if (proceed != true || !context.mounted) return;
-      result = await provider.pushRepository(id, confirmed: true);
-      if (!context.mounted || result == null) return;
-    }
-    if (result case SyncFailed(error: LinkingError.cannotFastForward)
-        when !alreadyRecovered) {
-      final pullResult = await provider.pullRepository(id);
-      if (!context.mounted || pullResult == null) return;
-      if (pullResult case SyncNeedsConfirmation()) {
-        final proceed = await showSyncConfirmDialog(context, pullResult);
-        if (proceed != true || !context.mounted) return;
-        final confirmedPull =
-            await provider.pullRepository(id, confirmed: true);
-        if (!context.mounted || confirmedPull == null) return;
-        if (confirmedPull is SyncFailed) {
-          _showSyncSnackBar(context, syncResultMessage(confirmedPull));
-          return;
-        }
-      } else if (pullResult is SyncFailed) {
-        _showSyncSnackBar(context, syncResultMessage(pullResult));
-        return;
-      }
-      // Pull cleared the way - retry the push once, not recursively
-      // (alreadyRecovered: true), so a second, different
-      // cannotFastForward can't loop forever.
-      await _runPushWithAutoRecovery(context, provider, id,
-          alreadyRecovered: true);
-      return;
-    }
-    _showSyncSnackBar(context, syncResultMessage(result));
-    if (result case SyncOkWithConflicts() when context.mounted) {
-      setState(() => _future = _scan());
-    }
-  }
-
-  // Same look as home_screen.dart's own sync SnackBar (_runAndShow) -
-  // one consistent style for "here's what a push/pull just did"
-  // wherever it's triggered from.
-  void _showSyncSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: kSurface,
-        content: Center(
-          child: Text(message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: kStar, fontSize: 16)),
-        ),
-        duration: const Duration(seconds: 12),
-      ),
-    );
   }
 
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
@@ -1028,11 +938,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // cloud - same reasoning
                                             // _keepBothDialogPoints
                                             // already settled on above).
-                                            // Also no longer says "on the
-                                            // home screen" - PUSH is the
-                                            // real button right below
-                                            // this text now, not a
-                                            // separate screen to find.
+                                            // 2026-09-15, same session: a
+                                            // PUSH button was added right
+                                            // on this banner, briefly -
+                                            // "the push isn't necessary
+                                            // as the home page has the
+                                            // push and pull already
+                                            // there." Reverted; this text
+                                            // points at the home screen's
+                                            // real controls again instead
+                                            // of duplicating them here.
                                             const TextSpan(text: 'Resolved. Now tap '),
                                             WidgetSpan(
                                               alignment:
@@ -1041,7 +956,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' PUSH below, then '),
+                                                text: ' PUSH on the home '
+                                                    'screen, then '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
@@ -1122,11 +1038,55 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                         widget.repo
                                                             .vaultBookmark);
                                                   }
-                                                  if (!context.mounted) return;
-                                                  ScaffoldMessenger.of(context)
+                                                  // 2026-09-15: real bug,
+                                                  // live - "Keep Both
+                                                  // didn't take me to the
+                                                  // home page... this
+                                                  // should be a tappable
+                                                  // link." It wasn't,
+                                                  // once this screen
+                                                  // popped back to Home
+                                                  // underneath the still-
+                                                  // showing banner (see
+                                                  // below) - this
+                                                  // closure's own
+                                                  // `context` came from
+                                                  // Conflicts screen,
+                                                  // which is gone by the
+                                                  // time this fires, so
+                                                  // `context.mounted` was
+                                                  // false and this
+                                                  // silently returned.
+                                                  // rootNavigatorKey
+                                                  // (main.dart) gives a
+                                                  // context that survives
+                                                  // regardless of which
+                                                  // screen triggered the
+                                                  // banner.
+                                                  final navContext =
+                                                      rootNavigatorKey
+                                                          .currentContext;
+                                                  if (navContext == null) {
+                                                    return;
+                                                  }
+                                                  // ignore_for_file doesn't
+                                                  // apply per-line, and the
+                                                  // analyzer can't tell
+                                                  // navContext was just
+                                                  // freshly re-fetched from
+                                                  // rootNavigatorKey right
+                                                  // above, not carried
+                                                  // across the earlier
+                                                  // awaits - that's the
+                                                  // actual fix for the
+                                                  // real staleness this
+                                                  // lint means to catch.
+                                                  // ignore: use_build_context_synchronously
+                                                  ScaffoldMessenger.of(navContext)
                                                       .hideCurrentMaterialBanner();
                                                   await Navigator.push(
-                                                    context,
+                                                    // ignore: use_build_context_synchronously
+                                                    navContext,
                                                     MaterialPageRoute(
                                                       builder: (_) =>
                                                           BackupComparePickerScreen(
@@ -1177,37 +1137,33 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       // from here.
                                       actions: [
                                         // 2026-09-15: real feedback, live -
-                                        // "the user needs the next step to
-                                        // be push, so do that, to test each
-                                        // conflict is really resolved and
-                                        // not just another error, then onto
-                                        // the next conflict later." Working
-                                        // through a stack of conflicts one
-                                        // at a time used to mean leaving
-                                        // this screen for the home screen's
-                                        // swipe gesture after every single
-                                        // one, just to confirm the
-                                        // resolution actually synced clean.
-                                        // Calls the real push right here -
-                                        // see _pushNow/_runPushWithAutoRecovery
-                                        // above for the cannotFastForward
-                                        // auto-pull-and-retry this also
-                                        // fixes.
-                                        TextButton(
-                                          onPressed: () {
-                                            ScaffoldMessenger.of(context)
-                                                .hideCurrentMaterialBanner();
-                                            _pushNow(context);
-                                          },
-                                          child: Text('PUSH',
-                                              style:
-                                                  TextStyle(color: kGreen)),
-                                        ),
+                                        // "the push isn't necessary as the
+                                        // home page has the push and pull
+                                        // already there." A PUSH button
+                                        // briefly lived here, right below
+                                        // Home's own real controls -
+                                        // removed, same reasoning as the
+                                        // wording revert above.
                                         if (result?.keptBoth != null)
                                           TextButton(
                                             onPressed: () {
-                                              ScaffoldMessenger.of(context)
-                                                  .hideCurrentMaterialBanner();
+                                              // 2026-09-15: real bug, live -
+                                              // same stale-context issue as
+                                              // the tappable link above:
+                                              // this screen is popped to
+                                              // Home right after the
+                                              // banner shows now (see
+                                              // below), so `context` here
+                                              // would already be gone by
+                                              // the time a real tap fires.
+                                              final navContext =
+                                                  rootNavigatorKey
+                                                      .currentContext;
+                                              if (navContext != null) {
+                                                ScaffoldMessenger.of(
+                                                        navContext)
+                                                    .hideCurrentMaterialBanner();
+                                              }
                                               _undoKeptBothNow(
                                                   result!.keptBoth!);
                                             },
@@ -1222,9 +1178,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                         // would otherwise need to be
                                         // dismissed some other way.
                                         TextButton(
-                                          onPressed: () =>
-                                              ScaffoldMessenger.of(context)
-                                                  .hideCurrentMaterialBanner(),
+                                          onPressed: () {
+                                            final navContext =
+                                                rootNavigatorKey.currentContext;
+                                            if (navContext != null) {
+                                              ScaffoldMessenger.of(navContext)
+                                                  .hideCurrentMaterialBanner();
+                                            }
+                                          },
                                           child: Text('DISMISS',
                                               style:
                                                   TextStyle(color: kTextDim)),
@@ -1232,6 +1193,21 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       ],
                                     ),
                                   );
+                                  // 2026-09-15: real feedback, live -
+                                  // "Keep Both didn't take me to the home
+                                  // page, rather incorrectly took me to
+                                  // the conflicts page. I have to tap
+                                  // back to be in the home page." The
+                                  // banner (shown just above) is
+                                  // screen-independent - MaterialApp
+                                  // wraps one ScaffoldMessenger shared by
+                                  // every route - so popping this screen
+                                  // right after showing it leaves the
+                                  // banner exactly where it was, now
+                                  // sitting over Home instead of over a
+                                  // Conflicts list the user has to
+                                  // manually back out of.
+                                  if (context.mounted) Navigator.pop(context);
                                 }
                               }
                             },
