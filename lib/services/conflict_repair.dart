@@ -251,6 +251,23 @@ bool hasDuplicateParagraph(String body) {
   return paras.length != paras.toSet().length;
 }
 
+/// 2026-09-15: real feedback, live - "colour the relevant text orange...
+/// easy for the user's eye to see where the duplicate text to delete
+/// is." hasDuplicateParagraph above only ever answered yes/no - this
+/// returns the actual repeated paragraph so the picker screen can
+/// highlight both of its occurrences directly, not just say a
+/// duplicate exists somewhere. Same split/length floor as
+/// hasDuplicateParagraph, so the two never disagree about whether one
+/// exists.
+String? findDuplicateParagraph(String body) {
+  final paras = _splitParagraphs(body).where((p) => p.length >= 20).toList();
+  final seen = <String>{};
+  for (final p in paras) {
+    if (!seen.add(p)) return p;
+  }
+  return null;
+}
+
 /// 2026-09-08: real feedback, live - "fix the app as if a user doesn't
 /// have access to Claude AI." Every real conflict this session got
 /// resolved the same way: read both sides, notice they're two

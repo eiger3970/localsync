@@ -18,6 +18,7 @@ import '../models/repository.dart';
 import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
+        findDuplicateParagraph,
         hasDuplicateParagraph,
         oneContainsTheOther,
         oneSideSuspiciouslyShort;
@@ -348,7 +349,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // section, with images and colours, less verbose, more imagery."
   // Same _DialogPoint pattern as the other info dialogs on this screen
   // (icon + 15px text, not a small dim caption) - reached from the "i"
-  // next to "Tap your preferred text to keep" above.
+  // next to "Tap to keep text you prefer" above.
   void _showDiffColorInfo() {
     showDialog(
       context: context,
@@ -853,6 +854,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final onlyOneSideDuplicates = versions.length == 2 &&
         duplicateSide != -1 &&
         !hasDuplicateParagraph(versions[1 - duplicateSide].body);
+    // 2026-09-15: real feedback, live - "colour the relevant text
+    // orange... easy for the user's eye to see where the duplicate
+    // text to delete is." The amber hint above named which side has a
+    // repeat but never showed where in the text - this is passed to
+    // that side's own _ConflictPanel so it can highlight both
+    // occurrences directly.
+    final duplicateParagraph =
+        duplicateSide != -1 ? findDuplicateParagraph(versions[duplicateSide].body) : null;
     // 2026-09-08: real feedback, live - "does that really work?" It
     // didn't, for the case that matters most (two sides with nothing
     // in common - the real Sep 7th shape). mergeHunks collapses to one
@@ -943,7 +952,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               // button text directly.
                               // 2026-09-14: "this text and the Conflict
                               // text need to not be verbose."
-                              : 'Tap your preferred text to keep.',
+                              : 'Tap to keep text you prefer.',
                           style: TextStyle(color: kStar, fontSize: 15)),
                     ),
                     // 2026-09-15: real feedback, live - a small dimmed
@@ -1146,59 +1155,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // matches how vimdiff itself reads (highlighted region,
                 // not shouting text). Landscape gives each column real
                 // width; portrait still works, just narrower.
+                // 2026-09-15: real feedback, live - "Controls at top
+                // rather than bottom where they're unseen and hard to
+                // find. MERGE TEXT INSTEAD KEEP BOTH to be above text."
+                // Both action buttons used to sit below the diff
+                // panels/stacked text, which can run long - moved above
+                // so they're visible without scrolling past whatever
+                // text happens to be in this conflict. Panels/text stay
+                // below, still tappable to pick a version directly.
                 if (useDiff && versions.length == 2) ...[
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _ConflictPanel(
-                            title: titleFor(0),
-                            tokens: wordDiffOurs(
-                                versions[0].body, versions[1].body),
-                            plainText: versions[0].body,
-                            // 2026-09-15: real feedback, live - "red
-                            // means danger, but both sides are
-                            // acceptable." Red implied one side was the
-                            // wrong/bad choice - neither is, it's just
-                            // the other version. Green/blue instead.
-                            highlightColor: kGreen,
-                            beforeContext: sharedBeforeContext,
-                            afterContext: sharedAfterContext,
-                            disputedKey: _leftDisputedKey,
-                            extraPadBelowDisputed: _leftExtraPad,
-                            onTap: () => _confirmAndChoose(
-                                titleFor(0), versions[0].body),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _ConflictPanel(
-                            // 2026-08-26: real key, not ordinal position -
-                            // conflict_vimdiff_preview_test.dart used to
-                            // tap this panel via find.byType(InkWell).at(1),
-                            // which broke the moment any other InkWell-
-                            // based widget (the new "MERGE PIECES INSTEAD"
-                            // button below) got added anywhere on this
-                            // screen. A key survives that kind of change.
-                            key: const Key('conflict_panel_theirs'),
-                            title: titleFor(1),
-                            tokens: wordDiffTheirs(
-                                versions[0].body, versions[1].body),
-                            plainText: versions[1].body,
-                            highlightColor: kBlue,
-                            beforeContext: sharedBeforeContext,
-                            afterContext: sharedAfterContext,
-                            disputedKey: _rightDisputedKey,
-                            extraPadBelowDisputed: _rightExtraPad,
-                            onTap: () => _confirmAndChoose(
-                                titleFor(1), versions[1].body),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
                   // 2026-08-26: premium tier from docs/pricing-tiers.md -
                   // "automatic - put/yank individual pieces from each
                   // side," not just picking one whole side above. Same
@@ -1255,21 +1220,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       ),
                     ],
                   ),
-                ] else
-                  for (var i = 0; i < versions.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 16),
-                    _ConflictPanel(
-                      title: titleFor(i),
-                      tokens: null,
-                      plainText: versions[i].body,
-                      highlightColor: i == 0 ? kGreen : kBlue,
-                      beforeContext: sharedBeforeContext,
-                      afterContext: sharedAfterContext,
-                      onTap: () =>
-                          _confirmAndChoose(titleFor(i), versions[i].body),
-                    ),
-                  ],
-                const SizedBox(height: 14),
+                  const SizedBox(height: 10),
+                ],
                 // 2026-09-07: real feedback, live - "the app is supposed
                 // to fix" the common real case where neither version is
                 // wrong, they're just two separate things that both
@@ -1340,6 +1292,79 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                if (useDiff && versions.length == 2) ...[
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _ConflictPanel(
+                            title: titleFor(0),
+                            tokens: wordDiffOurs(
+                                versions[0].body, versions[1].body),
+                            plainText: versions[0].body,
+                            // 2026-09-15: real feedback, live - "red
+                            // means danger, but both sides are
+                            // acceptable." Red implied one side was the
+                            // wrong/bad choice - neither is, it's just
+                            // the other version. Green/blue instead.
+                            highlightColor: kGreen,
+                            duplicateParagraph:
+                                duplicateSide == 0 ? duplicateParagraph : null,
+                            beforeContext: sharedBeforeContext,
+                            afterContext: sharedAfterContext,
+                            disputedKey: _leftDisputedKey,
+                            extraPadBelowDisputed: _leftExtraPad,
+                            onTap: () => _confirmAndChoose(
+                                titleFor(0), versions[0].body),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _ConflictPanel(
+                            // 2026-08-26: real key, not ordinal position -
+                            // conflict_vimdiff_preview_test.dart used to
+                            // tap this panel via find.byType(InkWell).at(1),
+                            // which broke the moment any other InkWell-
+                            // based widget (the new "MERGE PIECES INSTEAD"
+                            // button below) got added anywhere on this
+                            // screen. A key survives that kind of change.
+                            key: const Key('conflict_panel_theirs'),
+                            title: titleFor(1),
+                            tokens: wordDiffTheirs(
+                                versions[0].body, versions[1].body),
+                            plainText: versions[1].body,
+                            highlightColor: kBlue,
+                            duplicateParagraph:
+                                duplicateSide == 1 ? duplicateParagraph : null,
+                            beforeContext: sharedBeforeContext,
+                            afterContext: sharedAfterContext,
+                            disputedKey: _rightDisputedKey,
+                            extraPadBelowDisputed: _rightExtraPad,
+                            onTap: () => _confirmAndChoose(
+                                titleFor(1), versions[1].body),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else
+                  for (var i = 0; i < versions.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 16),
+                    _ConflictPanel(
+                      title: titleFor(i),
+                      tokens: null,
+                      plainText: versions[i].body,
+                      highlightColor: i == 0 ? kGreen : kBlue,
+                      duplicateParagraph:
+                          i == duplicateSide ? duplicateParagraph : null,
+                      beforeContext: sharedBeforeContext,
+                      afterContext: sharedAfterContext,
+                      onTap: () =>
+                          _confirmAndChoose(titleFor(i), versions[i].body),
+                    ),
+                  ],
                 // 2026-09-14: real feedback, live - "needs to be at the
                 // right position and timing for the user... maybe the
                 // remember to push pull needs to go here?" Moved into the
@@ -1457,6 +1482,17 @@ class _ConflictPanel extends StatelessWidget {
   // 3+-stacked-versions case has no "same row" to align against).
   final Key? disputedKey;
   final double extraPadBelowDisputed;
+  // 2026-09-15: real feedback, live - "colour the relevant text
+  // orange... easy for the user's eye to see where the duplicate text
+  // to delete is." Set only for the panel whose own body actually
+  // contains the repeat (see duplicateSide in the parent screen) - null
+  // everywhere else, same as beforeContext/afterContext's empty-string
+  // convention. When set, both occurrences get an orange background,
+  // laid over plain text rather than the word-diff tokens - highlighting
+  // "this paragraph repeats" and "this word differs from the other
+  // side" at once would fight for the same visual channel, so this
+  // takes over the whole panel's text instead of trying to combine them.
+  final String? duplicateParagraph;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1468,29 +1504,59 @@ class _ConflictPanel extends StatelessWidget {
     this.afterContext = '',
     this.disputedKey,
     this.extraPadBelowDisputed = 0,
+    this.duplicateParagraph,
   });
+
+  Widget _highlightDuplicate(String duplicate) {
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (true) {
+      final idx = plainText.indexOf(duplicate, start);
+      if (idx == -1) {
+        spans.add(TextSpan(text: plainText.substring(start)));
+        break;
+      }
+      if (idx > start) {
+        spans.add(TextSpan(text: plainText.substring(start, idx)));
+      }
+      spans.add(TextSpan(
+        text: duplicate,
+        style: TextStyle(backgroundColor: Colors.orange.withValues(alpha: 0.35)),
+      ));
+      start = idx + duplicate.length;
+    }
+    return Text.rich(
+      TextSpan(style: TextStyle(color: kStar, fontSize: 14), children: spans),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    Widget disputedText() => tokens == null
-        ? Text(plainText, style: TextStyle(color: kStar, fontSize: 14))
-        : Text.rich(
-            TextSpan(
-              children: tokens!
-                  .map((t) => TextSpan(
-                        text: t.text,
-                        style: t.op == DiffOp.equal
-                            ? TextStyle(color: kStar, fontSize: 14)
-                            : TextStyle(
-                                color: kStar,
-                                fontSize: 14,
-                                backgroundColor:
-                                    highlightColor.withValues(alpha: 0.28),
-                              ),
-                      ))
-                  .toList(),
-            ),
-          );
+    Widget disputedText() {
+      final duplicate = duplicateParagraph;
+      if (duplicate != null && plainText.contains(duplicate)) {
+        return _highlightDuplicate(duplicate);
+      }
+      return tokens == null
+          ? Text(plainText, style: TextStyle(color: kStar, fontSize: 14))
+          : Text.rich(
+              TextSpan(
+                children: tokens!
+                    .map((t) => TextSpan(
+                          text: t.text,
+                          style: t.op == DiffOp.equal
+                              ? TextStyle(color: kStar, fontSize: 14)
+                              : TextStyle(
+                                  color: kStar,
+                                  fontSize: 14,
+                                  backgroundColor:
+                                      highlightColor.withValues(alpha: 0.28),
+                                ),
+                        ))
+                    .toList(),
+              ),
+            );
+    }
 
     return InkWell(
       onTap: onTap,
