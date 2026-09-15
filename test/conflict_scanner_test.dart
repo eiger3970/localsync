@@ -11,9 +11,14 @@
 
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:localsync/services/conflict_scanner.dart';
+import 'package:localsync/services/database_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   group('applyResolution - Kanban', () {
     test(
         'resolving a card conflict followed by another heading keeps them on separate lines '
@@ -208,7 +213,7 @@ void main() {
       expect(entries, hasLength(1));
       final entry = entries.single;
       final content = await file.readAsString();
-      final updated = applyKeepBoth(content, entry);
+      final updated = applyKeepBoth(content, entry).content;
 
       // No longer flagged as a conflict - both are just plain text now.
       expect(updated, isNot(contains('SYNC CONFLICT')));
@@ -239,7 +244,7 @@ void main() {
       final entries = await scanForConflicts(dir.path);
       final entry = entries.single;
       final content = await file.readAsString();
-      final updated = applyKeepBoth(content, entry);
+      final updated = applyKeepBoth(content, entry).content;
 
       // "yours" (index 0) still comes first - the untimed side gives
       // nothing safe to sort by.
@@ -266,7 +271,7 @@ void main() {
       final entry = entries.single;
       expect(entry.versions, hasLength(3));
       final content = await file.readAsString();
-      final updated = applyKeepBoth(content, entry);
+      final updated = applyKeepBoth(content, entry).content;
 
       expect(updated, contains('first round'));
       expect(updated, contains('second round'));
@@ -298,12 +303,25 @@ void main() {
 
       final entries = await scanForConflicts(dir.path);
       final entry = entries.single;
-      final updated = applyKeepBoth(await file.readAsString(), entry);
-      await file.writeAsString(updated);
+      final result = applyKeepBoth(await file.readAsString(), entry);
+      await file.writeAsString(result.content);
+      // Same persistence mergeConflictKeepingBoth does after the write -
+      // undo data lives in the database now, not inline marker text.
+      await DatabaseService().setKeptBothRecords([
+        {
+          'id': 'test-1',
+          'filePath': 'Aug 28th, 2026.md',
+          'versions': entry.versions
+              .map((v) => {'who': v.who, 'when': v.when, 'body': v.body})
+              .toList(),
+          'mergedText': result.mergedText,
+          'resolvedAt': DateTime.now().toIso8601String(),
+        }
+      ]);
 
       // No longer an active conflict, and both texts are genuinely
       // still present (already covered above) - now also check the
-      // invisible marker is real and findable.
+      // database record is real and findable.
       expect(await scanForConflicts(dir.path), isEmpty);
       final kept = await scanForKeptBoth(dir.path);
       expect(kept, hasLength(1));
@@ -337,7 +355,7 @@ void main() {
       final entry = entries.single;
       expect(entry.isKanban, isTrue);
       final content = await file.readAsString();
-      final updated = applyKeepBoth(content, entry);
+      final updated = applyKeepBoth(content, entry).content;
 
       expect(updated, isNot(contains('CONFLICT-OTHER')));
       expect(updated, contains('Rent due'));
@@ -668,11 +686,12 @@ void main() {
     });
 
     test(
-        'applyKeepBoth moves the whole %% LOCALSYNC-KEPTBOTH %% block '
-        '(marker included) to the same correct position, atomically', () {
+        'applyKeepBoth moves the merged text (no wrapper marker any more) '
+        'to the same correct position, atomically', () {
       const content = '$realBefore[conflict markup placeholder]\n';
       final entry = buildEntry(content);
-      final result = applyKeepBoth(content, entry);
+      final keepBoth = applyKeepBoth(content, entry);
+      final result = keepBoth.content;
 
       expect(
           result.indexOf('1315 2 guys'), lessThan(result.indexOf('1330 old')));
@@ -681,12 +700,14 @@ void main() {
       // Both real texts survive - Keep Both drops neither.
       expect(result, contains(oursBody));
       expect(result, contains(theirsBody));
-      // The marker moved WITH its content, not left behind or split -
-      // both appear on the same side of "1330 old", right next to each
-      // other.
-      expect(result.indexOf('LOCALSYNC-KEPTBOTH data'),
-          lessThan(result.indexOf('1330 old')));
-      expect(result.indexOf('LOCALSYNC-KEPTBOTH-END'),
+      // Both moved as one atomic block, no wrapper marker written at all
+      // any more (undo data lives in the database instead - see
+      // mergeConflictKeepingBoth) - both appear on the same side of
+      // "1330 old", right next to each other.
+      expect(result, isNot(contains('LOCALSYNC-KEPTBOTH')));
+      expect(keepBoth.mergedText, contains(oursBody));
+      expect(keepBoth.mergedText, contains(theirsBody));
+      expect(result.indexOf(keepBoth.mergedText),
           lessThan(result.indexOf('1330 old')));
       expect(result, contains('0755 some strange'));
       expect(result, contains('1338 phone pushed'));

@@ -20,6 +20,7 @@ const _kTemplatesKey          = 'db_commit_templates';
 const _kTemplatesSeededKey    = 'db_commit_templates_seeded';
 const _kDeviceNameKey         = 'db_device_name';
 const _kResolvedWatchlistKey  = 'db_resolved_watchlist';
+const _kKeptBothRecordsKey    = 'db_kept_both_records';
 const _kDesktopIpKey          = 'db_desktop_ip';
 const _kDesktopUserKey        = 'db_desktop_user';
 const _kBareRepoPathKey       = 'db_bare_repo_path';
@@ -331,6 +332,34 @@ class DatabaseService {
     final list = await getResolvedWatchlist();
     list.addAll(records);
     await setResolvedWatchlist(list);
+  }
+
+  // ── Keep Both undo records ──────────────────────────────────────────────────
+  // 2026-09-15: real feedback, live - a Keep Both marker (invisible-in-
+  // theory %% ... %%) showed up as literal visible text in Obsidian's
+  // default view. Rather than chase another comment-syntax workaround,
+  // Keep Both's undo data (conflict_scanner.dart's KeptBothRecord) moves
+  // here instead - plain typed JSON blobs, same convention as every
+  // other list in this file, kept intentionally untyped (List<Map>) so
+  // this file doesn't need to import conflict_scanner.dart's model
+  // (which already imports this file the other way).
+  static List<Map<String, dynamic>> _webKeptBothRecords = [];
+
+  Future<List<Map<String, dynamic>>> getKeptBothRecords() async {
+    if (kIsWeb) return List.from(_webKeptBothRecords);
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kKeptBothRecordsKey);
+    if (raw == null) return [];
+    return (jsonDecode(raw) as List<dynamic>).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> setKeptBothRecords(List<Map<String, dynamic>> records) async {
+    if (kIsWeb) {
+      _webKeptBothRecords = records;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kKeptBothRecordsKey, jsonEncode(records));
   }
 
   // ── Templates ───────────────────────────────────────────────────────────────

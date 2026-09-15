@@ -686,19 +686,18 @@ Future<String> resolveConflict(
 /// Pure string transform, no file I/O - same split as
 /// applyResolution/resolveConflict above, so this is unit-testable
 /// directly (see test/conflict_scanner_test.dart).
-// 2026-09-08: real feedback, live - "one tap" Undo for Keep Both too,
-// not just "Keep this version." Every original version (who/when/body)
-// is base64-JSON-encoded into an invisible HTML comment wrapping the
-// merged text - Obsidian renders `<!-- -->` as nothing in reading view,
-// so this adds zero visual clutter, unlike a callout. Base64 avoids
-// needing to escape quotes/newlines inside the comment's attribute.
-String _encodeKeptBothData(List<ConflictVersion> versions) {
-  final data = versions
-      .map((v) => {'who': v.who, 'when': v.when, 'body': v.body})
-      .toList();
-  return base64Encode(utf8.encode(jsonEncode(data)));
-}
-
+// 2026-09-15: real feedback, live - "the app... Obsidian output is not
+// normal" turned out to have no real fix on the Obsidian side (no
+// Live Preview/Source toggle was findable on the device this was hit
+// on) - decided instead to stop wrapping Keep Both's undo data in note
+// text at all. Undo state now lives in the app's own local database
+// (see KeptBothRecord + DatabaseService.getKeptBothRecords below);
+// applyKeepBoth writes plain merged text with zero wrapper, so there's
+// nothing left for Obsidian to ever render wrong. _decodeKeptBothData
+// and the two patterns below are kept read-only, forever - real notes
+// already have the old inline markers sitting in them, and Undo must
+// keep working on those without a migration step no user would ever
+// run.
 List<ConflictVersion> _decodeKeptBothData(String encoded) {
   final data = jsonDecode(utf8.decode(base64Decode(encoded))) as List;
   return data
@@ -709,18 +708,12 @@ List<ConflictVersion> _decodeKeptBothData(String encoded) {
       .toList();
 }
 
-// 2026-09-09: real feedback, live - "The LocalSync app... Obsidian
-// output is not normal, I usually just see the text I typed" - a real
-// KeptBoth marker showed up as literal visible text in Obsidian's
-// default Live Preview view. A generic HTML comment (<!-- -->) is
-// only reliably hidden in Obsidian's separate Reading view, not the
-// Live Preview mode most people actually read/edit in day to day -
-// this project already knows the right tool for genuinely-hidden-
-// everywhere text: Obsidian's own native %% comment %% syntax, already
-// used for the Kanban conflict markers (conflict_repair.dart's
-// CONFLICT-OTHER). Switched to match - the base64 data payload never
-// contains a literal "%%" (standard base64 alphabet has no %), so the
-// closing delimiter stays unambiguous.
+// 2026-09-09: legacy pattern for notes written when this app still
+// wrapped Keep Both's undo data in a %% ... %% marker (see 2026-09-15's
+// comment above for why that stopped) - kept read-only, same reasoning
+// as _keptBothPatternLegacy just below: Undo must keep working on
+// already-real notes, forever, not just the ones resolved after the
+// database switch.
 final _keptBothPattern = RegExp(
   r'%% LOCALSYNC-KEPTBOTH data="(.*?)" %%\n(.*?)\n%% LOCALSYNC-KEPTBOTH-END %%\n?',
   dotAll: true,
@@ -757,25 +750,31 @@ String _rebuildConflictBlock(List<ConflictVersion> versions) {
   return '${blocks.join('\n')}\n';
 }
 
-String applyKeepBoth(String content, ConflictEntry entry) {
-  final matchedSpan = content.substring(entry.matchStart, entry.matchEnd);
-  final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
+/// Pure string transform - the caller (mergeConflictKeepingBoth) is the
+/// one that persists a KeptBothRecord for undo, since that's real I/O
+/// and this stays unit-testable directly (see
+/// test/conflict_scanner_test.dart).
+class KeepBothResult {
+  final String content;
+  final String mergedText;
+  const KeepBothResult(this.content, this.mergedText);
+}
+
+KeepBothResult applyKeepBoth(String content, ConflictEntry entry) {
   final bodies =
       journalOrderedBodies(entry.versions.map((v) => v.body).toList());
   final merged = bodies.join('\n\n');
-  final data = _encodeKeptBothData(entry.versions);
-  final wrapped = '%% LOCALSYNC-KEPTBOTH data="$data" %%\n'
-      '$merged\n'
-      '%% LOCALSYNC-KEPTBOTH-END %%$trailingNewline';
-  // 2026-09-14: real feedback, live - same fix as applyResolution above,
-  // but $wrapped itself always starts with the %% marker, never a bare
-  // time - checking $wrapped directly would never find one to place it
-  // by. $merged (already chronologically sorted by journalOrderedBodies
-  // just above, so its own leading time is whichever body is earliest)
-  // is the real thing to check the leading time on; $wrapped, marker
-  // included, is what actually moves as one atomic block.
-  return repositionedReplace(content, entry.matchStart, entry.matchEnd, wrapped,
+  // 2026-09-15: no wrapper marker written any more (see the comment
+  // above _decodeKeptBothData) - the merged text goes into the note
+  // exactly as a plain resolution would, and undo state for it lives
+  // in the local database instead.
+  // 2026-09-14: real feedback, live - same fix as applyResolution
+  // above, checking $merged's own leading time (already chronologically
+  // sorted by journalOrderedBodies just above) to place it correctly.
+  final updated = repositionedReplace(
+      content, entry.matchStart, entry.matchEnd, merged,
       timeCheckText: merged);
+  return KeepBothResult(updated, merged);
 }
 
 class KeptBothEntry {
@@ -783,12 +782,82 @@ class KeptBothEntry {
   final List<ConflictVersion> versions;
   final int matchStart;
   final int matchEnd;
+  // Set only for entries backed by a KeptBothRecord in the local
+  // database (post 2026-09-15) - null for legacy inline-marker entries,
+  // whose matchStart/matchEnd already span the whole marker block and
+  // need nothing else to undo. See undoKeepBoth.
+  final String? dbId;
   const KeptBothEntry({
     required this.filePath,
     required this.versions,
     required this.matchStart,
     required this.matchEnd,
+    this.dbId,
   });
+}
+
+/// Persisted record of a Keep Both resolution written with no inline
+/// marker (see 2026-09-15's comment above _decodeKeptBothData) - this
+/// is the undo data that used to live in the note itself. [mergedText]
+/// is the exact text applyKeepBoth wrote into the note; since nothing
+/// else in a real vault would coincidentally produce that literal
+/// string, scanForKeptBoth relocates it with a plain indexOf rather
+/// than needing any marker to search for.
+class KeptBothRecord {
+  final String id;
+  final String filePath; // relative to the vault root
+  final List<ConflictVersion> versions;
+  final String mergedText;
+  final DateTime resolvedAt;
+  const KeptBothRecord({
+    required this.id,
+    required this.filePath,
+    required this.versions,
+    required this.mergedText,
+    required this.resolvedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'filePath': filePath,
+        'versions': versions
+            .map((v) => {'who': v.who, 'when': v.when, 'body': v.body})
+            .toList(),
+        'mergedText': mergedText,
+        'resolvedAt': resolvedAt.toIso8601String(),
+      };
+
+  factory KeptBothRecord.fromJson(Map<String, dynamic> json) => KeptBothRecord(
+        id: json['id'] as String,
+        filePath: json['filePath'] as String,
+        versions: (json['versions'] as List<dynamic>)
+            .map((e) => ConflictVersion(
+                who: e['who'] as String,
+                when: e['when'] as String?,
+                body: e['body'] as String))
+            .toList(),
+        mergedText: json['mergedText'] as String,
+        resolvedAt: DateTime.parse(json['resolvedAt'] as String),
+      );
+}
+
+Future<List<KeptBothRecord>> _loadKeptBothRecords() async {
+  final raw = await DatabaseService().getKeptBothRecords();
+  return raw.map(KeptBothRecord.fromJson).toList();
+}
+
+Future<void> _saveKeptBothRecord(KeptBothRecord record) async {
+  final records = await _loadKeptBothRecords();
+  records.add(record);
+  await DatabaseService()
+      .setKeptBothRecords(records.map((r) => r.toJson()).toList());
+}
+
+Future<void> _deleteKeptBothRecord(String id) async {
+  final records = await _loadKeptBothRecords();
+  records.removeWhere((r) => r.id == id);
+  await DatabaseService()
+      .setKeptBothRecords(records.map((r) => r.toJson()).toList());
 }
 
 /// Finds every "Keep Both" resolution still sitting in the vault -
@@ -796,10 +865,43 @@ class KeptBothEntry {
 /// indefinitely, same as that Undo - the marker is invisible in
 /// reading view, so there's no clutter forcing a cleanup step the way
 /// a collapsed reference callout does.
+void _collectLegacyKeptBothMarkers(
+    String content, String relPath, List<KeptBothEntry> entries) {
+  for (final m in [
+    ..._keptBothPattern.allMatches(content),
+    ..._keptBothPatternLegacy.allMatches(content),
+  ]) {
+    List<ConflictVersion> versions;
+    try {
+      versions = _decodeKeptBothData(m.group(1)!);
+    } catch (_) {
+      continue; // corrupted/foreign marker - skip rather than crash
+    }
+    entries.add(KeptBothEntry(
+      filePath: relPath,
+      versions: versions,
+      matchStart: m.start,
+      matchEnd: m.end,
+    ));
+  }
+}
+
 Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
   final entries = <KeptBothEntry>[];
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
+
+  // 2026-09-15: two sources now - legacy inline markers still sitting
+  // in already-real notes (read-only, see _decodeKeptBothData's
+  // comment), and KeptBothRecord entries in the local database for
+  // everything resolved since. recordsByFile lets the walk below check
+  // both per file with one read, instead of two separate passes.
+  final records = await _loadKeptBothRecords();
+  final recordsByFile = <String, List<KeptBothRecord>>{};
+  for (final r in records) {
+    recordsByFile.putIfAbsent(r.filePath, () => []).add(r);
+  }
+  final staleIds = <String>[];
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
@@ -807,28 +909,41 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
     if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
     if (entity.path.contains('/LocalSync Vault Backup ')) continue;
 
-    final content = await entity.readAsString();
-    if (!content.contains('LOCALSYNC-KEPTBOTH')) continue;
     final relPath = entity.path.substring(vaultPath.length + 1);
+    final fileRecords = recordsByFile[relPath];
+    if (fileRecords == null) {
+      final content = await entity.readAsString();
+      if (!content.contains('LOCALSYNC-KEPTBOTH')) continue;
+      _collectLegacyKeptBothMarkers(content, relPath, entries);
+      continue;
+    }
 
-    for (final m in [
-      ..._keptBothPattern.allMatches(content),
-      ..._keptBothPatternLegacy.allMatches(content),
-    ]) {
-      List<ConflictVersion> versions;
-      try {
-        versions = _decodeKeptBothData(m.group(1)!);
-      } catch (_) {
-        continue; // corrupted/foreign marker - skip rather than crash
+    final content = await entity.readAsString();
+    if (content.contains('LOCALSYNC-KEPTBOTH')) {
+      _collectLegacyKeptBothMarkers(content, relPath, entries);
+    }
+    for (final r in fileRecords) {
+      final idx = content.indexOf(r.mergedText);
+      if (idx < 0) {
+        staleIds.add(r.id); // merged text edited/removed - nothing to undo
+        continue;
       }
       entries.add(KeptBothEntry(
         filePath: relPath,
-        versions: versions,
-        matchStart: m.start,
-        matchEnd: m.end,
+        versions: r.versions,
+        matchStart: idx,
+        matchEnd: idx + r.mergedText.length,
+        dbId: r.id,
       ));
     }
   }
+
+  if (staleIds.isNotEmpty) {
+    final remaining = records.where((r) => !staleIds.contains(r.id)).toList();
+    await DatabaseService()
+        .setKeptBothRecords(remaining.map((r) => r.toJson()).toList());
+  }
+
   return entries;
 }
 
@@ -845,6 +960,12 @@ Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
   final updated =
       content.replaceRange(entry.matchStart, entry.matchEnd, rebuilt);
   await VaultFolderService().coordinatedWrite(filePath, updated);
+  // 2026-09-15: only set for database-backed entries (see KeptBothEntry)
+  // - a legacy inline marker's undo data lived in the marker text
+  // itself, already fully removed by the replaceRange above.
+  if (entry.dbId != null) {
+    await _deleteKeptBothRecord(entry.dbId!);
+  }
 }
 
 Future<String> mergeConflictKeepingBoth(
@@ -856,7 +977,14 @@ Future<String> mergeConflictKeepingBoth(
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length)
     return backupRelPath; // file changed since scan
-  final updated = applyKeepBoth(content, entry);
-  await VaultFolderService().coordinatedWrite(filePath, updated);
+  final result = applyKeepBoth(content, entry);
+  await VaultFolderService().coordinatedWrite(filePath, result.content);
+  await _saveKeptBothRecord(KeptBothRecord(
+    id: '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}',
+    filePath: entry.filePath,
+    versions: entry.versions,
+    mergedText: result.mergedText,
+    resolvedAt: DateTime.now(),
+  ));
   return backupRelPath;
 }
