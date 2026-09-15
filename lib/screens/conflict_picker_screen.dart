@@ -376,6 +376,24 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               text: 'Dimmed text - the same on every version, nothing '
                   'to decide here',
             ),
+            // 2026-09-15: real feedback, live, several rounds - "so
+            // explain what white means" then "White is plain text left
+            // when nothing is flagged, this is the definition." Earlier
+            // wording tried to describe white via word-diff matching
+            // specifically, which broke down the moment a panel used
+            // the duplicate-highlighter instead of word-diff (white
+            // meant something different there) - this is the actual,
+            // mode-independent definition: white carries no meaning of
+            // its own, it's just what's left once everything that DOES
+            // mean something (orange, green/blue, amber) is accounted
+            // for.
+            _DialogPoint(
+              icon: Icons.text_fields,
+              color: kStar,
+              textColor: kStar,
+              text: 'Plain white text - no special meaning on its own, '
+                  'just what\'s left when nothing else is flagged',
+            ),
             _DialogPoint(
               icon: Icons.highlight,
               color: kGreen,
@@ -396,13 +414,6 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               textColor: Colors.amber,
               text: 'Amber note - a heads-up worth reading before you '
                   'decide, like a repeated paragraph',
-            ),
-            _DialogPoint(
-              icon: Icons.shield_outlined,
-              color: kStar,
-              textColor: kStar,
-              text: 'Not sure which to pick? KEEP BOTH never loses '
-                  'data - worst case, delete a duplicate line after',
             ),
           ],
         ),
@@ -1023,12 +1034,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         child: Text(
                           allHaveLeadingTime(
                                   versions.map((v) => v.body).toList())
-                              ? '"KEEP BOTH" is usually right here - '
+                              ? '"KEEP BOTH" is usually right here\n'
                                   'each side starts with a different '
                                   'clock time, these look like two '
                                   'separate entries, not the same thing '
                                   'edited twice.'
-                              : '"KEEP BOTH" is usually right here - '
+                              : '"KEEP BOTH" is usually right here\n'
                                   'one side has a clock time, the other '
                                   'has none at all, these look like two '
                                   'separate entries, not the same thing '
@@ -1079,15 +1090,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               : mergeWouldHelp
                                   ? '"Merge text instead" below can keep '
                                       'one copy plus everything from the '
-                                      'other side - "${titleFor(duplicateSide)}" '
+                                      'other side.\n"${titleFor(duplicateSide)}" '
                                       '(${duplicateSide == 0 ? 'left' : 'right'}) '
                                       'repeats the same paragraph twice, '
                                       '"${titleFor(1 - duplicateSide)}" '
                                       'doesn\'t have that problem.'
                                   : 'KEEP BOTH, then manually delete the '
-                                      'extra copy after - picking a side '
+                                      'extra copy after\n- picking a side '
                                       'would drop whatever unique text is '
-                                      'on the other one. "${titleFor(duplicateSide)}" '
+                                      'on the other one.\n"${titleFor(duplicateSide)}" '
                                       '(${duplicateSide == 0 ? 'left' : 'right'}) '
                                       'repeats the same paragraph twice, '
                                       '"${titleFor(1 - duplicateSide)}" '
@@ -1103,54 +1114,6 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ],
                   ),
                 ],
-                const SizedBox(height: 8),
-                // 2026-09-07: real feedback, live - "the button on the
-                // top right of Conflicts is better placed in the actual
-                // opened conflict... for each backup." Moved here from
-                // conflicts_screen.dart's app bar (a global, unscoped
-                // list) - this one only ever shows backups that belong
-                // to this exact note, see BackupCompareListScreen.
-                // noteFilePath's own doc.
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BackupCompareListScreen(
-                            repo: widget.repo,
-                            noteFilePath: entry.filePath,
-                          ),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.difference_outlined,
-                                color: kTextMid, size: 16),
-                            const SizedBox(width: 6),
-                            Text('Compare with a backup',
-                                style: TextStyle(
-                                    color: kTextMid,
-                                    fontSize: 13,
-                                    decoration: TextDecoration.underline)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // 2026-09-08: real feedback, live - "what does this
-                    // do, I need an i for information." Same pattern
-                    // as the other two info buttons on this screen.
-                    IconButton(
-                      icon: Icon(Icons.info_outline, color: kTextDim, size: 18),
-                      tooltip: 'What is this?',
-                      onPressed: _showCompareBackupInfo,
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 16),
                 // 2026-08-25: real feedback, live - "picking the top red
                 // version or the bottom green version is too much eye
@@ -1301,6 +1264,50 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       ),
                     ],
                   ),
+                ),
+                // 2026-09-15: real feedback, live - "Move Compare with
+                // a backup to under Unsure? KEEP BOTH text." Moved from
+                // above the action buttons to right after this tip.
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => BackupCompareListScreen(
+                            repo: widget.repo,
+                            noteFilePath: entry.filePath,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.difference_outlined,
+                                color: kTextMid, size: 16),
+                            const SizedBox(width: 6),
+                            Text('Compare with a backup',
+                                style: TextStyle(
+                                    color: kTextMid,
+                                    fontSize: 13,
+                                    decoration: TextDecoration.underline)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 2026-09-08: real feedback, live - "what does this
+                    // do, I need an i for information." Same pattern
+                    // as the other two info buttons on this screen.
+                    IconButton(
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 18),
+                      tooltip: 'What is this?',
+                      onPressed: _showCompareBackupInfo,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 if (useDiff && versions.length == 2) ...[
