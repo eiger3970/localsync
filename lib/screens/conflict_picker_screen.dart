@@ -954,39 +954,66 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     Icon(Icons.touch_app, color: kStar, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                          versions.length > 2
-                              ? "This note has ${versions.length} unresolved "
-                                  'versions stacked up - they were never '
-                                  'fully resolved before another change '
-                                  'arrived. Tap the one to keep; the rest '
-                                  'are still saved to "LocalSync/Conflict '
-                                  'Backups".'
-                              // 2026-09-14: real feedback, live, two
-                              // rounds - first "I don't need to tap, as
-                              // I already see, read and can review
-                              // right now in this screen" (dropped the
-                              // stale "review" framing), then "this
-                              // text Keep this version must be the same
-                              // as the Tap a version, then tap Keep
-                              // this version, at the top" - the actual
-                              // confirm button says "Keep this
-                              // version" verbatim; this line described
-                              // the same action in different words,
-                              // which read as a mismatch rather than
-                              // the same step. Now names the real
-                              // button text directly.
-                              // 2026-09-14: "this text and the Conflict
-                              // text need to not be verbose."
-                              // 2026-09-15: real feedback, live - "change
-                              // to: Tap to keep iPhone or desktop obsidian
-                              // - 202..." Names the actual two versions
-                              // (titleFor already resolves each to a real
-                              // device name or who/when) instead of the
-                              // generic "text you prefer," so this line
-                              // says exactly what's being chosen between.
-                              : 'Tap to keep ${titleFor(0)} or ${titleFor(1)}.',
-                          style: TextStyle(color: kStar, fontSize: 15)),
+                      child: versions.length > 2
+                          ? Text(
+                              "This note has ${versions.length} unresolved "
+                              'versions stacked up - they were never '
+                              'fully resolved before another change '
+                              'arrived. Tap the one to keep; the rest '
+                              'are still saved to "LocalSync/Conflict '
+                              'Backups".',
+                              style: TextStyle(color: kStar, fontSize: 15))
+                          // 2026-09-14: real feedback, live, two
+                          // rounds - first "I don't need to tap, as
+                          // I already see, read and can review
+                          // right now in this screen" (dropped the
+                          // stale "review" framing), then "this
+                          // text Keep this version must be the same
+                          // as the Tap a version, then tap Keep
+                          // this version, at the top" - the actual
+                          // confirm button says "Keep this
+                          // version" verbatim; this line described
+                          // the same action in different words,
+                          // which read as a mismatch rather than
+                          // the same step. Now names the real
+                          // button text directly.
+                          // 2026-09-14: "this text and the Conflict
+                          // text need to not be verbose."
+                          // 2026-09-15: real feedback, live - "change
+                          // to: Tap to keep iPhone or desktop obsidian
+                          // - 202..." Names the actual two versions
+                          // (titleFor already resolves each to a real
+                          // device name or who/when) instead of the
+                          // generic "text you prefer," so this line
+                          // says exactly what's being chosen between.
+                          // 2026-09-15, same day: "can you make iPhone
+                          // green and desktop obsidian blue?" - each
+                          // name now colored to match its own panel's
+                          // highlightColor below (kGreen for panel 0,
+                          // kBlue for panel 1), so the caption itself
+                          // previews which side is which before the
+                          // panels are even read.
+                          : Text.rich(
+                              TextSpan(
+                                style:
+                                    TextStyle(color: kStar, fontSize: 15),
+                                children: [
+                                  const TextSpan(text: 'Tap to keep '),
+                                  TextSpan(
+                                      text: titleFor(0),
+                                      style: TextStyle(
+                                          color: kGreen,
+                                          fontWeight: FontWeight.bold)),
+                                  const TextSpan(text: ' or '),
+                                  TextSpan(
+                                      text: titleFor(1),
+                                      style: TextStyle(
+                                          color: kBlue,
+                                          fontWeight: FontWeight.bold)),
+                                  const TextSpan(text: '.'),
+                                ],
+                              ),
+                            ),
                     ),
                     // 2026-09-15: real feedback, live - a small dimmed
                     // caption above the diff ("grey text too dark and
