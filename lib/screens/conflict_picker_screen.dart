@@ -1141,83 +1141,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // so they're visible without scrolling past whatever
                 // text happens to be in this conflict. Panels/text stay
                 // below, still tappable to pick a version directly.
-                if (useDiff && versions.length == 2) ...[
-                  // 2026-08-26: premium tier from docs/pricing-tiers.md -
-                  // "automatic - put/yank individual pieces from each
-                  // side," not just picking one whole side above. Same
-                  // useDiff gate (pairwise, size-capped) since
-                  // line_diff.dart's sentence refinement only makes
-                  // sense for the same 2-version case the word-diff view
-                  // already requires.
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final result =
-                                await Navigator.push<ConflictResolvedResult>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MergePickerScreen(
-                                  repo: widget.repo,
-                                  entry: entry,
-                                  myDeviceName: _myDeviceName,
-                                ),
-                              ),
-                            );
-                            if (result?.resolved == true && context.mounted) {
-                              Navigator.pop(context, result);
-                            }
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: kBlue),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            minimumSize: const Size.fromHeight(0),
-                          ),
-                          // 2026-09-10: real feedback, live - "needs
-                          // images to the left of them" (both buttons).
-                          // 2026-09-15: real feedback, live - "grey
-                          // looks like a dead button." kTextMid is
-                          // deliberately low-contrast everywhere else
-                          // on this screen (it's the de-emphasized-text
-                          // color), so a real, always-tappable button
-                          // in that same color read as disabled. kBlue
-                          // is already an active color on this screen
-                          // (the "theirs" panel's highlight) - reads as
-                          // a live second option, not KEEP BOTH's green
-                          // primary and not disabled.
-                          icon: Icon(Icons.merge, color: kBlue, size: 18),
-                          label: Text('MERGE TEXT INSTEAD',
-                              style: TextStyle(
-                                  color: kBlue,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.3)),
-                        ),
-                      ),
-                      IconButton(
-                        icon:
-                            Icon(Icons.info_outline, color: kTextDim, size: 20),
-                        tooltip: 'What is this?',
-                        // 2026-09-10: real feedback, live - "eye bleed,
-                        // kiss, point form with images" - was one dense
-                        // paragraph, same fix already applied to the Keep
-                        // Both dialog below (_keepBothDialogPoints):
-                        // short icon+label lines instead of prose.
-                        onPressed: () => _showMergeInfo(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                // 2026-09-07: real feedback, live - "the app is supposed
-                // to fix" the common real case where neither version is
-                // wrong, they're just two separate things that both
-                // belong (this user's real example: two different
-                // journal entries landing as one conflict). Not gated by
-                // useDiff/version count like the two options above -
-                // this works for any number of stacked versions, Kanban
-                // or not. See _confirmAndKeepBoth/mergeConflictKeepingBoth.
+                // 2026-09-15: real feedback, live - "Move KEEP BOTH
+                // above and it's text below: Unsure?... then push."
+                // KEEP BOTH used to sit below MERGE TEXT INSTEAD with
+                // no real reasoning behind that order - just an
+                // artifact of an earlier "controls above the text"
+                // request that happened to list them in that sequence.
+                // Given this app's own top priority is never losing
+                // data (see feedback_never_lose_data_priority memory),
+                // the safe default belongs on top. Not gated by
+                // useDiff/version count like MERGE below - this works
+                // for any number of stacked versions, Kanban or not.
+                // See _confirmAndKeepBoth/mergeConflictKeepingBoth.
                 Row(
                   children: [
                     Expanded(
@@ -1281,8 +1216,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   ),
                 ),
                 // 2026-09-15: real feedback, live - "Move Compare with
-                // a backup to under Unsure? KEEP BOTH text." Moved from
-                // above the action buttons to right after this tip.
+                // a backup to under Unsure? KEEP BOTH text." Stays
+                // directly under that tip even after KEEP BOTH itself
+                // moved above MERGE - this proximity was the actual ask,
+                // not the button's position relative to Merge.
                 const SizedBox(height: 8),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1324,6 +1261,83 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ),
                   ],
                 ),
+                if (useDiff && versions.length == 2) ...[
+                  const SizedBox(height: 10),
+                  // 2026-08-26: premium tier from docs/pricing-tiers.md -
+                  // "automatic - put/yank individual pieces from each
+                  // side," not just picking one whole side above. Same
+                  // useDiff gate (pairwise, size-capped) since
+                  // line_diff.dart's sentence refinement only makes
+                  // sense for the same 2-version case the word-diff view
+                  // already requires.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final result =
+                                await Navigator.push<ConflictResolvedResult>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MergePickerScreen(
+                                  repo: widget.repo,
+                                  entry: entry,
+                                  myDeviceName: _myDeviceName,
+                                ),
+                              ),
+                            );
+                            if (result?.resolved == true && context.mounted) {
+                              Navigator.pop(context, result);
+                            }
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: kStar),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: const Size.fromHeight(0),
+                          ),
+                          // 2026-09-10: real feedback, live - "needs
+                          // images to the left of them" (both buttons).
+                          // 2026-09-15: real feedback, live - "grey
+                          // looks like a dead button." kTextMid is
+                          // deliberately low-contrast everywhere else
+                          // on this screen (it's the de-emphasized-text
+                          // color), so a real, always-tappable button
+                          // in that same color read as disabled. Tried
+                          // kBlue next (already an active color on this
+                          // screen), but "is this related to the left
+                          // iPhone green and right desktop blue?" was a
+                          // fair catch - kBlue is used almost nowhere
+                          // else on this screen except as the right/
+                          // desktop panel's own color (kGreen, by
+                          // contrast, is this whole screen's generic
+                          // accent - tips, checkmarks, the shield icon -
+                          // not specifically the left panel, so KEEP
+                          // BOTH's green isn't the same risk). kStar is
+                          // neutral: bright enough to read as live, not
+                          // borrowed from either side's identity.
+                          icon: Icon(Icons.merge, color: kStar, size: 18),
+                          label: Text('MERGE TEXT INSTEAD',
+                              style: TextStyle(
+                                  color: kStar,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3)),
+                        ),
+                      ),
+                      IconButton(
+                        icon:
+                            Icon(Icons.info_outline, color: kTextDim, size: 20),
+                        tooltip: 'What is this?',
+                        // 2026-09-10: real feedback, live - "eye bleed,
+                        // kiss, point form with images" - was one dense
+                        // paragraph, same fix already applied to the Keep
+                        // Both dialog below (_keepBothDialogPoints):
+                        // short icon+label lines instead of prose.
+                        onPressed: () => _showMergeInfo(),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 16),
                 if (useDiff && versions.length == 2) ...[
                   IntrinsicHeight(
