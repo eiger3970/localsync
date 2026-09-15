@@ -14,6 +14,20 @@ import 'widgets/auto_sync_on_resume.dart';
 import 'widgets/flag_backdrop.dart';
 import 'widgets/flag_frame.dart';
 
+// 2026-09-15: real feedback, live - a resolved-conflict banner's own
+// UNDO/view-backup link stopped responding once the screen that first
+// showed it (Conflicts) got popped back to Home underneath it - "Keep
+// Both didn't take me to the home page... View or restore ... this
+// should be a tappable link." MaterialBanner itself is genuinely
+// screen-independent (MaterialApp wraps one ScaffoldMessenger shared by
+// every route, which is exactly why the banner kept showing after
+// popping back) - but every action closure on it still captured
+// Conflicts screen's own BuildContext, which goes stale the instant
+// that screen is disposed. rootNavigatorKey gives any such closure a
+// context that survives regardless of which screen triggered it,
+// instead of one tied to a screen about to disappear underneath it.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // 2026-08-20: "white screen took about 5 seconds" - git2dart's own
@@ -144,6 +158,7 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // notification of its own.
       child: Consumer<ThemeService>(
         builder: (_, themeService, __) => MaterialApp(
+          navigatorKey: rootNavigatorKey,
           title: 'localsync',
           theme: buildAppTheme(),
           debugShowCheckedModeBanner: false,
