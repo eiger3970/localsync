@@ -1004,12 +1004,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         child: Text(
                           allHaveLeadingTime(
                                   versions.map((v) => v.body).toList())
-                              ? '"Keep both" is usually right here - '
+                              ? '"KEEP BOTH" is usually right here - '
                                   'each side starts with a different '
                                   'clock time, these look like two '
                                   'separate entries, not the same thing '
                                   'edited twice.'
-                              : '"Keep both" is usually right here - '
+                              : '"KEEP BOTH" is usually right here - '
                                   'one side has a clock time, the other '
                                   'has none at all, these look like two '
                                   'separate entries, not the same thing '
