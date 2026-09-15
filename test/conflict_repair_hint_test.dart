@@ -129,4 +129,47 @@ void main() {
       expect(hasDuplicateParagraph('ok\n\nok\n\nok'), isFalse);
     });
   });
+
+  group('findDuplicateParagraph', () {
+    // 2026-09-15: real feedback, live - real Sep 7th case. The first
+    // version of this only ever returned one repeated paragraph (just
+    // the "1. Hand him..." line) even though the actual pasted-in-
+    // twice block ran from the "# Tonight" heading all the way down
+    // to the final "no explanation of why" line, several headings and
+    // list items in between - orange only covered the first line of
+    // the real duplicate, not the whole thing.
+    test('returns the whole repeated block, not just its first paragraph',
+        () {
+      const block = '# Tonight\n'
+          '\n'
+          '1. Hand him your phone. Open kworld.space/cv-gen/. He fills in '
+          'name/work history, taps save/download.\n'
+          '2. Open kworld.space/cv-gen/ again then Community access.\n'
+          '3. Open kworld.space/cl-gen then Community access.\n'
+          '\n'
+          'If it\'s too much, just do step 1. A free CV alone is enough.\n'
+          '\n'
+          '# Prompt for tomorrow\n'
+          '\n'
+          'Paste this into Claude:\n'
+          '\n'
+          'I\'m about to do the CV/cover-letter code handoff again with '
+          'another person, no explanation of why.';
+      final body = '$block\n\n$block';
+      final found = findDuplicateParagraph(body);
+      expect(found, isNotNull);
+      expect(found, startsWith('# Tonight'));
+      expect(found, endsWith('no explanation of why.'));
+      expect(found!.length, block.length);
+    });
+
+    test('false for a single paragraph - nothing to duplicate against', () {
+      expect(findDuplicateParagraph('Just one paragraph, on its own.'),
+          isNull);
+    });
+
+    test('ignores very short repeated lines - not a real signal', () {
+      expect(findDuplicateParagraph('ok\n\nok\n\nok'), isNull);
+    });
+  });
 }
