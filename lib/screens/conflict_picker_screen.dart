@@ -378,24 +378,26 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             ),
             // 2026-09-15: real feedback, live, several rounds - "so
             // explain what white means" then "White is plain text left
-            // when nothing is flagged, this is the definition." Then
-            // "if white is identical on both sides, why isn't it grey
-            // text?" - the dimmed entry above is context OUTSIDE the
-            // disputed paragraph (beforeContext/afterContext, never
-            // part of a difference at all); white is INSIDE the
-            // disputed paragraph - it matches on both sides, but it's
-            // still part of a sentence that has a real difference
-            // sitting right next to it, so it stays full-size/bright
-            // rather than dimmed - dimming it would bury the
-            // highlighted words in grey noise. Kept mode-independent
-            // (no mention of word-diff specifically) since a panel can
-            // also reach white via the duplicate-highlighter path.
+            // when nothing is flagged" then "if white is identical on
+            // both sides, why isn't it grey?" (grey is OUTSIDE the
+            // disputed paragraph, white is INSIDE it) then "white
+            // should be flagged though, it's not synced on both sides"
+            // - traced against the real Sep 7th note and that one was
+            // right: the duplicate-highlighter panel's YouTube URL,
+            // genuinely one-sided, rendered the same plain white as
+            // shared text, because that panel wasn't running word-diff
+            // at all. Fixed in code (disputedText() now combines
+            // duplicate-highlighting with word-diff instead of one
+            // replacing the other) rather than reworded again - white
+            // now means what it always should have: this exact bit
+            // exists on both sides, checked directly against the
+            // other side's real text, in every mode.
             _DialogPoint(
               icon: Icons.text_fields,
               color: kStar,
               textColor: kStar,
-              text: 'White text - matches both versions, but sits next '
-                  'to a highlighted difference - read it for context',
+              text: 'White text - on both versions. Nothing to decide '
+                  'here, but read it for context',
             ),
             _DialogPoint(
               icon: Icons.highlight,
@@ -1507,11 +1509,20 @@ class _ConflictPanel extends StatelessWidget {
   // to delete is." Set only for the panel whose own body actually
   // contains the repeat (see duplicateSide in the parent screen) - null
   // everywhere else, same as beforeContext/afterContext's empty-string
-  // convention. When set, both occurrences get an orange background,
-  // laid over plain text rather than the word-diff tokens - highlighting
-  // "this paragraph repeats" and "this word differs from the other
-  // side" at once would fight for the same visual channel, so this
-  // takes over the whole panel's text instead of trying to combine them.
+  // convention. Both occurrences get an orange background.
+  // 2026-09-15, same day, real bug found by tracing the actual Sep 7th
+  // note: this used to lay the orange over plain text INSTEAD of the
+  // word-diff tokens, reasoning that "this paragraph repeats" and
+  // "this word differs from the other side" would fight for the same
+  // visual channel. That threw away real information - the panel's
+  // own YouTube URL (never on the other side at all, genuinely
+  // one-sided, needing to be synced) rendered identical plain white to
+  // truly-shared text, because plain-text mode had no idea what the
+  // other side even said. disputedText() now combines both: orange
+  // wins where a span falls inside a duplicate occurrence, green/blue
+  // still applies everywhere else a token is one-sided - no channel
+  // conflict in practice since a token position needs at most one of
+  // the two.
   final String? duplicateParagraph;
   const _ConflictPanel({
     super.key,
@@ -1527,6 +1538,18 @@ class _ConflictPanel extends StatelessWidget {
     this.duplicateParagraph,
   });
 
+  // 2026-09-15: real feedback, live - real Sep 7th case, traced: the
+  // "yours" panel's YouTube URL (never present on the desktop side at
+  // all) rendered plain white here, same as genuinely-shared text,
+  // because plain-text substring highlighting had no idea what the
+  // other side even said. "White text is text only on 1 side and
+  // needing syncing, right?" - yes, for this exact gap: a one-sided
+  // line could hide unflagged right next to an orange duplicate,
+  // which is a real risk given this app's top priority is never
+  // losing data (see feedback_never_lose_data_priority memory). Only
+  // used when tokens == null (oversized fallback, no word-diff
+  // available to combine with) - the normal case now goes through
+  // _duplicateRanges + disputedText below instead.
   Widget _highlightDuplicate(String duplicate) {
     final spans = <TextSpan>[];
     var start = 0;
@@ -1550,32 +1573,69 @@ class _ConflictPanel extends StatelessWidget {
     );
   }
 
+  // Every occurrence of [duplicate] within [plainText], as
+  // [start, end) character ranges - tokens later look up their own
+  // position against these instead of the color-vs-color conflict the
+  // old single-mode split was trying to avoid (see duplicateParagraph's
+  // own doc comment above, now outdated by this fix).
+  List<(int, int)> _duplicateRanges(String duplicate) {
+    final ranges = <(int, int)>[];
+    var start = 0;
+    while (true) {
+      final idx = plainText.indexOf(duplicate, start);
+      if (idx == -1) break;
+      ranges.add((idx, idx + duplicate.length));
+      start = idx + duplicate.length;
+    }
+    return ranges;
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget disputedText() {
       final duplicate = duplicateParagraph;
-      if (duplicate != null && plainText.contains(duplicate)) {
-        return _highlightDuplicate(duplicate);
+      if (tokens == null) {
+        return duplicate != null && plainText.contains(duplicate)
+            ? _highlightDuplicate(duplicate)
+            : Text(plainText, style: TextStyle(color: kStar, fontSize: 14));
       }
-      return tokens == null
-          ? Text(plainText, style: TextStyle(color: kStar, fontSize: 14))
-          : Text.rich(
-              TextSpan(
-                children: tokens!
-                    .map((t) => TextSpan(
-                          text: t.text,
-                          style: t.op == DiffOp.equal
-                              ? TextStyle(color: kStar, fontSize: 14)
-                              : TextStyle(
-                                  color: kStar,
-                                  fontSize: 14,
-                                  backgroundColor:
-                                      highlightColor.withValues(alpha: 0.28),
-                                ),
-                        ))
-                    .toList(),
-              ),
+      // Word-diff is available - combine it with the duplicate
+      // highlight instead of one replacing the other, so a one-sided
+      // line (like the real Sep 7th YouTube URL) still shows
+      // green/blue even on the panel whose own text also happens to
+      // repeat elsewhere. Concatenating tokens[].text in order
+      // reconstructs plainText exactly (wordDiffOurs/wordDiffTheirs
+      // guarantee this - see word_diff.dart), so a running offset is
+      // enough to know each token's real position without re-deriving
+      // it from the token text itself.
+      final ranges = duplicate != null && plainText.contains(duplicate)
+          ? _duplicateRanges(duplicate)
+          : const <(int, int)>[];
+      var offset = 0;
+      return Text.rich(
+        TextSpan(
+          children: tokens!.map((t) {
+            final mid = offset + t.text.length ~/ 2;
+            offset += t.text.length;
+            final inDuplicate = ranges.any((r) => mid >= r.$1 && mid < r.$2);
+            return TextSpan(
+              text: t.text,
+              style: inDuplicate
+                  ? TextStyle(
+                      color: kStar,
+                      fontSize: 14,
+                      backgroundColor: Colors.orange.withValues(alpha: 0.35))
+                  : t.op == DiffOp.equal
+                      ? TextStyle(color: kStar, fontSize: 14)
+                      : TextStyle(
+                          color: kStar,
+                          fontSize: 14,
+                          backgroundColor: highlightColor.withValues(alpha: 0.28),
+                        ),
             );
+          }).toList(),
+        ),
+      );
     }
 
     return InkWell(
