@@ -1036,6 +1036,29 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // matches how vimdiff itself reads (highlighted region,
                 // not shouting text). Landscape gives each column real
                 // width; portrait still works, just narrower.
+                // 2026-09-15: real feedback, live - "grey is identical is
+                // not clear to the user... colour graphics needed so user
+                // knows green is content on right has and red is content
+                // only left has." The dimmed/highlighted split was only
+                // ever explained in code comments, never to the person
+                // actually looking at the screen - this makes it
+                // conspicuous instead of assumed. Unconditional, not
+                // buried in an info dialog someone has to think to tap.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.palette_outlined, color: kTextDim, size: 14),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                          'Dimmed text is the same on every side. '
+                          'Highlighted text is what only THIS side has - '
+                          'read it before you decide.',
+                          style: TextStyle(color: kTextDim, fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 if (useDiff && versions.length == 2) ...[
                   IntrinsicHeight(
                     child: Row(
@@ -1199,6 +1222,31 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       onPressed: () => _showKeepBothInfo(),
                     ),
                   ],
+                ),
+                // 2026-09-15: real feedback, live - "keep both will
+                // duplicate data, but also and more importantly it won't
+                // lose data, which is the priority... data is NEVER to
+                // be lost is the top priority." Picking a side risks
+                // losing whatever's unique to the other one if that's
+                // misjudged; Keep Both never can, worst case is a
+                // duplicate line, always safe to delete after. Said
+                // plainly here, not just in the info dialog someone has
+                // to tap into first.
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined, color: kGreen, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            'Unsure? KEEP BOTH never loses data - worst '
+                            'case, delete a duplicate line after.',
+                            style: TextStyle(color: kGreen, fontSize: 12)),
+                      ),
+                    ],
+                  ),
                 ),
                 // 2026-09-14: real feedback, live - "needs to be at the
                 // right position and timing for the user... maybe the
