@@ -1342,33 +1342,42 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // near the top of the screen, this follows the last
                 // action button instead.
                 const SizedBox(height: 8),
+                // 2026-09-15: real feedback, live - "right align this, so
+                // the i for info will be in line with the 3 above i's."
+                // mainAxisSize.min on this Row (and its InkWell's own
+                // inner min-sized Row) hugged the info button right up
+                // against the text instead of pushing it to the row's
+                // far right edge - the other three info buttons above
+                // (Tap to keep, KEEP BOTH, MERGE TEXT INSTEAD) all sit at
+                // the right edge because their own leading content is
+                // wrapped in Expanded. Same fix here.
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    InkWell(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BackupCompareListScreen(
-                            repo: widget.repo,
-                            noteFilePath: entry.filePath,
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BackupCompareListScreen(
+                              repo: widget.repo,
+                              noteFilePath: entry.filePath,
+                            ),
                           ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.difference_outlined,
-                                color: kTextMid, size: 16),
-                            const SizedBox(width: 6),
-                            Text('Compare with a backup',
-                                style: TextStyle(
-                                    color: kTextMid,
-                                    fontSize: 13,
-                                    decoration: TextDecoration.underline)),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Icon(Icons.difference_outlined,
+                                  color: kTextMid, size: 16),
+                              const SizedBox(width: 6),
+                              Text('Compare with a backup',
+                                  style: TextStyle(
+                                      color: kTextMid,
+                                      fontSize: 13,
+                                      decoration: TextDecoration.underline)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
