@@ -223,7 +223,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         icon: Icons.sort,
         color: kGreen,
         text: 'Text sorted by time, if both texts start with a clock '
-            'time - otherwise left as is',
+            'time HHMM - otherwise left as is',
       ),
       // 2026-09-08, fifth pass - real feedback, live: icon review.
       // done_all (two checks) reads as "both/every version," distinct
@@ -767,7 +767,22 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       if (mounted) _equalizeDisputedHeights();
     });
     final entry = widget.entry;
-    final versions = entry.versions;
+    // 2026-09-16: real feedback, live - "device based on left is common
+    // sense for human UX. Left is first and of most importance and
+    // convenience." Position used to just follow entry.versions' file
+    // order (or, for two same-day journal entries, the chronological-
+    // time write order from conflict_repair.dart's mergeBoth) with no
+    // regard for which side is "yours" - same coincidence-only ordering
+    // titleFor/colorFor already had to be fixed for on 2026-09-14/15.
+    // Now the two-panel review always puts this device's own version on
+    // the left, regardless of file or chronological order. That write-
+    // time ordering is untouched and still governs Keep Both's merged
+    // text and the raw file's own layout - only this screen's left/right
+    // review position changes here.
+    final rawVersions = entry.versions;
+    final versions = rawVersions.length == 2 && rawVersions[1].who == 'yours'
+        ? [rawVersions[1], rawVersions[0]]
+        : rawVersions;
     // 2026-08-19: word-diff is inherently pairwise (LCS between exactly
     // two strings) - it only ever generalized to the original ours/
     // theirs case. A note can now carry 3+ stacked unresolved versions
