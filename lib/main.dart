@@ -160,15 +160,19 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         // (confirmed 404 live) - /contact does, and is a real working
         // form (src/pages/contact.tsx), not a stub, so this points
         // there instead of a page that would just 404 for the user.
-        // ?app=localsync&service=Bug+report: the plain /contact form is
-        // a freelance-inquiry page (budget/timeline chips, CHF amounts)
-        // - real risk flagged live ("too intimidated seeing the page
-        // for business people") - these params trigger contact.tsx's
-        // own app-feedback mode instead (hides budget/timeline, swaps
-        // in app-feedback copy), same submission pipeline underneath.
+        // ?app=localsync&service=Feature+idea: the plain /contact form
+        // is a freelance-inquiry page (budget/timeline chips, CHF
+        // amounts) - real risk flagged live ("too intimidated seeing
+        // the page for business people") - these params trigger
+        // contact.tsx's own app-feedback mode instead (hides budget/
+        // timeline, swaps in app-feedback copy), same submission
+        // pipeline underneath. Pre-selects "Feature idea" rather than
+        // "Bug report" - "focus on positive... users can select if
+        // needing to change" (direct ask, 2026-09-16) - either chip
+        // stays one tap away either way.
         launchUrl(
             Uri.parse(
-                'https://kworld.space/contact?app=localsync&service=Bug+report'),
+                'https://kworld.space/contact?app=localsync&service=Feature+idea'),
             mode: LaunchMode.externalApplication);
       }
     });
