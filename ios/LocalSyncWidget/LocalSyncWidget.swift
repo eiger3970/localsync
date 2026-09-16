@@ -37,37 +37,74 @@ struct LocalSyncProvider: TimelineProvider {
   }
 }
 
-struct LocalSyncWidgetView: View {
+// 2026-09-16: one button, reused across all 3 sizes at different
+// scales, instead of three near-duplicate button definitions.
+struct SyncButton: View {
+  let imageName: String
+  let label: String
+  let url: String
+  let iconSize: CGFloat
+  let font: Font
+
   var body: some View {
-    HStack(spacing: 12) {
-      Link(destination: URL(string: "localsync://pull")!) {
-        VStack(spacing: 6) {
-          Image("QuickActionPull")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 32, height: 32)
-          Text("Pull")
-            .font(.caption)
-            .fontWeight(.semibold)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    Link(destination: URL(string: url)!) {
+      VStack(spacing: 6) {
+        Image(imageName)
+          .resizable()
+          .scaledToFit()
+          .frame(width: iconSize, height: iconSize)
+        Text(label)
+          .font(font)
+          .fontWeight(.semibold)
       }
-      Divider()
-      Link(destination: URL(string: "localsync://push")!) {
-        VStack(spacing: 6) {
-          Image("QuickActionPush")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 32, height: 32)
-          Text("Push")
-            .font(.caption)
-            .fontWeight(.semibold)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .padding()
-    .containerBackground(.fill.tertiary, for: .widget)
+  }
+}
+
+// 2026-09-16: real feedback, live - "regular icon as is, then the 3
+// other larger sizes permit 3 different looks." Three real, distinct
+// layouts (not one layout just scaled) - Small has room for icons
+// only, Medium (the original layout) fits icon+label side by side,
+// Large adds real breathing room and a title. All three stay within
+// this session's own scope decision: static buttons only, no live
+// data - Large's extra space is reserved for the backup-risk
+// indicator once the App Group question (real, still open) is solved,
+// not filled with anything invented in the meantime.
+struct LocalSyncWidgetView: View {
+  @Environment(\.widgetFamily) var family
+
+  var body: some View {
+    switch family {
+    case .systemSmall:
+      VStack(spacing: 8) {
+        SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 26, font: .caption2)
+        Divider()
+        SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 26, font: .caption2)
+      }
+      .padding(10)
+      .containerBackground(.fill.tertiary, for: .widget)
+    case .systemLarge:
+      VStack(spacing: 16) {
+        Text("LocalSync")
+          .font(.headline)
+        HStack(spacing: 16) {
+          SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 44, font: .subheadline)
+          Divider()
+          SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 44, font: .subheadline)
+        }
+      }
+      .padding()
+      .containerBackground(.fill.tertiary, for: .widget)
+    default: // .systemMedium
+      HStack(spacing: 12) {
+        SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 32, font: .caption)
+        Divider()
+        SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 32, font: .caption)
+      }
+      .padding()
+      .containerBackground(.fill.tertiary, for: .widget)
+    }
   }
 }
 
@@ -80,7 +117,7 @@ struct LocalSyncWidget: Widget {
     }
     .configurationDisplayName("LocalSync")
     .description("Push or pull without opening the app.")
-    .supportedFamilies([.systemMedium])
+    .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
   }
 }
 
