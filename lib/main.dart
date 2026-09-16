@@ -1,6 +1,7 @@
 // main.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:share_plus/share_plus.dart';
@@ -240,6 +241,21 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         icon: 'QuickActionFeedback',
       ),
     ]);
+    // 2026-09-16: Home Screen widget's Push/Pull buttons - a plain URL
+    // (localsync://push, localsync://pull) handled natively in
+    // AppDelegate.swift, queried once here rather than delivered via a
+    // callback, same reasoning as the quick actions cold-launch race
+    // documented above: this can be set before any Dart code is even
+    // running yet. Feeds into the exact same pendingQuickAction the
+    // Quick Actions already use - HomeScreen's own handling for
+    // 'action_push'/'action_pull' needs zero changes.
+    const MethodChannel('localsync/widget_action')
+        .invokeMethod<String>('getPendingAction')
+        .then((action) {
+      if (action == 'push' || action == 'pull') {
+        _repositoryProvider.setPendingQuickAction('action_$action');
+      }
+    }).catchError((_) {});
   }
 
   @override
