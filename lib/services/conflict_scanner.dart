@@ -25,7 +25,8 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'conflict_repair.dart' show journalOrderedBodies, repositionedReplace;
+import 'conflict_repair.dart'
+    show journalOrderedBodies, journalOrderedEntries, repositionedReplace;
 import 'database_service.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
@@ -760,9 +761,18 @@ class KeepBothResult {
   const KeepBothResult(this.content, this.mergedText);
 }
 
-KeepBothResult applyKeepBoth(String content, ConflictEntry entry) {
+// 2026-09-16: [cleanUp] is the Tier 3 IAP addition
+// (kKeepBothCleanupEntitlementId, docs/product-tiers.md) - false (the
+// default) keeps free KEEP BOTH's existing, honest behavior exactly as
+// it always was: a plain concatenate, only reordered at the whole-body
+// level when every body starts with its own leading time. true swaps
+// in journalOrderedEntries' paragraph-level interleave instead, for
+// real cross-body chronological ordering.
+KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
+    {bool cleanUp = false}) {
+  final rawBodies = entry.versions.map((v) => v.body).toList();
   final bodies =
-      journalOrderedBodies(entry.versions.map((v) => v.body).toList());
+      cleanUp ? journalOrderedEntries(rawBodies) : journalOrderedBodies(rawBodies);
   final merged = bodies.join('\n\n');
   // 2026-09-15: no wrapper marker written any more (see the comment
   // above _decodeKeptBothData) - the merged text goes into the note
@@ -970,14 +980,15 @@ Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
 
 Future<String> mergeConflictKeepingBoth(
   String vaultPath,
-  ConflictEntry entry,
-) async {
+  ConflictEntry entry, {
+  bool cleanUp = false,
+}) async {
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length)
     return backupRelPath; // file changed since scan
-  final result = applyKeepBoth(content, entry);
+  final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   await VaultFolderService().coordinatedWrite(filePath, result.content);
   await _saveKeptBothRecord(KeptBothRecord(
     id: '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}',

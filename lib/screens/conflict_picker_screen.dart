@@ -14,8 +14,10 @@ import 'dart:io';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../models/repository.dart';
+import '../services/purchase_service.dart';
 import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
@@ -33,6 +35,7 @@ import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
 import 'backup_compare_screen.dart';
 import 'merge_picker_screen.dart';
+import 'paywall_keep_both_cleanup_screen.dart';
 
 // 2026-08-18: "red colour more difficult than green below with same
 // text size" - Material's default Colors.redAccent is noticeably
@@ -250,11 +253,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         onLinkTap: () =>
             IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
       ),
+      // 2026-09-16: real feedback, live - "keeping both is a
+      // concatenate dump." Rewritten to say plainly what this free
+      // action actually does (whole-block concatenate, only reordered
+      // if EACH side's own text starts with a clock time) rather than
+      // "sorted by time," which reads as more thorough than it is -
+      // see KEEP BOTH & CLEAN UP below for the real per-entry sort.
       _DialogPoint(
         icon: Icons.sort,
         color: kGreen,
-        text: 'Text sorted by time, if both texts start with a clock '
-            'time HHMM - otherwise left as is',
+        text: 'Both texts kept as one block each, in time order if both '
+            'start with a clock time HHMM - not reordered entry by entry '
+            '(see KEEP BOTH & CLEAN UP for that)',
       ),
       // 2026-09-08, fifth pass - real feedback, live: icon review.
       // done_all (two checks) reads as "both/every version," distinct
@@ -751,7 +761,78 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     if (proceed == true) await _keepBoth();
   }
 
-  Future<void> _keepBoth() async {
+  // 2026-09-16: Tier 3 IAP ("Keep Both & Clean Up" -
+  // kKeepBothCleanupEntitlementId, purchase_service.dart) - real
+  // feedback, live, on an actual conflict where both sides had
+  // accumulated multiple timestamped entries each: "text with clock is
+  // out of order on both desktop and phone" after running the free
+  // KEEP BOTH. Same entitlement-check-then-paywall shape
+  // sync_obsidian_preview_screen.dart already uses (skip the paywall
+  // for anyone who already owns it, never re-charge).
+  Future<void> _confirmAndKeepBothCleanedUp() async {
+    final purchases = context.read<PurchaseService>();
+    final alreadyOwned =
+        await purchases.hasEntitlement(kKeepBothCleanupEntitlementId);
+    if (!mounted) return;
+
+    if (!alreadyOwned) {
+      final unlocked = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                PaywallKeepBothCleanupScreen(purchases: purchases)),
+      );
+      if (unlocked != true || !mounted) return;
+    }
+
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Keep both texts, cleaned up?',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ..._keepBothDialogPoints().take(2),
+            _DialogPoint(
+              icon: Icons.auto_fix_high,
+              color: kGreen,
+              text: 'Every timestamped entry from both sides, interleaved '
+                  'by clock time - not just each side kept as one block',
+            ),
+            _DialogPoint(
+              icon: Icons.done_all,
+              color: kGreen,
+              text: 'Both texts kept, as plain text',
+            ),
+            _DialogPoint(
+              icon: Icons.visibility,
+              color: kGreen,
+              text: 'Text visible, all kept as plain text paragraphs, '
+                  'nothing hidden',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Not now',
+                style: TextStyle(color: kTextMid, fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child:
+                Text('Keep both', style: TextStyle(color: kStar, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) await _keepBoth(cleanUp: true);
+  }
+
+  Future<void> _keepBoth({bool cleanUp = false}) async {
     setState(() => _resolving = true);
     final vaultFolder = VaultFolderService();
     final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
@@ -759,7 +840,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     KeptBothEntry? keptBoth;
     try {
       if (path != null) {
-        backupRelPath = await mergeConflictKeepingBoth(path, widget.entry);
+        backupRelPath = await mergeConflictKeepingBoth(path, widget.entry,
+            cleanUp: cleanUp);
         await DatabaseService().addResolvedRecords(
           recordsFor(widget.entry, DateTime.now()),
         );
@@ -1311,6 +1393,38 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       // replaced with the same short icon+point list the
                       // confirm dialog already uses, safety facts first.
                       onPressed: () => _showKeepBothInfo(),
+                    ),
+                  ],
+                ),
+                // 2026-09-16: Tier 3 IAP - real feedback, live, on an
+                // actual conflict where both sides had accumulated
+                // multiple timestamped entries each: "text with clock
+                // is out of order on both desktop and phone" after
+                // running the free KEEP BOTH above (a plain
+                // concatenate, honestly described as such now - see
+                // _keepBothDialogPoints). This does the real
+                // per-entry chronological interleave instead
+                // (journalOrderedEntries) - see
+                // _confirmAndKeepBothCleanedUp.
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _confirmAndKeepBothCleanedUp,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: kGreen),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          minimumSize: const Size.fromHeight(0),
+                        ),
+                        icon: Icon(Icons.auto_fix_high, color: kGreen, size: 18),
+                        label: Text('KEEP BOTH & CLEAN UP',
+                            style: TextStyle(
+                                color: kGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3)),
+                      ),
                     ),
                   ],
                 ),

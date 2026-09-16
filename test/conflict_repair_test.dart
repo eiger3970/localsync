@@ -405,4 +405,60 @@ void main() {
       expect(insertionIndexByTime(const [], '0951 Something happened.'), 0);
     });
   });
+
+  group(
+      'journalOrderedEntries - real 2026-09-16 case (Keep Both, both sides '
+      'had multiple entries each - "text with clock is out of order on '
+      'both desktop and phone")', () {
+    test('interleaves individual entries across bodies, not just the '
+        'whole-body order journalOrderedBodies gives', () {
+      final desktopBody = '0650 32B packing and leaving.\n\n'
+          '0710 32C praying and chanting.\n\n'
+          '0725 staffer handles every individual food piece.';
+      final phoneBody = '1305 tall muscly hot food server.\n\n'
+          '1310 looking for a seat at an empty table.\n\n'
+          '1940 saw the stone thrower from yesterday.';
+      // journalOrderedBodies (the free KEEP BOTH path) only compares
+      // each body's OWN leading time (0650 vs 1305) - correctly puts
+      // desktopBody first, but can never split phoneBody's 1310/1940
+      // to interleave with anything inside desktopBody, because it
+      // never looks past each body's first line.
+      expect(journalOrderedBodies([phoneBody, desktopBody]),
+          [desktopBody, phoneBody]);
+      // journalOrderedEntries (Tier 3 "Keep Both & Clean Up") splits
+      // every body into its own paragraphs first, so this case (all
+      // entries already in order within each body) also lands in pure
+      // chronological order - the real difference shows once entries
+      // from different bodies actually interleave, covered below.
+      expect(journalOrderedEntries([phoneBody, desktopBody]), [
+        '0650 32B packing and leaving.',
+        '0710 32C praying and chanting.',
+        '0725 staffer handles every individual food piece.',
+        '1305 tall muscly hot food server.',
+        '1310 looking for a seat at an empty table.',
+        '1940 saw the stone thrower from yesterday.',
+      ]);
+    });
+
+    test('entries from different bodies actually interleave when their '
+        'times cross - journalOrderedBodies cannot do this at all', () {
+      final sideA = '0700 first entry.\n\n1500 third entry.';
+      final sideB = '1200 second entry.\n\n1800 fourth entry.';
+      expect(journalOrderedEntries([sideA, sideB]), [
+        '0700 first entry.',
+        '1200 second entry.',
+        '1500 third entry.',
+        '1800 fourth entry.',
+      ]);
+    });
+
+    test('one untimed paragraph anywhere falls all the way back to '
+        'journalOrderedBodies - never guesses where it belongs', () {
+      final sideA = '0700 first entry.\n\nToilet seat filthy.';
+      final sideB = '1200 second entry.';
+      expect(journalOrderedEntries([sideA, sideB]),
+          journalOrderedBodies([sideA, sideB]));
+      expect(journalOrderedEntries([sideA, sideB]), [sideA, sideB]);
+    });
+  });
 }
