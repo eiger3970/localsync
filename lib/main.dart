@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'services/database_service.dart';
 import 'services/repository_provider.dart';
@@ -153,18 +154,34 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     _quickActions.initialize((type) {
       if (type == 'action_push' || type == 'action_pull') {
         _repositoryProvider.setPendingQuickAction(type);
+      } else if (type == 'action_feedback') {
+        // 2026-09-16: real feedback, live - "tap-to-feedback behaviour
+        // kworld.space/feedback." /feedback doesn't exist on the site
+        // (confirmed 404 live) - /contact does, and is a real working
+        // form (src/pages/contact.tsx), not a stub, so this points
+        // there instead of a page that would just 404 for the user.
+        launchUrl(Uri.parse('https://kworld.space/contact'),
+            mode: LaunchMode.externalApplication);
       }
     });
     _quickActions.setShortcutItems(const [
+      // 2026-09-16: real feedback, live - custom icons instead of the
+      // default blank/system look. Diagonal (not straight up/down) per
+      // direct ask - arrow toward where the desktop conceptually sits
+      // (up-right) for push, toward the phone (down-left) for pull.
+      // Real green (QuickActionPull/Push.imageset's own Contents.json
+      // sets template-rendering-intent: original) - the default
+      // "template" mode would silently flatten this to the system's
+      // own tint instead.
       ShortcutItem(
         type: 'action_pull',
         localizedTitle: 'Pull',
-        localizedSubtitle: 'Download from desktop',
+        icon: 'QuickActionPull',
       ),
       ShortcutItem(
         type: 'action_push',
         localizedTitle: 'Push',
-        localizedSubtitle: 'Upload to desktop',
+        icon: 'QuickActionPush',
       ),
       // 2026-09-16: real feedback, live - "this warning can be added to
       // the app icon," same pattern as Working Copy's own "Deletion
@@ -180,9 +197,46 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // been confirmed against a real uninstall.
       ShortcutItem(
         type: 'info_uninstall',
-        localizedTitle: 'Before you remove...',
+        // 2026-09-16: real feedback, live - "use same language as
+        // Apple" - matches the native menu's own "Remove App" wording
+        // directly instead of a generic "Before you remove..." lead-in.
+        localizedTitle: 'Remove App warning',
+        // 2026-09-16: real feedback, live - "text to address free and
+        // paid users." Free: notes live in Obsidian's own storage, not
+        // this app's sandbox (architectural fact, lib/STRUCTURE.md).
+        // Paid: IAP entitlements are tied to the Apple ID via
+        // RevenueCat/StoreKit, not local app data - restorable after
+        // reinstall the same way any App Store purchase is. Both real
+        // guarantees, not guessed - kept to what's actually true rather
+        // than reassurance for its own sake.
+        // Shield emoji, amber in spirit even though iOS renders emoji
+        // in their own native color, not a customizable tint - "a 2nd
+        // image in the text" per direct ask, since the icon slot
+        // itself only holds one image (the no-entry circle above).
         localizedSubtitle:
-            "Notes stay safe in Obsidian - you'll just need to re-pair",
+            "🛡️ Notes & purchases stay safe - just re-pair after",
+        // 2026-09-16: no-entry circle shape matches Apple's own
+        // delete-badge glyph language, per explicit ask. Color settled
+        // on amber (not the initially-discussed red) to match this
+        // app's own established convention - amber already means
+        // "worth reading, not alarming" everywhere else (the conflict
+        // picker's duplicate-paragraph warnings), and nothing is
+        // actually being destroyed here, so amber fits the message
+        // better than red once the palette was considered as a whole.
+        icon: 'QuickActionRemove',
+      ),
+      // 2026-09-16: real feedback, live - "4th line... tap-to-feedback
+      // behaviour kworld.space/feedback." Unlike the warning item above,
+      // this one IS actionable - see the `action_feedback` branch in
+      // initialize() above, which opens kworld.space/contact (the real
+      // working page - /feedback itself 404s). Green, matching Pull/
+      // Push - smiley face, not dots, per direct ask (legible detail
+      // at the menu's small render size was the deciding factor).
+      ShortcutItem(
+        type: 'action_feedback',
+        localizedTitle: 'Send feedback',
+        localizedSubtitle: 'kworld.space/contact',
+        icon: 'QuickActionFeedback',
       ),
     ]);
   }
