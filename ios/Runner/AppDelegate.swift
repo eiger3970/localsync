@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import WidgetKit
 
 // Forces the linker to retain these C symbols instead of dead-stripping
 // them (2026-08-08: real device hit "Failed to lookup symbol
@@ -364,6 +365,17 @@ class BackupStatusChannel: NSObject {
       case "recordSync":
         UserDefaults(suiteName: BackupStatusChannel.suiteName)?
           .set(Date().timeIntervalSince1970, forKey: BackupStatusChannel.lastSyncKey)
+        // 2026-09-16: real bug, live - "ran a pull and push... Large
+        // still shows Never synced." Writing to the shared UserDefaults
+        // does NOT itself tell WidgetKit anything changed - a widget
+        // only redraws on its own schedule (getTimeline's policy, 6h
+        // here) or when explicitly told to. This is that explicit tell.
+        // Guarded: Runner's own deployment target is iOS 13.0 (broader
+        // phone compatibility for the app itself), but WidgetCenter
+        // needs 14.0+ - only the widget extension target needs 17.0+.
+        if #available(iOS 14.0, *) {
+          WidgetCenter.shared.reloadTimelines(ofKind: "LocalSyncWidget")
+        }
         result(nil)
       default:
         result(FlutterMethodNotImplemented)
