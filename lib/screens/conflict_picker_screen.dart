@@ -13,6 +13,7 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/conflict_repair.dart'
@@ -1134,19 +1135,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // instructional line on this screen.
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.shield_outlined, color: kStar, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                            'Unsure? KEEP BOTH never loses data - worst '
-                            'case, delete a duplicate line after.',
-                            style: TextStyle(color: kStar, fontSize: 12)),
-                      ),
-                    ],
-                  ),
+                  child: _autoTipRow(
+                      kStar,
+                      'Unsure? KEEP BOTH never loses data - worst '
+                      'case, delete a duplicate line after.',
+                      iconSize: 14),
                 ),
                 if (oneSideTooShort) ...[
                   const SizedBox(height: 8),
@@ -1171,54 +1164,28 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 ],
                 if (looksLikeSeparateEntries) ...[
                   const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.lightbulb_outline, color: kGreen, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          allHaveLeadingTime(
-                                  versions.map((v) => v.body).toList())
-                              ? '"KEEP BOTH" is usually right here\n'
-                                  '- each side starts with a different '
-                                  'clock time, these look like two '
-                                  'separate entries, not the same thing '
-                                  'edited twice.'
-                              : '"KEEP BOTH" is usually right here\n'
-                                  '- one side has a clock time, the other '
-                                  'has none at all, these look like two '
-                                  'separate entries, not the same thing '
-                                  'edited twice.',
-                          style: TextStyle(
-                              color: kGreen,
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _autoTipRow(
+                      kGreen,
+                      allHaveLeadingTime(
+                              versions.map((v) => v.body).toList())
+                          ? '"KEEP BOTH" is usually right here\n'
+                              '- each side starts with a different '
+                              'clock time, these look like two '
+                              'separate entries, not the same thing '
+                              'edited twice.'
+                          : '"KEEP BOTH" is usually right here\n'
+                              '- one side has a clock time, the other '
+                              'has none at all, these look like two '
+                              'separate entries, not the same thing '
+                              'edited twice.'),
                 ],
                 if (oneSideHasEverything) ...[
                   const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.lightbulb_outline, color: kGreen, size: 16),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'Keeping the longer version loses nothing - '
-                          'it already contains all of the other\'s '
-                          'text, plus more.',
-                          style: TextStyle(
-                              color: kGreen,
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _autoTipRow(
+                      kGreen,
+                      'Keeping the longer version loses nothing - '
+                      'it already contains all of the other\'s '
+                      'text, plus more.'),
                 ],
                 if (duplicateSide != -1) ...[
                   const SizedBox(height: 8),
@@ -1574,6 +1541,42 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // whether any choice has been made yet.
               ],
             ),
+    );
+  }
+
+  // 2026-09-16: real feedback, live - brand the auto-suggested hints on
+  // this screen (KEEP BOTH etc.) as "KWORLD AUTO TIP" with a small KAT
+  // (kworld auto tip) mark, instead of a bare Material icon - reusable
+  // across other kworld.space apps later, not just this one.
+  Widget _autoTipRow(Color color, String text, {double iconSize = 16}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SvgPicture.asset('assets/logos/kat_icon.svg',
+            width: iconSize,
+            height: iconSize,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('KWORLD AUTO TIP',
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8)),
+              const SizedBox(height: 2),
+              Text(text,
+                  style: TextStyle(
+                      color: color,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
