@@ -55,6 +55,20 @@ const kPkmSyncEntitlementId = 'pkm_sync';
 // wiring it in later is a one-line change, not a naming decision too.
 const kKeepBothUndoEntitlementId = 'keep_both_undo';
 
+// 2026-09-16: Tier 3 addition (docs/product-tiers.md) - "Keep Both &
+// Clean Up." Real feedback, live, on an actual conflict - "text with
+// clock is out of order on both desktop and phone" after running the
+// free KEEP BOTH, then "keeping both is a concatenate dump, the IAP
+// KEEP BOTH and clean up, does the correct job for a paid IAP level."
+// Free KEEP BOTH stays exactly as it always was (a plain concatenate,
+// only reordered at the whole-body level - see conflict_repair.dart's
+// journalOrderedBodies); this entitlement gates the paragraph-level
+// chronological interleave (journalOrderedEntries) instead. Same "no
+// funded Apple Developer account / no real RevenueCat product yet"
+// blocker as every other entitlement in this file - registered now so
+// wiring a real purchase check in later is a one-line change.
+const kKeepBothCleanupEntitlementId = 'keep_both_cleanup';
+
 // 2026-09-08: Tier 4 (docs/product-tiers.md) - AI Conflict Support.
 // Not built - captured as an idea only. IMPORTANT if this ever gets
 // built: this is the one feature in the whole app that sends vault

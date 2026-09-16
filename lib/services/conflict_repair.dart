@@ -108,6 +108,36 @@ List<String> journalOrderedBodies(List<String> bodies) {
   return sorted;
 }
 
+/// 2026-09-16: real bug, live - "text with clock is out of order on
+/// both desktop and phone" after Keep Both, on a real conflict where
+/// each side had accumulated MULTIPLE timestamped entries in one sync
+/// (not just one entry per side, the case journalOrderedBodies above
+/// already covers). journalOrderedBodies only ever sorts at the
+/// WHOLE-BODY level - a body starting 0650 correctly sorts before one
+/// starting 1305, but if that 1305 body's own later entries (1310,
+/// 1940, 2200...) should actually interleave with entries inside the
+/// OTHER body, whole-body sorting can never achieve that - only
+/// individual-paragraph sorting can. Tier 3 IAP feature ("Keep Both &
+/// Clean Up" - docs/product-tiers.md, kKeepBothCleanupEntitlementId) -
+/// the free KEEP BOTH stays exactly as-is (journalOrderedBodies, a
+/// plain concatenate that never loses data but doesn't fully reorder).
+/// Same "never guess" rule as journalOrderedBodies: only reorders when
+/// EVERY paragraph across EVERY body has its own leading time - a
+/// single untimed paragraph anywhere falls back to journalOrderedBodies'
+/// coarser, already-safe behavior instead of guessing where it belongs.
+List<String> journalOrderedEntries(List<String> bodies) {
+  final perBody = bodies.map(_splitParagraphs).toList();
+  final allParagraphs = perBody.expand((p) => p).toList();
+  if (allParagraphs.isEmpty ||
+      !allParagraphs.every((p) => _journalTimePattern.hasMatch(p))) {
+    return journalOrderedBodies(bodies);
+  }
+  final sorted = [...allParagraphs];
+  sorted.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
+      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
+  return sorted;
+}
+
 /// 2026-09-14: real feedback, live - "this time 0950 clearly if in
 /// between 0800 and 0953" - the conflict picker was showing a disputed
 /// paragraph's context in file order (whatever came before it), not
