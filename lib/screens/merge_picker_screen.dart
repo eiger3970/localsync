@@ -46,6 +46,7 @@ class MergePickerScreen extends StatefulWidget {
 }
 
 class _MergePickerScreenState extends State<MergePickerScreen> {
+  late final List<ConflictVersion> _versions;
   late final List<MergeHunk> _hunks;
   final Set<int> _theirsChosen = {};
   bool _resolving = false;
@@ -53,12 +54,25 @@ class _MergePickerScreenState extends State<MergePickerScreen> {
   @override
   void initState() {
     super.initState();
-    final versions = widget.entry.versions;
-    _hunks = mergeHunks(versions[0].body, versions[1].body);
+    // 2026-09-16: same identity-not-position bug as
+    // ConflictPickerScreen (fixed same day) - widget.entry.versions'
+    // order is file/chronological, not device-based, but this screen
+    // was worse than a cosmetic swap: _oursLabel always says "This
+    // device" while _hunks/_theirsLabel blindly read versions[0]/[1],
+    // so if 'yours' ever landed at index 1, this screen would show the
+    // OTHER device's text under the "This device" column - a real
+    // mislabel, not just a position preference. Reorders once here so
+    // _versions[0] is always this device's own version, matching what
+    // _oursLabel already claims.
+    final raw = widget.entry.versions;
+    _versions = raw.length == 2 && raw[1].who == 'yours'
+        ? [raw[1], raw[0]]
+        : raw;
+    _hunks = mergeHunks(_versions[0].body, _versions[1].body);
   }
 
   String get _theirsLabel {
-    final v = widget.entry.versions[1];
+    final v = _versions[1];
     return v.when != null ? '${v.who} - ${v.when}' : v.who;
   }
 
