@@ -55,6 +55,12 @@ private struct VDivider: View {
   }
 }
 
+private struct HDivider: View {
+  var body: some View {
+    Rectangle().fill(Color.white.opacity(0.15)).frame(height: 1)
+  }
+}
+
 private func daysSinceLastSync() -> Int? {
   // 2026-09-16: real bug, live - "still Never synced" even after the
   // missing reloadTimelines() fix. object(forKey:) as? Double relies on
@@ -66,6 +72,26 @@ private func daysSinceLastSync() -> Int? {
   guard timestamp > 0 else { return nil }
   let elapsed = Date().timeIntervalSince1970 - timestamp
   return max(0, Int(elapsed / 86400))
+}
+
+// 2026-09-16: temporary diagnostic - real bug, live, still "Never
+// synced" after TWO targeted fixes (missing reloadTimelines(), then
+// object(forKey:) as? Double bridging). No device console access this
+// session (Linux-only, CI-only macOS builds), so this is the only way
+// left to actually see what's happening on the real device instead of
+// guessing a third time. Distinguishes the two real failure modes:
+// "grp=NIL" means UserDefaults(suiteName:) itself failed - the App
+// Group entitlement isn't actually functional under this signing
+// setup, no amount of read/refresh fixing on this end can address
+// that. "ts=0" means the suite works but AppDelegate's write never
+// landed - a different bug, likely on the Dart/channel side. Remove
+// once the real cause is confirmed.
+private func appGroupDebugInfo() -> String {
+  guard let defaults = UserDefaults(suiteName: appGroupSuite) else {
+    return "DEBUG grp=NIL (App Group not accessible)"
+  }
+  let raw = defaults.double(forKey: lastSyncKey)
+  return "DEBUG grp=ok ts=\(raw)"
 }
 
 struct LocalSyncEntry: TimelineEntry {
@@ -186,11 +212,19 @@ struct LocalSyncWidgetView: View {
           .font(.headline)
           .foregroundStyle(.white)
         BackupRiskIndicator(days: entry.daysSinceSync)
-        HStack(spacing: 16) {
-          SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 44, font: .subheadline)
-          VDivider()
-          SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 44, font: .subheadline)
+        // 2026-09-16: real feedback, live - "Pull and Push is left and
+        // right, but should be pull above and push below." Only Large
+        // has the vertical room for this - Small/Medium stay
+        // horizontal, they're already tight on space.
+        VStack(spacing: 10) {
+          SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 40, font: .subheadline)
+          HDivider()
+          SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 40, font: .subheadline)
         }
+        // Temporary diagnostic - see appGroupDebugInfo()'s comment.
+        Text(appGroupDebugInfo())
+          .font(.system(size: 8))
+          .foregroundStyle(.white.opacity(0.5))
       }
       .padding()
       .containerBackground(localSyncGradient, for: .widget)
