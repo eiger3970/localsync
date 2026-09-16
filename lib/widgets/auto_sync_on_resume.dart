@@ -70,6 +70,18 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // from rapid resume/foreground churn, not real locking.
     if (_syncing || !mounted) return;
     final provider = context.read<RepositoryProvider>();
+    // 2026-09-16: real feedback, live - "long tapped app icon -> tapped
+    // push -> app opened to home screen pulling... should say pushing
+    // right?" Root cause: this runs its own silent push-then-pull on
+    // EVERY cold launch, completely independent of Quick Actions - a
+    // Quick Action tap and this auto-sync both fire on the same cold
+    // launch, serialized behind each other via _run's own per-repo
+    // lock, so whichever one the user actually tapped gets buried
+    // behind (and visually indistinguishable from) this silent one.
+    // When a Quick Action is already about to run an explicit,
+    // visible sync, this auto one is redundant - skip it and let the
+    // explicit one be the only thing that runs, not two racing.
+    if (provider.pendingQuickAction != null) return;
     final repo = provider.selectedRepo;
     if (repo?.id == null) return;
     _syncing = true;
