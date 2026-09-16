@@ -549,6 +549,36 @@ class HomeScreen extends StatelessWidget {
               }
             });
           }
+          // 2026-09-16: same pattern as pendingConflictRepoId just above -
+          // main.dart's QuickActions().initialize callback sets this
+          // (real Home Screen "Pull"/"Push" long-press actions) with no
+          // BuildContext of its own to act on. Runs through the exact
+          // same _runAndShow the swipe gesture below uses - same confirm
+          // dialogs, same SnackBar feedback, same cannotFastForward
+          // auto-recovery on push. Cleared immediately, same one-shot
+          // reasoning as the conflict case.
+          final pendingQuickAction = provider.pendingQuickAction;
+          if (pendingQuickAction != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              provider.clearPendingQuickAction();
+              if (!context.mounted) return;
+              if (pendingQuickAction == 'action_pull') {
+                _runAndShow(
+                    context,
+                    ({bool confirmed = false}) =>
+                        provider.pullRepository(repo.id!, confirmed: confirmed),
+                    repo: repo);
+              } else if (pendingQuickAction == 'action_push') {
+                _runAndShow(
+                    context,
+                    ({bool confirmed = false}) =>
+                        provider.pushRepository(repo.id!, confirmed: confirmed),
+                    repo: repo,
+                    pullFallback: ({bool confirmed = false}) =>
+                        provider.pullRepository(repo.id!, confirmed: confirmed));
+              }
+            });
+          }
           // 2026-08-17: the repo tile's summary row moved into the app
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.

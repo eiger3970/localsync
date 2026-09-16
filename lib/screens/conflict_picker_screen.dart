@@ -415,13 +415,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             // Sep 6th - looked like a mismatch. It isn't: the timestamp
             // is when that edit was saved (labelForCommit's commit.time
             // in sync_service.dart), not the note's own date - writing
-            // about yesterday a bit after midnight is normal.
+            // about yesterday a bit after midnight is normal. Concrete
+            // real example instead of an abstract rule, per direct ask.
             _DialogPoint(
               icon: Icons.schedule,
               color: kTextDim,
               textColor: kTextDim,
-              text: 'Date next to a name is when it was saved - can '
-                  "differ from the note's own date, that's normal",
+              text: 'Real name: Journal/2026/09/Sep 6th, 2026.md\n'
+                  'Merge name: desktop obsidian - 202609071425\n'
+                  "Merge name's date is when that edit was saved - can "
+                  "differ from the note's own real name, that's normal",
             ),
           ],
         ),
@@ -844,12 +847,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       return v.who;
     }
 
-    // 2026-09-16: real feedback, live - the name+timestamp string
-    // ("desktop obsidian - 202609071425") read as one ambiguous blob
-    // easy to misparse against the note's own filename. Panel now shows
-    // two explicitly labeled lines instead: "Real name" is the actual
-    // note's path (entry.filePath, same for both panels), "Merge name"
-    // is this version's device + save time.
+    // 2026-09-16: panel header - device name + save time combined, same
+    // single-line format as before, just no longer truncated (see the
+    // Text widget below). The Real name/Merge name distinction (this
+    // vs. the note's own file path) is explained in the Colours? info
+    // dialog instead of repeated on every panel - see _showDiffColorInfo.
     String mergeNameFor(int i) {
       final v = versions[i];
       final name = titleFor(i);
@@ -1459,8 +1461,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       children: [
                         Expanded(
                           child: _ConflictPanel(
-                            title: 'Real name: ${entry.filePath}',
-                            subtitle: 'Merge name: ${mergeNameFor(0)}',
+                            title: mergeNameFor(0),
                             tokens: wordDiffOurs(
                                 versions[0].body, versions[1].body),
                             plainText: versions[0].body,
@@ -1496,8 +1497,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             // button below) got added anywhere on this
                             // screen. A key survives that kind of change.
                             key: const Key('conflict_panel_theirs'),
-                            title: 'Real name: ${entry.filePath}',
-                            subtitle: 'Merge name: ${mergeNameFor(1)}',
+                            title: mergeNameFor(1),
                             tokens: wordDiffTheirs(
                                 versions[0].body, versions[1].body),
                             plainText: versions[1].body,
@@ -1519,8 +1519,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   for (var i = 0; i < versions.length; i++) ...[
                     if (i > 0) const SizedBox(height: 16),
                     _ConflictPanel(
-                      title: 'Real name: ${entry.filePath}',
-                      subtitle: 'Merge name: ${mergeNameFor(i)}',
+                      title: mergeNameFor(i),
                       tokens: null,
                       plainText: versions[i].body,
                       highlightColor: colorFor(i),
@@ -1694,14 +1693,6 @@ class _ConflictPanel extends StatelessWidget {
   // one-sided - no channel conflict in practice since a token position
   // needs at most one of the two.
   final String? duplicateParagraph;
-  // 2026-09-16: real feedback, live - "desktop obsidian - 202..." read
-  // as one ambiguous string, easy to misparse which part is the device
-  // and which is a timestamp (the house YYYYMMDDhhmm format has no
-  // separators, so it can look like a second name). Split into a
-  // labeled second line instead of guessing at smarter formatting -
-  // null when the version has no save time (this device's own edit
-  // never does, see titleFor's own doc).
-  final String? subtitle;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1714,7 +1705,6 @@ class _ConflictPanel extends StatelessWidget {
     this.disputedKey,
     this.extraPadBelowDisputed = 0,
     this.duplicateParagraph,
-    this.subtitle,
   });
 
   // 2026-09-15: real feedback, live - real Sep 7th case, traced: the
@@ -1841,9 +1831,6 @@ class _ConflictPanel extends StatelessWidget {
                     color: highlightColor,
                     fontSize: 14,
                     fontWeight: FontWeight.bold)),
-            if (subtitle != null)
-              Text(subtitle!,
-                  style: TextStyle(color: kTextDim, fontSize: 11.5)),
             const SizedBox(height: 6),
             // 2026-09-09: real feedback, live - "can't see all of the
             // text, which is cut off at the bottom and doesn't scroll."
