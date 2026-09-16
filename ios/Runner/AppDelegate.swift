@@ -304,8 +304,43 @@ class FileUtilsChannel: NSObject {
   }
 }
 
+// Home Screen widget bridge (2026-09-16) - the widget's Push/Pull
+// buttons are plain SwiftUI Link(destination:) URLs (localsync://push,
+// localsync://pull), deliberately not an AppIntent/App Group (avoids
+// needing Developer Portal entitlement registration, which may not
+// work on a free/sideload signing identity - the same real constraint
+// already documented in this app's history for other capabilities).
+// Static, not instance-scoped, and consume-on-read (cleared the moment
+// Dart asks) - same reasoning as RepositoryProvider's
+// pendingQuickAction/pendingConflictRepoId: this can be set from a
+// cold launch (before any Flutter engine or channel exists yet) or a
+// warm one, so it has to be readable fresh rather than delivered via a
+// callback that might fire before Dart is listening.
+enum PendingWidgetAction {
+  static var value: String?
+}
+
+class WidgetActionChannel: NSObject {
+  func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "localsync/widget_action",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "getPendingAction":
+        result(PendingWidgetAction.value)
+        PendingWidgetAction.value = nil
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+}
+
 private let vaultFolderChannel = VaultFolderChannel()
 private let fileUtilsChannel = FileUtilsChannel()
+private let widgetActionChannel = WidgetActionChannel()
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -314,7 +349,26 @@ private let fileUtilsChannel = FileUtilsChannel()
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     retainLibgit2Symbols()
+    // Cold launch via widget tap - application(_:open:options:) below
+    // never fires in this case, the URL only ever shows up here.
+    if let url = launchOptions?[.url] as? URL, url.scheme == "localsync" {
+      PendingWidgetAction.value = url.host
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Warm launch (app already running/backgrounded) - the cold-launch
+  // path above never fires in this case, this is the only one that does.
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if url.scheme == "localsync" {
+      PendingWidgetAction.value = url.host
+      return true
+    }
+    return super.application(app, open: url, options: options)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -330,5 +384,10 @@ private let fileUtilsChannel = FileUtilsChannel()
       return
     }
     fileUtilsChannel.register(with: fileUtilsRegistrar.messenger())
+
+    guard let widgetActionRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "WidgetActionChannel") else {
+      return
+    }
+    widgetActionChannel.register(with: widgetActionRegistrar.messenger())
   }
 }

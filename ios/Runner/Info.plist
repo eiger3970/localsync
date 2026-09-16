@@ -87,6 +87,25 @@
 	<array>
 		<string>obsidian</string>
 	</array>
+	<!-- 2026-09-16: Home Screen widget's Push/Pull buttons are plain
+	     SwiftUI Link(destination:) URLs (localsync://push,
+	     localsync://pull), not an AppIntent - deliberately avoids
+	     needing App Groups/entitlements (Developer Portal registration
+	     may not work on a free/sideload signing identity), reusing the
+	     exact same pendingQuickAction mechanism already built for Quick
+	     Actions, just triggered by AppDelegate's URL handler instead of
+	     the quick_actions plugin's callback. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.kworld.localsync.widget</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>localsync</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Localsync connects to your paired desktop over your local network to sync your Obsidian vault.</string>
 	<!-- 2026-08-21: auto-discovery - lets the app find the desktop's
