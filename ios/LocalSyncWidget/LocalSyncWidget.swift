@@ -29,6 +29,32 @@ import SwiftUI
 private let appGroupSuite = "group.com.kworld.localsync"
 private let lastSyncKey = "lastSyncTimestamp"
 
+// 2026-09-16: real feedback, live - "background looks default, rather
+// than the LocalSync app icon background colours with a gradient."
+// Sampled straight from assets/icon/icon.png (the real app icon, not
+// the switchable in-app theme palettes - the icon itself is one fixed
+// image): dark navy top fading to near-black bottom. Fixed dark
+// background means every label/icon below needs an explicit light
+// color instead of an adaptive system one - Divider()'s default tint
+// assumes a light or system-material background and would be close to
+// invisible here.
+private let localSyncGradient = LinearGradient(
+  colors: [
+    Color(red: 14 / 255, green: 21 / 255, blue: 35 / 255),
+    Color(red: 3 / 255, green: 5 / 255, blue: 12 / 255),
+  ],
+  startPoint: .top,
+  endPoint: .bottom
+)
+
+// Divider()'s default tint is a system-adaptive gray built for an
+// adaptive background - near-invisible on this fixed dark gradient.
+private struct VDivider: View {
+  var body: some View {
+    Rectangle().fill(Color.white.opacity(0.15)).frame(width: 1)
+  }
+}
+
 private func daysSinceLastSync() -> Int? {
   guard let timestamp = UserDefaults(suiteName: appGroupSuite)?
     .object(forKey: lastSyncKey) as? Double else { return nil }
@@ -81,6 +107,7 @@ struct SyncButton: View {
         Text(label)
           .font(font)
           .fontWeight(.semibold)
+          .foregroundStyle(.white)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -116,18 +143,18 @@ struct BackupRiskIndicator: View {
         .frame(width: 10, height: 10)
       Text(riskLabel(days))
         .font(.caption2)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(.white.opacity(0.75))
     }
   }
 }
 
 // 2026-09-16: real feedback, live - "regular icon as is, then the 3
 // other larger sizes permit 3 different looks." Three real, distinct
-// layouts (not one layout just scaled) - Small has room for icons
-// only, Medium (the original layout) fits icon+label side by side,
-// Large adds real breathing room, a title, and the backup-risk
-// indicator (the space was reserved for this from the start, see the
-// header comment above for why it's real now instead of static).
+// layouts (not one layout just scaled), all three now carrying the
+// "LocalSync" title and the app icon's own dark gradient background
+// (real feedback, live - "widgets 2 and 3 don't show LocalSync...
+// background looks default"). Only Large gets the backup-risk
+// indicator - no room for it at Small/Medium sizes.
 struct LocalSyncWidgetView: View {
   @Environment(\.widgetFamily) var family
   let entry: LocalSyncEntry
@@ -135,34 +162,46 @@ struct LocalSyncWidgetView: View {
   var body: some View {
     switch family {
     case .systemSmall:
-      VStack(spacing: 8) {
-        SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 26, font: .caption2)
-        Divider()
-        SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 26, font: .caption2)
+      VStack(spacing: 4) {
+        Text("LocalSync")
+          .font(.system(size: 10, weight: .bold))
+          .foregroundStyle(.white)
+        HStack(spacing: 10) {
+          SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 22, font: .system(size: 9))
+          VDivider()
+          SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 22, font: .system(size: 9))
+        }
       }
-      .padding(10)
-      .containerBackground(.fill.tertiary, for: .widget)
+      .padding(8)
+      .containerBackground(localSyncGradient, for: .widget)
     case .systemLarge:
       VStack(spacing: 12) {
         Text("LocalSync")
           .font(.headline)
+          .foregroundStyle(.white)
         BackupRiskIndicator(days: entry.daysSinceSync)
         HStack(spacing: 16) {
           SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 44, font: .subheadline)
-          Divider()
+          VDivider()
           SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 44, font: .subheadline)
         }
       }
       .padding()
-      .containerBackground(.fill.tertiary, for: .widget)
+      .containerBackground(localSyncGradient, for: .widget)
     default: // .systemMedium
-      HStack(spacing: 12) {
-        SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 32, font: .caption)
-        Divider()
-        SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 32, font: .caption)
+      VStack(spacing: 6) {
+        Text("LocalSync")
+          .font(.caption)
+          .fontWeight(.bold)
+          .foregroundStyle(.white)
+        HStack(spacing: 12) {
+          SyncButton(imageName: "QuickActionPull", label: "Pull", url: "localsync://pull", iconSize: 30, font: .caption)
+          VDivider()
+          SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 30, font: .caption)
+        }
       }
       .padding()
-      .containerBackground(.fill.tertiary, for: .widget)
+      .containerBackground(localSyncGradient, for: .widget)
     }
   }
 }
