@@ -1437,6 +1437,63 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
     return when == null ? '$who not kept' : '$who not kept - $when';
   }
 
+  // 2026-09-16: real feedback, live - "I need to know I can safely
+  // delete it [and] clean my conflicts. Make this clearer." DELETE
+  // NOTE previously fired with no confirmation at all, and its own
+  // 2026-08-26 comment above already flagged the label itself as
+  // reading more destructive than what actually happens
+  // (deleteReferenceCallout, conflict_scanner.dart, never touches the
+  // real note - only removes this one folded-in callout, and writes a
+  // fresh backup of the exact text being removed to LocalSync/Conflict
+  // Backups first). Same icon+point dialog shape conflict_picker_
+  // screen.dart's _keepBothDialogPoints already uses elsewhere in this
+  // app, kept local to this file rather than extracting a shared
+  // widget for one use site.
+  Future<void> _confirmDelete() async {
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Delete this old version?',
+            style: TextStyle(color: kStar, fontSize: 17)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SafetyPoint(
+              icon: Icons.check_circle_outline,
+              text: 'Your journal note is never deleted - only this '
+                  'dropped version disappears from view',
+            ),
+            _SafetyPoint(
+              icon: Icons.library_add_check,
+              text: 'A fresh copy is saved first, in LocalSync/Conflict '
+                  'Backups, before anything is removed',
+            ),
+            _SafetyPoint(
+              icon: Icons.undo,
+              text: 'Nothing is lost for good - the backup stays on '
+                  'your device if you ever need it back',
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text('Not now',
+                style: TextStyle(color: kTextMid, fontSize: 15)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('Delete',
+                style: TextStyle(color: Colors.redAccent, fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (proceed == true) onDelete();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1696,7 +1753,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: onDelete,
+                        onPressed: _confirmDelete,
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: Colors.redAccent),
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1981,6 +2038,34 @@ class _GlowPhrase extends StatelessWidget {
       child: Text(text,
           style: TextStyle(
               color: kGreen, fontWeight: FontWeight.w600, fontSize: 13)),
+    );
+  }
+}
+
+// 2026-09-16: one short icon+text line in _ReferenceCalloutTileState's
+// _confirmDelete dialog - same icon+point shape
+// conflict_picker_screen.dart's own _DialogPoint already uses for its
+// KEEP BOTH dialog, kept as a separate, simpler local copy here rather
+// than sharing that private widget across files for one use site.
+class _SafetyPoint extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _SafetyPoint({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: kGreen, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text, style: TextStyle(color: kTextMid, fontSize: 13)),
+          ),
+        ],
+      ),
     );
   }
 }

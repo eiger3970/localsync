@@ -85,6 +85,25 @@ pricing ladder diagram, which still apply on top of this.
   paragraph by hand, or copy from the backup file). Same "ungated
   during testing" status as everything else in this tier - not wired
   to a real purchase check yet.
+- **2026-09-16 addition, real device bug turned feature**: "Keep Both &
+  Clean Up" (`kKeepBothCleanupEntitlementId`,
+  `paywall_keep_both_cleanup_screen.dart`) - real per-entry
+  chronological reorder on a Keep Both merge, not just the free tier's
+  whole-block concatenate (`journalOrderedEntries`,
+  `conflict_repair.dart`). This IS wired to a real entitlement check
+  and paywall already (not "ungated during testing" like the rest of
+  this tier) - the paywall itself falls back to an honest "Coming
+  soon"/"Skip for testing" state until a real RevenueCat product
+  exists, same pattern as Tier 2's `paywall_obsidian_screen.dart`.
+- **2026-09-16 price correction**: the $59.99-64.99 range below was set
+  2026-08-26 for automatic merge alone - both Undo (2026-09-08) and
+  Clean Up (above) were added to this tier's feature list afterward
+  with no re-pricing at the time, three real capabilities priced as if
+  this tier only had one. Corrected to **$199** (user's own decision,
+  a deliberate break from the "cap near one year of Obsidian Sync"
+  anchor that set the old range - prices the automatic merge + undo +
+  clean-up combo as real standalone value). Website's Automatic tier
+  card updated to match.
 
 ## Tier 4 (IAP, opt-in per use) - AI Conflict Support
 
@@ -180,12 +199,19 @@ argument against a one-time purchase.
 | 1. File Sync | $0 | Acquisition funnel, not revenue |
 | 2. PKM Text | **$24.99** | No accessible competing product exists at any price - Working Copy's PKM path is real but "near 0 can do it." Launch-low price, not a ceiling - see headroom note above |
 | 3. PKM Visual (manual) | **+$14.99** (-> $39.99 combined w/ Tier 2) | Same capability as Tier 2, easier UX - an increment, not a new capability |
-| 4. PKM Visual + Auto (premium) | **+$19.99-24.99** (-> **$59.99-64.99 for the full Obsidian stack**) | No competitor does automatic PKM-aware merge at all - most pricing power here, capped near one year of Obsidian Sync so it still reads as a steal against paying forever |
-| 5. Everything bundle (all PKMs) | **$99-149** (already in `Projects/LocalSync.md`'s pricing ladder) | Cross-PKM (Obsidian + LogSeq + Notion + Joplin + Tana...), priced above the sum of individually-priced PKM tiers - the actual anti-cheap-backdoor ceiling |
+| 4. PKM Visual + Auto (premium) | **$199** (2026-09-16 correction, was $59.99-64.99) | Automatic merge + one-tap Undo + Keep Both & Clean Up - three real capabilities that were priced as if this tier only had one. User's own decision: a deliberate break from the "cap near one year of Obsidian Sync" anchor, not a fill-in of the old range |
+| 5. Everything bundle (all PKMs) | **$299** (2026-09-16 correction, was $99-149) | Cross-PKM (Obsidian + LogSeq + Notion + Joplin + Tana...) - re-anchored above row 4's corrected $199 (roughly 50% over the single most valuable PKM stack), same anti-cheap-backdoor logic as before, just re-based on the real current ceiling instead of the old $59.99-64.99 one |
 
-This ceiling (~$60-65 for the complete Obsidian tier stack) sits under
-row 5's cross-PKM bundle - a bigger purchase than one PKM's full stack,
-so the numbers stack correctly rather than colliding.
+**2026-09-16: backdoor fixed.** The old $99-149 sat above row 4's
+*original* $59.99-64.99, but row 4's 2026-09-16 correction to $199
+(three capabilities priced as one, corrected) put it above row 5
+instead - someone could have bought "everything, every PKM" for less
+than "just Obsidian, automatic." $299 restores the anti-backdoor
+ordering: buying every PKM's full stack always costs more than buying
+one PKM's full stack, whichever PKM that is. Still well under
+Business's $999+. Tier 5 isn't built yet (no other PKMs supported) -
+this is the number to launch it at whenever that happens, not a
+placeholder to revisit again.
 
 ## Launch strategy: these are ceilings to grow into, not day-one prices
 
