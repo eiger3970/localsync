@@ -1294,8 +1294,11 @@ Future<void> _showAbout(BuildContext context) async {
                 style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
             Text('2 different types of storage (like phone-LocalSync-desktop)',
                 style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
-            Text('1 copy kept off-site (SSD USB enclosure FTW)',
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            Text(
+              '1 copy kept off-site (SSD USB enclosure FTW) - LocalSync '
+              'it there too, a 3rd device on top of the pair above',
+              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
             const SizedBox(height: 20),
             // 2026-08-21: real feedback, live - "where is the manual
             // on the app? I don't see it" (asked twice) - the desktop
