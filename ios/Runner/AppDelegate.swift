@@ -338,9 +338,44 @@ class WidgetActionChannel: NSObject {
   }
 }
 
+// Backup-risk indicator bridge (2026-09-16) - the widget extension
+// can't run the Flutter/Dart engine at all, so it can't ask the app
+// "when did you last sync" directly. The App Group container
+// (group.com.kworld.localsync, added this session specifically to
+// test whether this works on a free/sideload signing identity - see
+// Runner.entitlements/LocalSyncWidget.entitlements) is the one piece
+// of storage both processes can actually read/write. This channel is
+// the app side of that: Dart calls recordSync() once after every
+// successful push/pull/no-changes-needed result (see
+// repository_provider.dart's _runLocked), the widget's own
+// TimelineProvider reads the same key straight out of shared
+// UserDefaults on its own, no channel involved on that side.
+class BackupStatusChannel: NSObject {
+  static let suiteName = "group.com.kworld.localsync"
+  static let lastSyncKey = "lastSyncTimestamp"
+
+  func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "localsync/backup_status",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "recordSync":
+        UserDefaults(suiteName: BackupStatusChannel.suiteName)?
+          .set(Date().timeIntervalSince1970, forKey: BackupStatusChannel.lastSyncKey)
+        result(nil)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+}
+
 private let vaultFolderChannel = VaultFolderChannel()
 private let fileUtilsChannel = FileUtilsChannel()
 private let widgetActionChannel = WidgetActionChannel()
+private let backupStatusChannel = BackupStatusChannel()
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -389,5 +424,10 @@ private let widgetActionChannel = WidgetActionChannel()
       return
     }
     widgetActionChannel.register(with: widgetActionRegistrar.messenger())
+
+    guard let backupStatusRegistrar = engineBridge.pluginRegistry.registrar(forPlugin: "BackupStatusChannel") else {
+      return
+    }
+    backupStatusChannel.register(with: backupStatusRegistrar.messenger())
   }
 }

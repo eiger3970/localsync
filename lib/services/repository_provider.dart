@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
@@ -12,6 +13,18 @@ import 'ssh_key_paths.dart';
 
 class RepositoryProvider extends ChangeNotifier {
   final _db = DatabaseService();
+
+  // 2026-09-16: fire-and-forget bridge to AppDelegate.swift's
+  // BackupStatusChannel - the widget extension can't run Dart at all,
+  // so this is the only way it ever learns "a sync just succeeded".
+  // Swallows any failure (missing channel handler, no App Group
+  // entitlement resolved, etc.) - the in-app lastSync timestamp above
+  // is the source of truth either way, this is purely a best-effort
+  // mirror for the Home Screen widget's traffic-light indicator.
+  static const _backupStatusChannel = MethodChannel('localsync/backup_status');
+  void _recordBackupTimestamp() {
+    _backupStatusChannel.invokeMethod('recordSync').catchError((_) {});
+  }
 
   List<Repository>     _repos     = [];
   List<CommitTemplate> _templates = [];
@@ -274,6 +287,7 @@ class RepositoryProvider extends ChangeNotifier {
                 lastSync:  DateTime.now(),
                 clearSyncProgress: true,
               );
+              _recordBackupTimestamp();
             // 2026-08-20: "show error in human language, how to fix it,
             // then the error code verbose details - some errors do
             // this, others don't" - these two cases used to join
