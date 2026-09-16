@@ -193,6 +193,22 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         localizedTitle: 'Push',
         icon: 'QuickActionPush',
       ),
+      // 2026-09-16: real feedback, live - "3 to be Send feedback and 4
+      // to be Remove App warning" - reordered, this one now sits above
+      // the warning item below. Unlike that item, this one IS
+      // actionable - see the `action_feedback` branch in initialize()
+      // above, which opens kworld.space/contact (the real working page
+      // - /feedback itself 404s). Smiley face, not dots, per direct ask
+      // (legible detail at the menu's small render size was the
+      // deciding factor) - green in the source SVG, though that never
+      // actually shows in the real menu (see QuickActionRemove's own
+      // note below - iOS always template-masks these to black/white).
+      ShortcutItem(
+        type: 'action_feedback',
+        localizedTitle: 'Send feedback',
+        localizedSubtitle: 'kworld.space/contact',
+        icon: 'QuickActionFeedback',
+      ),
       // 2026-09-16: real feedback, live - "this warning can be added to
       // the app icon," same pattern as Working Copy's own "Deletion
       // warning" item on its long-press menu (confirmed earlier this
@@ -216,8 +232,7 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         // the icon field itself only holds one image (the no-entry
         // circle below), and iOS renders emoji in their own fixed
         // artwork, unaffected by the template-masking that flattens
-        // the icon field to plain black/white (see main.dart's own
-        // note on QuickActionRemove/Pull/Push/Feedback below).
+        // the icon field to plain black/white.
         localizedTitle: '🛡️ Remove App warning',
         // 2026-09-16: real feedback, live - "text to address free and
         // paid users." Free: notes live in Obsidian's own storage, not
@@ -231,28 +246,18 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
             "Notes & purchases stay safe - just re-pair after",
         // 2026-09-16: no-entry circle shape matches Apple's own
         // delete-badge glyph language, per explicit ask. Amber was the
-        // final color pick, but confirmed real-device: iOS always
-        // renders Quick Action icons as a plain black/white template
-        // mask (UIApplicationShortcutIcon's own documented behavior,
-        // not something the asset catalog's own render-intent setting
-        // can override) - only the SHAPE survives, not the color. The
-        // 🛡️ emoji above is the one thing actually carrying color.
+        // final color pick, but confirmed real-device (and, later,
+        // straight from the quick_actions_ios plugin's own Swift
+        // source - it hardcodes UIApplicationShortcutIcon(
+        // templateImageName:), never systemImageName, so an SF
+        // Symbol's own semantic/multicolor rendering - likely how
+        // Working Copy's yellow triangle works - isn't reachable
+        // through this package at all): iOS always renders Quick
+        // Action icons as a plain black/white template mask, no matter
+        // the asset catalog's own render-intent setting. Only the
+        // SHAPE survives, not the color. The 🛡️ emoji above is the
+        // one thing actually carrying color.
         icon: 'QuickActionRemove',
-      ),
-      // 2026-09-16: real feedback, live - "4th line... tap-to-feedback
-      // behaviour kworld.space/feedback." Unlike the warning item above,
-      // this one IS actionable - see the `action_feedback` branch in
-      // initialize() above, which opens kworld.space/contact (the real
-      // working page - /feedback itself 404s). Smiley face, not dots,
-      // per direct ask (legible detail at the menu's small render size
-      // was the deciding factor) - green in the source SVG, though
-      // that never actually shows in the real menu (see the Pull/Push
-      // note above - iOS always template-masks these to black/white).
-      ShortcutItem(
-        type: 'action_feedback',
-        localizedTitle: 'Send feedback',
-        localizedSubtitle: 'kworld.space/contact',
-        icon: 'QuickActionFeedback',
       ),
     ]);
   }
