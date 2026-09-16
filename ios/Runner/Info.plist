@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Localsync</string>
+	<string>LocalSync</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>kworld.space</string>
 	<key>CFBundleExecutable</key>
@@ -107,7 +107,7 @@
 		</dict>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Localsync connects to your paired desktop over your local network to sync your Obsidian vault.</string>
+	<string>LocalSync connects to your paired desktop over your local network to sync your Obsidian vault.</string>
 	<!-- 2026-08-21: auto-discovery - lets the app find the desktop's
 	     Git bare repo automatically instead of manual IP entry. Real
 	     scope note: still unverified whether iOS actually requires

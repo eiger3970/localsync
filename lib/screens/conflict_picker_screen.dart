@@ -1127,19 +1127,28 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // that appear in Conflicts." Used to sit directly under
                 // the KEEP BOTH button further down; now it's the first
                 // thing read after the tap instruction, before any of
-                // the conflict-shape-specific hints below. "Colour
-                // Unsure? to white with the image" - kGreen (tied to the
-                // KEEP BOTH button specifically) no longer makes sense
-                // once this text stands on its own, disconnected from
-                // that button - kStar matches every other plain
-                // instructional line on this screen.
+                // the conflict-shape-specific hints below.
+                // 2026-09-16: real feedback, live - "tip 1 is permanent
+                // right? Maybe just have a white light bulb and no
+                // KWORLD AUTO TIP." Unlike the two hints below, this one
+                // always shows regardless of conflict shape - the
+                // KWORLD AUTO TIP branding is for the ones that actually
+                // auto-detect something, not this static instruction.
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: _autoTipRow(
-                      kStar,
-                      'Unsure? KEEP BOTH never loses data - worst '
-                      'case, delete a duplicate line after.',
-                      iconSize: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.lightbulb_outline, color: Colors.white, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                            'Unsure? KEEP BOTH never loses data - worst '
+                            'case, delete a duplicate line after.',
+                            style: TextStyle(color: Colors.white, fontSize: 12)),
+                      ),
+                    ],
+                  ),
                 ),
                 if (oneSideTooShort) ...[
                   const SizedBox(height: 8),
