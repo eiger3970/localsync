@@ -177,10 +177,12 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       // default blank/system look. Diagonal (not straight up/down) per
       // direct ask - arrow toward where the desktop conceptually sits
       // (up-right) for push, toward the phone (down-left) for pull.
-      // Real green (QuickActionPull/Push.imageset's own Contents.json
-      // sets template-rendering-intent: original) - the default
-      // "template" mode would silently flatten this to the system's
-      // own tint instead.
+      // Confirmed real-device (2026-09-16, later same day): iOS always
+      // renders these as a plain black/white template mask regardless
+      // of the asset's own render-intent setting - the green in the
+      // source SVGs never actually shows in the real menu, only the
+      // arrow shape does. See QuickActionRemove's own note below for
+      // the full explanation.
       ShortcutItem(
         type: 'action_pull',
         localizedTitle: 'Pull',
@@ -208,7 +210,15 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         // 2026-09-16: real feedback, live - "use same language as
         // Apple" - matches the native menu's own "Remove App" wording
         // directly instead of a generic "Before you remove..." lead-in.
-        localizedTitle: 'Remove App warning',
+        // Shield emoji prefixed on the title (moved from the subtitle,
+        // per direct ask - "add shield left of Remove App warning") -
+        // the closest thing to "a 2nd image" this slot allows, since
+        // the icon field itself only holds one image (the no-entry
+        // circle below), and iOS renders emoji in their own fixed
+        // artwork, unaffected by the template-masking that flattens
+        // the icon field to plain black/white (see main.dart's own
+        // note on QuickActionRemove/Pull/Push/Feedback below).
+        localizedTitle: '🛡️ Remove App warning',
         // 2026-09-16: real feedback, live - "text to address free and
         // paid users." Free: notes live in Obsidian's own storage, not
         // this app's sandbox (architectural fact, lib/STRUCTURE.md).
@@ -217,29 +227,27 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         // reinstall the same way any App Store purchase is. Both real
         // guarantees, not guessed - kept to what's actually true rather
         // than reassurance for its own sake.
-        // Shield emoji, amber in spirit even though iOS renders emoji
-        // in their own native color, not a customizable tint - "a 2nd
-        // image in the text" per direct ask, since the icon slot
-        // itself only holds one image (the no-entry circle above).
         localizedSubtitle:
-            "🛡️ Notes & purchases stay safe - just re-pair after",
+            "Notes & purchases stay safe - just re-pair after",
         // 2026-09-16: no-entry circle shape matches Apple's own
-        // delete-badge glyph language, per explicit ask. Color settled
-        // on amber (not the initially-discussed red) to match this
-        // app's own established convention - amber already means
-        // "worth reading, not alarming" everywhere else (the conflict
-        // picker's duplicate-paragraph warnings), and nothing is
-        // actually being destroyed here, so amber fits the message
-        // better than red once the palette was considered as a whole.
+        // delete-badge glyph language, per explicit ask. Amber was the
+        // final color pick, but confirmed real-device: iOS always
+        // renders Quick Action icons as a plain black/white template
+        // mask (UIApplicationShortcutIcon's own documented behavior,
+        // not something the asset catalog's own render-intent setting
+        // can override) - only the SHAPE survives, not the color. The
+        // 🛡️ emoji above is the one thing actually carrying color.
         icon: 'QuickActionRemove',
       ),
       // 2026-09-16: real feedback, live - "4th line... tap-to-feedback
       // behaviour kworld.space/feedback." Unlike the warning item above,
       // this one IS actionable - see the `action_feedback` branch in
       // initialize() above, which opens kworld.space/contact (the real
-      // working page - /feedback itself 404s). Green, matching Pull/
-      // Push - smiley face, not dots, per direct ask (legible detail
-      // at the menu's small render size was the deciding factor).
+      // working page - /feedback itself 404s). Smiley face, not dots,
+      // per direct ask (legible detail at the menu's small render size
+      // was the deciding factor) - green in the source SVG, though
+      // that never actually shows in the real menu (see the Pull/Push
+      // note above - iOS always template-masks these to black/white).
       ShortcutItem(
         type: 'action_feedback',
         localizedTitle: 'Send feedback',
