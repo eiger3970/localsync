@@ -166,6 +166,24 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         localizedTitle: 'Push',
         localizedSubtitle: 'Upload to desktop',
       ),
+      // 2026-09-16: real feedback, live - "this warning can be added to
+      // the app icon," same pattern as Working Copy's own "Deletion
+      // warning" item on its long-press menu (confirmed earlier this
+      // session: that's a ShortcutItem's localizedSubtitle, not an
+      // override of iOS's own Remove App dialog - no app can touch
+      // that). Purely informational (no `type` handling needed below -
+      // tapping it just opens the app normally, same as any unhandled
+      // type). Wording is deliberately scoped to what the architecture
+      // actually guarantees (the vault folder is Obsidian's own
+      // storage, not this app's sandbox - see lib/STRUCTURE.md), not
+      // guessed specifics about SSH keys/pairing state that have never
+      // been confirmed against a real uninstall.
+      ShortcutItem(
+        type: 'info_uninstall',
+        localizedTitle: 'Before you remove...',
+        localizedSubtitle:
+            "Notes stay safe in Obsidian - you'll just need to re-pair",
+      ),
     ]);
   }
 
