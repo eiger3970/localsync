@@ -56,8 +56,14 @@ private struct VDivider: View {
 }
 
 private func daysSinceLastSync() -> Int? {
-  guard let timestamp = UserDefaults(suiteName: appGroupSuite)?
-    .object(forKey: lastSyncKey) as? Double else { return nil }
+  // 2026-09-16: real bug, live - "still Never synced" even after the
+  // missing reloadTimelines() fix. object(forKey:) as? Double relies on
+  // NSNumber-to-Double bridging, which isn't always reliable - double(
+  // forKey:) is Foundation's own typed accessor for exactly this and
+  // doesn't go through that cast at all. 0 is being treated as "key
+  // absent" (a real Unix timestamp near epoch will never occur here).
+  let timestamp = UserDefaults(suiteName: appGroupSuite)?.double(forKey: lastSyncKey) ?? 0
+  guard timestamp > 0 else { return nil }
   let elapsed = Date().timeIntervalSince1970 - timestamp
   return max(0, Int(elapsed / 86400))
 }
