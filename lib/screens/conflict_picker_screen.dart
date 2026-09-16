@@ -115,6 +115,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   final _rightDisputedKey = GlobalKey();
   double _leftExtraPad = 0;
   double _rightExtraPad = 0;
+  // 2026-09-16: real feedback, live, real device - same measure-and-pad
+  // idea as the disputed-text pair above, one row higher: the header
+  // (device name + save time) can wrap to 2 lines on one side and stay
+  // 1 line on the other, which used to push that side's diff content
+  // down without moving the other side's, breaking row alignment
+  // between panels from the very first line.
+  final _leftHeaderKey = GlobalKey();
+  final _rightHeaderKey = GlobalKey();
+  double _leftHeaderExtraPad = 0;
+  double _rightHeaderExtraPad = 0;
 
   @override
   void initState() {
@@ -141,11 +151,31 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // more than a fraction of a pixel (adding padding itself changes
     // this widget's own height by exactly that padding, but never the
     // OTHER side's, so this settles after one correction, not never).
+    final leftHeaderBox =
+        _leftHeaderKey.currentContext?.findRenderObject() as RenderBox?;
+    final rightHeaderBox =
+        _rightHeaderKey.currentContext?.findRenderObject() as RenderBox?;
+    double newLeftHeaderPad = _leftHeaderExtraPad;
+    double newRightHeaderPad = _rightHeaderExtraPad;
+    if (leftHeaderBox != null && rightHeaderBox != null) {
+      final leftHeaderHeight = leftHeaderBox.size.height;
+      final rightHeaderHeight = rightHeaderBox.size.height;
+      newLeftHeaderPad = rightHeaderHeight > leftHeaderHeight
+          ? rightHeaderHeight - leftHeaderHeight
+          : 0.0;
+      newRightHeaderPad = leftHeaderHeight > rightHeaderHeight
+          ? leftHeaderHeight - rightHeaderHeight
+          : 0.0;
+    }
     if ((newLeftPad - _leftExtraPad).abs() > 0.5 ||
-        (newRightPad - _rightExtraPad).abs() > 0.5) {
+        (newRightPad - _rightExtraPad).abs() > 0.5 ||
+        (newLeftHeaderPad - _leftHeaderExtraPad).abs() > 0.5 ||
+        (newRightHeaderPad - _rightHeaderExtraPad).abs() > 0.5) {
       setState(() {
         _leftExtraPad = newLeftPad;
         _rightExtraPad = newRightPad;
+        _leftHeaderExtraPad = newLeftHeaderPad;
+        _rightHeaderExtraPad = newRightHeaderPad;
       });
     }
   }
@@ -423,8 +453,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               textColor: kTextDim,
               text: 'Real name: Journal/2026/09/Sep 6th, 2026.md\n'
                   'Merge name: desktop obsidian - 202609071425\n'
-                  "Merge name's date is when that edit was saved - can "
-                  "differ from the note's own real name, that's normal",
+                  "Merge name's date is when that edit was saved",
             ),
           ],
         ),
@@ -1482,6 +1511,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             afterContext: sharedAfterContext,
                             disputedKey: _leftDisputedKey,
                             extraPadBelowDisputed: _leftExtraPad,
+                            headerKey: _leftHeaderKey,
+                            extraPadBelowHeader: _leftHeaderExtraPad,
                             onTap: () => _confirmAndChoose(
                                 titleFor(0), versions[0].body),
                           ),
@@ -1508,6 +1539,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                             afterContext: sharedAfterContext,
                             disputedKey: _rightDisputedKey,
                             extraPadBelowDisputed: _rightExtraPad,
+                            headerKey: _rightHeaderKey,
+                            extraPadBelowHeader: _rightHeaderExtraPad,
                             onTap: () => _confirmAndChoose(
                                 titleFor(1), versions[1].body),
                           ),
@@ -1693,6 +1726,20 @@ class _ConflictPanel extends StatelessWidget {
   // one-sided - no channel conflict in practice since a token position
   // needs at most one of the two.
   final String? duplicateParagraph;
+  // 2026-09-16: real feedback, live, real device - "Left column needs
+  // text on same row as right column. Right column is pushed down with
+  // full title name in blue correctly showing." The no-truncation fix
+  // (title now wraps instead of ellipsis-cutting) can make one side's
+  // header taller than the other's whenever one device name/timestamp
+  // wraps to 2 lines and the other doesn't - same class of bug
+  // disputedKey/extraPadBelowDisputed already solves below, just one
+  // row higher up. Same exact pattern: headerKey lets the parent screen
+  // measure this panel's real rendered header height after layout,
+  // extraPadBelowHeader is the gap it computed to insert on the shorter
+  // side so the diff content itself starts at the same row on both
+  // sides, regardless of how many lines either title wrapped to.
+  final Key? headerKey;
+  final double extraPadBelowHeader;
   const _ConflictPanel({
     super.key,
     required this.title,
@@ -1705,6 +1752,8 @@ class _ConflictPanel extends StatelessWidget {
     this.disputedKey,
     this.extraPadBelowDisputed = 0,
     this.duplicateParagraph,
+    this.headerKey,
+    this.extraPadBelowHeader = 0,
   });
 
   // 2026-09-15: real feedback, live - real Sep 7th case, traced: the
@@ -1826,11 +1875,14 @@ class _ConflictPanel extends StatelessWidget {
             // the label to one line even though nothing below this
             // header needs the space - now wraps onto a second line
             // instead of cutting the timestamp off.
-            Text(title,
-                style: TextStyle(
-                    color: highlightColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold)),
+            Container(
+                key: headerKey,
+                child: Text(title,
+                    style: TextStyle(
+                        color: highlightColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold))),
+            if (extraPadBelowHeader > 0) SizedBox(height: extraPadBelowHeader),
             const SizedBox(height: 6),
             // 2026-09-09: real feedback, live - "can't see all of the
             // text, which is cut off at the bottom and doesn't scroll."

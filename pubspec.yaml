@@ -30,6 +30,14 @@ dependencies:
   # device_info_plus above - same lower-risk category as that one, not
   # the git2dart symbol-linking class of problem.
   quick_actions: ^1.1.1
+  # 2026-09-16: free-tier monetization - "Ads without tracking, go for
+  # free app." Configured for non-personalized/contextual ads only
+  # (AdRequest(nonPersonalizedAds: true) in ads_service.dart) - never
+  # touches IDFA, no App Tracking Transparency prompt, no cross-app
+  # tracking. Built against Google's own published test App ID/ad unit
+  # ID (developers.google.com/admob/ios/test-ads) until a real AdMob
+  # account exists - see ads_service.dart's own doc for the swap point.
+  google_mobile_ads: ^9.1.0
   # 2026-08-28: real feedback, live - fixes that were genuinely pushed
   # and merged still read as "not applied" during a real device test,
   # traced back to pubspec.yaml's build number never having been

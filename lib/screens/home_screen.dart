@@ -15,6 +15,7 @@ import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/diag_card.dart';
+import '../widgets/free_tier_banner_ad.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/help_wizard.dart';
 import '../widgets/pkm_sync_upsell.dart';
@@ -645,6 +646,13 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Expanded(child: gestureZone),
+              // 2026-09-16: "Ads without tracking, go for free app" -
+              // non-personalized/contextual only (see ads_service.dart's
+              // own doc), Tier 0 only, matching the decided paid-tier-
+              // stays-ad-free split. Collapses to nothing while loading
+              // or on any failure (FreeTierBannerAd's own doc) - never
+              // reserves dead space, never shows a broken-ad state.
+              const SafeArea(top: false, child: FreeTierBannerAd()),
             ],
           );
         },
