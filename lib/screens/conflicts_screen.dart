@@ -1291,30 +1291,61 @@ class ReferenceDetailScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: ReferenceCalloutTile(
-          entry: entry,
-          // Delete/Undo/Merge still run against the Conflicts list's
-          // own Repository/vault access (the callbacks passed in from
-          // conflicts_screen.dart's _deleteRef/_undoRef/_mergeRef) -
-          // popping this screen right after doesn't interrupt that
-          // work, since it belongs to the still-mounted screen
-          // underneath, not this one.
-          onDelete: () {
-            onDelete();
-            Navigator.pop(context);
-          },
-          onUndo: onUndo == null
-              ? null
-              : () {
-                  onUndo!();
-                  Navigator.pop(context);
-                },
-          onMerge: onMerge == null
-              ? null
-              : () {
-                  onMerge!();
-                  Navigator.pop(context);
-                },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 2026-09-16: real feedback, live - "I didn't know the
+            // Conflict was already resolved (why is it in the
+            // Conflicts list)... K.I.S.S. context on what is it and
+            // what a next action is." The list screen already labels
+            // this section "Already resolved - not active conflicts"
+            // (see the refHeaderIndex branch above), but that context
+            // was lost the moment someone tapped into this detail
+            // screen - landing here with just a bare "Old version"
+            // title and no reminder this needs no action at all.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.check_circle_outline, color: kGreen, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Already resolved - no action needed. Optional: '
+                    'delete this old copy to tidy up, or undo to bring '
+                    'it back.',
+                    style: TextStyle(color: kGreen, fontSize: 13, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ReferenceCalloutTile(
+              entry: entry,
+              // Delete/Undo/Merge still run against the Conflicts
+              // list's own Repository/vault access (the callbacks
+              // passed in from conflicts_screen.dart's
+              // _deleteRef/_undoRef/_mergeRef) - popping this screen
+              // right after doesn't interrupt that work, since it
+              // belongs to the still-mounted screen underneath, not
+              // this one.
+              onDelete: () {
+                onDelete();
+                Navigator.pop(context);
+              },
+              onUndo: onUndo == null
+                  ? null
+                  : () {
+                      onUndo!();
+                      Navigator.pop(context);
+                    },
+              onMerge: onMerge == null
+                  ? null
+                  : () {
+                      onMerge!();
+                      Navigator.pop(context);
+                    },
+            ),
+          ],
         ),
       ),
     );
