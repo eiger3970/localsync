@@ -181,7 +181,27 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
-    if (mounted) setState(() => _future = _scan());
+    if (!mounted) return;
+    setState(() => _future = _scan());
+    // 2026-09-16: real feedback, live - "I also need to be informed
+    // that the job is done." The action fires from
+    // ReferenceDetailScreen ("Old version"), which pops itself
+    // immediately without waiting for this Future - by the time
+    // deleteReferenceCallout + the rescan above actually finish, the
+    // user is already back on this list screen, so this is the
+    // correct place for the confirmation to land, same SnackBar shape
+    // home_screen.dart's own sync-result message already uses.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text('✓ Deleted - backed up first, note untouched',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kGreen, fontSize: 15)),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   /// Swaps a leftover reference callout back to being the kept content -
