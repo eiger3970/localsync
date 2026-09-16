@@ -30,6 +30,16 @@ dependencies:
   # device_info_plus above - same lower-risk category as that one, not
   # the git2dart symbol-linking class of problem.
   quick_actions: ^1.1.1
+  # 2026-09-16: real feedback, live - "swap share with remove warning."
+  # Native share sheet (Messages/Mail/AirDrop/copy/etc.), triggered from
+  # the Share Quick Action - shares the real, working website page
+  # (kworld.space/localsync), not an App Store link, since there's no
+  # App Store listing yet (no funded Apple Developer account). Pinned
+  # below latest (13.x) - its win32 requirement conflicts with
+  # device_info_plus's own, real dependency-resolution failure, not a
+  # style choice. Same SharePlus.instance.share(ShareParams(...)) API
+  # either way - verified 12.0.2 didn't need different code.
+  share_plus: ^12.0.2
   # 2026-09-16: free-tier monetization - "Ads without tracking, go for
   # free app." Configured for non-personalized/contextual ads only
   # (AdRequest(nonPersonalizedAds: true) in ads_service.dart) - never

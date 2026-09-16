@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'services/database_service.dart';
@@ -174,6 +175,14 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
             Uri.parse(
                 'https://kworld.space/contact?app=localsync&service=Feature+idea'),
             mode: LaunchMode.externalApplication);
+      } else if (type == 'action_share') {
+        // 2026-09-16: real feedback, live - "swap share with remove
+        // warning." Native OS share sheet (Messages/Mail/AirDrop/copy/
+        // etc.), not a plain URL launch - shares the real, working
+        // website page, not an App Store link, since there's no App
+        // Store listing yet (no funded Apple Developer account).
+        SharePlus.instance.share(
+            ShareParams(uri: Uri.parse('https://kworld.space/localsync')));
       }
     });
     _quickActions.setShortcutItems(const [
@@ -197,71 +206,38 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
         localizedTitle: 'Push',
         icon: 'QuickActionPush',
       ),
+      // 2026-09-16: real feedback, live - "swap share with remove
+      // warning and move up to place 3" - Remove App warning is gone
+      // (was here), Share takes its slot, Feedback moved to 4th.
+      // Real, functional action (opens the native share sheet - see
+      // the `action_share` branch in initialize() above), not
+      // informational like the item it replaced.
+      ShortcutItem(
+        type: 'action_share',
+        localizedTitle: 'Share',
+        localizedSubtitle: 'kworld.space/localsync',
+        icon: 'QuickActionShare',
+      ),
       // 2026-09-16: real feedback, live - "3 to be Send feedback and 4
-      // to be Remove App warning" - reordered, this one now sits above
-      // the warning item below. Unlike that item, this one IS
-      // actionable - see the `action_feedback` branch in initialize()
-      // above, which opens kworld.space/contact (the real working page
-      // - /feedback itself 404s). Smiley face, not dots, per direct ask
-      // (legible detail at the menu's small render size was the
-      // deciding factor) - green in the source SVG, though that never
-      // actually shows in the real menu (see QuickActionRemove's own
-      // note below - iOS always template-masks these to black/white).
+      // to be Remove App warning" (position since superseded - this is
+      // now 4th, after Share took 3rd). Unlike Remove App warning
+      // (removed), this one IS actionable - see the `action_feedback`
+      // branch in initialize() above, which opens kworld.space/contact
+      // (the real working page - /feedback itself 404s). Smiley face,
+      // not dots, per direct ask (legible detail at the menu's small
+      // render size was the deciding factor) - green in the source
+      // SVG, though that never actually shows in the real menu (iOS
+      // always template-masks these to black/white - confirmed
+      // straight from the quick_actions_ios plugin's own Swift source:
+      // it hardcodes UIApplicationShortcutIcon(templateImageName:),
+      // never systemImageName, so an SF Symbol's own semantic/
+      // multicolor rendering - likely how Working Copy's yellow
+      // triangle works - isn't reachable through this package at all).
       ShortcutItem(
         type: 'action_feedback',
         localizedTitle: 'Send feedback',
         localizedSubtitle: 'kworld.space/contact',
         icon: 'QuickActionFeedback',
-      ),
-      // 2026-09-16: real feedback, live - "this warning can be added to
-      // the app icon," same pattern as Working Copy's own "Deletion
-      // warning" item on its long-press menu (confirmed earlier this
-      // session: that's a ShortcutItem's localizedSubtitle, not an
-      // override of iOS's own Remove App dialog - no app can touch
-      // that). Purely informational (no `type` handling needed below -
-      // tapping it just opens the app normally, same as any unhandled
-      // type). Wording is deliberately scoped to what the architecture
-      // actually guarantees (the vault folder is Obsidian's own
-      // storage, not this app's sandbox - see lib/STRUCTURE.md), not
-      // guessed specifics about SSH keys/pairing state that have never
-      // been confirmed against a real uninstall.
-      ShortcutItem(
-        type: 'info_uninstall',
-        // 2026-09-16: real feedback, live - "use same language as
-        // Apple" - matches the native menu's own "Remove App" wording
-        // directly instead of a generic "Before you remove..." lead-in.
-        // Shield emoji prefixed on the title (moved from the subtitle,
-        // per direct ask - "add shield left of Remove App warning") -
-        // the closest thing to "a 2nd image" this slot allows, since
-        // the icon field itself only holds one image (the no-entry
-        // circle below), and iOS renders emoji in their own fixed
-        // artwork, unaffected by the template-masking that flattens
-        // the icon field to plain black/white.
-        localizedTitle: '🛡️ Remove App warning',
-        // 2026-09-16: real feedback, live - "text to address free and
-        // paid users." Free: notes live in Obsidian's own storage, not
-        // this app's sandbox (architectural fact, lib/STRUCTURE.md).
-        // Paid: IAP entitlements are tied to the Apple ID via
-        // RevenueCat/StoreKit, not local app data - restorable after
-        // reinstall the same way any App Store purchase is. Both real
-        // guarantees, not guessed - kept to what's actually true rather
-        // than reassurance for its own sake.
-        localizedSubtitle:
-            "Notes & purchases stay safe - just re-pair after",
-        // 2026-09-16: no-entry circle shape matches Apple's own
-        // delete-badge glyph language, per explicit ask. Amber was the
-        // final color pick, but confirmed real-device (and, later,
-        // straight from the quick_actions_ios plugin's own Swift
-        // source - it hardcodes UIApplicationShortcutIcon(
-        // templateImageName:), never systemImageName, so an SF
-        // Symbol's own semantic/multicolor rendering - likely how
-        // Working Copy's yellow triangle works - isn't reachable
-        // through this package at all): iOS always renders Quick
-        // Action icons as a plain black/white template mask, no matter
-        // the asset catalog's own render-intent setting. Only the
-        // SHAPE survives, not the color. The 🛡️ emoji above is the
-        // one thing actually carrying color.
-        icon: 'QuickActionRemove',
       ),
     ]);
   }
