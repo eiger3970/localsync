@@ -222,9 +222,16 @@ struct LocalSyncWidgetView: View {
           SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 40, font: .subheadline)
         }
         // Temporary diagnostic - see appGroupDebugInfo()'s comment.
+        // 2026-09-16: real feedback, live - "text is too small to
+        // read, make MUCH bigger." 8pt at 0.5 opacity was illegible on
+        // a real device - this is the one piece of information this
+        // whole diagnostic exists to surface, so it needs to actually
+        // be readable, not subtle.
         Text(appGroupDebugInfo())
-          .font(.system(size: 8))
-          .foregroundStyle(.white.opacity(0.5))
+          .font(.system(size: 15, weight: .bold))
+          .foregroundStyle(.white)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
       }
       .padding()
       .containerBackground(localSyncGradient, for: .widget)
