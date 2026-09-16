@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:quick_actions/quick_actions.dart';
 import 'theme.dart';
 import 'services/database_service.dart';
 import 'services/repository_provider.dart';
@@ -48,6 +49,14 @@ class LocalSyncApp extends StatefulWidget {
 class _LocalSyncAppState extends State<LocalSyncApp> {
   late final LinkingController      _linkingController;
   late final LocalSyncLifecycleObserver _lifecycleObserver;
+  // 2026-09-16: was created inline via MultiProvider's `create:` below -
+  // moved to a field, same pattern as _linkingController/_themeService/
+  // _purchaseService, so initState() can reach it directly to wire up
+  // Quick Actions (QuickActions().initialize needs a real instance to
+  // call setPendingQuickAction on, and runs before the provider tree
+  // below ever builds).
+  final RepositoryProvider _repositoryProvider = RepositoryProvider();
+  final QuickActions _quickActions = const QuickActions();
   // 2026-08-21: "skins" IAP - loads the saved palette (or falls back
   // to the free default) fire-and-forget, same pattern as the
   // desktopIp/bareRepoPath overrides below - there's always some UI
@@ -132,12 +141,42 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
       linkingController: _linkingController,
     );
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
+    // 2026-09-16: real feedback, live - "Push and Pull also on right
+    // click." Fires from a cold launch (app wasn't running) or a warm
+    // one (already running) - either way there's no HomeScreen
+    // BuildContext to call _runAndShow on directly from here, so this
+    // only sets a flag on the provider; HomeScreen's own build() (same
+    // postFrameCallback pattern as pendingConflictRepoId) does the
+    // actual push/pull once it exists, through the same _runAndShow
+    // every other push/pull already goes through - same confirm
+    // dialogs, same SnackBar feedback, nothing bypassed.
+    _quickActions.initialize((type) {
+      if (type == 'action_push' || type == 'action_pull') {
+        _repositoryProvider.setPendingQuickAction(type);
+      }
+    });
+    _quickActions.setShortcutItems(const [
+      ShortcutItem(
+        type: 'action_pull',
+        localizedTitle: 'Pull',
+        localizedSubtitle: 'Download from desktop',
+      ),
+      ShortcutItem(
+        type: 'action_push',
+        localizedTitle: 'Push',
+        localizedSubtitle: 'Upload to desktop',
+      ),
+    ]);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     _linkingController.dispose();
+    // 2026-09-16: .value() (needed so initState can reach this instance
+    // for Quick Actions, see above) does NOT auto-dispose the way the
+    // old create: factory did - has to happen here now instead.
+    _repositoryProvider.dispose();
     super.dispose();
   }
 
@@ -145,7 +184,7 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => RepositoryProvider()),
+        ChangeNotifierProvider.value(value: _repositoryProvider),
         ChangeNotifierProvider.value(value: _linkingController),
         ChangeNotifierProvider.value(value: _themeService),
         Provider.value(value: _purchaseService),

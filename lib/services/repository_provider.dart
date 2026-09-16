@@ -34,6 +34,23 @@ class RepositoryProvider extends ChangeNotifier {
   int? get pendingConflictRepoId => _pendingConflictRepoId;
   void clearPendingConflict() { _pendingConflictRepoId = null; }
 
+  // 2026-09-16: same pattern as _pendingConflictRepoId above - an iOS
+  // Home Screen Quick Action (main.dart's QuickActions().initialize
+  // callback) can fire before HomeScreen exists (cold launch) or from
+  // outside any widget's BuildContext (warm launch), so there's nothing
+  // to call _runAndShow on directly from there. HomeScreen watches this
+  // instead and runs the real push/pull - never a raw provider call
+  // that would skip _runAndShow's own confirm dialogs/SnackBar
+  // feedback. Value is 'action_push' or 'action_pull' (the shortcut
+  // item's own type string, set in main.dart).
+  String? _pendingQuickAction;
+  String? get pendingQuickAction => _pendingQuickAction;
+  void setPendingQuickAction(String action) {
+    _pendingQuickAction = action;
+    notifyListeners();
+  }
+  void clearPendingQuickAction() { _pendingQuickAction = null; }
+
   List<Repository>     get repos     => _repos;
   List<CommitTemplate> get templates => _templates;
   bool                 get loading   => _loading;
