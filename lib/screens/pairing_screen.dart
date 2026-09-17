@@ -287,7 +287,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text('Full security details',
+                                        Text('More security details',
                                             style: TextStyle(
                                                 color: kGreen,
                                                 fontSize: 12,
