@@ -22,6 +22,7 @@ import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
+import '../widgets/exploding_letter.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
@@ -1244,18 +1245,16 @@ class _IdleViewState extends State<_IdleView>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   PasswordInfoRow(
-                                    // 2026-09-17: rubbish bin (same day,
-                                    // first pass) read as "nerve
-                                    // wracking... sitting in a bin for a
-                                    // hacker to steal" - tried
-                                    // auto_awesome (sparkle/vanish)
-                                    // next, but that read as "magic
-                                    // stars, confusing the meaning."
-                                    // grain (dust/particles) is the
-                                    // closer match - same fix mirrored
-                                    // from pairing_screen.dart (kept in
-                                    // sync).
+                                    // 2026-09-17: rubbish bin, then
+                                    // auto_awesome (sparkle, "magic
+                                    // stars"), then grain (dust) -
+                                    // final ask, live: a real looping
+                                    // letter-explosion animation, same
+                                    // as pairing_screen.dart (kept in
+                                    // sync). See exploding_letter.dart.
                                     icon: Icons.grain,
+                                    iconWidget: ExplodingLetter(
+                                        letter: 'P', color: kTextMid, size: 15),
                                     iconColor: kTextMid,
                                     // 2026-08-30: real device feedback,
                                     // two rounds - "never leaves this
@@ -3247,11 +3246,19 @@ class PasswordInfoRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String text;
+  // 2026-09-17: real ask, live - the discarded-password row wanted a
+  // looping animated effect (ExplodingLetter), not a static icon.
+  // Takes precedence over `icon` when given, same "widget beats
+  // IconData" precedence _DeviceGlyph's svgAsset already uses below -
+  // `icon` stays required so every other row (still plain icons) needs
+  // no changes.
+  final Widget? iconWidget;
   const PasswordInfoRow({
     super.key,
     required this.icon,
     required this.iconColor,
     required this.text,
+    this.iconWidget,
   });
 
   @override
@@ -3259,7 +3266,7 @@ class PasswordInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: iconColor, size: 15),
+        iconWidget ?? Icon(icon, color: iconColor, size: 15),
         const SizedBox(width: 8),
         Expanded(
           child: Text(text,

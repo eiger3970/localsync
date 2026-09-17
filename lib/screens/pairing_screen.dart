@@ -15,6 +15,7 @@ import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/exploding_letter.dart';
 import '../widgets/git_install_consent.dart';
 import '../widgets/key_pairing_trigger.dart';
 import '../widgets/shredding_password_field.dart';
@@ -301,13 +302,20 @@ class _PairingScreenState extends State<PairingScreen> {
                                     // opposite of the actual claim.
                                     // Wanted "evaporating into nothing,
                                     // ethereal... like Thanos clicking
-                                    // his fingers" instead - first try
-                                    // was auto_awesome (sparkle), but
-                                    // that read as "magic stars,
-                                    // confusing the meaning" - grain
-                                    // (a scatter of dust/particles) is
-                                    // the closer, less ambiguous match.
+                                    // his fingers" instead - auto_awesome
+                                    // (sparkle) read as "magic stars,"
+                                    // grain (dust) was closer but still
+                                    // static. Real ask, live: "letter
+                                    // explosion... play continuously
+                                    // when the page opens" - a genuine
+                                    // animated effect now, not a static
+                                    // icon. See exploding_letter.dart's
+                                    // own header for why this is pure
+                                    // code (no asset), confirmed with
+                                    // the user as the lighter option too.
                                     icon: Icons.grain,
+                                    iconWidget: ExplodingLetter(
+                                        letter: 'P', color: kTextMid, size: 15),
                                     iconColor: kTextMid,
                                     // 2026-09-17: reworded nouns-first,
                                     // matching the label:value format
