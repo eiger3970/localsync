@@ -183,9 +183,24 @@ class RepositoryProvider extends ChangeNotifier {
       if (result case SyncOkWithConflicts()) {
         _pendingConflictRepoId = repo.id;
         notifyListeners();
+      } else if (result case SyncFailed()) {
+        // 2026-09-18: real gap found, live - "Errors when syncing
+        // under the top title bar are too small to read, can you
+        // move to the bottom snack bar to make larger." A manually
+        // triggered push/pull already shows the failure in a real
+        // 16px bottom SnackBar (home_screen.dart's _runAndShow) - this
+        // auto-launch pull never did, its ONLY surface was the
+        // cramped 10px app-bar text (now removed). Same pending-flag-
+        // for-the-next-frame pattern as _pendingConflictRepoId above.
+        _pendingAutoSyncFailure = result;
+        notifyListeners();
       }
     }
   }
+
+  SyncResult? _pendingAutoSyncFailure;
+  SyncResult? get pendingAutoSyncFailure => _pendingAutoSyncFailure;
+  void clearPendingAutoSyncFailure() { _pendingAutoSyncFailure = null; }
 
   Future<void> _loadRepos()      async { _repos     = await _db.getRepositories(); }
   Future<void> _loadTemplates()  async { _templates = await _db.getTemplates(); }
