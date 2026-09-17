@@ -111,6 +111,16 @@ dependencies:
   # only cost is one new, well-understood permission prompt
   # (NSCameraUsageDescription).
   mobile_scanner: ^7.4.0
+  # 2026-09-18: real ask, live - "Sync timer for widgets and phone
+  # notification to remind when last backed up." One local
+  # notification, rescheduled after every successful sync - see
+  # backup_reminder_service.dart's own doc for the full design. timezone
+  # is flutter_local_notifications' own required dependency for
+  # zonedSchedule (needed for any real scheduled, not immediate,
+  # notification) - declared explicitly since backup_reminder_service.dart
+  # imports it directly, not just relying on the transitive pull-in.
+  flutter_local_notifications: ^22.3.1
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:
