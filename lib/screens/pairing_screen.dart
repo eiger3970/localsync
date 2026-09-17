@@ -254,7 +254,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                     // used once, then gone - no
                                     // persistence claim to clash with the
                                     // encryption line below at all.
-                                    text: 'Your password: used once to '
+                                    text: 'Password: used once to '
                                         'connect, then discarded',
                                   ),
                                   const SizedBox(height: 8),
@@ -274,7 +274,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                   PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Your pairing key is stored on '
+                                    text: 'Pairing key is stored on '
                                         'both devices',
                                   ),
                                   const SizedBox(height: 10),
