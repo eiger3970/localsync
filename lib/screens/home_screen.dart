@@ -185,18 +185,7 @@ class HomeScreen extends StatelessWidget {
                 // then measured the real remaining gap (18dp vs Help's
                 // 15dp) and closed just that small real difference.
                 padding: const EdgeInsets.only(left: 0, right: 6),
-                // 2026-09-18: real ask, live - "can the Kebab icon
-                // change colour from white to amber if a conflict
-                // exists?" Real signal, not decorative - RepositoryProvider
-                // tracks this from the last sync result and from a
-                // disk re-scan whenever ConflictsScreen closes (see its
-                // own hasConflicts/refreshConflicts doc).
-                icon: Icon(Icons.more_vert,
-                    color: provider.selectedRepo != null &&
-                            provider.hasConflicts(provider.selectedRepo!.id!)
-                        ? Colors.amber
-                        : kGreen,
-                    size: 22),
+                icon: Icon(Icons.more_vert, color: kGreen, size: 22),
                 onSelected: (v) {
                   if (v == 'pair') _openPairing(context);
                   if (v == 'link') _openLinking(context);
@@ -303,10 +292,21 @@ class HomeScreen extends StatelessWidget {
                       child: _MenuRow(icon: Icons.info_outline, label: 'About'),
                     ),
                     if (hasRepo)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'conflicts',
+                        // 2026-09-18: real correction, live - "I didn't
+                        // say make the kebab icon amber, I said make
+                        // the Conflicts icon amber." Moved off the ⋮
+                        // trigger itself (reverted above) onto this
+                        // row's own icon, where the signal is actually
+                        // about the specific menu item it names.
                         child: _MenuRow(
                           icon: Icons.compare_arrows,
+                          iconColor: provider.selectedRepo != null &&
+                                  provider.hasConflicts(
+                                      provider.selectedRepo!.id!)
+                              ? Colors.amber
+                              : null,
                           label: 'Conflicts',
                           subtitle: 'Files with unresolved sync conflicts',
                         ),
