@@ -1727,7 +1727,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               detailsCommand: 'ip -4 addr show',
                               detailsIntro: 'Full details - every '
                                   'network interface, unfiltered:',
-                              titleIcon: Icons.handshake_outlined,
+                              titleIcon: Icons.waving_hand_outlined,
                             ),
                           ),
                         ],
@@ -2154,7 +2154,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '2>/dev/null; fi; done',
                           detailsIntro: 'Full details - every existing '
                               'sync folder, most recently used first:',
-                          titleIcon: Icons.handshake_outlined,
+                          titleIcon: Icons.waving_hand_outlined,
                         ),
                           ),
                         ],

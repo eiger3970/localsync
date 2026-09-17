@@ -1150,7 +1150,18 @@ void _showFullError(BuildContext context, Repository repo) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close', style: TextStyle(color: kTextMid, fontSize: 15)),
+          // 2026-09-17: real feedback, live - "Close should be standard
+          // across the app... white or green, so it's easy to see."
+          // Standardized on white (kStar) everywhere Close appears -
+          // see the About dialog's matching Close below.
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.close_rounded, color: kStar, size: 16),
+              const SizedBox(width: 4),
+              Text('Close', style: TextStyle(color: kStar, fontSize: 15)),
+            ],
+          ),
         ),
         TextButton(
           onPressed: () {
@@ -1226,13 +1237,13 @@ Future<void> _showAbout(BuildContext context) async {
             // since it IS the logo, not a copy of it.
             Row(
               children: [
-                Image.asset('assets/icon/icon.png', width: 28, height: 28),
-                const SizedBox(width: 10),
                 Text('LocalSync',
                     style: TextStyle(
                         color: kStar,
                         fontSize: 18,
                         fontWeight: FontWeight.w700)),
+                const SizedBox(width: 10),
+                Image.asset('assets/icon/icon.png', width: 28, height: 28),
               ],
             ),
             const SizedBox(height: 4),
@@ -1413,16 +1424,13 @@ Future<void> _showAbout(BuildContext context) async {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 2026-09-17: real feedback, live - "should Close be
-              // amber, red, or green?" None - Close only dismisses,
-              // it doesn't confirm or warn about anything, so it gets
-              // the same neutral treatment as every other plain-dismiss
-              // control in this app (Cancel, the other Close dialog
-              // above at kTextMid) rather than borrowing an accent
-              // color that implies a decision was made.
-              Icon(Icons.close_rounded, color: kTextDim, size: 16),
+              // 2026-09-17, corrected same day - kTextDim read as "too
+              // dark, hard to see." Real feedback: Close should be
+              // standardized app-wide, white so it's always easy to
+              // read - matches the other Close dialog now too.
+              Icon(Icons.close_rounded, color: kStar, size: 16),
               const SizedBox(width: 4),
-              Text('Close', style: TextStyle(color: kTextDim, fontSize: 15)),
+              Text('Close', style: TextStyle(color: kStar, fontSize: 15)),
             ],
           ),
         ),

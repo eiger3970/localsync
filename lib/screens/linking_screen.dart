@@ -1244,7 +1244,11 @@ class _IdleViewState extends State<_IdleView>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   PasswordInfoRow(
-                                    icon: Icons.lock_outline,
+                                    // 2026-09-17: real feedback, live -
+                                    // "change image to rubbish bin," same
+                                    // fix mirrored from pairing_screen.dart
+                                    // (kept in sync).
+                                    icon: Icons.delete_outline,
                                     iconColor: kTextMid,
                                     // 2026-08-30: real device feedback,
                                     // two rounds - "never leaves this
@@ -1257,6 +1261,7 @@ class _IdleViewState extends State<_IdleView>
                                     // fix. One real claim now: used once,
                                     // then gone - nothing left to clash
                                     // with the encryption line at all.
+                                    // 2026-09-17: reworded nouns-first.
                                     text: 'Password: used once to '
                                         'connect, then discarded',
                                   ),
@@ -1264,20 +1269,21 @@ class _IdleViewState extends State<_IdleView>
                                   PasswordInfoRow(
                                     icon: Icons.enhanced_encryption_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Sent encrypted over SSH '
-                                        '(AES-256), never in plain text',
+                                    text: 'Encrypted: sent over SSH '
+                                        '(AES-256), never plain text',
                                   ),
                                   const SizedBox(height: 8),
                                   const PasswordInfoRow(
                                     icon: Icons.warning_amber_rounded,
                                     iconColor: Colors.amber,
-                                    text: 'Only for apps you already trust',
+                                    text: 'Trust: only use apps you are '
+                                        'sure are safe',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Pairing key is stored on '
+                                    text: 'Key: pairing key is stored on '
                                         'both devices',
                                   ),
                                   const SizedBox(height: 10),

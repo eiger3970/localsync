@@ -65,7 +65,13 @@ class _CommitScreenState extends State<CommitScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.edit_note, color: kTextDim, size: 14),
+                // 2026-09-17: real feedback, live - edit_note "looks
+                // like an arrow pointing bottom left." Swapped for a
+                // plain send glyph - unambiguous "message", and its own
+                // natural diagonal already points the way PUSH does
+                // throughout this app (top-right), so it can't be
+                // misread as pointing the wrong way either.
+                Icon(Icons.send_outlined, color: kTextDim, size: 14),
                 const SizedBox(width: 4),
                 Text(
                   'COMMIT MESSAGE',
@@ -248,7 +254,13 @@ class _TemplateTile extends StatelessWidget {
     final verb = pattern.split(' ').first.toLowerCase();
     return switch (verb) {
       'add' => Icons.add_circle_outline,
-      'fix' => Icons.bug_report_outlined,
+      // 2026-09-17: real feedback, live - "fix (issue) image is a bug,
+      // change to repair tools like a spanner." handyman_outlined
+      // (wrench + screwdriver crossed), not build_outlined (a single
+      // wrench) - that one's already 'refactor' just below, and the
+      // two need to stay visually distinct from each other, not just
+      // both read as "a repair tool."
+      'fix' => Icons.handyman_outlined,
       'merge' => Icons.call_merge,
       'update' => Icons.edit_outlined,
       'refactor' => Icons.build_outlined,
