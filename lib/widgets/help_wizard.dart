@@ -162,7 +162,17 @@ void showHelpWizard(BuildContext context, String flow) {
 class _WorkflowStep {
   final String label;
   final String? note;
-  const _WorkflowStep(this.label, [this.note]);
+  // 2026-09-17: real feedback, live - workflow steps were text-only,
+  // user wanted a glance-able device + direction image per step. Reuses
+  // the exact same Material icon vocabulary _ChoiceDef above already
+  // uses (Icons.computer/Icons.smartphone), not new hand-drawn SVG -
+  // same reasoning as security_info_screen.dart's emoji fix this
+  // session (zero new asset-loading risk). null on both for the 'Done'
+  // terminator step, which gets a check instead - see _stepBox.
+  final IconData? deviceIcon;
+  final IconData? directionIcon;
+  const _WorkflowStep(this.label,
+      {this.note, this.deviceIcon, this.directionIcon});
 }
 
 // 2026-08-27: real feedback, live, several rounds - "what if the desktop
@@ -213,21 +223,37 @@ const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
     'receive the data - happens automatically every few minutes once '
     "paired, or run it sooner yourself if you don't want to wait.";
 
+// PUSH always points north-east (sending out), PULL always points
+// south-west (receiving in) - one consistent direction language across
+// every step, matching the arrow directions the user asked for.
 const Map<String, List<_WorkflowStep>> _flowASteps = {
   'both': [
-    _WorkflowStep('Phone PUSH'),
-    _WorkflowStep('Desktop PUSH', _desktopPushNote),
-    _WorkflowStep('Phone PULL'),
+    _WorkflowStep('Phone PUSH',
+        deviceIcon: Icons.smartphone, directionIcon: Icons.north_east_rounded),
+    _WorkflowStep('Desktop PUSH',
+        note: _desktopPushNote,
+        deviceIcon: Icons.computer,
+        directionIcon: Icons.north_east_rounded),
+    _WorkflowStep('Phone PULL',
+        deviceIcon: Icons.smartphone, directionIcon: Icons.south_west_rounded),
     _WorkflowStep('Done'),
   ],
   'desktop': [
-    _WorkflowStep('Desktop PUSH', _desktopPushNote),
-    _WorkflowStep('Phone PULL'),
+    _WorkflowStep('Desktop PUSH',
+        note: _desktopPushNote,
+        deviceIcon: Icons.computer,
+        directionIcon: Icons.north_east_rounded),
+    _WorkflowStep('Phone PULL',
+        deviceIcon: Icons.smartphone, directionIcon: Icons.south_west_rounded),
     _WorkflowStep('Done'),
   ],
   'phone': [
-    _WorkflowStep('Phone PUSH'),
-    _WorkflowStep('Desktop PULL', _desktopPullNote),
+    _WorkflowStep('Phone PUSH',
+        deviceIcon: Icons.smartphone, directionIcon: Icons.north_east_rounded),
+    _WorkflowStep('Desktop PULL',
+        note: _desktopPullNote,
+        deviceIcon: Icons.computer,
+        directionIcon: Icons.south_west_rounded),
     _WorkflowStep('Done'),
   ],
 };
@@ -538,6 +564,25 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 2026-09-17: kStar (the neutral label color), not kGreen -
+            // this box's own 2026-08-27 comment above explains Done was
+            // deliberately de-accented so it doesn't read as a live,
+            // tappable button. Same reasoning extended to these new
+            // icons - none of this dialog is interactive.
+            if (step.deviceIcon != null && step.directionIcon != null) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(step.deviceIcon, size: 20, color: kStar),
+                  const SizedBox(width: 3),
+                  Icon(step.directionIcon, size: 16, color: kStar),
+                ],
+              ),
+              const SizedBox(height: 6),
+            ] else if (isLast) ...[
+              Icon(Icons.check_rounded, size: 22, color: kStar),
+              const SizedBox(height: 6),
+            ],
             Text(step.label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
