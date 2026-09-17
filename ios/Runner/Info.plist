@@ -28,11 +28,11 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<!-- 2026-09-16: AdMob - Google's own published test App ID
-	     (developers.google.com/admob/ios/test-ads), swap for the real
-	     one once an AdMob account exists - see ads_service.dart. -->
+	<!-- 2026-09-17: real AdMob App ID, from the user's own AdMob
+	     console (Apps -> LocalSync -> App settings) - replaces
+	     Google's published test App ID this held since 2026-09-16. -->
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-5706552645183213~9248416548</string>
 	<!-- 2026-09-17: standard SKAdNetwork identifier list every AdMob-
 	     integrated app needs for iOS 14+ ad attribution - generic,
 	     not tied to any specific AdMob account, so added now

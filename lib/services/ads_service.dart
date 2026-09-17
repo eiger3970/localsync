@@ -15,18 +15,14 @@
 // workaround - confirmed via Google's own Flutter SDK docs before
 // building this.
 //
-// Real App ID/ad unit ID below are Google's own published TEST values
-// (developers.google.com/admob/ios/test-ads) - always return real test
-// ads, safe to ship in a dev build, but must be swapped for a real
-// AdMob account's own IDs before this app is ever actually submitted.
-// Info.plist's GADApplicationIdentifier carries the matching test App
-// ID - both need updating together, they're a pair.
+// 2026-09-17: real App ID/ad unit ID below, from the user's own AdMob
+// console (Apps -> LocalSync) - replaces Google's published TEST
+// values this held since 2026-09-16. Info.plist's
+// GADApplicationIdentifier carries the matching real App ID - both
+// updated together, they're a pair.
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// TODO real AdMob account: replace with the real banner ad unit ID
-/// once one exists (see this file's own doc above for the pairing
-/// with Info.plist's GADApplicationIdentifier).
-const String kBannerAdUnitId = 'ca-app-pub-3940256099942544/2435281174';
+const String kBannerAdUnitId = 'ca-app-pub-5706552645183213/2047904758';
 
 class AdsService {
   static bool _initialized = false;
