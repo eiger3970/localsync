@@ -1244,11 +1244,18 @@ class _IdleViewState extends State<_IdleView>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   PasswordInfoRow(
-                                    // 2026-09-17: real feedback, live -
-                                    // "change image to rubbish bin," same
-                                    // fix mirrored from pairing_screen.dart
-                                    // (kept in sync).
-                                    icon: Icons.delete_outline,
+                                    // 2026-09-17: rubbish bin (same day,
+                                    // first pass) read as "nerve
+                                    // wracking... sitting in a bin for a
+                                    // hacker to steal" - tried
+                                    // auto_awesome (sparkle/vanish)
+                                    // next, but that read as "magic
+                                    // stars, confusing the meaning."
+                                    // grain (dust/particles) is the
+                                    // closer match - same fix mirrored
+                                    // from pairing_screen.dart (kept in
+                                    // sync).
+                                    icon: Icons.grain,
                                     iconColor: kTextMid,
                                     // 2026-08-30: real device feedback,
                                     // two rounds - "never leaves this
