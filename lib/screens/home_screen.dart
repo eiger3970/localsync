@@ -1046,34 +1046,13 @@ Future<void> _runAndShow(
   // whatever's given; wrapping in Center is the real fix, not a
   // textAlign tweak (textAlign alone wouldn't recentre the content
   // box itself, only text within it).
-  // 2026-09-16: temporary diagnostic - real bug, live, "large widget
-  // shows Never synced" even after a confirmed real sync. The App
-  // Group container itself is confirmed accessible (the widget's own
-  // DEBUG line reads grp=ok), so the remaining question is whether
-  // RepositoryProvider's own recordSync channel call to
-  // AppDelegate.swift's BackupStatusChannel is actually succeeding -
-  // no device console access this session to check any other way.
-  // Remove once the real cause is confirmed.
-  final backupChannelDebug =
-      context.read<RepositoryProvider>().lastBackupChannelDebug;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
       content: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(syncResultMessage(result),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kStar, fontSize: 16)),
-            if (backupChannelDebug != null) ...[
-              const SizedBox(height: 6),
-              Text('DEBUG: $backupChannelDebug',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: kGreen, fontSize: 13)),
-            ],
-          ],
-        ),
+        child: Text(syncResultMessage(result),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kStar, fontSize: 16)),
       ),
       duration: const Duration(seconds: 12),
     ),
