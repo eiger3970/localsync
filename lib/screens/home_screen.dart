@@ -261,12 +261,14 @@ class HomeScreen extends StatelessWidget {
                       const PopupMenuItem(
                         value: 'sync_desktop_now',
                         // 2026-09-17: real ask, live - "add a slight
-                        // line space under Desktop sync." Padding on
+                        // line space under Desktop sync," then "need a
+                        // space between Desktop sync and About" - first
+                        // pass (6px) wasn't visible enough. Padding on
                         // this one item's own content, not a divider
                         // (this menu deliberately has none) and not a
                         // change to any other row's spacing.
                         child: Padding(
-                          padding: EdgeInsets.only(bottom: 6),
+                          padding: EdgeInsets.only(bottom: 18),
                           child: _MenuRow(
                             icon: Icons.bolt_outlined,
                             label: 'Desktop sync',
@@ -947,15 +949,16 @@ class _SyncGestureZone extends StatelessWidget {
             alignTop: true,
             onConfirm: onPull,
             // 2026-09-17: real ask, live - "Push pull flow, maybe on
-            // home screen when pushing or pulling?" Replaces the baked
-            // git_pull.gif with a real Flutter animation (particles
-            // drifting south-west, matching the direction language
-            // already used in help_wizard.dart) - zero asset weight,
-            // recolors automatically with the active skin's accent.
-            animationBuilder: (key, height) => FlowingDataAnimation(
+            // home screen when pushing or pulling?" Adds a real Flutter
+            // particle animation (drifting south-west, matching the
+            // direction language already used in help_wizard.dart)
+            // behind the existing git_pull.gif - "removed the gifs, but
+            // should be behind it" - both stay visible together.
+            animationBuilder: (key, height) => FlowBehindGif(
               key: key,
+              assetPath: 'assets/gifs/git_pull.gif',
               isPush: false,
-              color: kGreen,
+              flowColor: kGreen,
               height: height,
             ),
           ),
@@ -966,10 +969,11 @@ class _SyncGestureZone extends StatelessWidget {
             swipeDown: false,
             gifHeight: 198,
             onConfirm: onPush,
-            animationBuilder: (key, height) => FlowingDataAnimation(
+            animationBuilder: (key, height) => FlowBehindGif(
               key: key,
+              assetPath: 'assets/gifs/git_push.gif',
               isPush: true,
-              color: kGreen,
+              flowColor: kGreen,
               height: height,
             ),
           ),
@@ -1305,21 +1309,11 @@ Future<void> _showAbout(BuildContext context) async {
           Text('About', style: TextStyle(color: kStar, fontSize: 16)),
         ],
       ),
-      // 2026-09-17: real ask, live - "SUPPORT, loves hearts pour out...
-      // to catch attention of users at top that don't scroll down
-      // far." See floating_hearts.dart's own header for the full
-      // reasoning - this Stack overlays FloatingHearts above the whole
-      // scrollable content (not just decorating the SUPPORT row),
-      // rising from the bottom of the dialog's fixed viewport to the
-      // top regardless of scroll position, so it's visible the moment
-      // the dialog opens.
-      content: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // 2026-09-17: real ask, live - "svg image replicating real
             // logo." The real app icon itself (assets/icon/icon.png,
             // already the flutter_launcher_icons source), not a
@@ -1485,8 +1479,25 @@ Future<void> _showAbout(BuildContext context) async {
             // entirely since nothing in the app is gated by this.
             // Real address applied 2026-08-23 (was a placeholder
             // before that).
-            const _AboutHeader(
-                icon: Icons.favorite_outline, label: 'SUPPORT'),
+            // 2026-09-17: real ask, live - "hearts aren't coming from
+            // support they're just near the top. Need to stem from
+            // support, like a trail with random spacing, floating
+            // upwards." Local Stack, Clip.none so the heart trail can
+            // rise above this row's own bounds without being clipped
+            // by it - see floating_hearts.dart's own header for the
+            // full history of what this replaced.
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  bottom: 24,
+                  left: 0,
+                  child: FloatingHearts(color: kGreen),
+                ),
+                const _AboutHeader(
+                    icon: Icons.favorite_outline, label: 'SUPPORT'),
+              ],
+            ),
             const SizedBox(height: 6),
             Text(
               'If LocalSync saves you money or hassle, Bitcoin Lightning '
@@ -1505,13 +1516,8 @@ Future<void> _showAbout(BuildContext context) async {
               child: Text('steamyice42@walletofsatoshi.com',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
-              ],
-            ),
-          ),
-          Positioned.fill(
-            child: FloatingHearts(color: kGreen),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(

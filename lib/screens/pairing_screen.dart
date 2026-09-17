@@ -356,13 +356,26 @@ class _PairingScreenState extends State<PairingScreen> {
                                   // a repo file no real end user opens.
                                   // Same Label: value format as the rows
                                   // above.
+                                  // 2026-09-17, reworded same day - real
+                                  // feedback, live: "sounds like it's
+                                  // needed for automation, but even if
+                                  // no automation, it's still needed."
+                                  // The script itself is what does the
+                                  // desktop-side work at all (automatic
+                                  // OR on-demand via Desktop sync) - the
+                                  // original wording made it sound
+                                  // optional/automation-only. Label
+                                  // changed Sync -> Desktop too, so it
+                                  // doesn't imply this row is only about
+                                  // the scheduling.
                                   PasswordInfoRow(
                                     icon: Icons.terminal,
                                     iconColor: kTextMid,
-                                    text: 'Sync: a small script is '
-                                        'installed on your desktop and '
-                                        'scheduled automatically - '
-                                        'inspect or remove it anytime at '
+                                    text: 'Desktop: a small script is '
+                                        'installed to enable desktop '
+                                        'syncing (automatic or on '
+                                        'demand) - inspect or remove it '
+                                        'anytime at '
                                         '~/Documents/Scripts/'
                                         'localsync_sync.sh',
                                   ),

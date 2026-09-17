@@ -1294,15 +1294,20 @@ class _IdleViewState extends State<_IdleView>
                                   ),
                                   const SizedBox(height: 8),
                                   // 2026-09-17: real ask, live - "add SSH
-                                  // disclosure," same fix mirrored from
+                                  // disclosure," then reworded same day
+                                  // - "sounds like it's needed for
+                                  // automation, but even if no
+                                  // automation, it's still needed."
+                                  // Both fixes mirrored from
                                   // pairing_screen.dart (kept in sync).
                                   PasswordInfoRow(
                                     icon: Icons.terminal,
                                     iconColor: kTextMid,
-                                    text: 'Sync: a small script is '
-                                        'installed on your desktop and '
-                                        'scheduled automatically - '
-                                        'inspect or remove it anytime at '
+                                    text: 'Desktop: a small script is '
+                                        'installed to enable desktop '
+                                        'syncing (automatic or on '
+                                        'demand) - inspect or remove it '
+                                        'anytime at '
                                         '~/Documents/Scripts/'
                                         'localsync_sync.sh',
                                   ),
