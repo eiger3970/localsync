@@ -57,9 +57,12 @@
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
 import 'dart:async' show StreamController;
+import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
 import 'dart:isolate' show SendPort, ReceivePort;
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show compute, debugPrint;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
@@ -222,6 +225,79 @@ class _SyncParams {
     this.confirmed = false,
     this.progressSendPort,
   });
+}
+
+// ── Desktop sync-now trigger ─────────────────────────────────────────────────
+//
+// 2026-09-17: real gap found, live - the Desktop PUSH/PULL help text
+// (help_wizard.dart) says "run it sooner yourself if you don't want to
+// wait," but the only real way to do that was physically going to the
+// desktop and running localsync_sync.sh by hand in a terminal - flagged
+// by the user as critical to the app's whole "just works" pitch.
+//
+// GitServiceImpl (git_service.dart) is only ever constructed during
+// the one-time initial vault-linking flow (linking_controller.dart),
+// never for regular day-to-day pull/push from the home screen, which
+// goes through this file's own SyncService/RepositoryProvider instead.
+// This plain top-level function is the version reachable from that
+// everyday path (using the current repo's own real connection info) -
+// GitServiceImpl.triggerDesktopSyncNow() delegates here rather than
+// duplicating the SSH-exec logic, so it only lives in one place.
+Future<SyncResult> runDesktopSyncScriptNow({
+  required String remoteHost,
+  required int remotePort,
+  required String remoteUser,
+  required String remotePath,
+  required String sshPrivateKeyPath,
+  String sshPassphrase = '',
+  String? desktopVaultPath,
+}) async {
+  SSHClient? client;
+  try {
+    final socket = await SSHSocket.connect(remoteHost, remotePort,
+        timeout: const Duration(seconds: 15));
+    final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+    client = SSHClient(
+      socket,
+      username: remoteUser,
+      identities: SSHKeyPair.fromPem(
+          privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+    );
+    // Make sure the script actually exists first - a user could tap
+    // this before any pull has ever installed it (e.g. right after
+    // pairing, before a first sync). Cheap and idempotent either way.
+    final script = await rootBundle.loadString('desktop/localsync_sync.sh');
+    final scriptB64 = base64Encode(utf8.encode(script));
+    const remoteDir = r'$HOME/Documents/Scripts';
+    const scriptPath = r'$HOME/Documents/Scripts/localsync_sync.sh';
+    final installCmd = 'mkdir -p "$remoteDir" && '
+        "echo '$scriptB64' | base64 -d > \"$scriptPath\" && "
+        'chmod +x "$scriptPath"';
+    final installRes = await client.runWithResult(installCmd);
+    if (installRes.exitCode != 0) {
+      return SyncFailed(LinkingError.connectionRefused,
+          debugDetail: 'Could not write localsync_sync.sh on the '
+              'desktop: ${String.fromCharCodes(installRes.stderr)}');
+    }
+    final escapedRepo = remotePath.replaceAll("'", r"'\''");
+    final vaultEnv = (desktopVaultPath != null && desktopVaultPath.trim().isNotEmpty)
+        ? "LOCALSYNC_VAULT='${desktopVaultPath.trim().replaceAll("'", r"'\''")}' "
+        : '';
+    final runCmd =
+        "LOCALSYNC_BARE_REPO='$escapedRepo' $vaultEnv\"$scriptPath\"";
+    final runRes = await client.runWithResult(runCmd);
+    if (runRes.exitCode != 0) {
+      return SyncFailed(LinkingError.connectionRefused,
+          debugDetail: 'Desktop sync script exited ${runRes.exitCode}: '
+              '${String.fromCharCodes(runRes.stderr)}');
+    }
+    return const SyncOk(
+        'Desktop sync triggered - ran just now instead of waiting.');
+  } catch (e) {
+    return SyncFailed(LinkingError.connectionRefused, debugDetail: '$e');
+  } finally {
+    client?.close();
+  }
 }
 
 // ── SyncService ────────────────────────────────────────────────────────────────

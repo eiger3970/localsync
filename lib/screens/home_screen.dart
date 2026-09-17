@@ -211,6 +211,9 @@ class HomeScreen extends StatelessWidget {
                     );
                   }
                   if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
+                  if (v == 'sync_desktop_now') {
+                    _triggerDesktopSyncNow(context, provider, repo.id!);
+                  }
                   if (v == 'conflicts') {
                     Navigator.push(
                         context,
@@ -437,6 +440,26 @@ class HomeScreen extends StatelessWidget {
                         subtitle: 'IP, sync folder & vault path',
                       ),
                     ),
+                    // 2026-09-17: real gap found, live - "run it sooner
+                    // yourself if you don't want to wait" (help
+                    // wizard's Desktop PUSH/PULL notes) was a promise
+                    // with no real button behind it, flagged by the
+                    // user as critical to the app's whole "just works"
+                    // pitch. Icons.bolt_outlined (not Icons.sync,
+                    // that's already 'toggle_auto' above) - "now" is
+                    // the point, distinct from the ongoing auto/manual
+                    // toggle.
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'sync_desktop_now',
+                        child: _MenuRow(
+                          icon: Icons.bolt_outlined,
+                          label: 'Sync desktop now',
+                          subtitle:
+                              'Runs the desktop\'s sync right away, instead '
+                              'of waiting up to 5 minutes',
+                        ),
+                      ),
                     PopupMenuItem(
                       value: 'link',
                       child: _MenuRow(
@@ -1022,6 +1045,31 @@ class _SpinningSyncState extends State<_SpinningSync>
 // through, not just the post-conflict-resolution one - gets it too.
 // null (every call site except the push gesture) means "no recovery,
 // behave exactly as before."
+// 2026-09-17: real gap found, live - see the 'sync_desktop_now' kebab
+// menu item's own comment for the full story. Deliberately NOT routed
+// through _runAndShow above - that function's confirmation/
+// cannotFastForward-retry logic is specific to local push/pull
+// semantics (a real git operation against this phone's own repo);
+// this action never touches local git state at all, it just asks the
+// desktop to run its own script - same SnackBar feedback, none of
+// that extra machinery.
+Future<void> _triggerDesktopSyncNow(
+    BuildContext context, RepositoryProvider provider, int repoId) async {
+  final result = await provider.triggerDesktopSyncNow(repoId);
+  if (!context.mounted || result == null) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: kSurface,
+      content: Center(
+        child: Text(syncResultMessage(result),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kStar, fontSize: 16)),
+      ),
+      duration: const Duration(seconds: 12),
+    ),
+  );
+}
+
 Future<void> _runAndShow(
   BuildContext context,
   Future<SyncResult?> Function({bool confirmed}) op, {
