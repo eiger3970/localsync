@@ -218,6 +218,53 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (mounted) setState(() => _future = _scan());
   }
 
+  // 2026-09-18: real ask, live - "I need the Conflicts list to be easy
+  // to clean." Deleting was already possible one at a time (Old
+  // version -> Delete), but that's real friction once several resolved
+  // entries pile up - this clears every "Already resolved" entry in
+  // one tap instead.
+  //
+  // deleteReferenceCallout uses fixed matchStart/matchEnd offsets
+  // captured at scan time - deleting an earlier span in the SAME file
+  // first would shift every later span in that file out from under it,
+  // corrupting the next delete's range. Grouping by file and deleting
+  // each file's own entries in descending matchStart order (last span
+  // in the file first) keeps every remaining offset in that file valid
+  // until its own turn - different files never share content, so their
+  // order relative to each other doesn't matter.
+  Future<void> _deleteAllRefs(List<ReferenceEntry> refsToDelete) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      final byFile = <String, List<ReferenceEntry>>{};
+      for (final ref in refsToDelete) {
+        byFile.putIfAbsent(ref.filePath, () => []).add(ref);
+      }
+      for (final group in byFile.values) {
+        group.sort((a, b) => b.matchStart.compareTo(a.matchStart));
+        for (final ref in group) {
+          await deleteReferenceCallout(path, ref);
+        }
+      }
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    if (!mounted) return;
+    setState(() => _future = _scan());
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text(
+              '✓ Cleared ${refsToDelete.length} - backed up first, notes untouched',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kGreen, fontSize: 15)),
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   /// Combines a leftover reference callout back into the note alongside
   /// the content that was kept, instead of only ever swapping (Undo) or
   /// discarding (Delete) - see mergeReferenceKeepingBoth's own doc
@@ -738,13 +785,32 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             // this version) - now says so directly.
                             return Padding(
                               padding: const EdgeInsets.only(top: 8, bottom: 8),
-                              child: Text(
-                                  'Already resolved (${refs.length}) - '
-                                  'not active conflicts',
-                                  style: TextStyle(
-                                      color: kTextMid,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600)),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                        'Already resolved (${refs.length}) - '
+                                        'not active conflicts',
+                                        style: TextStyle(
+                                            color: kTextMid,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                  // 2026-09-18: real ask, live - "I need
+                                  // the Conflicts list to be easy to
+                                  // clean." One tap clears every entry
+                                  // in this section instead of opening
+                                  // each one individually.
+                                  InkWell(
+                                    onTap: () => _deleteAllRefs(refs),
+                                    child: Text('Clear all',
+                                        style: TextStyle(
+                                            color: kGreen,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                           if (i > refHeaderIndex) {

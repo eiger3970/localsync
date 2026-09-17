@@ -62,9 +62,15 @@ class _ExplodingLetterState extends State<ExplodingLetter>
     // resets. Nearly doubled, and the hold/burst split below was
     // rebalanced too - not just a longer total, the dissolve itself
     // needs to read as gradual.
+    //
+    // 2026-09-18: real feedback, live (round 2) - "make the fade away
+    // take more time, it's too quick." Bumped again, 2600ms -> 3400ms -
+    // paired with widening the burst/fade window itself in
+    // _ExplodePainter (burstEnd, below) so the extra time actually
+    // goes into a slower fade, not just a longer blank pause.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      duration: const Duration(milliseconds: 3400),
     )..repeat();
     unawaited(_samplePoints());
   }
@@ -239,7 +245,14 @@ class _ExplodePainter extends CustomPainter {
     // everything from burstEnd to the wrap is a real blank pause before
     // the hold phase (and the letter) begins again.
     const holdEnd = 0.18;
-    const burstEnd = 0.55;
+    // 2026-09-18: real feedback, live (round 2) - "make the fade away
+    // take more time, it's too quick." 0.55 -> 0.68, combined with the
+    // longer 3400ms total above, roughly doubles the fade window's real
+    // wall-clock time (~962ms -> ~1700ms) while still leaving a real
+    // blank pause afterward (~1088ms, close to the previous ~1170ms) -
+    // not stealing the whole increase from the "gone for a moment" gap
+    // that was just added.
+    const burstEnd = 0.68;
     if (t > burstEnd) return;
     final burstT = t <= holdEnd ? 0.0 : (t - holdEnd) / (burstEnd - holdEnd);
     final fade = pow(1 - burstT, 1.6).toDouble();

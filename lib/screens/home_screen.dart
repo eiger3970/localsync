@@ -1250,18 +1250,22 @@ class _PulsingSyncStatusState extends State<_PulsingSyncStatus>
 
   @override
   Widget build(BuildContext context) {
+    // 2026-09-18: real feedback, live - "Desktop syncing change from
+    // amber to white, as long syncs look like there's a problem."
+    // Amber reads as a warning/caution color, wrong signal for an
+    // in-progress-but-fine operation that can legitimately take a
+    // while - kStar (white) still pulses the same way, just without
+    // the alarm framing.
     return FadeTransition(
       opacity: Tween(begin: 0.35, end: 1.0).animate(_ctrl),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.bolt, color: Colors.amber, size: 28),
+          Icon(Icons.bolt, color: kStar, size: 28),
           const SizedBox(width: 10),
           Text(widget.label,
-              style: const TextStyle(
-                  color: Colors.amber,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  color: kStar, fontSize: 16, fontWeight: FontWeight.w600)),
         ],
       ),
     );
