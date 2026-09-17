@@ -106,17 +106,28 @@ class FlowingDataAnimationState extends State<FlowingDataAnimation>
 
   @override
   Widget build(BuildContext context) {
+    // 2026-09-18: real feedback, live - "start and stop is immediate,
+    // but needs to smoothly come to a start and stop." _playing used
+    // to gate the painted t value directly - the whole particle layer
+    // popped in and out in a single frame instead of easing in/out.
+    // AnimatedOpacity cross-fades the layer itself, independent of the
+    // particle animation underneath.
     return SizedBox(
       height: widget.height,
       width: double.infinity,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (_, __) => CustomPaint(
-          painter: _FlowPainter(
-            t: _playing ? _ctrl.value : 0,
-            particles: _particles,
-            color: widget.color,
-            isPush: widget.isPush,
+      child: AnimatedOpacity(
+        opacity: _playing ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, __) => CustomPaint(
+            painter: _FlowPainter(
+              t: _playing ? _ctrl.value : 0,
+              particles: _particles,
+              color: widget.color,
+              isPush: widget.isPush,
+            ),
           ),
         ),
       ),
@@ -158,14 +169,31 @@ class _FlowBehindGifState extends State<FlowBehindGif>
 
   @override
   Future<void> trigger(Future<void> Function() action) async {
-    // The flow layer's own floor/token bookkeeping still applies
-    // (FlowingDataAnimationState.trigger has its own 2000ms floor) -
-    // starting both together and awaiting the gif's own trigger (the
-    // one GifSwipeTrigger actually cares about for isPlaying/timing)
-    // keeps a single source of truth for when the combined widget
-    // considers itself "done."
-    unawaited(_flowKey.currentState?.trigger(() => action()));
-    await _gifKey.currentState?.trigger(action);
+    // 2026-09-18: real crash, live - "I ran push and the app closed."
+    // Both FlowingDataAnimationState.trigger and ActionGifState.trigger
+    // call the function they're handed internally - passing the real
+    // [action] (provider.pushRepository/pullRepository) to BOTH ran it
+    // TWICE, concurrently, against the same repo's git2dart FFI layer.
+    // That's a real double-push, not just a visual glitch - concurrent
+    // native git access is exactly the kind of thing that brings the
+    // whole app down instead of throwing a catchable Dart exception.
+    //
+    // Fix: [action] runs exactly once, here. Both animations are handed
+    // a stand-in that just awaits a shared Completer, so each still
+    // plays for its own 2000ms floor and still only finishes once the
+    // real action does - without either one ever calling it directly.
+    final completer = Completer<void>();
+    final flowFuture = _flowKey.currentState?.trigger(() => completer.future);
+    final gifFuture = _gifKey.currentState?.trigger(() => completer.future);
+    try {
+      await action();
+    } finally {
+      completer.complete();
+    }
+    await Future.wait([
+      if (flowFuture != null) flowFuture,
+      if (gifFuture != null) gifFuture,
+    ]);
   }
 
   @override
