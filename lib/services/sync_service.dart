@@ -291,8 +291,13 @@ Future<SyncResult> runDesktopSyncScriptNow({
           debugDetail: 'Desktop sync script exited ${runRes.exitCode}: '
               '${String.fromCharCodes(runRes.stderr)}');
     }
-    return const SyncOk(
-        'Desktop sync triggered - ran just now instead of waiting.');
+    // 2026-09-18: real feedback, live - "Desktop sync triggered, change
+    // to Desktop sync complete." "Triggered" only confirms the request
+    // was sent, not that the script actually finished running - this
+    // return only happens after runRes above already came back with
+    // exit code 0, so "complete" is the accurate claim.
+    return const SyncOk('Desktop sync complete - ran just now instead of '
+        'waiting.');
   } catch (e) {
     return SyncFailed(LinkingError.connectionRefused, debugDetail: '$e');
   } finally {

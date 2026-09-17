@@ -1464,7 +1464,19 @@ class _IdleViewState extends State<_IdleView>
                         ),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      // 2026-09-18: real feedback, live - "Password
+                      // field2 on the install, eye is too far left and
+                      // not aligned with the password 1 field eye."
+                      // Field 1 draws its own border flush with the
+                      // outer 24px Padding, no extra inset. This field's
+                      // border comes from the AnimatedContainer instead
+                      // (showOwnBorder: false below), and a symmetric 4px
+                      // padding inside it pushed the field's suffixIcon
+                      // eye 4px further left than field 1's. Left-only
+                      // keeps the border's left-edge breathing room,
+                      // drops the right-side inset that was misaligning
+                      // the two eyes.
+                      padding: const EdgeInsets.only(left: 4),
                       child: ShreddingPasswordField(
                         key: _shredKey2,
                         controller: _confirmCtrl,

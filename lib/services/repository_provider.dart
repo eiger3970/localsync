@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
+import 'conflict_scanner.dart';
 import 'database_service.dart';
 import 'device_name.dart';
 import 'sync_service.dart';
@@ -55,6 +56,29 @@ class RepositoryProvider extends ChangeNotifier {
   int? _pendingConflictRepoId;
   int? get pendingConflictRepoId => _pendingConflictRepoId;
   void clearPendingConflict() { _pendingConflictRepoId = null; }
+
+  // 2026-09-18: real ask, live - "can the Kebab icon change colour from
+  // white to amber if a conflict exists?" A sync landing SyncOkWithConflicts
+  // marks the repo id here immediately (see _runLocked below) - a fast,
+  // free-to-check signal for the common case (just synced, conflicts
+  // fresh). refreshConflicts() does the real, more expensive disk scan
+  // (scanForConflicts) for the other case: returning from ConflictsScreen,
+  // where the set above could be stale either way (fully resolved, or
+  // conflicts still open because the user backed out early).
+  final Set<int> _reposWithConflicts = {};
+  bool hasConflicts(int repoId) => _reposWithConflicts.contains(repoId);
+
+  Future<void> refreshConflicts(int repoId) async {
+    final repo = _repos.firstWhere((r) => r.id == repoId,
+        orElse: () => throw StateError('refreshConflicts: no repo $repoId'));
+    final entries = await scanForConflicts(repo.localPath);
+    if (entries.isEmpty) {
+      _reposWithConflicts.remove(repoId);
+    } else {
+      _reposWithConflicts.add(repoId);
+    }
+    notifyListeners();
+  }
 
   // 2026-09-16: same pattern as _pendingConflictRepoId above - an iOS
   // Home Screen Quick Action (main.dart's QuickActions().initialize
@@ -318,6 +342,7 @@ class RepositoryProvider extends ChangeNotifier {
                 lastSync:  DateTime.now(),
                 clearSyncProgress: true,
               );
+              _reposWithConflicts.add(id);
               await _recordBackupTimestamp();
             // 2026-08-20: "show error in human language, how to fix it,
             // then the error code verbose details - some errors do

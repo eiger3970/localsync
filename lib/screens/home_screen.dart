@@ -185,7 +185,18 @@ class HomeScreen extends StatelessWidget {
                 // then measured the real remaining gap (18dp vs Help's
                 // 15dp) and closed just that small real difference.
                 padding: const EdgeInsets.only(left: 0, right: 6),
-                icon: Icon(Icons.more_vert, color: kGreen, size: 22),
+                // 2026-09-18: real ask, live - "can the Kebab icon
+                // change colour from white to amber if a conflict
+                // exists?" Real signal, not decorative - RepositoryProvider
+                // tracks this from the last sync result and from a
+                // disk re-scan whenever ConflictsScreen closes (see its
+                // own hasConflicts/refreshConflicts doc).
+                icon: Icon(Icons.more_vert,
+                    color: provider.selectedRepo != null &&
+                            provider.hasConflicts(provider.selectedRepo!.id!)
+                        ? Colors.amber
+                        : kGreen,
+                    size: 22),
                 onSelected: (v) {
                   if (v == 'pair') _openPairing(context);
                   if (v == 'link') _openLinking(context);
@@ -220,40 +231,29 @@ class HomeScreen extends StatelessWidget {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => ConflictsScreen(repo: repo)));
+                            builder: (_) => ConflictsScreen(repo: repo)))
+                        .then((_) => provider.refreshConflicts(repo.id!));
                   }
                   if (v == 'delete') _confirmDelete(context, provider, repo);
                 },
                 // 2026-08-18: full menu cleanup per explicit list - one
                 // flat alphabetical order (About, Conflicts, Connection,
                 // Device name, Pair, Pull, Vault), no dividers. Commit
-                // stays pinned first since it's what gets tapped most
-                // once set up is done - a stated reason to deviate from
-                // alphabetical, not an arbitrary one (see house naming
-                // rule).
-                // 2026-09-17: Desktop sync pinned second, same
-                // reasoning - "this is an important button," user's own
-                // explicit call to deviate again.
+                // and Desktop sync both stay pinned out of alphabetical
+                // order, not arbitrarily - stated reasons below.
                 // One-line explainer under each label still stands in
                 // for a hover tooltip, which doesn't fire on iOS tap.
+                //
+                // 2026-09-18: real ask, live - "Move desktop sync to
+                // top and commit with message underneath." Swapped -
+                // Desktop sync now pinned first, Commit second.
                 itemBuilder: (_) {
                   final hasRepo = provider.repos.isNotEmpty;
                   return [
-                    if (hasRepo)
-                      const PopupMenuItem(
-                        value: 'commit',
-                        child: _MenuRow(
-                          icon: Icons.edit_note,
-                          label: 'Commit with message...',
-                        ),
-                      ),
                     // 2026-09-17: real ask, live - "this is an important
-                    // button... position under Commit with message."
-                    // Moved out of alphabetical order (was between
-                    // Settings and Vault) and pinned second, same
-                    // deliberate-deviation reasoning Commit itself
-                    // already uses ("what gets tapped most... a stated
-                    // reason to deviate, not an arbitrary one"). Renamed
+                    // button." Moved out of alphabetical order (was
+                    // between Settings and Vault) and pinned first as of
+                    // 2026-09-18, per direct instruction above. Renamed
                     // Sync desktop now -> Desktop sync (Sentence case,
                     // nouns first - matches Desktop username/Desktop
                     // vault path's naming in Settings).
@@ -267,6 +267,12 @@ class HomeScreen extends StatelessWidget {
                         // this one item's own content, not a divider
                         // (this menu deliberately has none) and not a
                         // change to any other row's spacing.
+                        //
+                        // 2026-09-18: this item moved from second to
+                        // first (see itemBuilder's own comment above) -
+                        // the bottom padding still reads correctly since
+                        // whatever comes right after it (Commit, now)
+                        // still benefits from the same breathing room.
                         child: Padding(
                           padding: EdgeInsets.only(bottom: 18),
                           child: _MenuRow(
@@ -278,6 +284,18 @@ class HomeScreen extends StatelessWidget {
                                 'Runs desktop immediately, rather than '
                                 'waiting',
                           ),
+                        ),
+                      ),
+                    // Commit stays pinned near the top since it's what
+                    // gets tapped most once set up is done - a stated
+                    // reason to deviate from alphabetical, not an
+                    // arbitrary one (see house naming rule).
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'commit',
+                        child: _MenuRow(
+                          icon: Icons.edit_note,
+                          label: 'Commit with message...',
                         ),
                       ),
                     const PopupMenuItem(
@@ -587,7 +605,8 @@ class HomeScreen extends StatelessWidget {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => ConflictsScreen(repo: pendingRepo)));
+                        builder: (_) => ConflictsScreen(repo: pendingRepo)))
+                    .then((_) => provider.refreshConflicts(pendingRepo.id!));
               }
             });
           }
@@ -1108,7 +1127,7 @@ Future<void> _triggerDesktopSyncNow(
         children: [
           const _PulsingBolt(),
           const SizedBox(width: 10),
-          Text('Syncing desktop...',
+          Text('Desktop syncing...',
               style: TextStyle(color: kStar, fontSize: 16)),
         ],
       ),
@@ -1235,8 +1254,10 @@ Future<void> _runAndShow(
     ),
   );
   if (result case SyncOkWithConflicts() when repo != null && context.mounted) {
-    Navigator.push(context,
+    final provider = context.read<RepositoryProvider>();
+    await Navigator.push(context,
         MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)));
+    await provider.refreshConflicts(repo.id!);
   }
 }
 
@@ -1378,7 +1399,16 @@ Future<void> _showAbout(BuildContext context) async {
           Text('About', style: TextStyle(color: kStar, fontSize: 16)),
         ],
       ),
+      // 2026-09-18: real feedback, live - "SUPPORTS hearts stop at
+      // DISCLAIMER, but must reach top." The Stack around SUPPORT below
+      // already uses Clip.none so hearts aren't clipped by that
+      // immediate row - the real ceiling was this ScrollView's own
+      // default Clip.hardEdge, cutting the trail off right at whatever
+      // the currently-scrolled viewport's top edge happened to be
+      // (DISCLAIMER, when scrolled down far enough to see SUPPORT at
+      // all). Clip.none lets the trail actually rise past that edge.
       content: SingleChildScrollView(
+        clipBehavior: Clip.none,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1561,7 +1591,15 @@ Future<void> _showAbout(BuildContext context) async {
                 Positioned(
                   bottom: 24,
                   left: 0,
-                  child: FloatingHearts(color: kGreen),
+                  // 2026-09-18: real feedback, live - "must reach top" -
+                  // SUPPORT is the last section (alphabetized, see
+                  // 2026-08-23 above), so reaching the dialog's top means
+                  // clearing DISCLAIMER/SETUP GUIDE above it - the old
+                  // 90px default trail never traveled anywhere near
+                  // that far, it just happened to get clipped around
+                  // the same area before this fix, reading as "reaches
+                  // DISCLAIMER" by coincidence, not by design.
+                  child: FloatingHearts(color: kGreen, trailHeight: 420),
                 ),
                 const _AboutHeader(
                     icon: Icons.favorite_outline, label: 'SUPPORT'),

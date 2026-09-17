@@ -57,9 +57,16 @@ class _FloatingHeartsState extends State<FloatingHearts>
   @override
   void initState() {
     super.initState();
+    // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
+    // for a full cycle even at the old, much shorter 90px trail - with
+    // the trail now 420px tall (reaching the dialog's top, see the
+    // call site's own 2026-09-18 comment) the same 9s would have read
+    // as far slower still. 5s base plus a faster speed range keeps the
+    // rise reading as a brisk trickle, not a crawl, across the taller
+    // distance.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 9),
+      duration: const Duration(seconds: 5),
     )..repeat();
     final rng = Random(3);
     // 2026-09-17: "a trail with random spacing" - startOffset staggers
@@ -70,7 +77,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
       (_) => _Heart(
         x: 0.5 + (rng.nextDouble() - 0.5) * 0.5,
         startOffset: rng.nextDouble(),
-        speed: 0.4 + rng.nextDouble() * 0.35,
+        speed: 0.6 + rng.nextDouble() * 0.5,
         size: 7 + rng.nextDouble() * 6,
         drift: (rng.nextDouble() - 0.5) * 0.6,
         driftPhase: rng.nextDouble() * 2 * pi,
