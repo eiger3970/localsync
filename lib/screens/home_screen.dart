@@ -225,13 +225,16 @@ class HomeScreen extends StatelessWidget {
                 },
                 // 2026-08-18: full menu cleanup per explicit list - one
                 // flat alphabetical order (About, Conflicts, Connection,
-                // Device name, Pair, Pull, Vault), no dividers. Only
-                // exception: Commit stays pinned first since it's what
-                // gets tapped most once set up is done - a stated reason
-                // to deviate from alphabetical, not an arbitrary one (see
-                // house naming rule). One-line explainer under each label
-                // still stands in for a hover tooltip, which doesn't fire
-                // on iOS tap.
+                // Device name, Pair, Pull, Vault), no dividers. Commit
+                // stays pinned first since it's what gets tapped most
+                // once set up is done - a stated reason to deviate from
+                // alphabetical, not an arbitrary one (see house naming
+                // rule).
+                // 2026-09-17: Desktop sync pinned second, same
+                // reasoning - "this is an important button," user's own
+                // explicit call to deviate again.
+                // One-line explainer under each label still stands in
+                // for a hover tooltip, which doesn't fire on iOS tap.
                 itemBuilder: (_) {
                   final hasRepo = provider.repos.isNotEmpty;
                   return [
@@ -241,6 +244,27 @@ class HomeScreen extends StatelessWidget {
                         child: _MenuRow(
                           icon: Icons.edit_note,
                           label: 'Commit with message...',
+                        ),
+                      ),
+                    // 2026-09-17: real ask, live - "this is an important
+                    // button... position under Commit with message."
+                    // Moved out of alphabetical order (was between
+                    // Settings and Vault) and pinned second, same
+                    // deliberate-deviation reasoning Commit itself
+                    // already uses ("what gets tapped most... a stated
+                    // reason to deviate, not an arbitrary one"). Renamed
+                    // Sync desktop now -> Desktop sync (Sentence case,
+                    // nouns first - matches Desktop username/Desktop
+                    // vault path's naming in Settings).
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'sync_desktop_now',
+                        child: _MenuRow(
+                          icon: Icons.bolt_outlined,
+                          label: 'Desktop sync',
+                          subtitle:
+                              'Runs the desktop\'s sync right away, instead '
+                              'of waiting up to 5 minutes',
                         ),
                       ),
                     const PopupMenuItem(
@@ -441,26 +465,6 @@ class HomeScreen extends StatelessWidget {
                         subtitle: 'IP, sync folder & vault path',
                       ),
                     ),
-                    // 2026-09-17: real gap found, live - "run it sooner
-                    // yourself if you don't want to wait" (help
-                    // wizard's Desktop PUSH/PULL notes) was a promise
-                    // with no real button behind it, flagged by the
-                    // user as critical to the app's whole "just works"
-                    // pitch. Icons.bolt_outlined (not Icons.sync,
-                    // that's already 'toggle_auto' above) - "now" is
-                    // the point, distinct from the ongoing auto/manual
-                    // toggle.
-                    if (hasRepo)
-                      const PopupMenuItem(
-                        value: 'sync_desktop_now',
-                        child: _MenuRow(
-                          icon: Icons.bolt_outlined,
-                          label: 'Sync desktop now',
-                          subtitle:
-                              'Runs the desktop\'s sync right away, instead '
-                              'of waiting up to 5 minutes',
-                        ),
-                      ),
                     PopupMenuItem(
                       value: 'link',
                       child: _MenuRow(
