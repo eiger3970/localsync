@@ -25,15 +25,16 @@ class SecurityInfoScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 2026-08-23: emoji instead of Material icons here, real
-            // feedback - "text emoji is only 7 bytes... use emojis
-            // unless they look terrible, then svg design." No
-            // color-tinting need for these (fixed icon in a fixed
-            // green-outlined box, not a multi-state indicator), so
-            // emoji's fixed native colors aren't a problem here -
-            // unlike the top-right status icon, see its own note.
+            // 2026-08-23: was emoji here ("text emoji is only 7 bytes...
+            // use emojis unless they look terrible, then svg design").
+            // 2026-09-17: real feedback, live - "change all four emojis
+            // to svg images." Material icons instead of hand-drawn .svg
+            // assets specifically - same reuse of vocabulary
+            // PasswordInfoRow already uses elsewhere in the app
+            // (vpn_key_outlined, lock_outline), zero new asset-loading
+            // risk (see this file's own SVG-breakage note above).
             const _Step(
-              emoji: '🔑',
+              icon: Icons.vpn_key_outlined,
               title: 'Your phone holds its own key',
               body:
                   'An ed25519 key pair is generated on this device during '
@@ -41,7 +42,7 @@ class SecurityInfoScreen extends StatelessWidget {
             ),
             const _Arrow(),
             const _Step(
-              emoji: '🔒',
+              icon: Icons.lock_outline,
               title: 'Every connection is SSH',
               body:
                   'Phone and desktop only ever talk over SSH - the same '
@@ -50,7 +51,7 @@ class SecurityInfoScreen extends StatelessWidget {
             ),
             const _Arrow(),
             const _Step(
-              emoji: '🛡️',
+              icon: Icons.shield_outlined,
               title: 'Encrypted the whole way',
               body:
                   'SSH negotiates the connection with ECDH key exchange, '
@@ -60,7 +61,7 @@ class SecurityInfoScreen extends StatelessWidget {
             ),
             const _Arrow(),
             const _Step(
-              emoji: '🚫☁️',
+              icon: Icons.cloud_off_outlined,
               title: 'No cloud, ever',
               body:
                   'Your notes travel directly between your own two '
@@ -81,10 +82,10 @@ class SecurityInfoScreen extends StatelessWidget {
 }
 
 class _Step extends StatelessWidget {
-  final String emoji;
+  final IconData icon;
   final String title;
   final String body;
-  const _Step({required this.emoji, required this.title, required this.body});
+  const _Step({required this.icon, required this.title, required this.body});
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +100,7 @@ class _Step extends StatelessWidget {
             border: Border.all(color: kGreen, width: 1.5),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
+          child: Center(child: Icon(icon, color: kGreen, size: 22)),
         ),
         const SizedBox(width: 14),
         Expanded(
