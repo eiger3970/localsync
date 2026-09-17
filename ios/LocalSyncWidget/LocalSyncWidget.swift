@@ -74,26 +74,6 @@ private func daysSinceLastSync() -> Int? {
   return max(0, Int(elapsed / 86400))
 }
 
-// 2026-09-16: temporary diagnostic - real bug, live, still "Never
-// synced" after TWO targeted fixes (missing reloadTimelines(), then
-// object(forKey:) as? Double bridging). No device console access this
-// session (Linux-only, CI-only macOS builds), so this is the only way
-// left to actually see what's happening on the real device instead of
-// guessing a third time. Distinguishes the two real failure modes:
-// "grp=NIL" means UserDefaults(suiteName:) itself failed - the App
-// Group entitlement isn't actually functional under this signing
-// setup, no amount of read/refresh fixing on this end can address
-// that. "ts=0" means the suite works but AppDelegate's write never
-// landed - a different bug, likely on the Dart/channel side. Remove
-// once the real cause is confirmed.
-private func appGroupDebugInfo() -> String {
-  guard let defaults = UserDefaults(suiteName: appGroupSuite) else {
-    return "DEBUG grp=NIL (App Group not accessible)"
-  }
-  let raw = defaults.double(forKey: lastSyncKey)
-  return "DEBUG grp=ok ts=\(raw)"
-}
-
 struct LocalSyncEntry: TimelineEntry {
   let date: Date
   let daysSinceSync: Int?
@@ -221,17 +201,6 @@ struct LocalSyncWidgetView: View {
           HDivider()
           SyncButton(imageName: "QuickActionPush", label: "Push", url: "localsync://push", iconSize: 40, font: .subheadline)
         }
-        // Temporary diagnostic - see appGroupDebugInfo()'s comment.
-        // 2026-09-16: real feedback, live - "text is too small to
-        // read, make MUCH bigger." 8pt at 0.5 opacity was illegible on
-        // a real device - this is the one piece of information this
-        // whole diagnostic exists to surface, so it needs to actually
-        // be readable, not subtle.
-        Text(appGroupDebugInfo())
-          .font(.system(size: 15, weight: .bold))
-          .foregroundStyle(.white)
-          .multilineTextAlignment(.center)
-          .fixedSize(horizontal: false, vertical: true)
       }
       .padding()
       .containerBackground(localSyncGradient, for: .widget)

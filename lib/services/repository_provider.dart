@@ -21,32 +21,18 @@ class RepositoryProvider extends ChangeNotifier {
   // best-effort mirror for the Home Screen widget's traffic-light
   // indicator - a failure here never blocks or fails the sync itself.
   //
-  // 2026-09-16 real bug, live - "large widget shows Never synced" even
-  // after a confirmed real sync, and the widget's own DEBUG line
-  // confirmed the App Group container IS accessible (ruling out the
-  // scarier "App Group doesn't work on this signing setup" theory) but
-  // the timestamp was still 0 - meaning this write specifically never
-  // landed. Previously fire-and-forget with every error silently
-  // swallowed, no way to see why with no device console access this
-  // session. Now awaited and the outcome is surfaced through
-  // lastBackupChannelDebug for home_screen.dart's sync-result SnackBar
-  // to show - temporary, remove once the real cause is confirmed.
+  // 2026-09-17: confirmed via real-device diagnostics that this write
+  // does land (readback verified), but the widget extension's own
+  // process still can't see it - a non-shared App Group container under
+  // the current free/sideload signing setup, not something fixable from
+  // this side. Left as best-effort/silently-swallowed on purpose until
+  // that's resolved - see project_synclocal_app memory's 2026-09-17
+  // section for the full diagnosis.
   static const _backupStatusChannel = MethodChannel('localsync/backup_status');
-  String? _lastBackupChannelDebug;
-  String? get lastBackupChannelDebug => _lastBackupChannelDebug;
   Future<void> _recordBackupTimestamp() async {
     try {
-      // 2026-09-17: the native side used to return result(nil)
-      // unconditionally, even when its UserDefaults(suiteName:) write
-      // silently no-opped - "OK" alone never proved the write landed.
-      // AppDelegate.swift now reads the value straight back after
-      // writing it and returns that, so a real timestamp here is actual
-      // proof, not just "the channel call didn't throw".
-      final readback = await _backupStatusChannel.invokeMethod('recordSync');
-      _lastBackupChannelDebug = 'backup channel: OK, wrote ts=$readback';
-    } catch (e) {
-      _lastBackupChannelDebug = 'backup channel FAILED: $e';
-    }
+      await _backupStatusChannel.invokeMethod('recordSync');
+    } catch (_) {}
   }
 
   List<Repository>     _repos     = [];
