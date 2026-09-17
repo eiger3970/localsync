@@ -12,7 +12,9 @@ import 'sync_service.dart'
         repairAllConflictsOnDisk,
         finishMergeCommit,
         backupFilesAboutToChange,
-        verifyAndRepairCheckout;
+        verifyAndRepairCheckout,
+        runDesktopSyncScriptNow,
+        SyncResult;
 import 'vault_backup.dart';
 
 /// Extracts the repo path from a `ssh://user@host:port/path` URL - this
@@ -39,6 +41,15 @@ abstract class GitService {
   Future<StepResult> pushToBareRepo();
   Future<StepResult> getStatus();
   Future<bool> hasUncommittedChanges();
+  // 2026-09-17: real gap found, live - the app's own Desktop PUSH/PULL
+  // help text says "run it sooner yourself if you don't want to wait,"
+  // but the only real way to do that was physically going to the
+  // desktop and running localsync_sync.sh by hand in a terminal -
+  // flagged by the user as critical to the whole "just works" pitch.
+  // This runs the already-installed script immediately over the same
+  // SSH access pairing already sets up, instead of waiting for cron's
+  // next 5-minute tick.
+  Future<SyncResult> triggerDesktopSyncNow();
 }
 
 class GitServiceImpl implements GitService {
@@ -309,6 +320,25 @@ class GitServiceImpl implements GitService {
     } finally {
       client.close();
     }
+  }
+
+  // 2026-09-17: real gap found, live - see triggerDesktopSyncNow's own
+  // doc comment on GitService above for the full story. Delegates to
+  // sync_service.dart's shared top-level runDesktopSyncScriptNow() (the
+  // real SSH-exec logic lives there once, not duplicated here) - this
+  // override exists purely so the initial-linking flow can reach it
+  // through the same GitService interface everything else here uses.
+  @override
+  Future<SyncResult> triggerDesktopSyncNow() {
+    return runDesktopSyncScriptNow(
+      remoteHost: sshHost,
+      remotePort: sshPort,
+      remoteUser: sshUser,
+      remotePath: bareRepoPath,
+      sshPrivateKeyPath: sshPrivateKeyPath,
+      sshPassphrase: sshPassphrase,
+      desktopVaultPath: desktopVaultPath,
+    );
   }
 
   @override

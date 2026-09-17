@@ -216,12 +216,20 @@ class _WorkflowStep {
 // _ensureDesktopSyncInstalled() now installs and schedules the script
 // itself, over the same SSH access pairing already sets up - nothing
 // left to explain about HOW, just that it happens periodically.
+// 2026-09-17: "run it sooner yourself if you don't want to wait" used
+// to be a promise with no real mechanism behind it - the only way was
+// physically going to the desktop and running the script by hand in a
+// terminal, flagged by the user as critical to the app's whole "just
+// works" pitch. Now points at the real button (Home's kebab menu ->
+// Sync desktop now, home_screen.dart) instead - same "no cron/SSH
+// details" restraint as the 2026-08-30 note above, just names where
+// to tap, not how it works underneath.
 const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
     'send its data first - happens automatically every few minutes once '
-    "paired, or run it sooner yourself if you don't want to wait.";
+    "paired, or tap ⋮ then Sync desktop now if you don't want to wait.";
 const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
     'receive the data - happens automatically every few minutes once '
-    "paired, or run it sooner yourself if you don't want to wait.";
+    "paired, or tap ⋮ then Sync desktop now if you don't want to wait.";
 
 // PUSH always points north-east (sending out), PULL always points
 // south-west (receiving in) - one consistent direction language across

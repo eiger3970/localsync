@@ -203,6 +203,28 @@ class RepositoryProvider extends ChangeNotifier {
         service.push(commitMessage: commitMessage, confirmed: confirmed));
   }
 
+  // 2026-09-17: real gap found, live - "run it sooner yourself if you
+  // don't want to wait" (help_wizard.dart's Desktop PUSH/PULL notes)
+  // was a promise with no real button behind it. Deliberately NOT
+  // routed through _run/_runLocked - that machinery tracks the LOCAL
+  // repo's own sync phase/progress, but this doesn't touch local git
+  // state at all, it just asks the desktop to run its own script
+  // early. The desktop script already has to tolerate being invoked
+  // concurrently (cron fires it every 5 minutes regardless of whether
+  // a prior run finished), so no extra client-side locking added here.
+  Future<SyncResult?> triggerDesktopSyncNow(int id) async {
+    final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
+        StateError('triggerDesktopSyncNow: no repo with id $id'));
+    return runDesktopSyncScriptNow(
+      remoteHost: repo.remoteHost,
+      remotePort: repo.remotePort,
+      remoteUser: repo.remoteUser,
+      remotePath: repo.remotePath,
+      sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
+      desktopVaultPath: await _db.getDesktopVaultPath(),
+    );
+  }
+
   // 2026-08-21: real bug found live on the real vault - a manual push
   // right after returning to the app failed with libgit2's "current
   // tip is not the first parent." Root cause: nothing serialized two
