@@ -1158,10 +1158,14 @@ Future<void> _triggerDesktopSyncNow(
         children: [
           Icon(Icons.bolt, color: kGreen, size: 18),
           const SizedBox(width: 10),
+          // 2026-09-18: real ask, live - "Desktop sync complete text to
+          // be green." Was kStar (white), matching every other sync
+          // result SnackBar - this one gets its own kGreen instead,
+          // matching the bolt icon beside it.
           Flexible(
             child: Text(syncResultMessage(result),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: kStar, fontSize: 16)),
+                style: TextStyle(color: kGreen, fontSize: 16)),
           ),
         ],
       ),
@@ -1624,18 +1628,28 @@ Future<void> _showAbout(BuildContext context) async {
                 Positioned(
                   bottom: 24,
                   left: 0,
-                  // 2026-09-18: real feedback, live - "must reach top" -
-                  // SUPPORT is the last section (alphabetized, see
-                  // 2026-08-23 above), so reaching the dialog's top means
-                  // clearing DISCLAIMER/SETUP GUIDE above it - the old
-                  // 90px default trail never traveled anywhere near
-                  // that far, it just happened to get clipped around
-                  // the same area before this fix, reading as "reaches
-                  // DISCLAIMER" by coincidence, not by design.
-                  child: FloatingHearts(color: kGreen, trailHeight: 420),
+                  // 2026-09-18: real feedback, live (round 2) - "Hearts
+                  // floating stop at credits, but should go to v0.0
+                  // height." 420 only reached CREDITS, three sections up
+                  // from SUPPORT - measured the real distance from the
+                  // version line's own bottom edge to SUPPORT's bottom
+                  // edge with a throwaway test replica of this exact
+                  // Column (real text, real spacing): 1047px. Minus the
+                  // 24px bottom offset above, 1023px is the real minimum
+                  // to reach the version line - 1050 clears it with a
+                  // small margin instead of stopping just short again.
+                  child: FloatingHearts(color: kGreen, trailHeight: 1050),
                 ),
                 const _AboutHeader(
-                    icon: Icons.favorite_outline, label: 'SUPPORT'),
+                    icon: Icons.favorite_outline,
+                    label: 'SUPPORT',
+                    // 2026-09-18: real ask, live - "SUPPORT have heart
+                    // change from grey to green fading like a heart
+                    // beat." Every other _AboutHeader icon stays the
+                    // plain static kTextDim grey (pulse defaults false) -
+                    // only SUPPORT's heart pulses, since only SUPPORT is
+                    // actually about the donation trail rising beside it.
+                    pulse: true),
               ],
             ),
             const SizedBox(height: 6),
@@ -1687,13 +1701,19 @@ Future<void> _showAbout(BuildContext context) async {
 class _AboutHeader extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _AboutHeader({required this.icon, required this.label});
+  // 2026-09-18: real ask, live - "SUPPORT have heart change from grey
+  // to green fading like a heart beat." Opt-in, not a blanket change -
+  // every other section header (CONTACT/CREDITS/DISCLAIMER/SETUP GUIDE)
+  // keeps its plain static kTextDim icon.
+  final bool pulse;
+  const _AboutHeader(
+      {required this.icon, required this.label, this.pulse = false});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: kTextDim, size: 13),
+        pulse ? _HeartbeatIcon(icon: icon) : Icon(icon, color: kTextDim, size: 13),
         const SizedBox(width: 5),
         Text(label,
             style: TextStyle(
@@ -1702,6 +1722,50 @@ class _AboutHeader extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5)),
       ],
+    );
+  }
+}
+
+// 2026-09-18: real ask, live - "SUPPORT have heart change from grey to
+// green fading like a heart beat." Color-lerps between kTextDim (grey,
+// matching every other section header) and kGreen on a repeating
+// fade, instead of a static color - reads as a pulse, not a blink,
+// since it's a smooth color transition rather than an on/off toggle.
+class _HeartbeatIcon extends StatefulWidget {
+  final IconData icon;
+  const _HeartbeatIcon({required this.icon});
+
+  @override
+  State<_HeartbeatIcon> createState() => _HeartbeatIconState();
+}
+
+class _HeartbeatIconState extends State<_HeartbeatIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => Icon(widget.icon,
+          color: Color.lerp(
+              kTextDim, kGreen, Curves.easeInOut.transform(_ctrl.value)),
+          size: 13),
     );
   }
 }
