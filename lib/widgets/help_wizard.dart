@@ -221,15 +221,15 @@ class _WorkflowStep {
 // physically going to the desktop and running the script by hand in a
 // terminal, flagged by the user as critical to the app's whole "just
 // works" pitch. Now points at the real button (Home's kebab menu ->
-// Sync desktop now, home_screen.dart) instead - same "no cron/SSH
+// Desktop sync, home_screen.dart) instead - same "no cron/SSH
 // details" restraint as the 2026-08-30 note above, just names where
 // to tap, not how it works underneath.
 const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
     'send its data first - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Sync desktop now if you don't want to wait.";
+    "paired, or tap ⋮ then Desktop sync if you don't want to wait.";
 const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
     'receive the data - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Sync desktop now if you don't want to wait.";
+    "paired, or tap ⋮ then Desktop sync if you don't want to wait.";
 
 // PUSH always points north-east (sending out), PULL always points
 // south-west (receiving in) - one consistent direction language across
