@@ -63,9 +63,16 @@ class _CommitScreenState extends State<CommitScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'COMMIT MESSAGE',
-              style: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+            Row(
+              children: [
+                Icon(Icons.edit_note, color: kTextDim, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  'COMMIT MESSAGE',
+                  style: TextStyle(
+                      color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             TextField(
@@ -75,9 +82,16 @@ class _CommitScreenState extends State<CommitScreen> {
               decoration: const InputDecoration(hintText: '202502281200 quick sync'),
             ),
             const SizedBox(height: 20),
-            Text(
-              'TEMPLATES',
-              style: TextStyle(color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+            Row(
+              children: [
+                Icon(Icons.list_alt_outlined, color: kTextDim, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  'TEMPLATES',
+                  style: TextStyle(
+                      color: kTextDim, fontSize: 10, letterSpacing: 1.5),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             // Template list - sorted by usage frequency
@@ -222,16 +236,41 @@ class _TemplateTile extends StatelessWidget {
     required this.onTap,
   });
 
+  // 2026-09-17: real ask, live - add images per template ("add
+  // (feature), fix (issue), merge (branch)"). Derived from the
+  // pattern's own leading verb rather than hardcoded per string, so
+  // this also covers the other shipped defaults (update/refactor/
+  // remove/quick sync) and degrades to a plain generic icon for any
+  // custom template a user creates that doesn't match a known verb -
+  // same reasoning as every other icon fix this session, Material
+  // icons only, no new SVG risk.
+  static IconData _iconFor(String pattern) {
+    final verb = pattern.split(' ').first.toLowerCase();
+    return switch (verb) {
+      'add' => Icons.add_circle_outline,
+      'fix' => Icons.bug_report_outlined,
+      'merge' => Icons.call_merge,
+      'update' => Icons.edit_outlined,
+      'refactor' => Icons.build_outlined,
+      'remove' => Icons.remove_circle_outline,
+      'quick' => Icons.bolt_outlined,
+      _ => Icons.description_outlined,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final color = isTopUsed ? kStar : kTextMid;
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       onTap: onTap,
+      leading: Icon(_iconFor(template.pattern), color: color, size: 18),
+      minLeadingWidth: 0,
       title: Text(
         template.pattern,
         style: TextStyle(
-          color: isTopUsed ? kStar : kTextMid,
+          color: color,
           fontSize: 12,
         ),
       ),

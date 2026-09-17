@@ -766,8 +766,18 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title:
+        // 2026-09-17: real ask, live - "same image from main menu" -
+        // the kebab menu's own "Device name" row already uses
+        // Icons.smartphone (see _MenuRow usage above), reused here so
+        // the dialog visually matches what was tapped to open it.
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.smartphone, color: kGreen, size: 20),
+            const SizedBox(width: 8),
             Text('Device name', style: TextStyle(color: kStar, fontSize: 16)),
+          ],
+        ),
         content: TextField(
           controller: ctrl,
           autofocus: true,
@@ -777,12 +787,26 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child:
-                Text('Cancel', style: TextStyle(color: kTextDim, fontSize: 15)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.close_rounded, color: kTextDim, size: 16),
+                const SizedBox(width: 4),
+                Text('Cancel',
+                    style: TextStyle(color: kTextDim, fontSize: 15)),
+              ],
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, ctrl.text.trim()),
-            child: Text('Save', style: TextStyle(color: kStar, fontSize: 15)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_rounded, color: kStar, size: 16),
+                const SizedBox(width: 4),
+                Text('Save', style: TextStyle(color: kStar, fontSize: 15)),
+              ],
+            ),
           ),
         ],
       ),
@@ -1178,18 +1202,48 @@ Future<void> _showAbout(BuildContext context) async {
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: kSurface,
-      title: Text('About', style: TextStyle(color: kStar, fontSize: 16)),
+      // 2026-09-17: same icon the kebab menu's own "About" row already
+      // uses (Icons.info_outline, see _MenuRow usage above) - matches
+      // what was tapped to open this, same reasoning as Device name's
+      // dialog title this session.
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.info_outline, color: kGreen, size: 20),
+          const SizedBox(width: 8),
+          Text('About', style: TextStyle(color: kStar, fontSize: 16)),
+        ],
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('LocalSync',
-                style: TextStyle(
-                    color: kStar, fontSize: 18, fontWeight: FontWeight.w700)),
+            // 2026-09-17: real ask, live - "svg image replicating real
+            // logo." The real app icon itself (assets/icon/icon.png,
+            // already the flutter_launcher_icons source), not a
+            // hand-traced recreation - guaranteed to match exactly
+            // since it IS the logo, not a copy of it.
+            Row(
+              children: [
+                Image.asset('assets/icon/icon.png', width: 28, height: 28),
+                const SizedBox(width: 10),
+                Text('LocalSync',
+                    style: TextStyle(
+                        color: kStar,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
             const SizedBox(height: 4),
-            Text('v${info.version} (${info.buildNumber})',
-                style: TextStyle(color: kTextMid, fontSize: 13)),
+            Row(
+              children: [
+                Icon(Icons.local_offer_outlined, color: kTextMid, size: 13),
+                const SizedBox(width: 4),
+                Text('v${info.version} (${info.buildNumber})',
+                    style: TextStyle(color: kTextMid, fontSize: 13)),
+              ],
+            ),
             const SizedBox(height: 12),
             Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
@@ -1214,12 +1268,7 @@ Future<void> _showAbout(BuildContext context) async {
             // (dependency credits + their licenses), not its own
             // alphabetized heading.
             const SizedBox(height: 20),
-            Text('CONTACT',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            const _AboutHeader(icon: Icons.forum_outlined, label: 'CONTACT'),
             const SizedBox(height: 6),
             Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
@@ -1227,12 +1276,7 @@ Future<void> _showAbout(BuildContext context) async {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
-            Text('CREDITS',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            const _AboutHeader(icon: Icons.groups_outlined, label: 'CREDITS'),
             const SizedBox(height: 6),
             // 2026-08-23: real feedback, live - "reword to public
             // library CHUV, public library Palais de Rumine, public
@@ -1278,12 +1322,8 @@ Future<void> _showAbout(BuildContext context) async {
               ),
             ),
             const SizedBox(height: 20),
-            Text('DISCLAIMER',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            const _AboutHeader(
+                icon: Icons.warning_amber_rounded, label: 'DISCLAIMER'),
             const SizedBox(height: 6),
             Text(
               'LocalSync syncs your $kContainerName over your own network - '
@@ -1328,12 +1368,8 @@ Future<void> _showAbout(BuildContext context) async {
             // a one-click "Download for Mac" button + checksummed
             // terminal command, not a wall of prose a new user has to
             // read through to find the actual download.
-            Text('SETUP GUIDE',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            const _AboutHeader(
+                icon: Icons.menu_book_outlined, label: 'SETUP GUIDE'),
             const SizedBox(height: 6),
             Text(
               'Desktop-side setup (git, SSH, the bare repo) - '
@@ -1347,12 +1383,8 @@ Future<void> _showAbout(BuildContext context) async {
             // entirely since nothing in the app is gated by this.
             // Real address applied 2026-08-23 (was a placeholder
             // before that).
-            Text('SUPPORT',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            const _AboutHeader(
+                icon: Icons.volunteer_activism_outlined, label: 'SUPPORT'),
             const SizedBox(height: 6),
             Text(
               'If LocalSync saves you money or hassle, Bitcoin Lightning '
@@ -1377,11 +1409,44 @@ Future<void> _showAbout(BuildContext context) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close', style: TextStyle(color: kGreen, fontSize: 15)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.close_rounded, color: kGreen, size: 16),
+              const SizedBox(width: 4),
+              Text('Close', style: TextStyle(color: kGreen, fontSize: 15)),
+            ],
+          ),
         ),
       ],
     ),
   );
+}
+
+// 2026-09-17: shared icon+label row for the About dialog's alphabetized
+// section headers (CONTACT/CREDITS/DISCLAIMER/SETUP GUIDE/SUPPORT) -
+// one widget instead of repeating the same TextStyle five times, real
+// ask this session to add images to all of them.
+class _AboutHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _AboutHeader({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: kTextDim, size: 13),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                color: kTextDim,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5)),
+      ],
+    );
+  }
 }
 
 // 2026-08-21: _AutoBadge removed - see the ConstrainedBox comment above

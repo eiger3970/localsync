@@ -373,7 +373,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   static const _kCommandToggle = Object();
 
   void _showHelp(String title, String command, List<Object> points,
-      {bool showBullets = true, String? detailsCommand, String? detailsIntro}) {
+      {bool showBullets = true,
+      String? detailsCommand,
+      String? detailsIntro,
+      IconData? titleIcon}) {
     showDialog(
       context: context,
       builder: (_) {
@@ -382,7 +385,21 @@ class _SettingsScreenState extends State<SettingsScreen>
         return StatefulBuilder(
           builder: (context, setState) => AlertDialog(
             backgroundColor: kSurface,
-            title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+            // 2026-09-17: real ask, live - add images to the settings
+            // help dialogs, not just text. Material icons, same reuse-
+            // established-vocabulary reasoning as the security screen's
+            // emoji fix and the help wizard's workflow-step icons this
+            // session - no new hand-drawn SVG risk.
+            title: titleIcon == null
+                ? Text(title, style: TextStyle(color: kStar, fontSize: 16))
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(titleIcon, color: kGreen, size: 20),
+                      const SizedBox(width: 8),
+                      Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+                    ],
+                  ),
             // 2026-09-03: real overflow, caught previewing this dialog -
             // a long inline command wraps across many lines within its
             // step, and the vault-path dialog's full step list is
@@ -442,7 +459,14 @@ class _SettingsScreenState extends State<SettingsScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Got it', style: TextStyle(color: kGreen)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_rounded, color: kGreen, size: 16),
+                    const SizedBox(width: 4),
+                    Text('Got it', style: TextStyle(color: kGreen)),
+                  ],
+                ),
               ),
             ],
           ),
@@ -661,12 +685,24 @@ class _SettingsScreenState extends State<SettingsScreen>
   // 2026-09-01: lightweight sibling of _showHelp - a plain title+message
   // dialog for fields with a short explanation and no command to run,
   // instead of always-visible helper text under the field.
-  void _showInfo(String title, String message) {
+  void _showInfo(String title, String message, {IconData? titleIcon}) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+        // 2026-09-17: same title-icon treatment as _showHelp above, for
+        // the same reason - kept in sync since these two dialogs already
+        // deliberately match each other's text sizing.
+        title: titleIcon == null
+            ? Text(title, style: TextStyle(color: kStar, fontSize: 16))
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(titleIcon, color: kGreen, size: 20),
+                  const SizedBox(width: 8),
+                  Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+                ],
+              ),
         // 2026-09-02: real feedback, live - "text size isn't consistent
         // in app and Settings and Settings information text." This
         // dialog's body was 14 while _showHelp's own body text (the
@@ -678,7 +714,14 @@ class _SettingsScreenState extends State<SettingsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Got it', style: TextStyle(color: kGreen)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_rounded, color: kGreen, size: 16),
+                const SizedBox(width: 4),
+                Text('Got it', style: TextStyle(color: kGreen)),
+              ],
+            ),
           ),
         ],
       ),
@@ -1202,6 +1245,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           'Desktop username',
                           'The login username on your desktop - what '
                               'you\'d type to sign in there.',
+                          titleIcon: Icons.person_outline,
                         ),
                       ),
                     ),
@@ -1677,6 +1721,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               detailsCommand: 'ip -4 addr show',
                               detailsIntro: 'Full details - every '
                                   'network interface, unfiltered:',
+                              titleIcon: Icons.back_hand_outlined,
                             ),
                           ),
                         ],
@@ -2103,6 +2148,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '2>/dev/null; fi; done',
                           detailsIntro: 'Full details - every existing '
                               'sync folder, most recently used first:',
+                          titleIcon: Icons.back_hand_outlined,
                         ),
                           ),
                         ],
@@ -2398,6 +2444,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '\$d)"; done',
                           detailsIntro: 'Full details - every folder '
                               'Obsidian has opened, ranked:',
+                          titleIcon: Icons.computer,
                         ),
                           ),
                         ],
