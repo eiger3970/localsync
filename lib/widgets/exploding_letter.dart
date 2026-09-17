@@ -230,8 +230,18 @@ class _ExplodePainter extends CustomPainter {
     // the very end) instead of a constant linear fade-with-spread, so
     // the scattering dust itself stays visible longer instead of
     // fading at the same rate it moves.
+    // 2026-09-18: real feedback, live - "P needs to say gone for a
+    // moment before reappearing." burstT/fade used to reach exactly 0
+    // right as t wrapped back to 0 (AnimationController.repeat()'s
+    // cycle boundary) - the letter re-formed the very same instant it
+    // finished fading, no actual gap between "gone" and "back." Burst
+    // now completes by burstEnd instead of riding all the way to t=1 -
+    // everything from burstEnd to the wrap is a real blank pause before
+    // the hold phase (and the letter) begins again.
     const holdEnd = 0.18;
-    final burstT = t <= holdEnd ? 0.0 : (t - holdEnd) / (1 - holdEnd);
+    const burstEnd = 0.55;
+    if (t > burstEnd) return;
+    final burstT = t <= holdEnd ? 0.0 : (t - holdEnd) / (burstEnd - holdEnd);
     final fade = pow(1 - burstT, 1.6).toDouble();
     if (fade <= 0.02) return;
     final paint = Paint()..color = color.withValues(alpha: fade.clamp(0, 1));

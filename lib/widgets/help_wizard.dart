@@ -224,12 +224,24 @@ class _WorkflowStep {
 // Desktop sync, home_screen.dart) instead - same "no cron/SSH
 // details" restraint as the 2026-08-30 note above, just names where
 // to tap, not how it works underneath.
+// 2026-09-18: real feedback, live - "Syncing desktop, can this be worked
+// into the Home screen help... the Desktop sync says sync, not push or
+// pull?" Both notes below pointed at the same ⋮ -> Desktop sync button
+// while separately claiming it covers "send" (push note) or "receive"
+// (pull note) - two different-sounding claims about one generically-
+// named button, with nothing explaining why the same button answers
+// both. It answers both because the desktop script (localsync_sync.sh)
+// genuinely does a full two-way sync each run (fetch, merge, push) -
+// "sync" in the button's name means exactly that, not a third, separate
+// operation from push/pull.
 const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
     'send its data first - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Desktop sync if you don't want to wait.";
+    "paired, or tap ⋮ then Desktop sync if you don't want to wait (it "
+    'runs both directions at once, so this covers it either way.)';
 const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
     'receive the data - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Desktop sync if you don't want to wait.";
+    "paired, or tap ⋮ then Desktop sync if you don't want to wait (it "
+    'runs both directions at once, so this covers it either way.)';
 
 // PUSH always points north-east (sending out), PULL always points
 // south-west (receiving in) - one consistent direction language across
