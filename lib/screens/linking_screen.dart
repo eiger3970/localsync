@@ -420,6 +420,12 @@ class _IdleViewState extends State<_IdleView>
   // again once typing started) - now nothing shows at all until tapped,
   // zero reading required to just get through Stage 2.
   bool _showPasswordInfo = false;
+  // 2026-09-18: real bug, live - "DESKTOP PASSWORD shield doesn't show
+  // security features." Tracks the empty->non-empty transition for the
+  // listener below, so the panel's own auto-collapse-once-typing-starts
+  // behavior fires exactly once per transition, not on every keystroke
+  // thereafter - see the listener's own comment for the full story.
+  bool _wasPasswordEmpty = true;
   late final PairingController _pairingCtrl;
   bool _pairing = false;
   StepFailure? _pairingFailure;
@@ -485,7 +491,26 @@ class _IdleViewState extends State<_IdleView>
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
     );
-    _passwordCtrl.addListener(() => setState(() {}));
+    // 2026-09-18: real bug, live - "DESKTOP PASSWORD shield doesn't show
+    // security features." The panel's own display condition used to be
+    // `_showPasswordInfo && _passwordCtrl.text.isEmpty` directly - meant
+    // as a one-time "auto-collapse once typing starts," it actually kept
+    // the shield permanently non-functional for the rest of Stage 2 the
+    // moment any text existed, since isEmpty stays false forever after.
+    // The auto-collapse now lives here instead, firing only on the
+    // specific empty->non-empty transition (guarded by _wasPasswordEmpty)
+    // - the panel's own display condition (below, in build()) just reads
+    // _showPasswordInfo directly, so tapping the shield again after
+    // typing has started actually works.
+    _passwordCtrl.addListener(() {
+      if (_showPasswordInfo &&
+          _wasPasswordEmpty &&
+          _passwordCtrl.text.isNotEmpty) {
+        _showPasswordInfo = false;
+      }
+      _wasPasswordEmpty = _passwordCtrl.text.isEmpty;
+      setState(() {});
+    });
     _confirmCtrl.addListener(() => setState(() {}));
     // 2026-09-09, rounds 2-9: several explicit-scroll attempts triggered
     // off _confirmFocusNode (field 2's own FocusNode) gaining focus -
@@ -1230,7 +1255,13 @@ class _IdleViewState extends State<_IdleView>
                     duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOut,
                     alignment: Alignment.topCenter,
-                    child: (_showPasswordInfo && _passwordCtrl.text.isEmpty)
+                    // 2026-09-18: was `_showPasswordInfo &&
+                    // _passwordCtrl.text.isEmpty` - see _passwordCtrl's
+                    // listener (initState) for why that permanently
+                    // broke the shield once any text existed. The
+                    // auto-collapse-once-typing-starts behavior lives
+                    // there now; this only needs the toggle itself.
+                    child: _showPasswordInfo
                         ? Padding(
                             padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                             child: Container(

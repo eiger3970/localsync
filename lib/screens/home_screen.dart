@@ -1138,15 +1138,7 @@ Future<void> _triggerDesktopSyncNow(
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
-      content: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const _PulsingBolt(),
-          const SizedBox(width: 10),
-          Text('Desktop syncing...',
-              style: TextStyle(color: kStar, fontSize: 16)),
-        ],
-      ),
+      content: const _PulsingSyncStatus(label: 'Desktop syncing...'),
       duration: const Duration(seconds: 30),
     ),
   );
@@ -1174,15 +1166,23 @@ Future<void> _triggerDesktopSyncNow(
 
 // Pulses opacity between dim and full while a desktop sync is running -
 // yellow reads as "in progress," the completion SnackBar above switches
-// the same bolt glyph to kGreen once the result is known.
-class _PulsingBolt extends StatefulWidget {
-  const _PulsingBolt();
+// to a plain kGreen bolt once the result is known.
+//
+// 2026-09-18: real feedback, live - "can the text also be amber and
+// pulsing like the lightning bolt. Only the lightning bolt is too
+// small for the human eye to watch." Was a bare _PulsingBolt icon next
+// to plain static kStar text - the whole row (icon, now bigger, and
+// the label) pulses together and both go amber, one shared animation
+// instead of two things drawing attention separately.
+class _PulsingSyncStatus extends StatefulWidget {
+  final String label;
+  const _PulsingSyncStatus({required this.label});
 
   @override
-  State<_PulsingBolt> createState() => _PulsingBoltState();
+  State<_PulsingSyncStatus> createState() => _PulsingSyncStatusState();
 }
 
-class _PulsingBoltState extends State<_PulsingBolt>
+class _PulsingSyncStatusState extends State<_PulsingSyncStatus>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
 
@@ -1205,7 +1205,18 @@ class _PulsingBoltState extends State<_PulsingBolt>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: Tween(begin: 0.35, end: 1.0).animate(_ctrl),
-      child: const Icon(Icons.bolt, color: Colors.amber, size: 18),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.bolt, color: Colors.amber, size: 28),
+          const SizedBox(width: 10),
+          Text(widget.label,
+              style: const TextStyle(
+                  color: Colors.amber,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600)),
+        ],
+      ),
     );
   }
 }
