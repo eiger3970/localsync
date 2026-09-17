@@ -1292,6 +1292,20 @@ class _IdleViewState extends State<_IdleView>
                                     text: 'Key: pairing key is stored on '
                                         'both devices',
                                   ),
+                                  const SizedBox(height: 8),
+                                  // 2026-09-17: real ask, live - "add SSH
+                                  // disclosure," same fix mirrored from
+                                  // pairing_screen.dart (kept in sync).
+                                  PasswordInfoRow(
+                                    icon: Icons.terminal,
+                                    iconColor: kTextMid,
+                                    text: 'Sync: a small script is '
+                                        'installed on your desktop and '
+                                        'scheduled automatically - '
+                                        'inspect or remove it anytime at '
+                                        '~/Documents/Scripts/'
+                                        'localsync_sync.sh',
+                                  ),
                                   const SizedBox(height: 10),
                                   // 2026-08-29: real feedback, live -
                                   // "line 4 makes no sense... simpler for
