@@ -14,6 +14,7 @@ import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
+import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../widgets/floating_hearts.dart';
 import '../widgets/flowing_data_animation.dart';
@@ -189,7 +190,21 @@ class HomeScreen extends StatelessWidget {
                 onSelected: (v) {
                   if (v == 'pair') _openPairing(context);
                   if (v == 'link') _openLinking(context);
-                  if (v == 'about') _showAbout(context);
+                  if (v == 'about') {
+                    // 2026-09-18: real ask, live - "Support floating
+                    // hearts decrease per higher tiers." The only real,
+                    // currently-wired signal for this is repo.syncMode -
+                    // an Obsidian-vault repo can't exist without already
+                    // having gone through the Tier 1 unlock flow
+                    // (PkmSyncUpsell's onUnlocked), while Tier 2/3/4
+                    // aren't gated by a real purchase yet (still
+                    // "ungated during testing," per docs/product-
+                    // tiers.md) - so paid-vs-free is the real
+                    // granularity available today, not a finer ladder.
+                    _showAbout(context,
+                        paidTier: provider.selectedRepo?.syncMode ==
+                            SyncMode.obsidianVault);
+                  }
                   if (v == 'device_name') _editDeviceName(context, provider);
                   if (v == 'settings') {
                     Navigator.push(
@@ -275,6 +290,17 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+                    // 2026-09-18: real ask, live (round 2) - "About to
+                    // be above Commit with message... alphabetical."
+                    // Restored to before Commit - as a bonus, About,
+                    // Commit and Conflicts now read in genuine
+                    // alphabetical order (A < Comm < Conf) without
+                    // Commit needing to be a special-cased deviation for
+                    // this stretch of the list at all.
+                    const PopupMenuItem(
+                      value: 'about',
+                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
+                    ),
                     // Commit stays pinned near the top since it's what
                     // gets tapped most once set up is done - a stated
                     // reason to deviate from alphabetical, not an
@@ -287,12 +313,6 @@ class HomeScreen extends StatelessWidget {
                           label: 'Commit with message...',
                         ),
                       ),
-                    // 2026-09-18: real ask, live - "Move Commit with
-                    // message above Conflicts." Already true in the
-                    // loose sense (Commit sat earlier in this list) -
-                    // About used to sit directly between them, so this
-                    // swaps About below Conflicts instead, making
-                    // Commit and Conflicts genuinely adjacent.
                     if (hasRepo)
                       PopupMenuItem(
                         value: 'conflicts',
@@ -313,10 +333,6 @@ class HomeScreen extends StatelessWidget {
                           subtitle: 'Files with unresolved sync conflicts',
                         ),
                       ),
-                    const PopupMenuItem(
-                      value: 'about',
-                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
-                    ),
                     if (hasRepo)
                       const PopupMenuItem(
                         value: 'delete',
@@ -1150,22 +1166,43 @@ Future<void> _triggerDesktopSyncNow(
   );
   final result = await provider.triggerDesktopSyncNow(repoId);
   if (!context.mounted || result == null) return;
+  // 2026-09-18: real bug, caught while adding the success gif below -
+  // this SnackBar showed the same green bolt + green text for BOTH a
+  // real success and a real SyncFailed diagnosis, unconditionally. A
+  // failure now gets its own red icon/text instead of borrowing
+  // success styling.
+  final isFailure = result is SyncFailed;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
       content: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bolt, color: kGreen, size: 18),
+          // 2026-09-18: real ask, live - "Can you add success jumping
+          // dog gif?" Reuses the same dog_success_stand.gif already
+          // used for the pairing/linking success moments (see
+          // ControllableGif's own doc) - one consistent mascot for
+          // "this finished," not a new asset.
+          if (!isFailure)
+            const ControllableGif(
+              assetPath: 'assets/gifs/dog_success_stand.gif',
+              playing: true,
+              height: 28,
+              frameDurationOverrides: {4: Duration(milliseconds: 700), 5: Duration(milliseconds: 50)},
+            )
+          else
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
           const SizedBox(width: 10),
           // 2026-09-18: real ask, live - "Desktop sync complete text to
           // be green." Was kStar (white), matching every other sync
-          // result SnackBar - this one gets its own kGreen instead,
-          // matching the bolt icon beside it.
+          // result SnackBar - success now matches its own gif, failure
+          // gets its own red instead of borrowing success styling.
           Flexible(
             child: Text(syncResultMessage(result),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: kGreen, fontSize: 16)),
+                style: TextStyle(
+                    color: isFailure ? Colors.redAccent : kGreen,
+                    fontSize: 16)),
           ),
         ],
       ),
@@ -1417,7 +1454,7 @@ void _showFullError(BuildContext context, Repository repo) {
 // PackageInfo first, same as Settings did, so About shows the same
 // trustworthy "v0.1.0 (24)" instead of a number that can drift from
 // pubspec.yaml unnoticed.
-Future<void> _showAbout(BuildContext context) async {
+Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
   final info = await PackageInfo.fromPlatform();
   if (!context.mounted) return;
   showDialog(
@@ -1638,7 +1675,13 @@ Future<void> _showAbout(BuildContext context) async {
                   // 24px bottom offset above, 1023px is the real minimum
                   // to reach the version line - 1050 clears it with a
                   // small margin instead of stopping just short again.
-                  child: FloatingHearts(color: kGreen, trailHeight: 1050),
+                  // 2026-09-18: real ask, live - "Support floating
+                  // hearts decrease per higher tiers." See this
+                  // dialog's own paidTier param doc (call site above)
+                  // for why paid-vs-free is the real granularity
+                  // available today.
+                  child: FloatingHearts(
+                      color: kGreen, trailHeight: 1050, quiet: paidTier),
                 ),
                 const _AboutHeader(
                     icon: Icons.favorite_outline,

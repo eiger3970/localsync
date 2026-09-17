@@ -38,11 +38,18 @@ class FloatingHearts extends StatefulWidget {
   // matches "stem from support" better - a narrow trail near the icon,
   // not a full-dialog-width spread.
   final double trailWidth;
+  // 2026-09-18: real ask, live - "Support floating hearts decrease per
+  // higher tiers." Paying users already get a calmer app overall (no
+  // ads, see FreeTierBannerAd's own gating) - fewer, fainter hearts is
+  // the same idea applied here. Fewer hearts (3, not 5) and a lower
+  // opacity ceiling, not a different animation - still the same trail.
+  final bool quiet;
   const FloatingHearts({
     super.key,
     required this.color,
     this.trailHeight = 90,
     this.trailWidth = 70,
+    this.quiet = false,
   });
 
   @override
@@ -73,7 +80,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // each heart's own cycle so they never move in lockstep, reading
     // as an irregular trickle rather than a synchronized pulse.
     _hearts = List.generate(
-      5,
+      widget.quiet ? 3 : 5,
       (_) => _Heart(
         x: 0.5 + (rng.nextDouble() - 0.5) * 0.5,
         startOffset: rng.nextDouble(),
@@ -103,7 +110,10 @@ class _FloatingHeartsState extends State<FloatingHearts>
           animation: _ctrl,
           builder: (_, __) => CustomPaint(
             painter: _HeartsPainter(
-                t: _ctrl.value, hearts: _hearts, color: widget.color),
+                t: _ctrl.value,
+                hearts: _hearts,
+                color: widget.color,
+                quiet: widget.quiet),
             size: Size.infinite,
           ),
         ),
@@ -133,7 +143,12 @@ class _HeartsPainter extends CustomPainter {
   final double t; // 0..1, loops
   final List<_Heart> hearts;
   final Color color;
-  _HeartsPainter({required this.t, required this.hearts, required this.color});
+  final bool quiet;
+  _HeartsPainter(
+      {required this.t,
+      required this.hearts,
+      required this.color,
+      this.quiet = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -152,8 +167,8 @@ class _HeartsPainter extends CustomPainter {
       final fadeOut = localT > 0.78 ? (1 - localT) / 0.22 : 1.0;
       final opacity = (fadeIn * fadeOut).clamp(0.0, 1.0);
       if (opacity <= 0.02) continue;
-      _paintHeartGlyph(
-          canvas, Offset(x, y), h.size, color.withValues(alpha: opacity * 0.5));
+      _paintHeartGlyph(canvas, Offset(x, y), h.size,
+          color.withValues(alpha: opacity * (quiet ? 0.3 : 0.5)));
     }
   }
 
