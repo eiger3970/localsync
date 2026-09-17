@@ -114,7 +114,21 @@ class _HeartsPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final h in hearts) {
       final localT = (t * h.speed + h.startOffset) % 1.0;
-      final y = size.height * (1 - localT);
+      // 2026-09-17: real feedback, live - "hearts don't come from
+      // bottom of page, hearts come from heart image at left of word
+      // SUPPORT." Was starting at the absolute bottom of the whole
+      // overlay (100%) - real tension here, not fully resolved: SUPPORT
+      // sits partway down the dialog, and true position-tracking (a
+      // GlobalKey on its real icon, following scroll) would mean hearts
+      // are only ever visible once scrolled to SUPPORT, undoing the
+      // original ask ("catch attention of users that don't scroll down
+      // far"). This is the cheaper compromise - origin moved up to 78%
+      // instead of 100%, closer to "roughly where SUPPORT sits" without
+      // literal tracking, still rising through the top so non-scrollers
+      // see them. Flagged to the user as a compromise, not a final
+      // answer - real position tracking is the other real option if
+      // this isn't close enough.
+      final y = size.height * (0.78 - localT * 0.78);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
       final x = (size.width * (h.x + sway)).clamp(0.0, size.width);
       // Fade in near the bottom, fade out near the top - never pops in/

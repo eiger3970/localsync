@@ -344,6 +344,28 @@ class _PairingScreenState extends State<PairingScreen> {
                                     text: 'Key: pairing key is stored on '
                                         'both devices',
                                   ),
+                                  const SizedBox(height: 8),
+                                  // 2026-09-17: real ask, live - "add SSH
+                                  // disclosure." The desktop sync script
+                                  // (localsync_sync.sh) and its crontab
+                                  // entry were installed automatically
+                                  // over this same SSH access with no
+                                  // in-app disclosure anywhere - checked,
+                                  // the only place this was ever
+                                  // documented was docs/desktop-setup.md,
+                                  // a repo file no real end user opens.
+                                  // Same Label: value format as the rows
+                                  // above.
+                                  PasswordInfoRow(
+                                    icon: Icons.terminal,
+                                    iconColor: kTextMid,
+                                    text: 'Sync: a small script is '
+                                        'installed on your desktop and '
+                                        'scheduled automatically - '
+                                        'inspect or remove it anytime at '
+                                        '~/Documents/Scripts/'
+                                        'localsync_sync.sh',
+                                  ),
                                   const SizedBox(height: 10),
                                   InkWell(
                                     onTap: () => Navigator.push(
