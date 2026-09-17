@@ -1258,8 +1258,24 @@ Future<void> _showAbout(BuildContext context) async {
                 applicationName: 'LocalSync',
                 applicationVersion: kAppVersion,
               ),
-              child: Text('Open-source licenses',
-                  style: TextStyle(color: kGreen, fontSize: 13)),
+              // 2026-09-17: real ask, live - "maybe gnu animal?" User
+              // sourced the actual file themselves (gnu.org's own
+              // gnu-profile.svg, the plain silhouette - the more
+              // detailed gnuhead_plain.svg turned illegible at icon
+              // scale when both were previewed side by side). Copied
+              // in untouched, tinted via colorFilter same as the
+              // pairing screen's key/lock icons.
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SvgPicture.asset('assets/logos/gnu-profile.svg',
+                      width: 16,
+                      colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
+                  const SizedBox(width: 6),
+                  Text('Open-source licenses',
+                      style: TextStyle(color: kGreen, fontSize: 13)),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             Text('DISCLAIMER',
