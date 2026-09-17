@@ -16,6 +16,7 @@ import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/diag_card.dart';
 import '../widgets/floating_hearts.dart';
+import '../widgets/flowing_data_animation.dart';
 import '../widgets/free_tier_banner_ad.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/help_wizard.dart';
@@ -936,7 +937,6 @@ class _SyncGestureZone extends StatelessWidget {
       children: [
         Expanded(
           child: GifSwipeTrigger(
-            assetPath: 'assets/gifs/git_pull.gif',
             caption: 'PULL',
             swipeDown: true,
             // 2026-08-17: "a lot of black space between PULL and
@@ -946,15 +946,32 @@ class _SyncGestureZone extends StatelessWidget {
             gifHeight: 257,
             alignTop: true,
             onConfirm: onPull,
+            // 2026-09-17: real ask, live - "Push pull flow, maybe on
+            // home screen when pushing or pulling?" Replaces the baked
+            // git_pull.gif with a real Flutter animation (particles
+            // drifting south-west, matching the direction language
+            // already used in help_wizard.dart) - zero asset weight,
+            // recolors automatically with the active skin's accent.
+            animationBuilder: (key, height) => FlowingDataAnimation(
+              key: key,
+              isPush: false,
+              color: kGreen,
+              height: height,
+            ),
           ),
         ),
         Expanded(
           child: GifSwipeTrigger(
-            assetPath: 'assets/gifs/git_push.gif',
             caption: 'PUSH',
             swipeDown: false,
             gifHeight: 198,
             onConfirm: onPush,
+            animationBuilder: (key, height) => FlowingDataAnimation(
+              key: key,
+              isPush: true,
+              color: kGreen,
+              height: height,
+            ),
           ),
         ),
       ],

@@ -39,6 +39,7 @@
 
 import 'package:flutter/material.dart';
 import 'controllable_gif.dart';
+import 'triggerable_animation.dart';
 
 class ActionGif extends StatefulWidget {
   final String assetPath;
@@ -49,15 +50,21 @@ class ActionGif extends StatefulWidget {
   State<ActionGif> createState() => ActionGifState();
 }
 
-class ActionGifState extends State<ActionGif> {
+// 2026-09-17: implements TriggerableAnimation (gif_swipe_trigger.dart) -
+// zero behavior change, this class already had both members with
+// matching signatures. Lets GifSwipeTrigger drive this generically
+// through the interface instead of the concrete ActionGifState type.
+class ActionGifState extends State<ActionGif> implements TriggerableAnimation {
   static const _minRun = Duration(milliseconds: 2000);
   bool _playing = false;
   int _runToken = 0;
 
+  @override
   bool get isPlaying => _playing;
 
   /// Races the 2000ms floor against [action]'s own completion - stops
   /// once both are done. No-ops if a run is already in flight.
+  @override
   Future<void> trigger(Future<void> Function() action) async {
     if (_playing) return;
     final token = ++_runToken;
