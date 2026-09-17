@@ -395,7 +395,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(titleIcon, color: kGreen, size: 20),
+                      // 2026-09-17: real feedback, live - green here
+                      // read as "this is a live, tappable button" - it
+                      // isn't, it's a plain title decoration. Neutral
+                      // grey instead, same fix applied everywhere this
+                      // session (About/Device name dialog titles).
+                      Icon(titleIcon, color: kTextDim, size: 18),
                       const SizedBox(width: 8),
                       Text(title, style: TextStyle(color: kStar, fontSize: 16)),
                     ],
@@ -698,7 +703,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             : Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(titleIcon, color: kGreen, size: 20),
+                  // 2026-09-17: same neutral-grey fix as _showHelp above.
+                  Icon(titleIcon, color: kTextDim, size: 18),
                   const SizedBox(width: 8),
                   Text(title, style: TextStyle(color: kStar, fontSize: 16)),
                 ],
@@ -1721,7 +1727,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               detailsCommand: 'ip -4 addr show',
                               detailsIntro: 'Full details - every '
                                   'network interface, unfiltered:',
-                              titleIcon: Icons.back_hand_outlined,
+                              titleIcon: Icons.handshake_outlined,
                             ),
                           ),
                         ],
@@ -2148,7 +2154,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '2>/dev/null; fi; done',
                           detailsIntro: 'Full details - every existing '
                               'sync folder, most recently used first:',
-                          titleIcon: Icons.back_hand_outlined,
+                          titleIcon: Icons.handshake_outlined,
                         ),
                           ),
                         ],

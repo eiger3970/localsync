@@ -773,7 +773,7 @@ class HomeScreen extends StatelessWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smartphone, color: kGreen, size: 20),
+            Icon(Icons.smartphone, color: kTextDim, size: 18),
             const SizedBox(width: 8),
             Text('Device name', style: TextStyle(color: kStar, fontSize: 16)),
           ],
@@ -1209,7 +1209,7 @@ Future<void> _showAbout(BuildContext context) async {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.info_outline, color: kGreen, size: 20),
+          Icon(Icons.info_outline, color: kTextDim, size: 18),
           const SizedBox(width: 8),
           Text('About', style: TextStyle(color: kStar, fontSize: 16)),
         ],
@@ -1238,7 +1238,7 @@ Future<void> _showAbout(BuildContext context) async {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.local_offer_outlined, color: kTextMid, size: 13),
+                Icon(Icons.numbers_outlined, color: kTextMid, size: 13),
                 const SizedBox(width: 4),
                 Text('v${info.version} (${info.buildNumber})',
                     style: TextStyle(color: kTextMid, fontSize: 13)),
@@ -1276,7 +1276,8 @@ Future<void> _showAbout(BuildContext context) async {
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
-            const _AboutHeader(icon: Icons.groups_outlined, label: 'CREDITS'),
+            const _AboutHeader(
+                icon: Icons.emoji_events_outlined, label: 'CREDITS'),
             const SizedBox(height: 6),
             // 2026-08-23: real feedback, live - "reword to public
             // library CHUV, public library Palais de Rumine, public
@@ -1384,7 +1385,7 @@ Future<void> _showAbout(BuildContext context) async {
             // Real address applied 2026-08-23 (was a placeholder
             // before that).
             const _AboutHeader(
-                icon: Icons.volunteer_activism_outlined, label: 'SUPPORT'),
+                icon: Icons.favorite_outline, label: 'SUPPORT'),
             const SizedBox(height: 6),
             Text(
               'If LocalSync saves you money or hassle, Bitcoin Lightning '
@@ -1412,9 +1413,16 @@ Future<void> _showAbout(BuildContext context) async {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.close_rounded, color: kGreen, size: 16),
+              // 2026-09-17: real feedback, live - "should Close be
+              // amber, red, or green?" None - Close only dismisses,
+              // it doesn't confirm or warn about anything, so it gets
+              // the same neutral treatment as every other plain-dismiss
+              // control in this app (Cancel, the other Close dialog
+              // above at kTextMid) rather than borrowing an accent
+              // color that implies a decision was made.
+              Icon(Icons.close_rounded, color: kTextDim, size: 16),
               const SizedBox(width: 4),
-              Text('Close', style: TextStyle(color: kGreen, fontSize: 15)),
+              Text('Close', style: TextStyle(color: kTextDim, fontSize: 15)),
             ],
           ),
         ),
