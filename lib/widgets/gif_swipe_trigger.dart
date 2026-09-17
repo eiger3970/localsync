@@ -12,14 +12,26 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'action_gif.dart';
 import 'sparkle_background.dart';
+import 'triggerable_animation.dart';
 
 class GifSwipeTrigger extends StatefulWidget {
-  final String assetPath;
+  // 2026-09-17: nullable now - only required when animationBuilder
+  // isn't given. Existing callers (CommitScreen, this file's other
+  // home_screen.dart call sites) are unaffected, they always pass a
+  // real asset path and never touch animationBuilder.
+  final String? assetPath;
   final String caption;
   final bool swipeDown; // true = swipe down triggers, false = swipe up
   final double gifHeight;
   final bool alignTop;
   final Future<void> Function() onConfirm;
+  // 2026-09-17: real ask, live - "Push pull flow, maybe on home screen
+  // when pushing or pulling?" When given, replaces the hardcoded
+  // ActionGif(assetPath: ...) in this widget's gif slot with whatever
+  // this builds instead - the returned widget's State must implement
+  // TriggerableAnimation. null (default) keeps the original ActionGif
+  // behavior exactly as before.
+  final Widget Function(Key key, double height)? animationBuilder;
   // 2026-08-14: "the screen immediately switches to the main screen, so
   // the gif shows for a split second. Then the main screen shows no
   // pushing gif, so that's a mismatch missing the flow of continuation"
@@ -35,14 +47,16 @@ class GifSwipeTrigger extends StatefulWidget {
   final VoidCallback? onSettled;
   const GifSwipeTrigger({
     super.key,
-    required this.assetPath,
+    this.assetPath,
     required this.caption,
     required this.swipeDown,
     required this.gifHeight,
     this.alignTop = false,
     required this.onConfirm,
     this.onSettled,
-  });
+    this.animationBuilder,
+  }) : assert(assetPath != null || animationBuilder != null,
+            'GifSwipeTrigger needs either assetPath or animationBuilder');
 
   @override
   State<GifSwipeTrigger> createState() => _GifSwipeTriggerState();
@@ -50,12 +64,26 @@ class GifSwipeTrigger extends StatefulWidget {
 
 class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
   static const _threshold = 56.0;
-  final _gifKey = GlobalKey<ActionGifState>();
+  // 2026-09-17: was GlobalKey<ActionGifState> - widened to the generic
+  // State bound so this can hold either ActionGifState or a custom
+  // animationBuilder's state, both accessed only through the shared
+  // TriggerableAnimation interface below.
+  final _gifKey = GlobalKey<State>();
   final _slotKey = GlobalKey();
   double _drag = 0;
   OverlayEntry? _overlayEntry;
 
-  bool get _playing => _gifKey.currentState?.isPlaying ?? false;
+  TriggerableAnimation? get _anim =>
+      _gifKey.currentState as TriggerableAnimation?;
+  bool get _playing => _anim?.isPlaying ?? false;
+
+  Widget _buildSlotContent() => widget.animationBuilder != null
+      ? widget.animationBuilder!(_gifKey, widget.gifHeight)
+      : ActionGif(
+          key: _gifKey,
+          assetPath: widget.assetPath!,
+          height: widget.gifHeight,
+        );
 
   @override
   void dispose() {
@@ -78,11 +106,7 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
         child: IgnorePointer(
           child: Transform.translate(
             offset: Offset(0, _drag),
-            child: ActionGif(
-              key: _gifKey,
-              assetPath: widget.assetPath,
-              height: widget.gifHeight,
-            ),
+            child: _buildSlotContent(),
           ),
         ),
       ),
@@ -108,7 +132,7 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       _drag = 0;
     });
     if (reached) {
-      _gifKey.currentState?.trigger(widget.onConfirm).then((_) {
+      _anim?.trigger(widget.onConfirm).then((_) {
         if (mounted) widget.onSettled?.call();
       });
     }
@@ -156,13 +180,7 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
                   SizedBox(
                     key: _slotKey,
                     height: widget.gifHeight,
-                    child: _overlayEntry == null
-                        ? ActionGif(
-                            key: _gifKey,
-                            assetPath: widget.assetPath,
-                            height: widget.gifHeight,
-                          )
-                        : null,
+                    child: _overlayEntry == null ? _buildSlotContent() : null,
                   ),
                   const SizedBox(height: 14),
                   Stack(
