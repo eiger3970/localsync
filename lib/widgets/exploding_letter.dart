@@ -15,7 +15,21 @@
 // recolors automatically with whichever skin/accent is active) - but
 // only for a shape simple enough to describe as points in code. It
 // doesn't generalize to replacing real illustrated artwork.
+//
+// 2026-09-17, corrected same day - real feedback, live: "P doesn't
+// look like a regular P and doesn't explode like the original
+// example." The original Python/PIL prototype (shown for comparison
+// before this was ever built for real) sampled real per-pixel glyph
+// coverage from a rendered font. The first Flutter version used a
+// hand-rolled parametric point-set (a vertical stroke + an approximate
+// arc) as a stand-in - it never actually matched. Now renders the real
+// letter with Flutter's own TextPainter, reads back the rasterized
+// pixels via dart:ui, and samples particle positions from wherever the
+// glyph actually has ink - the same technique the approved Python
+// version used, just running in Dart instead of PIL.
+import 'dart:async';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 class ExplodingLetter extends StatefulWidget {
@@ -36,8 +50,8 @@ class ExplodingLetter extends StatefulWidget {
 class _ExplodingLetterState extends State<ExplodingLetter>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final List<Offset> _basePoints;
-  late final List<Offset> _velocities;
+  List<Offset>? _basePoints;
+  List<Offset>? _velocities;
 
   @override
   void initState() {
@@ -52,13 +66,23 @@ class _ExplodingLetterState extends State<ExplodingLetter>
       vsync: this,
       duration: const Duration(milliseconds: 2600),
     )..repeat();
-    _basePoints = _letterPoints(widget.letter);
+    unawaited(_samplePoints());
+  }
+
+  // One-time async cost, not per-frame - renders as a blank box for the
+  // ~1 frame this takes on first build, imperceptible in practice.
+  Future<void> _samplePoints() async {
+    final pts = await _glyphPoints(widget.letter);
+    if (!mounted) return;
     final rng = Random(7);
-    _velocities = [
-      for (final p in _basePoints)
-        (Offset(p.dx - 0.5, p.dy - 0.5) * (0.7 + rng.nextDouble() * 0.6)) +
-            Offset(rng.nextDouble() - 0.5, rng.nextDouble() - 0.5) * 0.35,
-    ];
+    setState(() {
+      _basePoints = pts;
+      _velocities = [
+        for (final p in pts)
+          (Offset(p.dx - 0.5, p.dy - 0.5) * (0.7 + rng.nextDouble() * 0.6)) +
+              Offset(rng.nextDouble() - 0.5, rng.nextDouble() - 0.5) * 0.35,
+      ];
+    });
   }
 
   @override
@@ -69,6 +93,11 @@ class _ExplodingLetterState extends State<ExplodingLetter>
 
   @override
   Widget build(BuildContext context) {
+    final base = _basePoints;
+    final vel = _velocities;
+    if (base == null || vel == null) {
+      return SizedBox(width: widget.size, height: widget.size);
+    }
     return SizedBox(
       width: widget.size,
       height: widget.size,
@@ -77,8 +106,8 @@ class _ExplodingLetterState extends State<ExplodingLetter>
         builder: (_, __) => CustomPaint(
           painter: _ExplodePainter(
             t: _ctrl.value,
-            base: _basePoints,
-            vel: _velocities,
+            base: base,
+            vel: vel,
             color: widget.color,
           ),
         ),
@@ -87,29 +116,72 @@ class _ExplodingLetterState extends State<ExplodingLetter>
   }
 }
 
-// Coarse point-set tracing a capital letter's strokes, normalized to a
-// 0..1 box - not font-accurate, just enough to read as "a letter" while
-// it briefly holds shape before bursting. Only 'P' is defined (this
-// row's only caller); add more letters here if another spot wants this
-// effect later.
-List<Offset> _letterPoints(String letter) {
-  final pts = <Offset>[];
-  if (letter == 'P') {
-    for (double y = 0.06; y <= 0.94; y += 0.08) {
-      pts.add(Offset(0.24, y));
-    }
-    for (double a = -pi / 2; a <= pi / 2; a += pi / 9) {
-      pts.add(Offset(0.24 + 0.30 * cos(a), 0.32 + 0.28 * sin(a)));
-    }
-  } else {
-    // Fallback: a plain circle outline, so an unsupported letter still
-    // renders something rather than nothing.
-    for (double a = 0; a < 2 * pi; a += pi / 10) {
-      pts.add(Offset(0.5 + 0.35 * cos(a), 0.5 + 0.35 * sin(a)));
+/// Renders [letter] with Flutter's own text rendering, reads back the
+/// rasterized pixels, and returns normalized (0..1) positions of every
+/// pixel the glyph actually covers - a real point cloud of the letter's
+/// true shape, not an approximation.
+Future<List<Offset>> _glyphPoints(String letter) async {
+  // Rendered oversized (a fixed resolution regardless of the on-screen
+  // display size, which might be as small as 15-20px - too few real
+  // pixels to sample a recognizable shape from directly).
+  const renderSize = 96.0;
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: letter,
+      style: const TextStyle(
+        fontSize: renderSize * 0.82,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFFFFFFFF),
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, renderSize, renderSize));
+  final offset = Offset(
+    (renderSize - textPainter.width) / 2,
+    (renderSize - textPainter.height) / 2,
+  );
+  textPainter.paint(canvas, offset);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(renderSize.toInt(), renderSize.toInt());
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  image.dispose();
+  if (byteData == null) return _fallbackPoints();
+
+  final bytes = byteData.buffer.asUint8List();
+  final w = renderSize.toInt();
+  final h = renderSize.toInt();
+  final candidates = <Offset>[];
+  // Every few pixels, not every single one - enough density to read as
+  // a solid letter once drawn as small dots, without hundreds of near-
+  // duplicate points costing real per-frame paint work for no visible
+  // gain.
+  const stride = 3;
+  for (var y = 0; y < h; y += stride) {
+    for (var x = 0; x < w; x += stride) {
+      final alpha = bytes[(y * w + x) * 4 + 3];
+      if (alpha > 80) candidates.add(Offset(x / w, y / h));
     }
   }
-  return pts;
+  if (candidates.isEmpty) return _fallbackPoints();
+  // Cap the particle count for paint-cost reasons, same rough budget as
+  // the original hand-rolled version - subsample evenly rather than
+  // truncate, so the cap doesn't bias toward one corner of the letter.
+  const maxPoints = 60;
+  if (candidates.length <= maxPoints) return candidates;
+  final step = candidates.length / maxPoints;
+  return [for (var i = 0; i < maxPoints; i++) candidates[(i * step).floor()]];
 }
+
+/// Only reached if glyph rasterization genuinely fails (byteData null) -
+/// a plain circle outline so something still renders rather than
+/// nothing.
+List<Offset> _fallbackPoints() => [
+      for (double a = 0; a < 2 * pi; a += pi / 10)
+        Offset(0.5 + 0.35 * cos(a), 0.5 + 0.35 * sin(a)),
+    ];
 
 class _ExplodePainter extends CustomPainter {
   final double t; // 0..1, loops via AnimationController.repeat()
@@ -146,7 +218,7 @@ class _ExplodePainter extends CustomPainter {
       final v = vel[i];
       final dx = (p.dx + v.dx * burstT) * size.width;
       final dy = (p.dy + v.dy * burstT) * size.height;
-      final r = ((1.3 - burstT * 0.8) * (size.width / 20)).clamp(0.4, 2.6);
+      final r = ((1.0 - burstT * 0.6) * (size.width / 32)).clamp(0.3, 1.8);
       canvas.drawCircle(Offset(dx, dy), r, paint);
     }
   }

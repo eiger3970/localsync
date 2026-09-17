@@ -39,19 +39,27 @@ class _FloatingHeartsState extends State<FloatingHearts>
   @override
   void initState() {
     super.initState();
+    // 2026-09-17: real feedback, live - "come out of the support single
+    // heart, and far less, just quiet random floaters." Was 10 hearts
+    // spawning at random X across the whole dialog width - now a
+    // narrow band near the left edge (roughly where the SUPPORT row's
+    // own icon sits - every _AboutHeader icon in this dialog starts at
+    // the same left-aligned position), far fewer of them, smaller and
+    // slower so they read as a quiet ambient detail, not something
+    // competing for attention.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 7),
+      duration: const Duration(seconds: 9),
     )..repeat();
     final rng = Random(3);
     _hearts = List.generate(
-      10,
+      4,
       (_) => _Heart(
-        x: rng.nextDouble(),
+        x: 0.06 + rng.nextDouble() * 0.05,
         startOffset: rng.nextDouble(),
-        speed: 0.6 + rng.nextDouble() * 0.6,
-        size: 10 + rng.nextDouble() * 11,
-        drift: (rng.nextDouble() - 0.5) * 0.4,
+        speed: 0.4 + rng.nextDouble() * 0.3,
+        size: 7 + rng.nextDouble() * 6,
+        drift: (rng.nextDouble() - 0.5) * 0.25,
         driftPhase: rng.nextDouble() * 2 * pi,
       ),
     );
@@ -116,7 +124,7 @@ class _HeartsPainter extends CustomPainter {
       final opacity = (fadeIn * fadeOut).clamp(0.0, 1.0);
       if (opacity <= 0.02) continue;
       _paintHeartGlyph(
-          canvas, Offset(x, y), h.size, color.withValues(alpha: opacity * 0.8));
+          canvas, Offset(x, y), h.size, color.withValues(alpha: opacity * 0.45));
     }
   }
 
