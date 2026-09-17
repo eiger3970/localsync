@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
+import 'backup_reminder_service.dart';
 import 'conflict_scanner.dart';
 import 'database_service.dart';
 import 'device_name.dart';
@@ -254,7 +255,7 @@ class RepositoryProvider extends ChangeNotifier {
   Future<SyncResult?> triggerDesktopSyncNow(int id) async {
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
         StateError('triggerDesktopSyncNow: no repo with id $id'));
-    return runDesktopSyncScriptNow(
+    final result = await runDesktopSyncScriptNow(
       remoteHost: repo.remoteHost,
       remotePort: repo.remotePort,
       remoteUser: repo.remoteUser,
@@ -262,6 +263,12 @@ class RepositoryProvider extends ChangeNotifier {
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
       desktopVaultPath: await _db.getDesktopVaultPath(),
     );
+    // 2026-09-18: real ask, live - "Sync timer for widgets and phone
+    // notification to remind when last backed up." This path doesn't
+    // go through _runLocked's own switch (see this method's own doc on
+    // why), so it needs its own reschedule call on success.
+    if (result is SyncOk) unawaited(BackupReminderService().scheduleReminder());
+    return result;
   }
 
   // 2026-08-21: real bug found live on the real vault - a manual push
@@ -357,8 +364,27 @@ class RepositoryProvider extends ChangeNotifier {
                 lastSync:  DateTime.now(),
                 clearSyncProgress: true,
               );
-              _reposWithConflicts.add(id);
+              // 2026-09-18: real bug, found live while wiring in the
+              // backup reminder below - SyncNoChanges()/SyncOk() share
+              // this exact body with SyncOkWithConflicts() (empty-case
+              // Dart fallthrough), so this used to run unconditionally
+              // for EVERY successful sync, not just ones with real
+              // conflicts - marking a repo as amber-worthy (Conflicts
+              // row) after any clean push/pull. Scoped to the actual
+              // result type instead of the case label that happened to
+              // reach here.
+              if (result case SyncOkWithConflicts()) {
+                _reposWithConflicts.add(id);
+              }
               await _recordBackupTimestamp();
+              // 2026-09-18: real ask, live - "Sync timer for widgets
+              // and phone notification to remind when last backed up."
+              // Rescheduled on every real success (including plain
+              // SyncNoChanges - the user actively confirmed they're up
+              // to date, that still counts) - see
+              // backup_reminder_service.dart's own doc for the full
+              // reasoning.
+              unawaited(BackupReminderService().scheduleReminder());
             // 2026-08-20: "show error in human language, how to fix it,
             // then the error code verbose details - some errors do
             // this, others don't" - these two cases used to join
