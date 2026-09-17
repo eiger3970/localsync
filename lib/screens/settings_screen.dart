@@ -1727,7 +1727,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                               detailsCommand: 'ip -4 addr show',
                               detailsIntro: 'Full details - every '
                                   'network interface, unfiltered:',
-                              titleIcon: Icons.touch_app,
+                              // 2026-09-17: back_hand_outlined (stop-
+                              // palm) -> handshake_outlined (still "too
+                              // hard to see") -> touch_app ("pointy
+                              // finger... phone") -> real correction,
+                              // live: "isn't about touching the phone,
+                              // it's more about desktop entry" - this
+                              // whole dialog is typing a command's
+                              // output INTO the phone from the desktop,
+                              // not tapping anything. keyboard_outlined
+                              // instead.
+                              titleIcon: Icons.keyboard_outlined,
                             ),
                           ),
                         ],
@@ -2154,7 +2164,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               '2>/dev/null; fi; done',
                           detailsIntro: 'Full details - every existing '
                               'sync folder, most recently used first:',
-                          titleIcon: Icons.touch_app,
+                          titleIcon: Icons.keyboard_outlined,
                         ),
                           ),
                         ],

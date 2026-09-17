@@ -42,9 +42,15 @@ class _ExplodingLetterState extends State<ExplodingLetter>
   @override
   void initState() {
     super.initState();
+    // 2026-09-17: real feedback, live - "make the disintegration longer
+    // so user sees that." 1400ms total (with an 18% hold) read as a
+    // quick pop in the real continuous loop, easy to miss between
+    // resets. Nearly doubled, and the hold/burst split below was
+    // rebalanced too - not just a longer total, the dissolve itself
+    // needs to read as gradual.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 2600),
     )..repeat();
     _basePoints = _letterPoints(widget.letter);
     final rng = Random(7);
@@ -122,9 +128,17 @@ class _ExplodePainter extends CustomPainter {
     // Holds the letter shape briefly, then bursts outward and fades -
     // the hold gives the eye a moment to register "a letter" before it
     // vanishes, matching the actual claim ("used once, then gone").
+    //
+    // 2026-09-17: real feedback, live - "make the disintegration longer
+    // so user sees that." Two changes together, not just the longer
+    // total AnimationController duration above: fade now eases (stays
+    // near-opaque through most of the spread, only dropping off near
+    // the very end) instead of a constant linear fade-with-spread, so
+    // the scattering dust itself stays visible longer instead of
+    // fading at the same rate it moves.
     const holdEnd = 0.18;
     final burstT = t <= holdEnd ? 0.0 : (t - holdEnd) / (1 - holdEnd);
-    final fade = 1 - burstT;
+    final fade = pow(1 - burstT, 1.6).toDouble();
     if (fade <= 0.02) return;
     final paint = Paint()..color = color.withValues(alpha: fade.clamp(0, 1));
     for (var i = 0; i < base.length; i++) {

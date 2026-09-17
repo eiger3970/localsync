@@ -15,6 +15,7 @@ import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/diag_card.dart';
+import '../widgets/floating_hearts.dart';
 import '../widgets/free_tier_banner_ad.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/help_wizard.dart';
@@ -1273,11 +1274,21 @@ Future<void> _showAbout(BuildContext context) async {
           Text('About', style: TextStyle(color: kStar, fontSize: 16)),
         ],
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      // 2026-09-17: real ask, live - "SUPPORT, loves hearts pour out...
+      // to catch attention of users at top that don't scroll down
+      // far." See floating_hearts.dart's own header for the full
+      // reasoning - this Stack overlays FloatingHearts above the whole
+      // scrollable content (not just decorating the SUPPORT row),
+      // rising from the bottom of the dialog's fixed viewport to the
+      // top regardless of scroll position, so it's visible the moment
+      // the dialog opens.
+      content: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // 2026-09-17: real ask, live - "svg image replicating real
             // logo." The real app icon itself (assets/icon/icon.png,
             // already the flutter_launcher_icons source), not a
@@ -1463,8 +1474,13 @@ Future<void> _showAbout(BuildContext context) async {
               child: Text('steamyice42@walletofsatoshi.com',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+          Positioned.fill(
+            child: FloatingHearts(color: kGreen),
+          ),
+        ],
       ),
       actions: [
         TextButton(

@@ -420,7 +420,17 @@ class _PairingScreenState extends State<PairingScreen> {
                       // this matching invisible spacer its field
                       // stretches wider and its right-aligned eye icon
                       // lands in a different column than field 1's.
-                      const SizedBox(width: 4 + 48),
+                      //
+                      // 2026-09-17, corrected same day - real feedback
+                      // live, "2nd eye is slightly left of above eye."
+                      // First pass (4+48=52) missed that field 2's own
+                      // AnimatedContainer wraps it in 4px of padding on
+                      // BOTH sides (see its `padding:` above) - that
+                      // right-side 4px insets field 2's actual text
+                      // field independently of this spacer, so the
+                      // total needs to be 4px narrower (48, not 52) to
+                      // land both eyes at the same absolute column.
+                      const SizedBox(width: 48),
                     ],
                   ),
                   AnimatedSwitcher(
