@@ -1,0 +1,142 @@
+// widgets/floating_hearts.dart
+//
+// 2026-09-17: real ask, live - "SUPPORT, loves hearts pour out
+// randomly over screen, floating like bubbles at least to top to
+// catch attention of users at top that don't scroll down far." SUPPORT
+// sits near the bottom of the About dialog's scrollable content - a
+// heart effect confined to that row would never be seen by someone
+// who never scrolls that far. This deliberately does NOT emanate from
+// SUPPORT's real scroll position (that would need GlobalKey-based
+// position tracking, real extra complexity for a decorative touch) -
+// instead it's a Stack overlay ABOVE the whole dialog's
+// SingleChildScrollView (see home_screen.dart's _showAbout, where this
+// is wrapped around `content`), rising from the bottom of the fixed
+// dialog viewport to the top of it, regardless of scroll position.
+// That's what actually satisfies "catch attention of users that don't
+// scroll down far" - the hearts are visible the moment the dialog
+// opens, not only once SUPPORT itself is scrolled into view.
+//
+// Pure CustomPainter, no asset - same reasoning as exploding_letter.dart
+// (real Flutter animation, zero file weight). Hearts are drawn by
+// painting the real Icons.favorite glyph via TextPainter, not a hand-
+// drawn path, so they match the app's own icon language exactly.
+import 'dart:math';
+import 'package:flutter/material.dart';
+
+class FloatingHearts extends StatefulWidget {
+  final Color color;
+  const FloatingHearts({super.key, required this.color});
+
+  @override
+  State<FloatingHearts> createState() => _FloatingHeartsState();
+}
+
+class _FloatingHeartsState extends State<FloatingHearts>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final List<_Heart> _hearts;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 7),
+    )..repeat();
+    final rng = Random(3);
+    _hearts = List.generate(
+      10,
+      (_) => _Heart(
+        x: rng.nextDouble(),
+        startOffset: rng.nextDouble(),
+        speed: 0.6 + rng.nextDouble() * 0.6,
+        size: 10 + rng.nextDouble() * 11,
+        drift: (rng.nextDouble() - 0.5) * 0.4,
+        driftPhase: rng.nextDouble() * 2 * pi,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // IgnorePointer - purely decorative, must never intercept scroll/
+    // tap gestures meant for the real dialog content underneath.
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => CustomPaint(
+          painter: _HeartsPainter(t: _ctrl.value, hearts: _hearts, color: widget.color),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+}
+
+class _Heart {
+  final double x; // 0..1, horizontal position
+  final double startOffset; // 0..1, staggers each heart's cycle start
+  final double speed; // relative rise speed multiplier
+  final double size;
+  final double drift; // horizontal sway amplitude
+  final double driftPhase;
+  _Heart({
+    required this.x,
+    required this.startOffset,
+    required this.speed,
+    required this.size,
+    required this.drift,
+    required this.driftPhase,
+  });
+}
+
+class _HeartsPainter extends CustomPainter {
+  final double t; // 0..1, loops
+  final List<_Heart> hearts;
+  final Color color;
+  _HeartsPainter({required this.t, required this.hearts, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final h in hearts) {
+      final localT = (t * h.speed + h.startOffset) % 1.0;
+      final y = size.height * (1 - localT);
+      final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
+      final x = (size.width * (h.x + sway)).clamp(0.0, size.width);
+      // Fade in near the bottom, fade out near the top - never pops in/
+      // out abruptly mid-rise.
+      final fadeIn = localT < 0.12 ? localT / 0.12 : 1.0;
+      final fadeOut = localT > 0.82 ? (1 - localT) / 0.18 : 1.0;
+      final opacity = (fadeIn * fadeOut).clamp(0.0, 1.0);
+      if (opacity <= 0.02) continue;
+      _paintHeartGlyph(
+          canvas, Offset(x, y), h.size, color.withValues(alpha: opacity * 0.8));
+    }
+  }
+
+  void _paintHeartGlyph(Canvas canvas, Offset center, double size, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(Icons.favorite.codePoint),
+        style: TextStyle(
+          fontSize: size,
+          fontFamily: Icons.favorite.fontFamily,
+          package: Icons.favorite.fontPackage,
+          color: color,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeartsPainter old) => old.t != t;
+}
