@@ -529,7 +529,18 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
           if (i < steps.length - 1)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Icon(Icons.arrow_downward, size: 22, color: kStar),
+              // 2026-09-17: real feedback, live - "make the arrows
+              // pointing down have smaller heads and more discrete."
+              // arrow_downward has a long shaft + a full arrowhead, and
+              // was full-brightness kStar - swapped for a compact
+              // chevron (keyboard_arrow_down, mostly "head" shape, no
+              // shaft to make smaller separately), shrunk, and dimmed
+              // to kTextDim so it reads as a quiet connector between
+              // steps, not a bold instruction. Shared by all three
+              // flows (BOTH/DESKTOP/PHONE EDITED all render through
+              // this same _buildWorkflow), so one change here covers
+              // all three.
+              child: Icon(Icons.keyboard_arrow_down, size: 18, color: kTextDim),
             ),
         ],
         if (hint != null) ...[
