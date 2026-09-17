@@ -733,10 +733,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
                   final ts = backupTimestamp();
                   File('${backupDir.path}/'
                           '${_conflictBackupName(path, "before auto-merge, phone version", ts)}')
-                      .writeAsStringSync(oursBlob.content);
+                      .writeAsStringSync(neutralizeReminderTags(oursBlob.content));
                   File('${backupDir.path}/'
                           '${_conflictBackupName(path, "before auto-merge, desktop version", ts)}')
-                      .writeAsStringSync(theirsBlob.content);
+                      .writeAsStringSync(neutralizeReminderTags(theirsBlob.content));
                   File('${p.vaultPath}/$path').writeAsStringSync(merged);
                   autoMergedPaths.add(path);
                   continue;
@@ -790,7 +790,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           if (entryOid == null) continue;
           final blob = git.Blob.lookup(repo: repo, oid: entryOid);
           final backupName = _conflictBackupName(path, 'desktop version', ts);
-          File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
+          final backupFile = File('${backupDir.path}/$backupName');
+          if (blob.isBinary) {
+            backupFile.writeAsBytesSync(blob.contentBytes);
+          } else {
+            backupFile.writeAsStringSync(neutralizeReminderTags(blob.content));
+          }
           savedNames.add(backupName);
         } catch (_) {
           // Leave this one path unreported rather than guess at content.
@@ -1347,6 +1352,23 @@ bool _isLargeDeletion(
         }) counts) =>
     counts.removed.length >= 3;
 
+/// 2026-09-17: real bug, live - a user hit 13 duplicate popups for the
+/// same single overdue task. Root cause: Obsidian's reminder plugin
+/// scans the whole vault for "(@YYYY-MM-DD ...)" tags, and Conflict
+/// Backups had piled up 12 historical copies of one Kanban board (each
+/// pull-reset backs up whatever it's about to overwrite, see
+/// backupFilesAboutToChange below) - every stale copy still carried the
+/// live tag, so the plugin fired once per copy. A backup is meant to be
+/// a historical safety net a user can read by hand, never something a
+/// plugin acts on. Neutralizes just the reminder-plugin's own trigger
+/// tag before any text content lands in Conflict Backups - keeps the
+/// original date/time fully visible for context, just no longer in the
+/// exact shape the plugin parses as "due". Nothing else in the file is
+/// touched.
+final _reminderTagPattern = RegExp(r'\(@(\d{4}-\d{2}-\d{2}[^)]*)\)');
+String neutralizeReminderTags(String content) =>
+    content.replaceAllMapped(_reminderTagPattern, (m) => '(was due ${m[1]})');
+
 /// Shared naming for every file this app backs up into LocalSync/
 /// Conflict Backups, whichever code path is doing the backing up - one
 /// format so a folder full of these always reads the same way.
@@ -1417,7 +1439,12 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
       if (oid == null) continue;
       final blob = git.Blob.lookup(repo: repo, oid: oid);
       final backupName = _conflictBackupName(path, label, ts);
-      File('${backupDir.path}/$backupName').writeAsBytesSync(blob.contentBytes);
+      final backupFile = File('${backupDir.path}/$backupName');
+      if (blob.isBinary) {
+        backupFile.writeAsBytesSync(blob.contentBytes);
+      } else {
+        backupFile.writeAsStringSync(neutralizeReminderTags(blob.content));
+      }
       savedNames.add(backupName);
     } catch (_) {
       // Leave this one path unreported rather than let it block the
