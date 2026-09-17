@@ -259,12 +259,22 @@ class HomeScreen extends StatelessWidget {
                     if (hasRepo)
                       const PopupMenuItem(
                         value: 'sync_desktop_now',
-                        child: _MenuRow(
-                          icon: Icons.bolt_outlined,
-                          label: 'Desktop sync',
-                          subtitle:
-                              'Runs the desktop\'s sync right away, instead '
-                              'of waiting up to 5 minutes',
+                        // 2026-09-17: real ask, live - "add a slight
+                        // line space under Desktop sync." Padding on
+                        // this one item's own content, not a divider
+                        // (this menu deliberately has none) and not a
+                        // change to any other row's spacing.
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 6),
+                          child: _MenuRow(
+                            icon: Icons.bolt_outlined,
+                            label: 'Desktop sync',
+                            // 2026-09-17: reworded to the user's own
+                            // exact wording, used verbatim.
+                            subtitle:
+                                'Runs desktop immediately, rather than '
+                                'waiting',
+                          ),
                         ),
                       ),
                     const PopupMenuItem(
