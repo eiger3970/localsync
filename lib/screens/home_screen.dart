@@ -647,6 +647,14 @@ class HomeScreen extends StatelessWidget {
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
           final gestureZone = _SyncGestureZone(
+            // 2026-09-18: real ask, live - "middle between Pull and
+            // Push is blank, perfect for ad space... add 2nd gap."
+            // Tier 0 (free/genericFolder) only, same paid-tier-stays-
+            // ad-free split as the top banner - this widget is shared
+            // by both tiers (see the syncMode branch below), so the
+            // gate has to live here, at construction, not inside
+            // _SyncGestureZone itself.
+            showMidAd: repo.syncMode == SyncMode.genericFolder,
             onPull: () => _runAndShow(
                 context,
                 ({bool confirmed = false}) =>
@@ -950,7 +958,9 @@ class _MenuRow extends StatelessWidget {
 class _SyncGestureZone extends StatelessWidget {
   final Future<void> Function() onPull;
   final Future<void> Function() onPush;
-  const _SyncGestureZone({required this.onPull, required this.onPush});
+  final bool showMidAd;
+  const _SyncGestureZone(
+      {required this.onPull, required this.onPush, this.showMidAd = false});
 
   @override
   Widget build(BuildContext context) {
@@ -982,6 +992,12 @@ class _SyncGestureZone extends StatelessWidget {
             ),
           ),
         ),
+        // 2026-09-18: real ask, live - "middle between Pull and Push
+        // is blank, perfect for ad space." Second free-tier banner slot,
+        // same collapses-to-nothing-on-failure behavior as the top one
+        // (FreeTierBannerAd's own doc) - never reserves dead space if
+        // no ad loads.
+        if (showMidAd) const FreeTierBannerAd(),
         Expanded(
           child: GifSwipeTrigger(
             caption: 'PUSH',
