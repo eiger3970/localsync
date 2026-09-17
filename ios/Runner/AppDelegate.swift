@@ -363,20 +363,36 @@ class BackupStatusChannel: NSObject {
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case "recordSync":
-        UserDefaults(suiteName: BackupStatusChannel.suiteName)?
-          .set(Date().timeIntervalSince1970, forKey: BackupStatusChannel.lastSyncKey)
-        // 2026-09-16: real bug, live - "ran a pull and push... Large
-        // still shows Never synced." Writing to the shared UserDefaults
-        // does NOT itself tell WidgetKit anything changed - a widget
-        // only redraws on its own schedule (getTimeline's policy, 6h
-        // here) or when explicitly told to. This is that explicit tell.
-        // Guarded: Runner's own deployment target is iOS 13.0 (broader
-        // phone compatibility for the app itself), but WidgetCenter
-        // needs 14.0+ - only the widget extension target needs 17.0+.
+        // 2026-09-17: real bug, live - "OK" was coming back from Dart
+        // even though the widget still read ts=0. Root cause: the `?`
+        // on UserDefaults(suiteName:) silently no-ops if the suite is
+        // nil in the *Runner* process specifically - the widget's own
+        // "grp=ok" debug line only ever proved the suite works from the
+        // widget extension's process, a separate provisioning context
+        // on a sideload build. `result(nil)` fired unconditionally
+        // either way, so Dart's "OK" never actually proved the write
+        // landed. Now: fail loudly if the suite is nil here, and read
+        // the value straight back after writing so Dart gets real
+        // proof either way instead of a blind "OK".
+        guard let defaults = UserDefaults(suiteName: BackupStatusChannel.suiteName) else {
+          result(FlutterError(code: "no_app_group_suite",
+                               message: "UserDefaults(suiteName:) nil in Runner process",
+                               details: nil))
+          return
+        }
+        defaults.set(Date().timeIntervalSince1970, forKey: BackupStatusChannel.lastSyncKey)
+        let readback = defaults.double(forKey: BackupStatusChannel.lastSyncKey)
+        // Writing to the shared UserDefaults does NOT itself tell
+        // WidgetKit anything changed - a widget only redraws on its own
+        // schedule (getTimeline's policy, 6h here) or when explicitly
+        // told to. This is that explicit tell. Guarded: Runner's own
+        // deployment target is iOS 13.0 (broader phone compatibility
+        // for the app itself), but WidgetCenter needs 14.0+ - only the
+        // widget extension target needs 17.0+.
         if #available(iOS 14.0, *) {
           WidgetCenter.shared.reloadTimelines(ofKind: "LocalSyncWidget")
         }
-        result(nil)
+        result(readback)
       default:
         result(FlutterMethodNotImplemented)
       }

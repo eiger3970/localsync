@@ -36,8 +36,14 @@ class RepositoryProvider extends ChangeNotifier {
   String? get lastBackupChannelDebug => _lastBackupChannelDebug;
   Future<void> _recordBackupTimestamp() async {
     try {
-      await _backupStatusChannel.invokeMethod('recordSync');
-      _lastBackupChannelDebug = 'backup channel: OK';
+      // 2026-09-17: the native side used to return result(nil)
+      // unconditionally, even when its UserDefaults(suiteName:) write
+      // silently no-opped - "OK" alone never proved the write landed.
+      // AppDelegate.swift now reads the value straight back after
+      // writing it and returns that, so a real timestamp here is actual
+      // proof, not just "the channel call didn't throw".
+      final readback = await _backupStatusChannel.invokeMethod('recordSync');
+      _lastBackupChannelDebug = 'backup channel: OK, wrote ts=$readback';
     } catch (e) {
       _lastBackupChannelDebug = 'backup channel FAILED: $e';
     }
