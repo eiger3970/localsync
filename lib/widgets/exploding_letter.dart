@@ -125,10 +125,20 @@ Future<List<Offset>> _glyphPoints(String letter) async {
   // display size, which might be as small as 15-20px - too few real
   // pixels to sample a recognizable shape from directly).
   const renderSize = 96.0;
+  // 2026-09-17: real bug, caught before shipping - a bare TextPainter
+  // built outside any widget tree/Theme doesn't inherit this app's
+  // default font, and with no fontFamily specified it rendered as a
+  // solid tofu block (real advance-width metrics, but no actual glyph
+  // outline) - sampling that gave a uniform grid, not a letter shape.
+  // Explicit 'Roboto' (Flutter's own bundled Material default, real on
+  // every platform including iOS) fixes it - confirmed by rendering
+  // the raw offscreen image directly and looking at it, not just
+  // trusting the sampled points.
   final textPainter = TextPainter(
     text: TextSpan(
       text: letter,
       style: const TextStyle(
+        fontFamily: 'Roboto',
         fontSize: renderSize * 0.82,
         fontWeight: FontWeight.w700,
         color: Color(0xFFFFFFFF),
@@ -139,6 +149,18 @@ Future<List<Offset>> _glyphPoints(String letter) async {
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, renderSize, renderSize));
+  // 2026-09-17: real bug, caught before shipping - checking the alpha
+  // channel after toImage() came back fully opaque EVERYWHERE (a
+  // uniform grid of sampled points covering the whole canvas, not a
+  // "P" shape at all), not just where the glyph has ink. Whatever the
+  // exact compositing reason, alpha isn't a reliable transparency
+  // signal here. Explicit black fill first, so background vs. text is
+  // unambiguous - now sampling on RGB brightness (white text on black)
+  // instead of alpha, which can't have this ambiguity.
+  canvas.drawRect(
+    const Rect.fromLTWH(0, 0, renderSize, renderSize),
+    Paint()..color = const Color(0xFF000000),
+  );
   final offset = Offset(
     (renderSize - textPainter.width) / 2,
     (renderSize - textPainter.height) / 2,
@@ -161,8 +183,8 @@ Future<List<Offset>> _glyphPoints(String letter) async {
   const stride = 3;
   for (var y = 0; y < h; y += stride) {
     for (var x = 0; x < w; x += stride) {
-      final alpha = bytes[(y * w + x) * 4 + 3];
-      if (alpha > 80) candidates.add(Offset(x / w, y / h));
+      final red = bytes[(y * w + x) * 4];
+      if (red > 128) candidates.add(Offset(x / w, y / h));
     }
   }
   if (candidates.isEmpty) return _fallbackPoints();
