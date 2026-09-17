@@ -300,6 +300,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                         icon: Icons.compare_arrows,
                         label: 'Conflict',
                         glowing: _hasActiveConflicts,
+                        // 2026-09-18: real ask, live - "change colour of
+                        // Conflict glow... from green to amber when
+                        // there's a conflict." This step only ever
+                        // glows when _hasActiveConflicts is true in the
+                        // first place, so amber whenever it's visible
+                        // at all is exactly "when there's a conflict."
+                        glowColor: Colors.amber,
                       ),
                       Icon(Icons.arrow_forward, color: kTextDim, size: 18),
                       // 2026-09-09: real feedback, live - "up arrows to
@@ -1913,8 +1920,18 @@ class _SafetyStep extends StatelessWidget {
   // be invisible against an already-green icon - a soft BoxShadow halo,
   // shown only for the step actually relevant right now.
   final bool glowing;
+  // 2026-09-18: real ask, live - "change colour of Conflict glow...
+  // from green to amber when there's a conflict." Nullable, resolved
+  // with `?? kGreen` in _PulsingGlow itself - every other step keeps
+  // the plain green glow, only the 'Conflict' step's own call site
+  // passes amber.
+  final Color? glowColor;
   const _SafetyStep(
-      {this.icon, required this.label, this.iconStack, this.glowing = false})
+      {this.icon,
+      required this.label,
+      this.iconStack,
+      this.glowing = false,
+      this.glowColor})
       : assert(icon != null || iconStack != null);
 
   @override
@@ -1927,7 +1944,7 @@ class _SafetyStep extends StatelessWidget {
         // not static, adds liveliness to the page." _PulsingGlow (below)
         // replaces the fixed BoxShadow with a real, continuously
         // repeating animation.
-        glowing ? _PulsingGlow(child: iconWidget) : iconWidget,
+        glowing ? _PulsingGlow(color: glowColor, child: iconWidget) : iconWidget,
         const SizedBox(height: 4),
         // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
         // to kStar/14px - "too small and dark, make easier to read".
@@ -1947,7 +1964,8 @@ class _SafetyStep extends StatelessWidget {
 // StatelessWidget and this needs a real Ticker.
 class _PulsingGlow extends StatefulWidget {
   final Widget child;
-  const _PulsingGlow({required this.child});
+  final Color? color;
+  const _PulsingGlow({required this.child, this.color});
 
   @override
   State<_PulsingGlow> createState() => _PulsingGlowState();
@@ -1978,12 +1996,13 @@ class _PulsingGlowState extends State<_PulsingGlow>
       animation: _controller,
       builder: (context, child) {
         final t = _controller.value;
+        final glow = widget.color ?? kGreen;
         return Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: kGreen.withValues(alpha: 0.3 + 0.35 * t),
+                color: glow.withValues(alpha: 0.3 + 0.35 * t),
                 blurRadius: 8 + 12 * t,
                 spreadRadius: 1 + 3 * t,
               ),
@@ -2042,7 +2061,15 @@ class _GlowingHintState extends State<_GlowingHint>
             children: [
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: _GlowPhrase(text: 'Tap a conflict below', t: t),
+                // 2026-09-18: real ask, live - "change colour of...
+                // Tap a conflict below from green to amber when
+                // there's a conflict." This whole block only ever
+                // renders when entries.isNotEmpty (see this class's
+                // own 2026-08-26 comment above), so amber whenever
+                // it's visible at all is exactly "when there's a
+                // conflict."
+                child: _GlowPhrase(
+                    text: 'Tap a conflict below', t: t, color: Colors.amber),
               ),
               const TextSpan(text: ', then '),
               widget.pushGlowing
@@ -2070,17 +2097,23 @@ class _GlowingHintState extends State<_GlowingHint>
 class _GlowPhrase extends StatelessWidget {
   final String text;
   final double t;
-  const _GlowPhrase({required this.text, required this.t});
+  // 2026-09-18: real ask, live - "change colour of... Tap a conflict
+  // below from green to amber when there's a conflict." Nullable,
+  // resolved with `?? kGreen` below - the "push and pull on desktop"
+  // phrase (this widget's other caller) keeps plain green.
+  final Color? color;
+  const _GlowPhrase({required this.text, required this.t, this.color});
 
   @override
   Widget build(BuildContext context) {
+    final glow = color ?? kGreen;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
-            color: kGreen.withValues(alpha: 0.4 + 0.35 * t),
+            color: glow.withValues(alpha: 0.4 + 0.35 * t),
             blurRadius: 6 + 10 * t,
             spreadRadius: 0.5 + 2 * t,
           ),
@@ -2088,7 +2121,7 @@ class _GlowPhrase extends StatelessWidget {
       ),
       child: Text(text,
           style: TextStyle(
-              color: kGreen, fontWeight: FontWeight.w600, fontSize: 13)),
+              color: glow, fontWeight: FontWeight.w600, fontSize: 13)),
     );
   }
 }
