@@ -94,6 +94,20 @@ class _ControllableGifState extends State<ControllableGif> {
   @override
   void dispose() {
     _timer?.cancel();
+    // 2026-09-18: real bug, live - "sometimes the app is now closing,
+    // is that a performance issue?" Every decoded frame is a real
+    // dart:ui.Image holding native bitmap memory - Dart's own GC
+    // doesn't reliably reclaim that promptly on its own, it needs an
+    // explicit dispose() call. This widget never made one, so every
+    // ControllableGif that unmounted (a SnackBar closing, a rebuild
+    // creating a fresh instance) leaked its whole decoded frame set.
+    // This session added more create/dispose churn than before (the
+    // success dog gif now shows on every Desktop sync completion,
+    // FlowBehindGif wraps a real ActionGif alongside the flow layer) -
+    // surfacing a pre-existing leak more visibly, not a new one.
+    for (final frame in _frames) {
+      frame.image.dispose();
+    }
     super.dispose();
   }
 
