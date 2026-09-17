@@ -292,17 +292,18 @@ class _PairingScreenState extends State<PairingScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   PasswordInfoRow(
-                                    icon: Icons.lock_outline,
+                                    // 2026-09-17: real feedback, live -
+                                    // "change image to rubbish bin."
+                                    // lock_outline read as generic
+                                    // security, not the specific claim
+                                    // this line makes (discarded after
+                                    // use) - delete_outline matches the
+                                    // actual wording now.
+                                    icon: Icons.delete_outline,
                                     iconColor: kTextMid,
-                                    // 2026-08-30: real device feedback,
-                                    // round 2 - "stored/logged same
-                                    // difference right?" Fair - swapping
-                                    // one synonym for another wasn't the
-                                    // actual fix, just moved the
-                                    // redundancy. One real claim now:
-                                    // used once, then gone - no
-                                    // persistence claim to clash with the
-                                    // encryption line below at all.
+                                    // 2026-09-17: reworded nouns-first,
+                                    // matching the label:value format
+                                    // the user gave for all four rows.
                                     text: 'Password: used once to '
                                         'connect, then discarded',
                                   ),
@@ -310,20 +311,21 @@ class _PairingScreenState extends State<PairingScreen> {
                                   PasswordInfoRow(
                                     icon: Icons.enhanced_encryption_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Sent encrypted over SSH '
-                                        '(AES-256), never in plain text',
+                                    text: 'Encrypted: sent over SSH '
+                                        '(AES-256), never plain text',
                                   ),
                                   const SizedBox(height: 8),
                                   const PasswordInfoRow(
                                     icon: Icons.warning_amber_rounded,
                                     iconColor: Colors.amber,
-                                    text: 'Only for apps you already trust',
+                                    text: 'Trust: only use apps you are '
+                                        'sure are safe',
                                   ),
                                   const SizedBox(height: 8),
                                   PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Pairing key is stored on '
+                                    text: 'Key: pairing key is stored on '
                                         'both devices',
                                   ),
                                   const SizedBox(height: 10),
@@ -394,6 +396,15 @@ class _PairingScreenState extends State<PairingScreen> {
                           ),
                         ),
                       ),
+                      // 2026-09-17: real feedback, live - "eye icons on
+                      // same column." Field 1's row reserves trailing
+                      // space for the shield IconButton after it (4px +
+                      // IconButton's own 48px minimum tap target) -
+                      // field 2 has no such trailing icon, so without
+                      // this matching invisible spacer its field
+                      // stretches wider and its right-aligned eye icon
+                      // lands in a different column than field 1's.
+                      const SizedBox(width: 4 + 48),
                     ],
                   ),
                   AnimatedSwitcher(
