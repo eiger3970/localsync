@@ -1246,7 +1246,7 @@ Future<void> _showAbout(BuildContext context) async {
               'CHUV, Public library Médiathèque Valais Sion Makerspace '
               '(3D printing), Public library Palais de Rumine, '
               'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, '
-              'Vim',
+              'Vim, Working Copy',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 12),

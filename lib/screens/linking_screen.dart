@@ -1257,7 +1257,7 @@ class _IdleViewState extends State<_IdleView>
                                     // fix. One real claim now: used once,
                                     // then gone - nothing left to clash
                                     // with the encryption line at all.
-                                    text: 'Your password: used once to '
+                                    text: 'Password: used once to '
                                         'connect, then discarded',
                                   ),
                                   const SizedBox(height: 8),
@@ -1277,7 +1277,7 @@ class _IdleViewState extends State<_IdleView>
                                   PasswordInfoRow(
                                     icon: Icons.vpn_key_outlined,
                                     iconColor: kTextMid,
-                                    text: 'Your pairing key is stored on '
+                                    text: 'Pairing key is stored on '
                                         'both devices',
                                   ),
                                   const SizedBox(height: 10),
