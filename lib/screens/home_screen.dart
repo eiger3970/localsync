@@ -632,6 +632,40 @@ class HomeScreen extends StatelessWidget {
               }
             });
           }
+          // 2026-09-18: real gap found, live - "Errors when syncing
+          // under the top title bar are too small to read, can you
+          // move to the bottom snack bar to make larger." Same pending-
+          // flag-for-the-next-frame pattern as pendingConflictRepoId
+          // above - the auto-launch pull (RepositoryProvider._init())
+          // has no BuildContext of its own to show a SnackBar from.
+          final pendingFailure = provider.pendingAutoSyncFailure;
+          if (pendingFailure != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              provider.clearPendingAutoSyncFailure();
+              if (!context.mounted) return;
+              // 2026-09-18: real feedback, live - "Pushed as desktop
+              // home screen message stays for a long time... I then
+              // tap Desktop sync and have to wait for the Pushed
+              // message to disappear." ScaffoldMessenger queues
+              // SnackBars by default - a new one waits for whatever's
+              // already showing to run out its FULL duration first,
+              // not just its exit animation. hideCurrentSnackBar()
+              // dismisses the old one immediately so this one doesn't
+              // wait behind it.
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: kSurface,
+                  content: Center(
+                    child: Text(syncResultMessage(pendingFailure),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: kStar, fontSize: 16)),
+                  ),
+                  duration: const Duration(seconds: 12),
+                ),
+              );
+            });
+          }
           // 2026-09-16: same pattern as pendingConflictRepoId just above -
           // main.dart's QuickActions().initialize callback sets this
           // (real Home Screen "Pull"/"Push" long-press actions) with no
@@ -1157,6 +1191,13 @@ class _SpinningSyncState extends State<_SpinningSync>
 // result SnackBar once the real await resolves.
 Future<void> _triggerDesktopSyncNow(
     BuildContext context, RepositoryProvider provider, int repoId) async {
+  // 2026-09-18: real feedback, live - "Pushed as desktop home screen
+  // message stays for a long time... I then tap Desktop sync and have
+  // to wait for the Pushed message to disappear." A leftover SnackBar
+  // from a prior push/pull (12s duration) queues this one behind it
+  // otherwise - hideCurrentSnackBar() clears it immediately instead of
+  // making this wait out that full duration.
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
@@ -1172,6 +1213,7 @@ Future<void> _triggerDesktopSyncNow(
   // failure now gets its own red icon/text instead of borrowing
   // success styling.
   final isFailure = result is SyncFailed;
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
@@ -1320,6 +1362,11 @@ Future<void> _runAndShow(
   // whatever's given; wrapping in Center is the real fix, not a
   // textAlign tweak (textAlign alone wouldn't recentre the content
   // box itself, only text within it).
+  // 2026-09-18: real feedback, live - "Pushed as desktop home screen
+  // message stays for a long time... have to wait for the Pushed
+  // message to disappear." hideCurrentSnackBar() so this result
+  // doesn't queue behind whatever's still showing from a prior action.
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
@@ -1458,6 +1505,28 @@ void _showFullError(BuildContext context, Repository repo) {
 // PackageInfo first, same as Settings did, so About shows the same
 // trustworthy "v0.1.0 (24)" instead of a number that can drift from
 // pubspec.yaml unnoticed.
+// 2026-09-18: real ask, live - "About, tap logo image and large image
+// fades in." A plain full-screen fade (no scrim tap-to-dismiss games,
+// just tap anywhere to close) - the point is just seeing the real icon
+// artwork bigger, not a gallery viewer.
+void _showLargeLogo(BuildContext context) {
+  showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Close',
+    barrierColor: Colors.black87,
+    transitionDuration: const Duration(milliseconds: 250),
+    pageBuilder: (context, _, __) => GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Center(
+        child: Image.asset('assets/icon/icon.png', width: 220, height: 220),
+      ),
+    ),
+    transitionBuilder: (context, animation, _, child) =>
+        FadeTransition(opacity: animation, child: child),
+  );
+}
+
 Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
   final info = await PackageInfo.fromPlatform();
   if (!context.mounted) return;
@@ -1504,7 +1573,13 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                         fontSize: 18,
                         fontWeight: FontWeight.w700)),
                 const SizedBox(width: 10),
-                Image.asset('assets/icon/icon.png', width: 28, height: 28),
+                // 2026-09-18: real ask, live - "tap logo image and
+                // large image fades in."
+                GestureDetector(
+                  onTap: () => _showLargeLogo(context),
+                  child: Image.asset('assets/icon/icon.png',
+                      width: 28, height: 28),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -1557,13 +1632,21 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             // (matches the house naming rule), and re-clusters all
             // three under "P" instead of being scattered across C/M/P.
             Text(
+              // 2026-09-18: real ask, live - "Credits missing Git, if
+              // showing Working Copy." Working Copy is the old iOS git
+              // client LocalSync actually replaced (superseded
+              // 2026-09-04, deleted from the phone) - a stale credit
+              // for a tool this app no longer uses at all. Git is the
+              // real, live dependency (git2dart FFI bindings, and the
+              // desktop script's own git fetch/merge/push) and was
+              // simply never added.
               'Bash, Blender, C, C++, Claude, Codemagic, Dart, Eye of '
-              'MATE, Flameshot, Flutter, GIMP, iLoader, Inkscape, '
+              'MATE, Flameshot, Flutter, GIMP, Git, iLoader, Inkscape, '
               'iPhone, Kanban plugin, Logseq, Obsidian, Public library '
               'CHUV, Public library Médiathèque Valais Sion Makerspace '
               '(3D printing), Public library Palais de Rumine, '
               'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, '
-              'Vim, Working Copy',
+              'Vim',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 12),
@@ -1589,7 +1672,12 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                       width: 16,
                       colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
                   const SizedBox(width: 6),
-                  Text('Open-source licenses',
+                  // 2026-09-18: real ask, live - "Open-source
+                  // licences, change to FOSS licences?" Matches the
+                  // CONTACT section's own "FOSS collaboration welcome"
+                  // wording just above - one consistent term instead
+                  // of two for the same idea.
+                  Text('FOSS licenses',
                       style: TextStyle(color: kGreen, fontSize: 13)),
                 ],
               ),
@@ -1598,10 +1686,20 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             const _AboutHeader(
                 icon: Icons.warning_amber_rounded, label: 'DISCLAIMER'),
             const SizedBox(height: 6),
+            // 2026-09-18: real ask, live - "LocalSync syncs your vault
+            // (needs terminology for free tier folder too)." kContainerName
+            // is hardcoded 'vault' everywhere else in the app (the Tier 1+
+            // PKM-aware naming), but Tier 0 (genericFolder) users sync a
+            // plain folder, not a vault - reusing the paidTier signal
+            // already threaded into this dialog (see the SUPPORT hearts'
+            // own use of it) rather than rewording the term globally,
+            // which every other kContainerName call site still assumes.
             Text(
-              'LocalSync syncs your $kContainerName over your own network - '
-              'nothing is stored on any server this app controls. This '
-              'app is provided as-is, with no guarantee against data loss.',
+              'LocalSync syncs your '
+              '${paidTier ? kContainerName : "$kContainerName or folder"} '
+              'over your own network - nothing is stored on any server '
+              'this app controls. This app is provided as-is, with no '
+              'guarantee against data loss.',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 10),
@@ -1995,19 +2093,21 @@ class _AppBarRepoStatus extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (hasError)
-                    Text(
-                      // lastError is just the diagnosis now (see the
-                      // 2026-08-20 note on this field in models/
-                      // repository.dart) - no longer a joined multi-line
-                      // blob needing a manual split to get one line.
-                      repo.lastError!,
-                      style: const TextStyle(
-                          color: Colors.redAccent, fontSize: 10),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  else if (isSyncing)
+                  // 2026-09-18: real feedback, live - "Errors when
+                  // syncing under the top title bar are too small to
+                  // read, can you move to the bottom snack bar to make
+                  // larger." This used to show repo.lastError here at
+                  // 10px, truncated to one line - removed outright, not
+                  // resized, since the real fix is showing it somewhere
+                  // that actually fits: both the manual push/pull path
+                  // (_runAndShow) and the auto-launch pull (this
+                  // screen's own pendingAutoSyncFailure handling above)
+                  // already show the same diagnosis in a real 16px
+                  // bottom SnackBar. The status dot above still turns
+                  // red/error-colored, and tapping this whole row still
+                  // opens the full error dialog (_showFullError) - only
+                  // the redundant, cramped inline copy is gone.
+                  if (isSyncing)
                     Row(
                       children: [
                         // Mirrors the name row's leading _SpinningSync

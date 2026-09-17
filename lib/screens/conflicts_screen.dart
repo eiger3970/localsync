@@ -1059,14 +1059,28 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // casing read as if only one
                                             // were a real button.
                                             const TextSpan(text: 'Resolved.\n'),
-                                            const TextSpan(text: 'Swipe '),
+                                            // 2026-09-18: real feedback,
+                                            // live - "Conflict resolved.
+                                            // Swipe PUSH, then PULL on
+                                            // desktop, completing sync.
+                                            // Change to Phone PUSH, the
+                                            // desktop PULL, completing
+                                            // sync." Names which device
+                                            // does which half directly,
+                                            // matching help_wizard.dart's
+                                            // own "Phone PUSH"/"Desktop
+                                            // PULL" step naming, instead
+                                            // of leading with the phone's
+                                            // own gesture ("Swipe").
+                                            const TextSpan(text: 'Phone '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' PUSH, then '),
+                                            const TextSpan(
+                                                text: ' PUSH, the desktop '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
@@ -1075,8 +1089,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' PULL on desktop, '
-                                                    'completing sync.\n\n'),
+                                                text: ' PULL, completing '
+                                                    'sync.\n\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This

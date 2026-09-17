@@ -262,8 +262,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       _DialogPoint(
         icon: Icons.sort,
         color: kGreen,
+        // 2026-09-18: real feedback, live - "not reordered entry by
+        // entry. Just, not reordered." simplified per direct wording.
         text: 'Both texts kept as one block each, in time order if both '
-            'start with a clock time HHMM - not reordered entry by entry '
+            'start with a clock time HHMM - not reordered '
             '(see KEEP BOTH & CLEAN UP for that)',
       ),
       // 2026-09-08, fifth pass - real feedback, live: icon review.
