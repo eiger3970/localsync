@@ -660,6 +660,13 @@ class HomeScreen extends StatelessWidget {
           if (repo.syncMode != SyncMode.genericFolder) return gestureZone;
           return Column(
             children: [
+              // 2026-09-17: real ask, live - "Ads location? Top of home
+              // screen under top bar?" Moved up from the bottom of this
+              // Column (below the gesture zone) to right under the app
+              // bar - higher-visibility slot, and doesn't compete with
+              // the PUSH/PULL gesture zones for attention the way a
+              // bottom placement did.
+              const SafeArea(bottom: false, child: FreeTierBannerAd()),
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: PkmSyncUpsell(
@@ -687,13 +694,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Expanded(child: gestureZone),
-              // 2026-09-16: "Ads without tracking, go for free app" -
-              // non-personalized/contextual only (see ads_service.dart's
-              // own doc), Tier 0 only, matching the decided paid-tier-
-              // stays-ad-free split. Collapses to nothing while loading
-              // or on any failure (FreeTierBannerAd's own doc) - never
-              // reserves dead space, never shows a broken-ad state.
-              const SafeArea(top: false, child: FreeTierBannerAd()),
             ],
           );
         },
@@ -1089,21 +1089,90 @@ class _SpinningSyncState extends State<_SpinningSync>
 // this action never touches local git state at all, it just asks the
 // desktop to run its own script - same SnackBar feedback, none of
 // that extra machinery.
+// 2026-09-17: real feedback, live - "Desktop sync, how to know when
+// it's finished, need a progress indicator. Maybe flash lightning
+// image yellow, then green when complete?" The kebab menu closes the
+// instant the item is tapped, so there's no in-menu surface left to
+// show progress on - the SnackBar itself becomes that surface: a
+// pulsing yellow bolt appears the moment the tap lands (this used to
+// be silent until the result came back, with nothing telling the user
+// a sync was even running), replaced by the existing green-check
+// result SnackBar once the real await resolves.
 Future<void> _triggerDesktopSyncNow(
     BuildContext context, RepositoryProvider provider, int repoId) async {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      backgroundColor: kSurface,
+      content: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const _PulsingBolt(),
+          const SizedBox(width: 10),
+          Text('Syncing desktop...',
+              style: TextStyle(color: kStar, fontSize: 16)),
+        ],
+      ),
+      duration: const Duration(seconds: 30),
+    ),
+  );
   final result = await provider.triggerDesktopSyncNow(repoId);
   if (!context.mounted || result == null) return;
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
-      content: Center(
-        child: Text(syncResultMessage(result),
-            textAlign: TextAlign.center,
-            style: TextStyle(color: kStar, fontSize: 16)),
+      content: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.bolt, color: kGreen, size: 18),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(syncResultMessage(result),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: kStar, fontSize: 16)),
+          ),
+        ],
       ),
       duration: const Duration(seconds: 12),
     ),
   );
+}
+
+// Pulses opacity between dim and full while a desktop sync is running -
+// yellow reads as "in progress," the completion SnackBar above switches
+// the same bolt glyph to kGreen once the result is known.
+class _PulsingBolt extends StatefulWidget {
+  const _PulsingBolt();
+
+  @override
+  State<_PulsingBolt> createState() => _PulsingBoltState();
+}
+
+class _PulsingBoltState extends State<_PulsingBolt>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween(begin: 0.35, end: 1.0).animate(_ctrl),
+      child: const Icon(Icons.bolt, color: Colors.amber, size: 18),
+    );
+  }
 }
 
 Future<void> _runAndShow(
