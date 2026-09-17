@@ -287,10 +287,12 @@ class HomeScreen extends StatelessWidget {
                           label: 'Commit with message...',
                         ),
                       ),
-                    const PopupMenuItem(
-                      value: 'about',
-                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
-                    ),
+                    // 2026-09-18: real ask, live - "Move Commit with
+                    // message above Conflicts." Already true in the
+                    // loose sense (Commit sat earlier in this list) -
+                    // About used to sit directly between them, so this
+                    // swaps About below Conflicts instead, making
+                    // Commit and Conflicts genuinely adjacent.
                     if (hasRepo)
                       PopupMenuItem(
                         value: 'conflicts',
@@ -311,6 +313,10 @@ class HomeScreen extends StatelessWidget {
                           subtitle: 'Files with unresolved sync conflicts',
                         ),
                       ),
+                    const PopupMenuItem(
+                      value: 'about',
+                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
+                    ),
                     if (hasRepo)
                       const PopupMenuItem(
                         value: 'delete',
