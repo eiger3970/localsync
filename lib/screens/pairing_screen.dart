@@ -55,7 +55,7 @@ class _PairingScreenState extends State<PairingScreen> {
   // rebuild this against a freshly-discovered IP.
   late PairingController _ctrl;
   final _passwordCtrl = TextEditingController();
-  final _shredKey = GlobalKey<ShreddingPasswordFieldState>();
+  final _shredKey1 = GlobalKey<ShreddingPasswordFieldState>();
   final _discovery = DiscoveryService();
   bool _discovering = false;
   // 2026-08-26: real feedback, live - "Password errors don't follow my
@@ -69,6 +69,22 @@ class _PairingScreenState extends State<PairingScreen> {
   // Stage 2 password field instead of a permanent info box).
   bool _showPasswordInfo = false;
 
+  // 2026-09-17: real ask, live - "PAIR WITH DESKTOP password confirmation
+  // needed... use existing password prompt build from install steps."
+  // Reuses linking_screen.dart's own proven confirm-password mechanism
+  // (same match-validation border/row logic) rather than inventing a
+  // second implementation - see that file's own multi-round history on
+  // this exact UI before touching any of it again. No _field1Done
+  // equivalent here - unlike linking_screen.dart, field 1 in this
+  // screen never had a sparkle-until-done animation to gate in the
+  // first place, so there's nothing for that signal to control.
+  final _confirmCtrl = TextEditingController();
+  final _shredKey2 = GlobalKey<ShreddingPasswordFieldState>();
+  final _passwordFocusNode = FocusNode();
+  final _confirmFocusNode = FocusNode();
+  bool get _passwordsMatch =>
+      _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
+
   @override
   void initState() {
     super.initState();
@@ -78,6 +94,7 @@ class _PairingScreenState extends State<PairingScreen> {
     );
     _ctrl.addListener(_onChange);
     _passwordCtrl.addListener(_onChange);
+    _confirmCtrl.addListener(_onChange);
   }
 
   void _onChange() => setState(() {});
@@ -87,6 +104,9 @@ class _PairingScreenState extends State<PairingScreen> {
     _ctrl.removeListener(_onChange);
     _ctrl.dispose();
     _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    _passwordFocusNode.dispose();
+    _confirmFocusNode.dispose();
     super.dispose();
   }
 
@@ -138,6 +158,26 @@ class _PairingScreenState extends State<PairingScreen> {
       // GestureDetector (a plain tap, not a pan, so it doesn't compete
       // with the drag gesture) gives an always-available way to reclaim
       // the screen before the canvas is even reachable.
+      //
+      // 2026-09-17: honest limitation, not silently glossed over - the
+      // confirm-password field below was added inside `content`, which
+      // per the 2026-08-16 history above must stay a plain unscrolled
+      // Column (ContentAboveDragCanvas's Stack needs real, bounded
+      // content height, and Stack itself needs bounded parent
+      // constraints - it can't live inside a Scrollable's unbounded
+      // child slot the way linking_screen.dart's Stage 2/3 does,
+      // because THAT screen only puts its Scrollable around Stage 2/3
+      // once the drag canvas is no longer live/interactive, which this
+      // screen's canvas always is). This tap-to-dismiss GestureDetector
+      // is the only keyboard-avoidance mechanism this screen has for
+      // the new field - real scroll-to-reveal (linking_screen.dart's
+      // Scrollable.ensureVisible approach) was NOT ported, since it
+      // needs a Scrollable ancestor this screen structurally can't
+      // have without either breaking ContentAboveDragCanvas or a
+      // bigger redesign than "add a field." Needs a real device check
+      // to see whether the confirm field actually gets covered in
+      // practice (this screen has less content than linking_screen's
+      // Stage 2/3 ever did) before treating this as solved.
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -151,9 +191,14 @@ class _PairingScreenState extends State<PairingScreen> {
             // can be pixel-aligned to the key/lock's actual rest row
             // instead of positioned externally by guesswork.
             canvas: KeyPairingTrigger(
-              enabled: !_ctrl.isRunning && _passwordCtrl.text.isNotEmpty,
+              // 2026-09-17: was text.isNotEmpty - now gated on the real
+              // confirm-match signal, same as linking_screen.dart's
+              // Stage 3 drag gate (_paired && _passwordsMatch there).
+              enabled: !_ctrl.isRunning && _passwordsMatch,
               onConfirm: _pair,
-              leadingBadge: const _StepBadge(2),
+              // Renumbered 2 -> 3 now that the confirm field is its own
+              // step 2 between password entry and the drag itself.
+              leadingBadge: const _StepBadge(3),
             ),
             content: Padding(
               padding: const EdgeInsets.all(24),
@@ -207,9 +252,13 @@ class _PairingScreenState extends State<PairingScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ShreddingPasswordField(
-                          key: _shredKey,
+                          key: _shredKey1,
                           controller: _passwordCtrl,
                           enabled: !_ctrl.isRunning,
+                          focusNode: _passwordFocusNode,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) =>
+                              _confirmFocusNode.requestFocus(),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -300,6 +349,83 @@ class _PairingScreenState extends State<PairingScreen> {
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                  ),
+                  // 2026-09-17: confirm-password field, same match-
+                  // validation pattern as linking_screen.dart's Stage 2
+                  // (badge 2, between password entry at badge 1 and the
+                  // drag-to-pair canvas now at badge 3). showOwnBorder:
+                  // false + the AnimatedContainer's own red/green border
+                  // is the same double-ring fix that file's 2026-08-30
+                  // history already found - copied verbatim, not
+                  // rediscovered.
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const _StepBadge(2),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _confirmCtrl.text.isEmpty
+                                  ? Colors.transparent
+                                  : (_passwordsMatch
+                                      ? kGreen
+                                      : Colors.redAccent),
+                              width: 1.5,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: ShreddingPasswordField(
+                            key: _shredKey2,
+                            controller: _confirmCtrl,
+                            enabled: !_ctrl.isRunning,
+                            showOwnBorder: false,
+                            showSparkle: _passwordCtrl.text.isNotEmpty &&
+                                !_passwordsMatch,
+                            focusNode: _confirmFocusNode,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _confirmFocusNode.unfocus(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _confirmCtrl.text.isEmpty
+                        ? const SizedBox.shrink(key: ValueKey('matchEmpty'))
+                        : Padding(
+                            key: const ValueKey('matchRow'),
+                            padding:
+                                const EdgeInsets.only(top: 6, left: 36),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                    _passwordsMatch
+                                        ? Icons.check_circle
+                                        : Icons.cancel,
+                                    color: _passwordsMatch
+                                        ? kGreen
+                                        : Colors.amber,
+                                    size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                    _passwordsMatch
+                                        ? 'Passwords match'
+                                        : 'Passwords should match',
+                                    style: TextStyle(
+                                        color: _passwordsMatch
+                                            ? kGreen
+                                            : Colors.amber,
+                                        fontSize: 12)),
+                              ],
                             ),
                           ),
                   ),
@@ -426,10 +552,12 @@ class _PairingScreenState extends State<PairingScreen> {
 
   Future<void> _pair() async {
     final password = _passwordCtrl.text;
-    if (password.isEmpty) return;
+    if (password.isEmpty || !_passwordsMatch) return;
 
-    final shredding = _shredKey.currentState?.shred();
-    if (shredding != null) unawaited(shredding);
+    final shredding1 = _shredKey1.currentState?.shred();
+    if (shredding1 != null) unawaited(shredding1);
+    final shredding2 = _shredKey2.currentState?.shred();
+    if (shredding2 != null) unawaited(shredding2);
     // 2026-08-29: real feedback, live - "is the git install consent in
     // the best position?" No longer resolved upfront (see initState,
     // which used to gate both fields on this) - pairWithPassword checks
