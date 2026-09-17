@@ -293,13 +293,21 @@ class _PairingScreenState extends State<PairingScreen> {
                                 children: [
                                   PasswordInfoRow(
                                     // 2026-09-17: real feedback, live -
-                                    // "change image to rubbish bin."
-                                    // lock_outline read as generic
-                                    // security, not the specific claim
-                                    // this line makes (discarded after
-                                    // use) - delete_outline matches the
-                                    // actual wording now.
-                                    icon: Icons.delete_outline,
+                                    // a rubbish bin (first pass, same
+                                    // day) reads as "nerve wracking...
+                                    // like the password is sitting in a
+                                    // bin for a hacker to steal" - a bin
+                                    // implies retrievable storage, the
+                                    // opposite of the actual claim.
+                                    // Wanted "evaporating into nothing,
+                                    // ethereal... like Thanos clicking
+                                    // his fingers" instead - first try
+                                    // was auto_awesome (sparkle), but
+                                    // that read as "magic stars,
+                                    // confusing the meaning" - grain
+                                    // (a scatter of dust/particles) is
+                                    // the closer, less ambiguous match.
+                                    icon: Icons.grain,
                                     iconColor: kTextMid,
                                     // 2026-09-17: reworded nouns-first,
                                     // matching the label:value format
