@@ -139,7 +139,12 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Unlock Obsidian Sync',
+                // 2026-09-18: real ask, live - "update text with your
+                // Title Case" (said about the sibling Keep Both &
+                // Clean Up screen, same pattern here) - Sentence case
+                // per house naming rule, "Obsidian" stays capitalized
+                // as the real product name.
+                Text('Unlock Obsidian sync',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
@@ -174,7 +179,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                               offset: const Offset(0, 4)),
                         ],
                       ),
-                      child: Text('Unlock Obsidian Sync - $_priceLabel',
+                      child: Text('Unlock Obsidian sync - $_priceLabel',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               color: Colors.white,
@@ -216,11 +221,14 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: () => Navigator.pop(context, true),
+                    // 2026-09-18: real feedback, live - "Text under
+                    // Coming soon too small." 11px -> 13px, matching
+                    // the sibling Keep Both & Clean Up screen's fix.
                     child: Text('Skip for testing (no product configured yet)',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: wInkDim,
-                            fontSize: 11,
+                            fontSize: 13,
                             decoration: TextDecoration.underline)),
                   ),
                 ],
@@ -237,7 +245,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                   children: [
                     GestureDetector(
                       onTap: _busy ? null : _restore,
-                      child: Text('Restore Purchase',
+                      child: Text('Restore purchase',
                           style: TextStyle(fontSize: 11, color: wInkDim)),
                     ),
                   ],

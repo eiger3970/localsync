@@ -60,6 +60,11 @@ class _FloatingHeartsState extends State<FloatingHearts>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final List<_Heart> _hearts;
+  // 2026-09-18: real ask, live - "Can the hearts be interactive, like
+  // a child waving a hand through balloons?" Local touch position,
+  // null when nothing's touching - the painter pushes any heart
+  // currently near this point sideways, away from it.
+  Offset? _pointer;
 
   @override
   void initState() {
@@ -100,9 +105,23 @@ class _FloatingHeartsState extends State<FloatingHearts>
 
   @override
   Widget build(BuildContext context) {
-    // IgnorePointer - purely decorative, must never intercept scroll/
-    // tap gestures meant for the real dialog content underneath.
-    return IgnorePointer(
+    // 2026-09-18: real ask, live - "Can the hearts be interactive, like
+    // a child waving a hand through balloons?" No longer IgnorePointer -
+    // but this trail now spans most of the dialog's height (trailHeight
+    // 1050 at the SUPPORT call site), so a full omnidirectional pan
+    // recognizer here would fight the ancestor SingleChildScrollView's
+    // own vertical drag recognizer for any gesture starting inside it,
+    // breaking scroll for a large chunk of the dialog. Horizontal-only
+    // drag callbacks don't compete with a vertical scroll gesture -
+    // Flutter resolves them by the drag's actual direction - and match
+    // what was actually asked for ("sway in the left or right
+    // direction") anyway.
+    return GestureDetector(
+      onHorizontalDragStart: (d) => setState(() => _pointer = d.localPosition),
+      onHorizontalDragUpdate: (d) =>
+          setState(() => _pointer = d.localPosition),
+      onHorizontalDragEnd: (_) => setState(() => _pointer = null),
+      onHorizontalDragCancel: () => setState(() => _pointer = null),
       child: SizedBox(
         width: widget.trailWidth,
         height: widget.trailHeight,
@@ -113,7 +132,8 @@ class _FloatingHeartsState extends State<FloatingHearts>
                 t: _ctrl.value,
                 hearts: _hearts,
                 color: widget.color,
-                quiet: widget.quiet),
+                quiet: widget.quiet,
+                pointer: _pointer),
             size: Size.infinite,
           ),
         ),
@@ -144,11 +164,22 @@ class _HeartsPainter extends CustomPainter {
   final List<_Heart> hearts;
   final Color color;
   final bool quiet;
+  // 2026-09-18: real ask, live - "hearts sway in the left or right
+  // direction whilst moving up" in response to touch - local position
+  // of an active horizontal drag, null when nothing's touching.
+  final Offset? pointer;
   _HeartsPainter(
       {required this.t,
       required this.hearts,
       required this.color,
-      this.quiet = false});
+      this.quiet = false,
+      this.pointer});
+
+  // How far a heart reaches out to react, and how hard it gets pushed
+  // at the closest possible distance - tuned so the push reads as a
+  // reaction to a hand passing near, not a violent flick.
+  static const _influenceRadius = 45.0;
+  static const _maxPush = 22.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -160,7 +191,19 @@ class _HeartsPainter extends CustomPainter {
       // fraction of some distant ancestor's height.
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
-      final x = (size.width * (h.x + sway)).clamp(0.0, size.width);
+      var x = (size.width * (h.x + sway)).clamp(0.0, size.width);
+      final p = pointer;
+      if (p != null) {
+        final dist = (Offset(x, y) - p).distance;
+        if (dist < _influenceRadius) {
+          // Pushes away from the touch point, stronger the closer it
+          // is - "like a hand waving through balloons," not a snap to
+          // a fixed offset.
+          final strength = 1 - dist / _influenceRadius;
+          final away = x >= p.dx ? 1.0 : -1.0;
+          x = (x + away * _maxPush * strength).clamp(0.0, size.width);
+        }
+      }
       // Fade in near the bottom (origin), fade out near the top - never
       // pops in/out abruptly mid-rise.
       final fadeIn = localT < 0.15 ? localT / 0.15 : 1.0;

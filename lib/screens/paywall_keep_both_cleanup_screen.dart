@@ -120,7 +120,12 @@ class _PaywallKeepBothCleanupScreenState
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Keep Both & Clean Up',
+              // 2026-09-18: real ask, live - "Keep both and clean up
+              // (update text with your Title Case)." Sentence case
+              // per house naming rule - was Title Case throughout this
+              // screen (see the button and Restore purchase link
+              // below too).
+              Text('Keep both and clean up',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
@@ -167,7 +172,7 @@ class _PaywallKeepBothCleanupScreenState
                             offset: const Offset(0, 4)),
                       ],
                     ),
-                    child: Text('Unlock Clean Up - $_priceLabel',
+                    child: Text('Unlock clean up - $_priceLabel',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             color: Colors.black,
@@ -197,11 +202,13 @@ class _PaywallKeepBothCleanupScreenState
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: () => Navigator.pop(context, true),
+                  // 2026-09-18: real feedback, live - "Text under
+                  // Coming soon too small." 11px -> 13px.
                   child: Text('Skip for testing (no product configured yet)',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           color: kTextDim,
-                          fontSize: 11,
+                          fontSize: 13,
                           decoration: TextDecoration.underline)),
                 ),
               ],
@@ -217,7 +224,7 @@ class _PaywallKeepBothCleanupScreenState
                 children: [
                   GestureDetector(
                     onTap: _busy ? null : _restore,
-                    child: Text('Restore Purchase',
+                    child: Text('Restore purchase',
                         style: TextStyle(fontSize: 11, color: kTextDim)),
                   ),
                 ],
