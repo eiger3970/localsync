@@ -240,7 +240,15 @@ class _ExplodePainter extends CustomPainter {
       final v = vel[i];
       final dx = (p.dx + v.dx * burstT) * size.width;
       final dy = (p.dy + v.dy * burstT) * size.height;
-      final r = ((1.0 - burstT * 0.6) * (size.width / 32)).clamp(0.3, 1.8);
+      // 2026-09-17: real bug, caught before it shipped further - "P is
+      // fading away, I don't see the explosion." /32 with a 0.3-1.8
+      // clamp was tuned against the 90px preview size, but the real
+      // PasswordInfoRow usage is only 15px - at that size the divisor
+      // gave a radius that clamped to ~0.3-0.47px the whole time,
+      // essentially invisible dots regardless of burstT, reading as a
+      // fade rather than a burst. /10 with a 1.0-3.5px floor stays
+      // visible at the actual size this is used at.
+      final r = ((1.0 - burstT * 0.6) * (size.width / 10)).clamp(1.0, 3.5);
       canvas.drawCircle(Offset(dx, dy), r, paint);
     }
   }

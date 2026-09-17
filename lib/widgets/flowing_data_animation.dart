@@ -14,8 +14,10 @@
 // slot through trigger()/isPlaying, so this needs to honor the exact
 // same shape (2000ms floor, idle-shows-still-frame, token-based reset
 // safety) to be a real drop-in, not a lookalike with different timing.
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'action_gif.dart';
 import 'triggerable_animation.dart';
 
 class FlowingDataAnimation extends StatefulWidget {
@@ -122,6 +124,74 @@ class FlowingDataAnimationState extends State<FlowingDataAnimation>
   }
 }
 
+// 2026-09-17: real feedback, live - "Flow graphics removed the gifs,
+// but should be behind it." The first version replaced git_push.gif/
+// git_pull.gif with the flow animation outright - wanted both, flow
+// as a background layer, the real gif still in front on top of it.
+// Owns two separate keys internally (one per layer) and drives both
+// through one shared TriggerableAnimation contract, so GifSwipeTrigger
+// still only ever needs to know about one thing in its gif slot.
+class FlowBehindGif extends StatefulWidget {
+  final String assetPath;
+  final bool isPush;
+  final Color flowColor;
+  final double height;
+  const FlowBehindGif({
+    super.key,
+    required this.assetPath,
+    required this.isPush,
+    required this.flowColor,
+    required this.height,
+  });
+
+  @override
+  State<FlowBehindGif> createState() => _FlowBehindGifState();
+}
+
+class _FlowBehindGifState extends State<FlowBehindGif>
+    implements TriggerableAnimation {
+  final _flowKey = GlobalKey<FlowingDataAnimationState>();
+  final _gifKey = GlobalKey<ActionGifState>();
+
+  @override
+  bool get isPlaying => _gifKey.currentState?.isPlaying ?? false;
+
+  @override
+  Future<void> trigger(Future<void> Function() action) async {
+    // The flow layer's own floor/token bookkeeping still applies
+    // (FlowingDataAnimationState.trigger has its own 2000ms floor) -
+    // starting both together and awaiting the gif's own trigger (the
+    // one GifSwipeTrigger actually cares about for isPlaying/timing)
+    // keeps a single source of truth for when the combined widget
+    // considers itself "done."
+    unawaited(_flowKey.currentState?.trigger(() => action()));
+    await _gifKey.currentState?.trigger(action);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: widget.height,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          FlowingDataAnimation(
+            key: _flowKey,
+            isPush: widget.isPush,
+            color: widget.flowColor,
+            height: widget.height,
+          ),
+          ActionGif(
+            key: _gifKey,
+            assetPath: widget.assetPath,
+            height: widget.height,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Particle {
   final double x, y, startOffset, speed, size;
   _Particle({
@@ -150,8 +220,13 @@ class _FlowPainter extends CustomPainter {
     // Push flows toward top-right, pull toward bottom-left - same
     // direction language as the north_east_rounded/south_west_rounded
     // arrows already used throughout this app (help_wizard.dart).
-    final dx = isPush ? 0.85 : -0.85;
-    final dy = isPush ? -0.53 : 0.53;
+    // 2026-09-17: real feedback, live - "should be more direction top
+    // right and bottom left." Was 0.85/-0.53 (mostly sideways, only a
+    // little vertical) - now a true 45-degree corner-to-corner
+    // diagonal, reads unambiguously as "toward that corner" instead of
+    // "mostly sideways."
+    final dx = isPush ? 0.78 : -0.78;
+    final dy = isPush ? -0.78 : 0.78;
     final paint = Paint()..color = color;
     for (final p in particles) {
       final localT = (t * p.speed + p.startOffset) % 1.0;
