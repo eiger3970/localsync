@@ -93,6 +93,16 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // numbers) instead of another guess. Remove once this is resolved.
   int _gyroEventCount = 0;
   String? _gyroError;
+  // 2026-09-18 (round 6): real ask, live - "No debug text." The
+  // in-widget Positioned overlay (round 5) never actually showed up -
+  // most likely painted-over by SUPPORT's own row content sitting at
+  // nearly the same position in this dialog's Stack, or some other
+  // layout quirk specific to this exact spot. A periodic SnackBar
+  // sidesteps that entirely - it paints through the app's own top-level
+  // ScaffoldMessenger overlay, unaffected by anything going on inside
+  // this dialog. Same mechanism already proven reliable everywhere else
+  // this session (the reminder test buttons, the widget-action debug).
+  Timer? _debugTimer;
 
   @override
   void initState() {
@@ -145,6 +155,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
       // all, indistinguishable from "just not moving enough."
       if (mounted) setState(() => _gyroError = '$e');
     });
+    _debugTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      messenger.showSnackBar(SnackBar(
+        content: Text(_gyroError != null
+            ? 'GYRO ERR: $_gyroError'
+            : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}'),
+        duration: const Duration(milliseconds: 1400),
+      ));
+    });
     // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
     // for a full cycle even at the old, much shorter 90px trail - with
     // the trail now 420px tall (reaching the dialog's top, see the
@@ -175,6 +196,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
 
   @override
   void dispose() {
+    _debugTimer?.cancel();
     _gyroSub?.cancel();
     _ctrl.dispose();
     super.dispose();
@@ -187,48 +209,21 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // that still didn't read as working on a real device) - see this
     // file's own top-of-file comment for why tilt replaced touch
     // entirely instead of another round of gesture tuning.
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        SizedBox(
-          width: widget.trailWidth,
-          height: widget.trailHeight,
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (_, __) => CustomPaint(
-              painter: _HeartsPainter(
-                  t: _ctrl.value,
-                  hearts: _hearts,
-                  color: widget.color,
-                  quiet: widget.quiet,
-                  tilt: _tilt),
-              size: Size.infinite,
-            ),
-          ),
+    return SizedBox(
+      width: widget.trailWidth,
+      height: widget.trailHeight,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => CustomPaint(
+          painter: _HeartsPainter(
+              t: _ctrl.value,
+              hearts: _hearts,
+              color: widget.color,
+              quiet: widget.quiet,
+              tilt: _tilt),
+          size: Size.infinite,
         ),
-        // 2026-09-18 (round 5): real ask, live - "hearts don't move at
-        // all" (tilt specifically). Live raw numbers, right next to the
-        // hearts themselves, so the next look gives direct ground truth
-        // - is the gyroscope stream delivering anything at all, and if
-        // so, do the numbers actually change when the phone turns -
-        // instead of trying to read it indirectly off subtle heart
-        // motion. Remove once this is resolved.
-        Positioned(
-          bottom: 0,
-          left: 0,
-          width: 220,
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (_, __) => Text(
-              _gyroError != null
-                  ? 'GYRO ERR: $_gyroError'
-                  : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}',
-              style: const TextStyle(
-                  color: Colors.red, fontSize: 10, backgroundColor: Colors.black),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
