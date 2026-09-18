@@ -438,16 +438,16 @@ class HomeScreen extends StatelessWidget {
                     // amber/red day thresholds LocalSyncWidget.swift's
                     // traffic-light dot already used - see
                     // reminders_screen.dart's own header for the full
-                    // history (this replaced a Settings-screen card from
-                    // earlier the same day, moved here per this exact
-                    // ask).
+                    // history. Round 2: renamed label ("Reminders are a
+                    // backup reminder one could say") and "colors" ->
+                    // "colours".
                     if (hasRepo)
                       const PopupMenuItem(
                         value: 'reminders',
                         child: _MenuRow(
                           icon: Icons.notifications_outlined,
-                          label: 'Reminders',
-                          subtitle: 'Widget colors & backup notification',
+                          label: 'Backup reminder',
+                          subtitle: 'Widget colours & sync notifications',
                         ),
                       ),
                     // 2026-08-27: moved here from a standalone AppBar icon -
