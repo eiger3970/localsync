@@ -24,6 +24,14 @@ dependencies:
   # code of its own to link (unlike git2dart's FFI symbols), so lower
   # risk than that saga, but still a new native platform channel.
   device_info_plus: ^10.1.0
+  # 2026-09-18: real ask, live - "swaying phone sideways left or right,
+  # no touch complications with scrolling screen touching actions" -
+  # touch-based SUPPORT hearts interaction kept losing to the ancestor
+  # scroll view in practice even after several rounds of gesture fixes.
+  # Device tilt sidesteps the conflict entirely - no gesture competing
+  # with scroll at all. Same maintained-plugin family as device_info_plus
+  # above (flutter/plus_plugins), pure platform-channel sensor readings.
+  sensors_plus: ^7.1.0
   # 2026-09-16: real feedback, live - "Push and Pull also on right
   # click" (a real iOS git app's Home Screen long-press menu has this).
   # Pure Dart platform-channel API, first new native plugin since
