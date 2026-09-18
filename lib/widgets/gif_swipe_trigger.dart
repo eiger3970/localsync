@@ -155,26 +155,8 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
   /// its own trigger (Quick Actions, the Home Screen widget's Push/Pull
   /// buttons) and needs the visual flow to actually play alongside it.
   /// No-ops while already playing, same guard _onEnd itself relies on.
-  ///
-  /// 2026-09-18 (round 2): real ask, live - "Widget shows no debug" for
-  /// home_screen.dart's own outer null-check, meaning this method IS
-  /// genuinely being reached (the outer GifSwipeTriggerState is found)
-  /// - yet still no visible animation. The two remaining unknowns are
-  /// both inside this class: whether _anim (the inner _gifKey) is null,
-  /// and whether _playing is somehow already true - either would
-  /// silently no-op everything below with zero visible sign otherwise.
-  /// Temporary, visible confirmation of both (no device console
-  /// available), until this is resolved either way.
   void triggerConfirm() {
-    final anim = _anim;
-    final playing = _playing;
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('DEBUG ${widget.caption}: anim=${anim != null} '
-              'playing=$playing'),
-          duration: const Duration(seconds: 5)));
-    }
-    if (playing) return;
+    if (_playing) return;
     _triggerConfirm();
   }
 

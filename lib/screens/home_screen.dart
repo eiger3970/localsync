@@ -783,24 +783,6 @@ class HomeScreen extends StatelessWidget {
               }
             });
           }
-          // 2026-09-18: real ask, live - unconditional (not nested in
-          // the pendingQuickAction != null check above), same reliable
-          // postFrameCallback timing - reads main.dart's own
-          // lastWidgetActionDebug on every single build, whether this
-          // launch came from the widget or not, since even plain app
-          // opens should have shown "returned: null" if the display
-          // mechanism itself worked at all. Temporary, remove once
-          // resolved either way.
-          final widgetActionDebug = provider.lastWidgetActionDebug;
-          if (widgetActionDebug != null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              provider.lastWidgetActionDebug = null;
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('DEBUG getPendingAction $widgetActionDebug'),
-                  duration: const Duration(seconds: 6)));
-            });
-          }
           // 2026-08-17: the repo tile's summary row moved into the app
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.
