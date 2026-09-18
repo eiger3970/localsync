@@ -167,19 +167,31 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // genuine turn (much faster than sensor noise) still accumulates
     // and holds exactly as before.
     //
-    // 2026-09-18 (round 10): real feedback, live - "GYRO changes" (the
-    // raw stream is fine) "[but] hearts don't change" - 0.15 rad/s is a
-    // fairly brisk turn to require before anything even starts
-    // accumulating; a normal exploratory tilt may never have reached
-    // it, leaving _tilt at 0 the whole time regardless of real motion.
-    // 0.15 -> 0.03 - still well above genuine sensor noise, but not
-    // demanding a fast deliberate snap-turn just to register at all.
-    const noiseFloor = 0.03;
+    // 2026-09-18 (round 12): real bug, confirmed by the round-11
+    // diagnostic - "GYRO shows green background" STAYING green (not
+    // flickering) with hearts still showing no reaction. That pins it:
+    // the accumulator was never actually broken, it was PERMANENTLY
+    // SATURATED. Ordinary handling (picking the phone up, holding it to
+    // read the screen) easily exceeds 0.03 rad/s - far below deliberate
+    // turning speed - so _tilt drifted to +-1 within seconds of the
+    // dialog opening, every time, before any real "steering" input even
+    // happened. With zero decay (round 4), once saturated it can never
+    // recover on its own, so it just looks permanently frozen at one
+    // edge and further tilting has nowhere left to go.
+    //
+    // Replaced the leaky integral with a direct latch: a real, fast
+    // turn (0.5 rad/s - well above incidental handling, but a normal
+    // deliberate wrist-turn clears it easily) sets the lean outright;
+    // anything slower is ignored and leaves the lean exactly where it
+    // was. No accumulation at all, so there is nothing left to
+    // saturate - it can only ever be -1, 0, or 1, and only changes on a
+    // real turn.
+    const turnThreshold = 0.5;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
       _gyroEventCount++;
-      if (event.z.abs() < noiseFloor) return;
-      _tilt = (_tilt + event.z * 0.4).clamp(-1.0, 1.0);
+      if (event.z.abs() < turnThreshold) return;
+      _tilt = event.z > 0 ? 1.0 : -1.0;
     }, onError: (e) {
       // 2026-09-18 (round 5): was silently swallowed - if motion access
       // is denied/unavailable on this exact device/signing setup, the
