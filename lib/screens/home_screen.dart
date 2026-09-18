@@ -751,11 +751,24 @@ class HomeScreen extends StatelessWidget {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               provider.clearPendingQuickAction();
               if (!context.mounted) return;
+              // 2026-09-18 (round 3): real ask, live - "no affect on gif
+              // and flow graphics" persisted even with the null-check
+              // fallback in place, and "normal swipe works" rules out
+              // the animation system itself being broken - so the
+              // fallback branch must be the one actually running every
+              // time, meaning .currentState is null here on this app's
+              // real cold-launch timing, not just in theory. Temporary,
+              // visible (no device console available) confirmation of
+              // exactly that, until this is confirmed either way.
               if (pendingQuickAction == 'action_pull') {
                 final state = pullKey.currentState;
                 if (state != null) {
                   state.triggerConfirm();
                 } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'DEBUG: pullKey.currentState was null, using fallback'),
+                      duration: Duration(seconds: 4)));
                   onPull();
                 }
               } else if (pendingQuickAction == 'action_push') {
@@ -763,6 +776,10 @@ class HomeScreen extends StatelessWidget {
                 if (state != null) {
                   state.triggerConfirm();
                 } else {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'DEBUG: pushKey.currentState was null, using fallback'),
+                      duration: Duration(seconds: 4)));
                   onPush();
                 }
               }
