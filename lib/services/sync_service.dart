@@ -1101,8 +1101,9 @@ Future<SyncResult> _withRepo(
         initialHead: p.branch,
         originUrl: p.remoteUrl,
       );
+      git.Remote? remote;
       try {
-        final remote = git.Remote.lookup(repo: repo, name: 'origin');
+        remote = git.Remote.lookup(repo: repo, name: 'origin');
         // 2026-08-30: same real bug/fix as _pullInIsolate/_pushInIsolate
         // above - a fresh/empty remote has no branches until pushed to,
         // so the unconditional fetch+lookup threw here too. An empty
@@ -1121,6 +1122,20 @@ Future<SyncResult> _withRepo(
           repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
         }
       } finally {
+        // 2026-09-18: real crash, from an actual on-device .ips log -
+        // two DartWorker threads both inside git_remote_connect's SSH
+        // handshake at once, aborting deep in BoringSSL's own global
+        // state (ERR_pop_to_mark / EVP_KEYMGMT namemap). Root cause
+        // traced here: remote.free() was never called anywhere in this
+        // file, only repo.free() - but git_remote_free() (what free()
+        // calls) is documented to close the connection if it's still
+        // open. Without it, a completed sync's SSH session stayed alive
+        // until Dart's GC finalizer eventually got to it, whenever that
+        // was - not deterministic, and not before the next sync could
+        // start its own handshake. A per-repo-id/global Dart-level lock
+        // (this session's earlier fix) can't help here - the native
+        // connection outlives the Dart-level call that made it.
+        remote?.free();
         repo.free();
       }
       return SyncOk(backedUp
@@ -1137,6 +1152,7 @@ Future<SyncResult> _withRepo(
   } catch (e) {
     return const SyncFailed(LinkingError.bareRepoNotFound);
   }
+  git.Remote? remote;
 
   try {
     // Recover from any stuck merge from a previous crashed run before
@@ -1170,11 +1186,17 @@ Future<SyncResult> _withRepo(
       finishMergeCommit(repo, p.deviceName);
       repo.stateCleanup();
     }
-    final remote = git.Remote.lookup(repo: repo, name: 'origin');
+    remote = git.Remote.lookup(repo: repo, name: 'origin');
     return op(repo, remote, callbacks);
   } catch (e) {
     return SyncFailed(_diagnose(e), debugDetail: e.toString());
   } finally {
+    // 2026-09-18: see the matching comment on the recovery-path finally
+    // above - remote.free() (git_remote_free(), which closes the
+    // connection if still open) was never called anywhere in this
+    // file. This is the path every ordinary push/pull actually runs
+    // through, so this is the one that mattered for the real crash.
+    remote?.free();
     repo.free();
   }
 }
