@@ -98,11 +98,18 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // most likely painted-over by SUPPORT's own row content sitting at
   // nearly the same position in this dialog's Stack, or some other
   // layout quirk specific to this exact spot. A periodic SnackBar
-  // sidesteps that entirely - it paints through the app's own top-level
-  // ScaffoldMessenger overlay, unaffected by anything going on inside
-  // this dialog. Same mechanism already proven reliable everywhere else
-  // this session (the reminder test buttons, the widget-action debug).
+  // (round 6) was tried next - real feedback, live (round 7): "error
+  // behind About text, so I can't read it" - the About dialog is almost
+  // certainly a showDialog() modal, whose own barrier/route sits above
+  // the ScaffoldMessenger's SnackBar layer, so the SnackBar was
+  // genuinely showing, just behind the dialog's own content.
+  //
+  // A raw OverlayEntry on the app's real ROOT overlay (rootOverlay:
+  // true) is the one thing guaranteed to paint above everything else,
+  // including any modal dialog currently open - nothing left between
+  // this and the actual pixels on screen.
   Timer? _debugTimer;
+  OverlayEntry? _debugOverlay;
 
   @override
   void initState() {
@@ -155,16 +162,33 @@ class _FloatingHeartsState extends State<FloatingHearts>
       // all, indistinguishable from "just not moving enough."
       if (mounted) setState(() => _gyroError = '$e');
     });
-    _debugTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger == null) return;
-      messenger.showSnackBar(SnackBar(
-        content: Text(_gyroError != null
-            ? 'GYRO ERR: $_gyroError'
-            : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}'),
-        duration: const Duration(milliseconds: 1400),
-      ));
+      final overlay = Overlay.of(context, rootOverlay: true);
+      final entry = OverlayEntry(
+        builder: (_) => Positioned(
+          top: 60,
+          left: 16,
+          right: 16,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.black,
+              child: Text(
+                _gyroError != null
+                    ? 'GYRO ERR: $_gyroError'
+                    : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+              ),
+            ),
+          ),
+        ),
+      );
+      _debugOverlay = entry;
+      overlay.insert(entry);
+      _debugTimer = Timer.periodic(
+          const Duration(milliseconds: 300), (_) => entry.markNeedsBuild());
     });
     // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
     // for a full cycle even at the old, much shorter 90px trail - with
@@ -197,6 +221,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
   @override
   void dispose() {
     _debugTimer?.cancel();
+    _debugOverlay?.remove();
     _gyroSub?.cancel();
     _ctrl.dispose();
     super.dispose();
