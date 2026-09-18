@@ -166,7 +166,15 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // are ignored entirely, so noise never contributes at all, while a
     // genuine turn (much faster than sensor noise) still accumulates
     // and holds exactly as before.
-    const noiseFloor = 0.15;
+    //
+    // 2026-09-18 (round 10): real feedback, live - "GYRO changes" (the
+    // raw stream is fine) "[but] hearts don't change" - 0.15 rad/s is a
+    // fairly brisk turn to require before anything even starts
+    // accumulating; a normal exploratory tilt may never have reached
+    // it, leaving _tilt at 0 the whole time regardless of real motion.
+    // 0.15 -> 0.03 - still well above genuine sensor noise, but not
+    // demanding a fast deliberate snap-turn just to register at all.
+    const noiseFloor = 0.03;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
       _gyroEventCount++;
@@ -323,7 +331,11 @@ class _HeartsPainter extends CustomPainter {
       // exactly on that edge, full stop, unmistakable either way -
       // below it, no tilt effect at all. Removes any doubt about
       // whether it's "sort of" reacting.
-      if (tilt.abs() > 0.15) {
+      //
+      // 2026-09-18 (round 10): 0.15 -> 0.05, same reasoning as the
+      // noise floor above - a lighter tilt should still be enough to
+      // snap, not just a forceful one.
+      if (tilt.abs() > 0.05) {
         x = tilt > 0 ? size.width : 0.0;
       }
       // Fade in near the bottom (origin), fade out near the top - never
