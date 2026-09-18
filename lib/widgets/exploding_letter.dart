@@ -163,7 +163,13 @@ Future<List<Offset>> _glyphPoints(String letter) async {
       style: const TextStyle(
         fontFamily: 'Roboto',
         fontSize: renderSize * 0.82,
-        fontWeight: FontWeight.w700,
+        // 2026-09-18 (round 6): real feedback, live - "P needs a clearer
+        // gap in the P part of the P." w700 (bold) made the bowl's own
+        // stroke thick enough to nearly close its hole, especially once
+        // subsampled to 60 points - reads as a near-solid blob rather
+        // than a P with a real hole in it. w500 keeps the letter
+        // recognizable while opening that hole back up.
+        fontWeight: FontWeight.w500,
         color: Color(0xFFFFFFFF),
       ),
     ),
