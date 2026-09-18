@@ -31,8 +31,8 @@
 // wider column) that still didn't read as working on-device - touch
 // interaction competing with the ancestor scroll view for the same
 // gesture was a fight no amount of tuning was going to fully win.
-// Device tilt (accelerometer X) replaces touch entirely here - no
-// gesture, no scroll conflict, nothing to compete for at all.
+// Device tilt (gyroscope) replaces touch entirely here - no gesture, no
+// scroll conflict, nothing to compete for at all.
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -77,26 +77,40 @@ class _FloatingHeartsState extends State<FloatingHearts>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final List<_Heart> _hearts;
-  // -1 (tilted left) .. 1 (tilted right), 0 at rest. Drives every
+  // -1 (leaning left) .. 1 (leaning right), 0 at rest. Drives every
   // heart's sway together, on top of each one's own ambient drift -
-  // see build()'s own 2026-09-18 comment for why this replaced touch.
+  // see build()'s own 2026-09-18 comment for why this replaced touch,
+  // and this field's own round-2 comment below for why it's gyroscope-
+  // driven rather than accelerometer-driven.
   double _tilt = 0;
-  StreamSubscription<AccelerometerEvent>? _accelSub;
+  StreamSubscription<GyroscopeEvent>? _gyroSub;
 
   @override
   void initState() {
     super.initState();
-    // event.x is the device's own left-right tilt axis regardless of
-    // how it's held (flat or upright) - positive when the right edge
-    // dips down. Divisor tuned for a moderate, comfortable tilt to
-    // reach full sway, not a full 90-degree turn; unconfirmed without a
-    // real device, may need adjustment after first on-device look.
-    // Skips setState below noise-level change so this doesn't force a
-    // rebuild on every single sensor sample (these fire often).
-    _accelSub = accelerometerEventStream().listen((event) {
+    // 2026-09-18 (round 2): real feedback, live - "I tilt the phone top
+    // end right and nothing, then tilt phone top end left and nothing."
+    // The accelerometer version (round 1) only reacted to actual TILT
+    // ANGLE - rolling the device like tipping a tray. "Top end
+    // right/left" while holding the phone upright to read it is a YAW
+    // turn (swinging the top around, like turning a steering wheel) -
+    // that doesn't change gravity's direction relative to the device at
+    // all, so the accelerometer genuinely never saw it. Gyroscope's z
+    // axis (angular velocity around the screen-normal axis) is what
+    // actually detects this motion.
+    //
+    // Accumulated into _tilt rather than read directly - gyroscope
+    // reports rotation SPEED, not a resting angle, so a phone held
+    // still (even mid-turn, even tilted) reports ~0; reading it
+    // directly would snap the sway back to center the instant the turn
+    // stopped. Accumulate while actively turning, decay slowly
+    // afterward (see the AnimationController listener below) - matches
+    // "collect on the edge and continue floating up" (stays leaned for
+    // a while) rather than springing back instantly. Sensitivity
+    // unconfirmed without a real device, may still need tuning.
+    _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
-      final next = (event.x / 5.5).clamp(-1.0, 1.0);
-      if ((next - _tilt).abs() > 0.02) setState(() => _tilt = next);
+      _tilt = (_tilt + event.z * 0.12).clamp(-1.0, 1.0);
     }, onError: (_) {});
     // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
     // for a full cycle even at the old, much shorter 90px trail - with
@@ -109,6 +123,13 @@ class _FloatingHeartsState extends State<FloatingHearts>
       vsync: this,
       duration: const Duration(seconds: 5),
     )..repeat();
+    // Gentle exponential decay every animation frame - _tilt drifts back
+    // toward 0 over a few seconds once the phone stops turning, instead
+    // of staying pinned forever or snapping back the instant it does.
+    // No setState needed here: AnimatedBuilder below already rebuilds
+    // every frame off _ctrl's own ticking and reads whatever _tilt
+    // currently is.
+    _ctrl.addListener(() => _tilt *= 0.985);
     final rng = Random(3);
     // 2026-09-17: "a trail with random spacing" - startOffset staggers
     // each heart's own cycle so they never move in lockstep, reading
@@ -128,7 +149,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
 
   @override
   void dispose() {
-    _accelSub?.cancel();
+    _gyroSub?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
