@@ -180,9 +180,8 @@ class _HeartsPainter extends CustomPainter {
       this.quiet = false,
       this.pointer});
 
-  // How far a heart reaches out to react, and how hard it gets pushed
-  // at the closest possible distance - tuned so the push reads as a
-  // reaction to a hand passing near, not a violent flick.
+  // How far a heart reaches out to react - tuned so the reaction reads
+  // as a hand passing near, not a pixel-precise trigger.
   //
   // 2026-09-18: real feedback, live - "I swiped the hearts but nothing
   // happens." With only 3-5 hearts staggered across the full 1050px
@@ -193,7 +192,6 @@ class _HeartsPainter extends CustomPainter {
   // axis where actual misses were happening) so a swipe anywhere in the
   // visible trail reacts, not just a pixel-precise one.
   static const _influenceRadius = 160.0;
-  static const _maxPush = 28.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -210,12 +208,18 @@ class _HeartsPainter extends CustomPainter {
       if (p != null) {
         final dist = (Offset(x, y) - p).distance;
         if (dist < _influenceRadius) {
-          // Pushes away from the touch point, stronger the closer it
-          // is - "like a hand waving through balloons," not a snap to
-          // a fixed offset.
+          // 2026-09-18 (round 2): real feedback, live - "Hearts have no
+          // change" even after the gesture-routing fix (floating_hearts
+          // now actually receives the touch). Real cause: a fingertip
+          // covers most or all of this 70px-wide column, so a modest
+          // px nudge stays hidden under the same finger that triggered
+          // it. Blends toward the FAR edge of the box instead of a fixed
+          // offset - close proximity (strength near 1) snaps the heart
+          // almost all the way to the opposite edge, clearly outside a
+          // fingertip's own footprint, not just a few px within it.
           final strength = 1 - dist / _influenceRadius;
-          final away = x >= p.dx ? 1.0 : -1.0;
-          x = (x + away * _maxPush * strength).clamp(0.0, size.width);
+          final edgeTarget = x >= p.dx ? size.width : 0.0;
+          x = x + (edgeTarget - x) * strength;
         }
       }
       // Fade in near the bottom (origin), fade out near the top - never
