@@ -146,4 +146,21 @@ class BackupReminderService {
       await _plugin.cancel(id: _redNotificationId);
     } catch (_) {}
   }
+
+  /// 2026-09-18: real ask, live - "Send test notifications, same
+  /// message [no notification showing]." Permission was confirmed
+  /// granted (no error from scheduleReminder) and Focus mode confirmed
+  /// off, so the failure is happening somewhere between "iOS accepted
+  /// the schedule request" and "iOS actually displayed it" - a gap this
+  /// app has no visibility into otherwise. Surfaces iOS's own pending-
+  /// request count as real ground truth: if our IDs aren't in this list
+  /// right after scheduling, iOS silently dropped the request itself
+  /// (not a display-time suppression); if they ARE in this list, the
+  /// request genuinely exists and the failure is later, at fire/display
+  /// time.
+  Future<List<int>> pendingNotificationIds() async {
+    if (kIsWeb) return [];
+    final pending = await _plugin.pendingNotificationRequests();
+    return pending.map((p) => p.id).toList();
+  }
 }

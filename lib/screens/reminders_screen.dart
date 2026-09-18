@@ -98,12 +98,25 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 // Now catches and reports the real reason instead.
                 String message;
                 try {
-                  await BackupReminderService().scheduleReminder(
+                  final service = BackupReminderService();
+                  await service.scheduleReminder(
                     amberDelay: const Duration(seconds: 8),
                     redDelay: const Duration(seconds: 14),
                   );
-                  message = 'Test notifications scheduled - background '
-                      'the app now, amber in ~8s, red in ~14s.';
+                  // 2026-09-18: real ask, live - "same message [no
+                  // notification showing]" even with permission granted
+                  // and Focus off. Confirms with iOS itself whether the
+                  // requests actually landed, not just that the API call
+                  // didn't throw.
+                  final pendingCount =
+                      (await service.pendingNotificationIds()).length;
+                  message = pendingCount >= 2
+                      ? 'iOS confirms $pendingCount pending - background '
+                          'the app now, amber in ~8s, red in ~14s.'
+                      : 'Scheduled, but iOS only shows $pendingCount '
+                          'pending (expected 2) - the request itself is '
+                          'being dropped somewhere, not just suppressed '
+                          'on display.';
                 } catch (e) {
                   message = 'Could not schedule: $e';
                 }
@@ -111,7 +124,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                       content: Text(message),
-                      duration: const Duration(seconds: 6)),
+                      duration: const Duration(seconds: 8)),
                 );
               },
               child: Text('Send test notifications',
