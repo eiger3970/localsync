@@ -753,18 +753,31 @@ class HomeScreen extends StatelessWidget {
           // animation (owned by GifSwipeTrigger's own onConfirm wrapper
           // below) never played, since nothing here ever asked it to.
           // Now runs through pullKey/pushKey's triggerConfirm() first -
-          // same onPull/onPush closures underneath either way. Real ask,
-          // live (round 2) - "no affect on gif and flow graphics" even
-          // after that fix - added a direct onPull()/onPush() fallback
-          // for the case .currentState is still null (GifSwipeTrigger
-          // not actually mounted yet when this fires - a real possible
-          // race on cold launch, repo/UI still loading) so the sync
-          // itself can never silently stop happening even if the
-          // animation genuinely can't attach in time.
+          // same onPull/onPush closures underneath either way, with a
+          // direct onPull()/onPush() fallback if .currentState is
+          // somehow still null.
+          //
+          // 2026-09-18 (round 4): real crash, live - "app crashed back
+          // to widget" on cold launch specifically. Real cause: this
+          // whole block re-runs on EVERY rebuild while
+          // provider.pendingQuickAction is still non-null, and it used
+          // to only get cleared INSIDE the deferred postFrameCallback -
+          // cold launch is full of rebuilds happening moments apart
+          // (repos loading, theme loading, etc.), each one registering
+          // its OWN callback before the first one had a chance to fire
+          // and clear the flag, so the SAME single tap could fire
+          // triggerConfirm()/onPull()/onPush() more than once,
+          // concurrently - the exact same class of bug ("I ran push and
+          // the app closed", concurrent git2dart FFI access) already
+          // fixed once for the real swipe gesture, reintroduced here.
+          // Clearing synchronously, right here, means only the first
+          // build that ever sees a non-null pendingQuickAction can
+          // register a callback at all - every rebuild after that sees
+          // it already null and does nothing.
           final pendingQuickAction = provider.pendingQuickAction;
           if (pendingQuickAction != null) {
+            provider.clearPendingQuickAction();
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              provider.clearPendingQuickAction();
               if (!context.mounted) return;
               if (pendingQuickAction == 'action_pull') {
                 final state = _pullKey.currentState;
