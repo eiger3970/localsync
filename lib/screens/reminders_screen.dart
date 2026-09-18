@@ -47,7 +47,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: kVoid,
-        title: Text('Backup reminder', style: TextStyle(color: kStar)),
+        title: Text('Reminder backup', style: TextStyle(color: kStar)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -89,18 +89,29 @@ class _RemindersScreenState extends State<RemindersScreen> {
               style: TextButton.styleFrom(
                   padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
               onPressed: () async {
-                await BackupReminderService().scheduleReminder(
-                  amberDelay: const Duration(seconds: 8),
-                  redDelay: const Duration(seconds: 14),
-                );
+                // 2026-09-18: real ask, live - "I tapped Send test
+                // notifications and nothing." scheduleReminder() used to
+                // swallow its own errors, so this always showed the
+                // "scheduled" text even when it silently failed (no
+                // notification permission being the real, common cause -
+                // iOS schedules it fine and just never shows the banner).
+                // Now catches and reports the real reason instead.
+                String message;
+                try {
+                  await BackupReminderService().scheduleReminder(
+                    amberDelay: const Duration(seconds: 8),
+                    redDelay: const Duration(seconds: 14),
+                  );
+                  message = 'Test notifications scheduled - background '
+                      'the app now, amber in ~8s, red in ~14s.';
+                } catch (e) {
+                  message = 'Could not schedule: $e';
+                }
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Test notifications scheduled - '
-                        'background the app now, amber in ~8s, red in '
-                        '~14s.'),
-                    duration: Duration(seconds: 6),
-                  ),
+                  SnackBar(
+                      content: Text(message),
+                      duration: const Duration(seconds: 6)),
                 );
               },
               child: Text('Send test notifications',

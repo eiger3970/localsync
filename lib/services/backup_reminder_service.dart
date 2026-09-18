@@ -38,6 +38,13 @@ const _redNotificationId = 2;
 class BackupReminderService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  // 2026-09-18: real ask, live - "I tapped Send test notifications and
+  // nothing." zonedSchedule() succeeds on iOS even without alert
+  // permission granted - the OS just silently never shows the banner,
+  // no exception, no signal of any kind. Was previously indistinguishable
+  // from a genuine success. Now tracked explicitly so scheduleReminder
+  // can throw a real, readable error instead of quietly doing nothing.
+  bool? _permissionGranted;
 
   Future<void> init() async {
     if (_initialized || kIsWeb) return;
@@ -56,7 +63,7 @@ class BackupReminderService {
     // not silently skipped - matches every other real permission this
     // app requests (App Tracking Transparency, notifications) rather
     // than assuming the flags alone are enough on every iOS version.
-    await _plugin
+    _permissionGranted = await _plugin
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
@@ -67,31 +74,36 @@ class BackupReminderService {
   /// that actually succeeds. [amberDelay]/[redDelay] override the
   /// stored Reminders thresholds (only the test button passes these);
   /// left null, each reads its own DatabaseService value.
+  ///
+  /// 2026-09-18: no longer swallows its own errors - a caller that wants
+  /// "never breaks the sync" (every real sync-success call site) wraps
+  /// this itself; the Reminders screen's test button deliberately lets
+  /// failures surface, since silently doing nothing is the exact bug
+  /// being tested for.
   Future<void> scheduleReminder({
     Duration? amberDelay,
     Duration? redDelay,
   }) async {
     if (kIsWeb) return;
-    try {
-      await init();
-      await _scheduleOne(
-        id: _amberNotificationId,
-        delay: amberDelay ?? await _resolveDelay(kAmberReminderDelay,
-            (db) => db.getAmberAfterDays()),
-        body: 'A day since your last backup (sync) - worth a check.',
-      );
-      await _scheduleOne(
-        id: _redNotificationId,
-        delay: redDelay ?? await _resolveDelay(kRedReminderDelay,
-            (db) => db.getRedAfterDays()),
-        body: "It's been a while since your last backup (sync) - open "
-            'LocalSync to catch up.',
-      );
-    } catch (_) {
-      // Best-effort - a failed schedule (permission denied, simulator
-      // with no real notification support, etc.) never blocks or fails
-      // the sync itself.
+    await init();
+    if (_permissionGranted == false) {
+      throw StateError('Notifications are off for LocalSync - enable '
+          'them in Settings > LocalSync > Notifications.');
     }
+    await _scheduleOne(
+      id: _amberNotificationId,
+      delay: amberDelay ??
+          await _resolveDelay(
+              kAmberReminderDelay, (db) => db.getAmberAfterDays()),
+      body: 'A day since your last backup (sync) - worth a check.',
+    );
+    await _scheduleOne(
+      id: _redNotificationId,
+      delay: redDelay ??
+          await _resolveDelay(kRedReminderDelay, (db) => db.getRedAfterDays()),
+      body: "It's been a while since your last backup (sync) - open "
+          'LocalSync to catch up.',
+    );
   }
 
   Future<void> _scheduleOne({

@@ -183,7 +183,13 @@ class RepositoryProvider extends ChangeNotifier {
   Future<void> setRedAfterDays(int days) async {
     await _db.setRedAfterDays(days);
     await _pushReminderThresholds();
-    await BackupReminderService().scheduleReminder();
+    // 2026-09-18: scheduleReminder() no longer swallows its own errors
+    // (see its own doc) - this call site still wants best-effort (a
+    // failed notification reschedule shouldn't block saving the chosen
+    // threshold), so it catches here instead.
+    try {
+      await BackupReminderService().scheduleReminder();
+    } catch (_) {}
   }
 
   Future<void> _pushReminderThresholds() async {
@@ -302,7 +308,12 @@ class RepositoryProvider extends ChangeNotifier {
     // notification to remind when last backed up." This path doesn't
     // go through _runLocked's own switch (see this method's own doc on
     // why), so it needs its own reschedule call on success.
-    if (result is SyncOk) unawaited(BackupReminderService().scheduleReminder());
+    //
+    // scheduleReminder() no longer swallows its own errors - catchError
+    // here keeps this call site best-effort, same as before.
+    if (result is SyncOk) {
+      unawaited(BackupReminderService().scheduleReminder().catchError((_) {}));
+    }
     return result;
   }
 
@@ -418,8 +429,11 @@ class RepositoryProvider extends ChangeNotifier {
               // SyncNoChanges - the user actively confirmed they're up
               // to date, that still counts) - see
               // backup_reminder_service.dart's own doc for the full
-              // reasoning.
-              unawaited(BackupReminderService().scheduleReminder());
+              // reasoning. scheduleReminder() no longer swallows its own
+              // errors - catchError here keeps this call site
+              // best-effort, same as before.
+              unawaited(
+                  BackupReminderService().scheduleReminder().catchError((_) {}));
             // 2026-08-20: "show error in human language, how to fix it,
             // then the error code verbose details - some errors do
             // this, others don't" - these two cases used to join
