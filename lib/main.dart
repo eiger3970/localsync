@@ -249,13 +249,37 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     // running yet. Feeds into the exact same pendingQuickAction the
     // Quick Actions already use - HomeScreen's own handling for
     // 'action_push'/'action_pull' needs zero changes.
+    // 2026-09-18: real ask, live - "Widget gif no message seen" for
+    // BOTH of home_screen.dart's own debug SnackBars (the outer
+    // .currentState null-check, and the inner triggerConfirm() one) -
+    // meaning that whole code path likely never runs at all, which
+    // would only happen if `action` never comes back as 'push'/'pull'
+    // here in the first place. No device console to check that
+    // directly, so this surfaces the raw result (or the swallowed
+    // error) as a visible SnackBar via rootNavigatorKey - the one
+    // BuildContext guaranteed to exist regardless of which screen the
+    // app happens to be showing when this Future resolves. Temporary,
+    // until this is confirmed either way.
     const MethodChannel('localsync/widget_action')
         .invokeMethod<String>('getPendingAction')
         .then((action) {
+      final debugCtx = rootNavigatorKey.currentContext;
+      if (debugCtx != null) {
+        ScaffoldMessenger.of(debugCtx).showSnackBar(SnackBar(
+            content: Text('DEBUG getPendingAction returned: $action'),
+            duration: const Duration(seconds: 5)));
+      }
       if (action == 'push' || action == 'pull') {
         _repositoryProvider.setPendingQuickAction('action_$action');
       }
-    }).catchError((_) {});
+    }).catchError((e) {
+      final debugCtx = rootNavigatorKey.currentContext;
+      if (debugCtx != null) {
+        ScaffoldMessenger.of(debugCtx).showSnackBar(SnackBar(
+            content: Text('DEBUG getPendingAction threw: $e'),
+            duration: const Duration(seconds: 5)));
+      }
+    });
   }
 
   @override
