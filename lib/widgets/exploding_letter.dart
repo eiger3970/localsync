@@ -95,11 +95,16 @@ class _ExplodingLetterState extends State<ExplodingLetter>
     final rng = Random(7);
     setState(() {
       _basePoints = pts;
-      _velocities = [
-        for (final p in pts)
-          (Offset(p.dx - 0.5, p.dy - 0.5) * (0.7 + rng.nextDouble() * 0.6)) +
-              Offset(rng.nextDouble() - 0.5, rng.nextDouble() - 0.5) * 0.35,
-      ];
+      // 2026-09-18 (round 5): real ask, live - "P is still fading, needs
+      // to explode from centre to outer edges." Velocity used to be the
+      // particle's own offset from center scaled by a multiplier -
+      // proportional to starting distance, so points near the glyph's
+      // own visual middle (much of a P's vertical stroke) barely moved
+      // at all and read as fading in place rather than launching
+      // outward. Now a proper radial burst: every particle gets the
+      // SAME speed range, direction only, so every point - center-ish
+      // or not - travels a real, similar distance toward the edges.
+      _velocities = [for (final p in pts) _radialVelocity(p, rng)];
     });
   }
 
@@ -222,6 +227,21 @@ List<Offset> _fallbackPoints() => [
       for (double a = 0; a < 2 * pi; a += pi / 10)
         Offset(0.5 + 0.35 * cos(a), 0.5 + 0.35 * sin(a)),
     ];
+
+/// 2026-09-18 (round 5): a true radial burst direction/speed for [p] -
+/// same speed range regardless of how close [p] already sits to the
+/// box's center (0.5, 0.5), so every particle travels a real, similar
+/// distance outward instead of barely moving when it happens to start
+/// near the middle. A point that lands exactly on center (vanishingly
+/// rare for real glyph pixels, but not impossible) gets a random
+/// direction instead of an undefined one.
+Offset _radialVelocity(Offset p, Random rng) {
+  final dx = p.dx - 0.5, dy = p.dy - 0.5;
+  final dist = sqrt(dx * dx + dy * dy);
+  final angle = dist > 0.01 ? atan2(dy, dx) : rng.nextDouble() * 2 * pi;
+  final speed = 0.65 + rng.nextDouble() * 0.35;
+  return Offset(cos(angle), sin(angle)) * speed;
+}
 
 class _ExplodePainter extends CustomPainter {
   final double t; // 0..1, loops via AnimationController.repeat()
