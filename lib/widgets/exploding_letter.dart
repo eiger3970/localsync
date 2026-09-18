@@ -68,9 +68,21 @@ class _ExplodingLetterState extends State<ExplodingLetter>
     // paired with widening the burst/fade window itself in
     // _ExplodePainter (burstEnd, below) so the extra time actually
     // goes into a slower fade, not just a longer blank pause.
+    //
+    // 2026-09-18: real feedback, live (round 3) - "make the fade away
+    // take more time... try explosion, so P blows apart to all edges of
+    // the graphic space." Two separate fixes, not just another duration
+    // bump: the fade curve in _ExplodePainter now holds near-opaque
+    // through most of the burst so the scattering dust is actually
+    // visible while it travels (round 2 sped the fade AND spread up
+    // together but the particles were already near-invisible before
+    // they'd traveled far), and particle positions are now clamped to
+    // the widget's own bounds so the burst visibly reaches the real
+    // edges instead of overshooting into invisible (near-zero-alpha,
+    // off-canvas) territory. 3400ms -> 4200ms on top of that.
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3400),
+      duration: const Duration(milliseconds: 4200),
     )..repeat();
     unawaited(_samplePoints());
   }
@@ -252,17 +264,48 @@ class _ExplodePainter extends CustomPainter {
     // blank pause afterward (~1088ms, close to the previous ~1170ms) -
     // not stealing the whole increase from the "gone for a moment" gap
     // that was just added.
-    const burstEnd = 0.68;
+    //
+    // 2026-09-18 (round 3): 0.68 -> 0.78, on top of the 4200ms total
+    // above, so the visible burst window is longer still.
+    const burstEnd = 0.78;
     if (t > burstEnd) return;
     final burstT = t <= holdEnd ? 0.0 : (t - holdEnd) / (burstEnd - holdEnd);
-    final fade = pow(1 - burstT, 1.6).toDouble();
+    // 2026-09-18 (round 3): pow exponent 1.6 -> 0.6 - a flatter curve
+    // that stays close to fully opaque through most of burstT instead
+    // of dropping off early, so the dust is genuinely visible while it
+    // travels outward, not just at the moment it starts bursting.
+    final fade = pow(1 - burstT, 0.6).toDouble();
     if (fade <= 0.02) return;
-    final paint = Paint()..color = color.withValues(alpha: fade.clamp(0, 1));
     for (var i = 0; i < base.length; i++) {
       final p = base[i];
       final v = vel[i];
-      final dx = (p.dx + v.dx * burstT) * size.width;
-      final dy = (p.dy + v.dy * burstT) * size.height;
+      // 2026-09-18 (round 3): real ask, live - "P blows apart to all
+      // edges of the graphic space." Positions used to travel well past
+      // 0..1 (unclamped, so most particles ended up off-canvas and
+      // invisible by the time they'd spread that far) - kept unclamped
+      // here (rawX/rawY) so the edge-fade below can tell "reached the
+      // edge" from "overshot past it," and clamped only for the actual
+      // draw position, so an overshooting particle still visibly stops
+      // right at the real edge instead of vanishing early.
+      final rawX = p.dx + v.dx * burstT;
+      final rawY = p.dy + v.dy * burstT;
+      // 2026-09-18 (round 4): real ask, live - "more visible with bits
+      // spreading to edges, maybe fade away near edges." Round 3's clamp
+      // alone made edge-reaching particles sit fully solid right at the
+      // boundary until the global time-based fade caught up - reads as
+      // dust "sticking" to the wall. This fades each particle out
+      // individually as it nears/passes an edge (within the last 15% of
+      // the box, scaled by however far past it it's overshot), on top of
+      // the existing time-based fade - so the burst visibly dissolves
+      // right at the edges instead of stacking against them.
+      final edgeDist =
+          [rawX, 1 - rawX, rawY, 1 - rawY].reduce((a, b) => a < b ? a : b);
+      final edgeFade = (edgeDist / 0.15).clamp(0.0, 1.0);
+      final alpha = (fade * edgeFade).clamp(0.0, 1.0);
+      if (alpha <= 0.02) continue;
+      final paint = Paint()..color = color.withValues(alpha: alpha);
+      final dx = rawX.clamp(0.0, 1.0) * size.width;
+      final dy = rawY.clamp(0.0, 1.0) * size.height;
       // 2026-09-17: real bug, caught before it shipped further - "P is
       // fading away, I don't see the explosion." /32 with a 0.3-1.8
       // clamp was tuned against the 90px preview size, but the real
