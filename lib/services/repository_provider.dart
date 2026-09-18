@@ -98,6 +98,16 @@ class RepositoryProvider extends ChangeNotifier {
   }
   void clearPendingQuickAction() { _pendingQuickAction = null; }
 
+  // 2026-09-18: real ask, live - "Widget gif no message seen," even for
+  // main.dart's own attempt to show this directly via rootNavigatorKey
+  // (see that file's own comment - likely a null BuildContext that
+  // early, not that getPendingAction() itself never returns anything).
+  // Plain field, not a getter needing notifyListeners of its own -
+  // home_screen.dart reads and clears it once, on the same
+  // postFrameCallback pendingQuickAction handling already runs on.
+  // Temporary, remove once this is resolved.
+  String? lastWidgetActionDebug;
+
   List<Repository>     get repos     => _repos;
   List<CommitTemplate> get templates => _templates;
   bool                 get loading   => _loading;
