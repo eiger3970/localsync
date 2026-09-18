@@ -262,7 +262,18 @@ class _FloatingHeartsState extends State<FloatingHearts>
         startOffset: rng.nextDouble(),
         speed: 0.6 + rng.nextDouble() * 0.5,
         size: 7 + rng.nextDouble() * 6,
-        drift: (rng.nextDouble() - 0.5) * 0.6,
+        // 2026-09-18 (round 14): real bug, found by reasoning after the
+        // on-canvas stripe (round 13) proved tilt genuinely reaches this
+        // painter, correctly, every time - "same no movement left/right"
+        // even so. The tilt-snap logic itself was never broken: h.x
+        // (0.25-0.75) plus the OLD drift range here (+-0.3) already put
+        // hearts within reach of both true edges as part of ordinary
+        // ambient sway, with nothing tilt-specific to distinguish it
+        // from a hard edge-snap - the reaction was real but invisible
+        // against its own idle motion. 0.6 -> 0.15 keeps ambient sway
+        // clearly centered, so a tilt-snap to the true edge is now an
+        // unmistakable jump instead of "maybe a bit further than usual."
+        drift: (rng.nextDouble() - 0.5) * 0.15,
         driftPhase: rng.nextDouble() * 2 * pi,
       ),
     );
