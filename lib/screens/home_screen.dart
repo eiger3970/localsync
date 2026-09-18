@@ -700,14 +700,50 @@ class HomeScreen extends StatelessWidget {
           // auto-recovery on push. Cleared immediately, same one-shot
           // reasoning as the conflict case.
           //
+          // 2026-08-20: acts on the selected repo (see app-bar
+          // dropdown), not always the first one, now that multiple can
+          // genuinely exist.
+          Future<void> onPull() => _runAndShow(
+              context,
+              ({bool confirmed = false}) =>
+                  provider.pullRepository(repo.id!, confirmed: confirmed),
+              repo: repo);
+          // 2026-09-15: real feedback, live - "when a user with no
+          // claudeai has this error, will it be fixed by the app?"
+          // Fixed for the Conflicts screen's own PUSH button
+          // (conflicts_screen.dart's _runPushWithAutoRecovery) but this
+          // everyday swipe gesture is the actual common path most users
+          // hit cannotFastForward through - fixing one and not the
+          // other would leave the far more frequent case still showing
+          // a bare error with no self-recovery. pullFallback wires the
+          // exact same auto-pull-then-retry into _runAndShow itself.
+          Future<void> onPush() => _runAndShow(
+              context,
+              ({bool confirmed = false}) =>
+                  provider.pushRepository(repo.id!, confirmed: confirmed),
+              repo: repo,
+              pullFallback: ({bool confirmed = false}) =>
+                  provider.pullRepository(repo.id!, confirmed: confirmed));
+          // 2026-09-16: same pattern as pendingConflictRepoId just above -
+          // main.dart's QuickActions().initialize callback sets this
+          // (real Home Screen "Pull"/"Push" long-press actions) with no
+          // BuildContext of its own to act on. Cleared immediately, same
+          // one-shot reasoning as the conflict case.
+          //
           // 2026-09-18: real ask, live - "Widget pull and push opened
           // home screen but gifs weren't moving?" This used to call
           // _runAndShow directly - a real sync, but the gif/flow
           // animation (owned by GifSwipeTrigger's own onConfirm wrapper
           // below) never played, since nothing here ever asked it to.
-          // Now runs through pullKey/pushKey's triggerConfirm() instead,
-          // same onPull/onPush closures underneath either way - see
-          // gif_swipe_trigger.dart's own 2026-09-18 comment.
+          // Now runs through pullKey/pushKey's triggerConfirm() first -
+          // same onPull/onPush closures underneath either way. Real ask,
+          // live (round 2) - "no affect on gif and flow graphics" even
+          // after that fix - added a direct onPull()/onPush() fallback
+          // for the case .currentState is still null (GifSwipeTrigger
+          // not actually mounted yet when this fires - a real possible
+          // race on cold launch, repo/UI still loading) so the sync
+          // itself can never silently stop happening even if the
+          // animation genuinely can't attach in time.
           final pullKey = GlobalKey<GifSwipeTriggerState>();
           final pushKey = GlobalKey<GifSwipeTriggerState>();
           final pendingQuickAction = provider.pendingQuickAction;
@@ -716,18 +752,25 @@ class HomeScreen extends StatelessWidget {
               provider.clearPendingQuickAction();
               if (!context.mounted) return;
               if (pendingQuickAction == 'action_pull') {
-                pullKey.currentState?.triggerConfirm();
+                final state = pullKey.currentState;
+                if (state != null) {
+                  state.triggerConfirm();
+                } else {
+                  onPull();
+                }
               } else if (pendingQuickAction == 'action_push') {
-                pushKey.currentState?.triggerConfirm();
+                final state = pushKey.currentState;
+                if (state != null) {
+                  state.triggerConfirm();
+                } else {
+                  onPush();
+                }
               }
             });
           }
           // 2026-08-17: the repo tile's summary row moved into the app
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.
-          // 2026-08-20: acts on the selected repo (see app-bar
-          // dropdown), not always the first one, now that multiple can
-          // genuinely exist.
           final gestureZone = _SyncGestureZone(
             pullKey: pullKey,
             pushKey: pushKey,
@@ -739,28 +782,8 @@ class HomeScreen extends StatelessWidget {
             // gate has to live here, at construction, not inside
             // _SyncGestureZone itself.
             showMidAd: repo.syncMode == SyncMode.genericFolder,
-            onPull: () => _runAndShow(
-                context,
-                ({bool confirmed = false}) =>
-                    provider.pullRepository(repo.id!, confirmed: confirmed),
-                repo: repo),
-            // 2026-09-15: real feedback, live - "when a user with no
-            // claudeai has this error, will it be fixed by the app?"
-            // Fixed for the Conflicts screen's own PUSH button
-            // (conflicts_screen.dart's _runPushWithAutoRecovery) but
-            // this everyday swipe gesture is the actual common path
-            // most users hit cannotFastForward through - fixing one and
-            // not the other would leave the far more frequent case
-            // still showing a bare error with no self-recovery.
-            // pullFallback wires the exact same auto-pull-then-retry
-            // into _runAndShow itself.
-            onPush: () => _runAndShow(
-                context,
-                ({bool confirmed = false}) =>
-                    provider.pushRepository(repo.id!, confirmed: confirmed),
-                repo: repo,
-                pullFallback: ({bool confirmed = false}) =>
-                    provider.pullRepository(repo.id!, confirmed: confirmed)),
+            onPull: onPull,
+            onPush: onPush,
           );
           // 2026-08-27: real feedback, live - "the free app can then
           // setup obsidian with the special recipe algorithm... running
