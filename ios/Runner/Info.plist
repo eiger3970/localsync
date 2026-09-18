@@ -335,5 +335,13 @@
 	     wrapping. -->
 	<key>NSCameraUsageDescription</key>
 	<string>LocalSync uses your camera to scan a QR code shown on your desktop, so you don't have to type or paste a long path by hand.</string>
+	<!-- 2026-09-18: real bug, caught before it shipped further -
+	     sensors_plus's own README: "Adding NSMotionUsageDescription is
+	     a requirement and not doing so will crash your app when it
+	     attempts to access motion data." Missing entirely until now -
+	     the SUPPORT dialog's tilt-based hearts (floating_hearts.dart)
+	     would have crashed the app the moment that dialog opened. -->
+	<key>NSMotionUsageDescription</key>
+	<string>LocalSync reads your phone's tilt to sway the SUPPORT dialog's hearts side to side - nothing is recorded or sent anywhere.</string>
 </dict>
 </plist>
