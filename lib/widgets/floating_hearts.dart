@@ -375,17 +375,30 @@ class _HeartsPainter extends CustomPainter {
       // 2026-09-18 (round 10): 0.15 -> 0.05, same reasoning as the
       // noise floor above - a lighter tilt should still be enough to
       // snap, not just a forceful one.
-      if (tilt.abs() > 0.05) {
+      // 2026-09-18 (round 15): real feedback, live - "Hearts no change"
+      // even after round 14 shrank ambient sway to make an edge-snap
+      // stand out - and even with GYRO independently confirmed green
+      // (n rising) during the exact same test. Tilt reaching this
+      // painter is proven twice over now (round 13's stripe, this
+      // round's GYRO) - the x-snap below was never the missing piece.
+      // What's left: these glyphs are 7-13px, at up to 0.5 alpha, in a
+      // dialog full of other content - a plain x-jump on something
+      // that small and faint may just not register as "a reaction" at
+      // a glance. Boosting size and forcing full opacity on top of the
+      // x-snap removes any remaining doubt about visibility itself,
+      // separate from whether the snap is happening at all.
+      final tilted = tilt.abs() > 0.05;
+      if (tilted) {
         x = tilt > 0 ? size.width : 0.0;
       }
       // Fade in near the bottom (origin), fade out near the top - never
       // pops in/out abruptly mid-rise.
       final fadeIn = localT < 0.15 ? localT / 0.15 : 1.0;
       final fadeOut = localT > 0.78 ? (1 - localT) / 0.22 : 1.0;
-      final opacity = (fadeIn * fadeOut).clamp(0.0, 1.0);
+      final opacity = tilted ? 1.0 : (fadeIn * fadeOut).clamp(0.0, 1.0);
       if (opacity <= 0.02) continue;
-      _paintHeartGlyph(canvas, Offset(x, y), h.size,
-          color.withValues(alpha: opacity * (quiet ? 0.3 : 0.5)));
+      _paintHeartGlyph(canvas, Offset(x, y), tilted ? h.size * 1.8 : h.size,
+          color.withValues(alpha: tilted ? 1.0 : opacity * (quiet ? 0.3 : 0.5)));
     }
   }
 
