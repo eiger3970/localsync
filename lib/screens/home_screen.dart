@@ -49,6 +49,23 @@ import 'settings_screen.dart';
 // persistent pair is correct for this app's actual usage.
 final _pullKey = GlobalKey<GifSwipeTriggerState>();
 final _pushKey = GlobalKey<GifSwipeTriggerState>();
+// 2026-09-18 (round 5): real regression, live - "gif and graphics show
+// for a second, black screen..., then gif and graphics show again,
+// then app crashes." Clearing pendingQuickAction synchronously (the
+// round-4 fix, right below) stopped this block from double-scheduling
+// itself, but it also cleared the flag BEFORE the real action actually
+// ran - AutoSyncOnResume's own guard (`if (pendingQuickAction != null)
+// return`) checks that exact same flag to know "something else is
+// already syncing, skip my own auto-sync." Clearing it early meant that
+// guard could see it as already-clear and fire its OWN independent
+// push/pull concurrently with the widget-triggered one - the same
+// concurrent-git-access crash class, reintroduced by the fix meant to
+// prevent it. This flag does the actual job the early clear was for
+// (stop re-scheduling) without touching when pendingQuickAction itself
+// gets cleared - that goes back to happening only once the deferred
+// action truly runs, so AutoSyncOnResume keeps seeing it correctly for
+// the whole window it needs to.
+bool _quickActionScheduled = false;
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -760,24 +777,27 @@ class HomeScreen extends StatelessWidget {
           // 2026-09-18 (round 4): real crash, live - "app crashed back
           // to widget" on cold launch specifically. Real cause: this
           // whole block re-runs on EVERY rebuild while
-          // provider.pendingQuickAction is still non-null, and it used
-          // to only get cleared INSIDE the deferred postFrameCallback -
-          // cold launch is full of rebuilds happening moments apart
-          // (repos loading, theme loading, etc.), each one registering
-          // its OWN callback before the first one had a chance to fire
-          // and clear the flag, so the SAME single tap could fire
-          // triggerConfirm()/onPull()/onPush() more than once,
-          // concurrently - the exact same class of bug ("I ran push and
-          // the app closed", concurrent git2dart FFI access) already
-          // fixed once for the real swipe gesture, reintroduced here.
-          // Clearing synchronously, right here, means only the first
-          // build that ever sees a non-null pendingQuickAction can
-          // register a callback at all - every rebuild after that sees
-          // it already null and does nothing.
+          // provider.pendingQuickAction is still non-null - cold launch
+          // is full of rebuilds happening moments apart (repos loading,
+          // theme loading, etc.), each one registering its OWN callback
+          // before the first one had a chance to fire, so the SAME
+          // single tap could fire triggerConfirm()/onPull()/onPush()
+          // more than once, concurrently - the exact same class of bug
+          // ("I ran push and the app closed", concurrent git2dart FFI
+          // access) already fixed once for the real swipe gesture,
+          // reintroduced here.
+          //
+          // 2026-09-18 (round 5): _quickActionScheduled (declared at
+          // file scope above) is what actually stops the re-scheduling
+          // now, not an early clear of pendingQuickAction itself - see
+          // that field's own comment for why clearing early caused a
+          // different concurrent-sync regression via AutoSyncOnResume.
           final pendingQuickAction = provider.pendingQuickAction;
-          if (pendingQuickAction != null) {
-            provider.clearPendingQuickAction();
+          if (pendingQuickAction != null && !_quickActionScheduled) {
+            _quickActionScheduled = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              _quickActionScheduled = false;
+              provider.clearPendingQuickAction();
               if (!context.mounted) return;
               if (pendingQuickAction == 'action_pull') {
                 final state = _pullKey.currentState;
