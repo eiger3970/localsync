@@ -59,10 +59,20 @@ class GifSwipeTrigger extends StatefulWidget {
             'GifSwipeTrigger needs either assetPath or animationBuilder');
 
   @override
-  State<GifSwipeTrigger> createState() => _GifSwipeTriggerState();
+  State<GifSwipeTrigger> createState() => GifSwipeTriggerState();
 }
 
-class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
+// 2026-09-18: real ask, live - "Widget pull and push opened home screen
+// but gifs weren't moving?" The Home Screen widget's Push/Pull buttons
+// (and Quick Actions) call the real pull/push directly via
+// pendingQuickAction, bypassing this widget's own swipe gesture
+// entirely - the real sync ran, but nothing ever called _anim.trigger(),
+// so the gif/flow animation never played. Was private
+// (_GifSwipeTriggerState) - now public specifically so home_screen.dart
+// can reach it through a GlobalKey<GifSwipeTriggerState> and call
+// triggerConfirm() below, running the exact same visual flow a real
+// swipe would without one.
+class GifSwipeTriggerState extends State<GifSwipeTrigger> {
   static const _threshold = 56.0;
   // 2026-09-17: was GlobalKey<ActionGifState> - widened to the generic
   // State bound so this can hold either ActionGifState or a custom
@@ -131,11 +141,23 @@ class _GifSwipeTriggerState extends State<GifSwipeTrigger> {
       _overlayEntry = null;
       _drag = 0;
     });
-    if (reached) {
-      _anim?.trigger(widget.onConfirm).then((_) {
-        if (mounted) widget.onSettled?.call();
-      });
-    }
+    if (reached) _triggerConfirm();
+  }
+
+  void _triggerConfirm() {
+    _anim?.trigger(widget.onConfirm).then((_) {
+      if (mounted) widget.onSettled?.call();
+    });
+  }
+
+  /// Runs the exact same animation-wrapped confirm flow a completed
+  /// swipe gesture would, without one - for a caller that already has
+  /// its own trigger (Quick Actions, the Home Screen widget's Push/Pull
+  /// buttons) and needs the visual flow to actually play alongside it.
+  /// No-ops while already playing, same guard _onEnd itself relies on.
+  void triggerConfirm() {
+    if (_playing) return;
+    _triggerConfirm();
   }
 
   @override
