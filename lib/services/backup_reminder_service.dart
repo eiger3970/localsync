@@ -8,13 +8,16 @@
 // a separate, unrelated problem). User's own choice when asked: trigger
 // on real time-since-last-sync, not a fixed daily nudge.
 //
-// One notification, rescheduled (not stacked) every time a sync
-// actually succeeds - RepositoryProvider calls scheduleReminder() after
-// every successful pull/push/desktop-sync-triggered-pull, which cancels
-// whatever was already pending and schedules a fresh one
-// kReminderDelay out. If the user keeps syncing regularly, the
-// reminder keeps getting pushed back and never fires; if they stop,
-// it fires once, kReminderDelay after their last real sync.
+// Two notifications (amber + red), each rescheduled (not stacked) every
+// time a sync actually succeeds. If the user keeps syncing regularly,
+// both keep getting pushed back and never fire; if they stop, amber
+// fires first, red fires later, at the two thresholds set in Reminders.
+//
+// 2026-09-18 (round 4): real ask, live - "I just want Widgets to show
+// amber dot after 1 day and an amber notification sent. I want red dot
+// after 7 days and a red notification sent." Was one notification, at
+// the red threshold only - now genuinely two, one per threshold,
+// matching the widget's own two-color state exactly.
 //
 // UTC-based scheduling (TZDateTime.from(..., tz.UTC)), not the
 // device's real local timezone - this is a "remind me after N days
@@ -27,12 +30,10 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'database_service.dart';
 
-// 2026-09-18 (round 3): 3 -> 7 days - unified with
-// LocalSyncWidget.swift's own 2026-09-16 "agreed design" red threshold
-// (days >= 7) instead of being a second, independently-chosen number for
-// the same idea. See database_service.dart's getRedAfterDays.
-const kBackupReminderDelay = Duration(days: 7);
-const _reminderNotificationId = 1;
+const kAmberReminderDelay = Duration(days: 1);
+const kRedReminderDelay = Duration(days: 7);
+const _amberNotificationId = 1;
+const _redNotificationId = 2;
 
 class BackupReminderService {
   final _plugin = FlutterLocalNotificationsPlugin();
@@ -62,55 +63,29 @@ class BackupReminderService {
     _initialized = true;
   }
 
-  /// Cancels whatever reminder was already pending and schedules a new
-  /// one [delay] from now - called after every sync that actually
-  /// succeeds, so a regularly-synced repo never fires this at all.
-  ///
-  /// 2026-09-18: real ask, live - "make it testable." [delay] used to be
-  /// hardcoded to kBackupReminderDelay (3 real days) with no way to
-  /// confirm the permission prompt or actual delivery without waiting
-  /// that long. Home screen's DISCLAIMER section now has a real "Send
-  /// test reminder" action that calls this with a short delay instead -
-  /// same method, same real notification, nothing simulated.
-  ///
-  /// 2026-09-18 (round 2): real ask, live - "add a reminder settings
-  /// maybe, so users know their reminders... is set by default to
-  /// whatever you put, maybe they can change this themselves?" [delay]
-  /// left null (every real sync-success call site does this) now reads
-  /// the user's own Reminders choice instead of always falling back to
-  /// the default - an explicit Duration (only the test button passes
-  /// one) still overrides that lookup entirely.
-  ///
-  /// 2026-09-18 (round 3): real ask, live - "the notifications and
-  /// widget traffic light indicator are the same timers." The stored
-  /// value read here is now the RED threshold (DatabaseService.
-  /// getRedAfterDays) - the same number LocalSyncWidget.swift's
-  /// riskColor turns red at, not a separate reminder-only number. A
-  /// stored 0 means the user turned reminders (and the red state) off,
-  /// which cancels rather than schedules.
-  Future<void> scheduleReminder({Duration? delay}) async {
+  /// Reschedules both notifications from now - called after every sync
+  /// that actually succeeds. [amberDelay]/[redDelay] override the
+  /// stored Reminders thresholds (only the test button passes these);
+  /// left null, each reads its own DatabaseService value.
+  Future<void> scheduleReminder({
+    Duration? amberDelay,
+    Duration? redDelay,
+  }) async {
     if (kIsWeb) return;
     try {
       await init();
-      final effectiveDelay = delay ?? await _resolveStoredDelay();
-      if (effectiveDelay == null) {
-        await cancelReminder();
-        return;
-      }
-      await _plugin.zonedSchedule(
-        id: _reminderNotificationId,
-        scheduledDate:
-            tz.TZDateTime.from(DateTime.now().add(effectiveDelay), tz.UTC),
-        title: 'LocalSync',
-        // 2026-09-18: "a few days" was written for the old fixed 3-day
-        // default - stays accurate now the delay is user-configurable
-        // (could be 1 day or 14).
-        body: "It's been a while since your last backup - open "
+      await _scheduleOne(
+        id: _amberNotificationId,
+        delay: amberDelay ?? await _resolveDelay(kAmberReminderDelay,
+            (db) => db.getAmberAfterDays()),
+        body: 'A day since your last backup (sync) - worth a check.',
+      );
+      await _scheduleOne(
+        id: _redNotificationId,
+        delay: redDelay ?? await _resolveDelay(kRedReminderDelay,
+            (db) => db.getRedAfterDays()),
+        body: "It's been a while since your last backup (sync) - open "
             'LocalSync to catch up.',
-        notificationDetails: const NotificationDetails(
-          iOS: DarwinNotificationDetails(),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       );
     } catch (_) {
       // Best-effort - a failed schedule (permission denied, simulator
@@ -119,9 +94,35 @@ class BackupReminderService {
     }
   }
 
-  Future<Duration?> _resolveStoredDelay() async {
-    final days = await DatabaseService().getRedAfterDays();
-    if (days == null) return kBackupReminderDelay;
+  Future<void> _scheduleOne({
+    required int id,
+    required Duration? delay,
+    required String body,
+  }) async {
+    if (delay == null) {
+      await _plugin.cancel(id: id);
+      return;
+    }
+    await _plugin.zonedSchedule(
+      id: id,
+      scheduledDate: tz.TZDateTime.from(DateTime.now().add(delay), tz.UTC),
+      title: 'LocalSync',
+      body: body,
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    );
+  }
+
+  /// null stored days = use [fallback]; 0 = off (null delay, cancels);
+  /// otherwise Duration(days: stored).
+  Future<Duration?> _resolveDelay(
+    Duration fallback,
+    Future<int?> Function(DatabaseService) getDays,
+  ) async {
+    final days = await getDays(DatabaseService());
+    if (days == null) return fallback;
     if (days <= 0) return null;
     return Duration(days: days);
   }
@@ -129,7 +130,8 @@ class BackupReminderService {
   Future<void> cancelReminder() async {
     if (kIsWeb) return;
     try {
-      await _plugin.cancel(id: _reminderNotificationId);
+      await _plugin.cancel(id: _amberNotificationId);
+      await _plugin.cancel(id: _redNotificationId);
     } catch (_) {}
   }
 }

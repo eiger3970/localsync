@@ -1,21 +1,13 @@
 // screens/reminders_screen.dart
 //
-// 2026-09-18: real ask, live - "add a reminder settings maybe, so users
-// know their reminders for widgets and notification is set by default
-// to whatever you put, maybe they can change this themselves?" Round 1
-// put this in Settings as a single "days" picker - real correction,
-// live: "I don't fully understand your controls, as this will affect
-// the Widgets and Notifications. The Widgets you had the traffic light
-// settings with x y z days, the notifications and widget traffic light
-// indicator are the same timers." Was two independently-chosen numbers
-// for the same idea (BackupReminderService's own 3-day default vs
-// LocalSyncWidget.swift's 2026-09-16 "agreed design" 1/7 thresholds) -
-// this screen now controls the actual pair the widget already uses
-// (amber-after/red-after), and the notification fires at the red
-// threshold, not a separate one. Real ask, live - "name is Reminders,
-// so it sits in the Kebab icon menu between Pull manually and
-// Security" - moved out of Settings entirely, own kebab menu entry
-// instead (see home_screen.dart's PopupMenuButton, value 'reminders').
+// 2026-09-18: real ask, live - one pair of day-thresholds (amber/red),
+// shared by the Home Screen widget's dot colour and these two
+// notifications - not independent settings. Round 2 correction, live:
+// "Your Reminder text is verbose" - trimmed hard. Round 2 also added a
+// real amber notification (was red-only) and "text is to refer to sync
+// with wording using backup also... Reminders are a backup reminder"
+// - "backup (sync)" wording throughout, kebab label renamed to Backup
+// reminder (see home_screen.dart's PopupMenuButton, value 'reminders').
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
@@ -55,27 +47,18 @@ class _RemindersScreenState extends State<RemindersScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: kVoid,
-        title: Text('Reminders', style: TextStyle(color: kStar)),
+        title: Text('Backup reminder', style: TextStyle(color: kStar)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'One pair of timers, used in two places: the Home Screen '
-              "widget's green/amber/red dot, and this notification. "
-              "They're never independent settings - change either "
-              'threshold here and both update together.',
-              style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-            ),
-            const SizedBox(height: 24),
             _ThresholdSection(
               icon: Icons.circle,
               iconColor: Colors.amber,
               title: 'Amber after',
-              subtitle: 'Widget dot turns amber once this many days pass '
-                  'without a successful sync.',
+              subtitle: 'Amber dot + notification.',
               options: const {1: '1 day', 2: '2 days', 3: '3 days', 5: '5 days'},
               selected: amber,
               onSelect: (v) {
@@ -87,10 +70,8 @@ class _RemindersScreenState extends State<RemindersScreen> {
             _ThresholdSection(
               icon: Icons.circle,
               iconColor: Colors.redAccent,
-              title: 'Red after / reminder',
-              subtitle: 'Widget dot turns red and this notification fires '
-                  'once this many days pass without a successful sync. '
-                  'Off turns off both.',
+              title: 'Red after',
+              subtitle: 'Red dot + notification. Off disables both.',
               options: const {0: 'Off', 3: '3 days', 7: '7 days', 14: '14 days'},
               selected: red,
               onSelect: (v) {
@@ -99,42 +80,36 @@ class _RemindersScreenState extends State<RemindersScreen> {
               },
             ),
             const SizedBox(height: 28),
-            // 2026-09-18: real ask, live - "make it testable," about the
-            // notification specifically (no Xcode/device-console access
-            // on this user's setup to confirm the permission prompt or
-            // delivery any faster than waiting the real red-threshold
-            // number of days). Same scheduleReminder() a real sync
-            // success already calls, just a short real delay instead -
-            // a genuine notification, nothing simulated. Kept on this
-            // screen (moved from the About dialog) since it's testing
-            // the exact setting right above it, not a separate concern.
+            // 2026-09-18: "make it testable" - no Xcode/device-console
+            // access to confirm delivery any faster than waiting the
+            // real thresholds out. Same scheduleReminder() a real sync
+            // success already calls, both notifications on short delays
+            // instead of real days.
             TextButton(
               style: TextButton.styleFrom(
                   padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
               onPressed: () async {
-                await BackupReminderService()
-                    .scheduleReminder(delay: const Duration(seconds: 10));
+                await BackupReminderService().scheduleReminder(
+                  amberDelay: const Duration(seconds: 8),
+                  redDelay: const Duration(seconds: 14),
+                );
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text(
-                        'Test reminder scheduled - background the app now, '
-                        'it should arrive in ~10 seconds.'),
+                    content: Text('Test notifications scheduled - '
+                        'background the app now, amber in ~8s, red in '
+                        '~14s.'),
                     duration: Duration(seconds: 6),
                   ),
                 );
               },
-              child: Text('Send test reminder',
+              child: Text('Send test notifications',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
             const SizedBox(height: 12),
             Text(
-              'The widget half of this is best-effort on this build - a '
-              'known App Group/sideload-signing limitation (see the '
-              "app's own history) can keep the widget from ever seeing "
-              "these numbers even though they're written correctly. The "
-              'notification above is unaffected by that and works either '
-              'way.',
+              "Widget colours may not update on this build - a known "
+              'signing limitation. The notifications above are unaffected.',
               style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
             ),
           ],
