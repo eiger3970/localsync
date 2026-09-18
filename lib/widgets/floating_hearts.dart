@@ -103,10 +103,10 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // reports rotation SPEED, not a resting angle, so a phone held
     // still (even mid-turn, even tilted) reports ~0; reading it
     // directly would snap the sway back to center the instant the turn
-    // stopped. Accumulate while actively turning, decay slowly
-    // afterward (see the AnimationController listener below) - matches
-    // "collect on the edge and continue floating up" (stays leaned for
-    // a while) rather than springing back instantly.
+    // stopped. Accumulating instead means it holds wherever you leave
+    // it (round 4 below removed the original decay-back-to-center
+    // entirely) - matches "collect on the edge and continue floating
+    // up" (stays leaned) rather than springing back instantly.
     //
     // 2026-09-18 (round 3): real feedback, live - "unsure is swaying or
     // not, but the movement if any is too small." 0.12 -> 0.4 - a
@@ -114,6 +114,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // motion finishes, not need an exaggerated snap-turn to register at
     // all. Paired with the painter's own edge-snap change (blends all
     // the way to the true edge at full tilt, not a fixed small offset).
+    //
+    // 2026-09-18 (round 4): real feedback, live - "Hearts seems to
+    // move, but I can't make sense of it. They should be steerable like
+    // something to play with and move the phone around." The decay
+    // (below, since removed) fought against holding a position -
+    // turning the phone to a spot and holding it still there still let
+    // the lean drift back toward center on its own, which doesn't read
+    // as "steerable." No decay now - _tilt holds exactly where you
+    // leave it, like a real steering wheel: turn one way and it stays
+    // that way until you physically turn it back the other way
+    // yourself, not on a timer.
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
       _tilt = (_tilt + event.z * 0.4).clamp(-1.0, 1.0);
@@ -129,13 +140,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
       vsync: this,
       duration: const Duration(seconds: 5),
     )..repeat();
-    // Gentle exponential decay every animation frame - _tilt drifts back
-    // toward 0 over a few seconds once the phone stops turning, instead
-    // of staying pinned forever or snapping back the instant it does.
-    // No setState needed here: AnimatedBuilder below already rebuilds
-    // every frame off _ctrl's own ticking and reads whatever _tilt
-    // currently is.
-    _ctrl.addListener(() => _tilt *= 0.985);
     final rng = Random(3);
     // 2026-09-17: "a trail with random spacing" - startOffset staggers
     // each heart's own cycle so they never move in lockstep, reading
