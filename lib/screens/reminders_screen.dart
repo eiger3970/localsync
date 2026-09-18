@@ -130,6 +130,35 @@ class _RemindersScreenState extends State<RemindersScreen> {
               child: Text('Send test notifications',
                   style: TextStyle(color: kGreen, fontSize: 13)),
             ),
+            const SizedBox(height: 6),
+            // 2026-09-18 (round 2): real ask, live - permission granted,
+            // every notification toggle confirmed on, Focus confirmed
+            // off, and still nothing arrives even with "2 pending"
+            // confirmed. This bypasses scheduling entirely (a plain
+            // immediate .show()) to isolate whether the bug is specific
+            // to zonedSchedule/timezone or whether notification display
+            // itself is broken on this build regardless of trigger.
+            TextButton(
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              onPressed: () async {
+                String message;
+                try {
+                  await BackupReminderService().showImmediateTest();
+                  message = 'Sent immediately, no delay - check now.';
+                } catch (e) {
+                  message = 'Could not send: $e';
+                }
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text(message),
+                      duration: const Duration(seconds: 6)),
+                );
+              },
+              child: Text('Send immediate test (no scheduling)',
+                  style: TextStyle(color: kGreen, fontSize: 13)),
+            ),
             const SizedBox(height: 12),
             Text(
               "Widget colours may not update on this build - a known "
