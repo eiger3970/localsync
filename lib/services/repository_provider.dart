@@ -327,23 +327,38 @@ class RepositoryProvider extends ChangeNotifier {
   // HEAD before the other's commit landed, racing the filesystem. Not
   // data loss (a rejected commit writes nothing), but a real, confusing
   // failure with no obvious cause from the user's side. Queues a new
-  // call behind whatever's already running for the same repo id
-  // instead of letting them race.
-  final Map<int, Future<void>> _inFlight = {};
+  // call behind whatever's already running.
+  //
+  // 2026-09-18: real crash, from an actual on-device .ips crash log (a
+  // widget-launch push, previously undiagnosed for the whole session -
+  // AutoSyncOnResume fires on cold-launch-from-widget before the
+  // getPendingAction method channel result comes back, since that's
+  // async - so it starts its own sync while pendingQuickAction is still
+  // null, then the widget's own sync starts moments later once the
+  // channel resolves). The crash itself was two DartWorker threads both
+  // inside git_remote_connect's SSH handshake at once, aborting deep in
+  // BoringSSL (ERR_pop_to_mark / EVP_KEYMGMT's namemap) - that's
+  // process-global crypto library state, not per-connection, so two
+  // concurrent handshakes corrupt it regardless of whether they're even
+  // the same repo id. Per-id locking (this queue was keyed by `id`
+  // until now) can't protect against that. Made global instead - no two
+  // sync operations ever run at once, full stop, matching what the
+  // crash log actually showed was unsafe.
+  Future<void>? _inFlight;
 
   Future<SyncResult?> _run(
     int id,
     Stream<SyncEvent> Function(SyncService) op,
   ) async {
-    final prior = _inFlight[id];
+    final prior = _inFlight;
     if (prior != null) await prior.catchError((_) {});
     final completer = Completer<void>();
-    _inFlight[id] = completer.future;
+    _inFlight = completer.future;
     try {
       return await _runLocked(id, op);
     } finally {
       completer.complete();
-      if (identical(_inFlight[id], completer.future)) _inFlight.remove(id);
+      if (identical(_inFlight, completer.future)) _inFlight = null;
     }
   }
 
