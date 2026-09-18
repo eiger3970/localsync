@@ -27,6 +27,8 @@ const _kBareRepoPathKey       = 'db_bare_repo_path';
 const _kDesktopVaultPathKey   = 'db_desktop_vault_path';
 const _kAutoDiscoveryInterestKey = 'db_auto_discovery_interest';
 const _kSelectedSkinKey = 'db_selected_skin';
+const _kAmberAfterDaysKey = 'db_amber_after_days';
+const _kRedAfterDaysKey = 'db_red_after_days';
 // 2026-09-08: real feedback, live - "gone entirely" vs "I need all or
 // part of that data onto this device" (2026-08-25's own explicit ask,
 // see applyResolution's doc) are genuinely opposite defaults different
@@ -201,6 +203,53 @@ class DatabaseService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kBareRepoPathKey, path);
+  }
+
+  // ── Reminder thresholds (amber/red days) ───────────────────────────────────
+  // 2026-09-18: real ask, live - "add a reminder settings maybe... this
+  // will affect the Widgets and Notifications. The notifications and
+  // widget traffic light indicator are the same timers." Replaces the
+  // first round's single kBackupReminderDays with the actual pair of
+  // numbers LocalSyncWidget.swift's riskColor already used (2026-09-16
+  // "agreed design," hardcoded there as 1/7) - one shared pair now
+  // drives both the widget's green/amber/red coloring (via
+  // BackupStatusChannel.setReminderThresholds, App-Group-shared with the
+  // widget) and BackupReminderService's own notification delay (the red
+  // threshold - a reminder is exactly "you've gone red"). Same override
+  // pattern as desktopIp/bareRepoPath: null means "no override, the
+  // 2026-09-16 agreed default (1/7) is used." redAfterDays only: 0 means
+  // the user explicitly turned reminders off.
+  static int? _webAmberAfterDays;
+  static int? _webRedAfterDays;
+
+  Future<int?> getAmberAfterDays() async {
+    if (kIsWeb) return _webAmberAfterDays;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kAmberAfterDaysKey);
+  }
+
+  Future<void> setAmberAfterDays(int days) async {
+    if (kIsWeb) {
+      _webAmberAfterDays = days;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kAmberAfterDaysKey, days);
+  }
+
+  Future<int?> getRedAfterDays() async {
+    if (kIsWeb) return _webRedAfterDays;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_kRedAfterDaysKey);
+  }
+
+  Future<void> setRedAfterDays(int days) async {
+    if (kIsWeb) {
+      _webRedAfterDays = days;
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kRedAfterDaysKey, days);
   }
 
   // ── Desktop vault path override ────────────────────────────────────────────

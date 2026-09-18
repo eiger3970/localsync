@@ -25,8 +25,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+import 'database_service.dart';
 
-const kBackupReminderDelay = Duration(days: 3);
+// 2026-09-18 (round 3): 3 -> 7 days - unified with
+// LocalSyncWidget.swift's own 2026-09-16 "agreed design" red threshold
+// (days >= 7) instead of being a second, independently-chosen number for
+// the same idea. See database_service.dart's getRedAfterDays.
+const kBackupReminderDelay = Duration(days: 7);
 const _reminderNotificationId = 1;
 
 class BackupReminderService {
@@ -58,19 +63,49 @@ class BackupReminderService {
   }
 
   /// Cancels whatever reminder was already pending and schedules a new
-  /// one [kBackupReminderDelay] from now - called after every sync that
-  /// actually succeeds, so a regularly-synced repo never fires this at
-  /// all.
-  Future<void> scheduleReminder() async {
+  /// one [delay] from now - called after every sync that actually
+  /// succeeds, so a regularly-synced repo never fires this at all.
+  ///
+  /// 2026-09-18: real ask, live - "make it testable." [delay] used to be
+  /// hardcoded to kBackupReminderDelay (3 real days) with no way to
+  /// confirm the permission prompt or actual delivery without waiting
+  /// that long. Home screen's DISCLAIMER section now has a real "Send
+  /// test reminder" action that calls this with a short delay instead -
+  /// same method, same real notification, nothing simulated.
+  ///
+  /// 2026-09-18 (round 2): real ask, live - "add a reminder settings
+  /// maybe, so users know their reminders... is set by default to
+  /// whatever you put, maybe they can change this themselves?" [delay]
+  /// left null (every real sync-success call site does this) now reads
+  /// the user's own Reminders choice instead of always falling back to
+  /// the default - an explicit Duration (only the test button passes
+  /// one) still overrides that lookup entirely.
+  ///
+  /// 2026-09-18 (round 3): real ask, live - "the notifications and
+  /// widget traffic light indicator are the same timers." The stored
+  /// value read here is now the RED threshold (DatabaseService.
+  /// getRedAfterDays) - the same number LocalSyncWidget.swift's
+  /// riskColor turns red at, not a separate reminder-only number. A
+  /// stored 0 means the user turned reminders (and the red state) off,
+  /// which cancels rather than schedules.
+  Future<void> scheduleReminder({Duration? delay}) async {
     if (kIsWeb) return;
     try {
       await init();
+      final effectiveDelay = delay ?? await _resolveStoredDelay();
+      if (effectiveDelay == null) {
+        await cancelReminder();
+        return;
+      }
       await _plugin.zonedSchedule(
         id: _reminderNotificationId,
         scheduledDate:
-            tz.TZDateTime.from(DateTime.now().add(kBackupReminderDelay), tz.UTC),
+            tz.TZDateTime.from(DateTime.now().add(effectiveDelay), tz.UTC),
         title: 'LocalSync',
-        body: "It's been a few days since your last backup - open "
+        // 2026-09-18: "a few days" was written for the old fixed 3-day
+        // default - stays accurate now the delay is user-configurable
+        // (could be 1 day or 14).
+        body: "It's been a while since your last backup - open "
             'LocalSync to catch up.',
         notificationDetails: const NotificationDetails(
           iOS: DarwinNotificationDetails(),
@@ -82,6 +117,13 @@ class BackupReminderService {
       // with no real notification support, etc.) never blocks or fails
       // the sync itself.
     }
+  }
+
+  Future<Duration?> _resolveStoredDelay() async {
+    final days = await DatabaseService().getRedAfterDays();
+    if (days == null) return kBackupReminderDelay;
+    if (days <= 0) return null;
+    return Duration(days: days);
   }
 
   Future<void> cancelReminder() async {
