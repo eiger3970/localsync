@@ -699,25 +699,26 @@ class HomeScreen extends StatelessWidget {
           // dialogs, same SnackBar feedback, same cannotFastForward
           // auto-recovery on push. Cleared immediately, same one-shot
           // reasoning as the conflict case.
+          //
+          // 2026-09-18: real ask, live - "Widget pull and push opened
+          // home screen but gifs weren't moving?" This used to call
+          // _runAndShow directly - a real sync, but the gif/flow
+          // animation (owned by GifSwipeTrigger's own onConfirm wrapper
+          // below) never played, since nothing here ever asked it to.
+          // Now runs through pullKey/pushKey's triggerConfirm() instead,
+          // same onPull/onPush closures underneath either way - see
+          // gif_swipe_trigger.dart's own 2026-09-18 comment.
+          final pullKey = GlobalKey<GifSwipeTriggerState>();
+          final pushKey = GlobalKey<GifSwipeTriggerState>();
           final pendingQuickAction = provider.pendingQuickAction;
           if (pendingQuickAction != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               provider.clearPendingQuickAction();
               if (!context.mounted) return;
               if (pendingQuickAction == 'action_pull') {
-                _runAndShow(
-                    context,
-                    ({bool confirmed = false}) =>
-                        provider.pullRepository(repo.id!, confirmed: confirmed),
-                    repo: repo);
+                pullKey.currentState?.triggerConfirm();
               } else if (pendingQuickAction == 'action_push') {
-                _runAndShow(
-                    context,
-                    ({bool confirmed = false}) =>
-                        provider.pushRepository(repo.id!, confirmed: confirmed),
-                    repo: repo,
-                    pullFallback: ({bool confirmed = false}) =>
-                        provider.pullRepository(repo.id!, confirmed: confirmed));
+                pushKey.currentState?.triggerConfirm();
               }
             });
           }
@@ -728,6 +729,8 @@ class HomeScreen extends StatelessWidget {
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
           final gestureZone = _SyncGestureZone(
+            pullKey: pullKey,
+            pushKey: pushKey,
             // 2026-09-18: real ask, live - "middle between Pull and
             // Push is blank, perfect for ad space... add 2nd gap."
             // Tier 0 (free/genericFolder) only, same paid-tier-stays-
@@ -1040,8 +1043,20 @@ class _SyncGestureZone extends StatelessWidget {
   final Future<void> Function() onPull;
   final Future<void> Function() onPush;
   final bool showMidAd;
+  // 2026-09-18: real ask, live - "Widget pull and push opened home
+  // screen but gifs weren't moving?" Lets a caller outside a real swipe
+  // gesture (pendingQuickAction below) reach each GifSwipeTrigger's own
+  // triggerConfirm() instead of calling onPull/onPush directly - see
+  // gif_swipe_trigger.dart's own 2026-09-18 comment for why that
+  // silently skipped the animation.
+  final GlobalKey<GifSwipeTriggerState>? pullKey;
+  final GlobalKey<GifSwipeTriggerState>? pushKey;
   const _SyncGestureZone(
-      {required this.onPull, required this.onPush, this.showMidAd = false});
+      {required this.onPull,
+      required this.onPush,
+      this.showMidAd = false,
+      this.pullKey,
+      this.pushKey});
 
   @override
   Widget build(BuildContext context) {
@@ -1049,6 +1064,7 @@ class _SyncGestureZone extends StatelessWidget {
       children: [
         Expanded(
           child: GifSwipeTrigger(
+            key: pullKey,
             caption: 'PULL',
             swipeDown: true,
             // 2026-08-17: "a lot of black space between PULL and
@@ -1081,6 +1097,7 @@ class _SyncGestureZone extends StatelessWidget {
         if (showMidAd) const FreeTierBannerAd(),
         Expanded(
           child: GifSwipeTrigger(
+            key: pushKey,
             caption: 'PUSH',
             swipeDown: false,
             gifHeight: 198,
