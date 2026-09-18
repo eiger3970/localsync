@@ -179,7 +179,10 @@ class _FloatingHeartsState extends State<FloatingHearts>
                 _gyroError != null
                     ? 'GYRO ERR: $_gyroError'
                     : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}',
-                style: const TextStyle(color: Colors.red, fontSize: 13),
+                style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -297,17 +300,14 @@ class _HeartsPainter extends CustomPainter {
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
       var x = (size.width * (h.x + sway)).clamp(0.0, size.width);
-      // 2026-09-18 (round 3): real ask, live - "the sway should just
-      // sway to the edge of the screen or until I stop tilting the
-      // phone." A fixed px offset (round 2) could still land short of
-      // the real edge depending on where a heart's own ambient drift
-      // put it. Blends toward whichever edge `tilt`'s sign points at
-      // instead, with blend strength equal to |tilt| - at full tilt
-      // this snaps all the way to the true edge regardless of starting
-      // position, not just partway there.
-      if (tilt != 0) {
-        final edgeTarget = tilt > 0 ? size.width : 0.0;
-        x = x + (edgeTarget - x) * tilt.abs();
+      // 2026-09-18 (round 8): "kiss" - a proportional blend was too
+      // subtle to tell apart from the hearts' own ambient sway. Hard
+      // binary snap instead: past a small threshold, every heart sits
+      // exactly on that edge, full stop, unmistakable either way -
+      // below it, no tilt effect at all. Removes any doubt about
+      // whether it's "sort of" reacting.
+      if (tilt.abs() > 0.15) {
+        x = tilt > 0 ? size.width : 0.0;
       }
       // Fade in near the bottom (origin), fade out near the top - never
       // pops in/out abruptly mid-rise.
