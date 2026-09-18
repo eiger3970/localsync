@@ -107,21 +107,26 @@ class _FloatingHeartsState extends State<FloatingHearts>
   Widget build(BuildContext context) {
     // 2026-09-18: real ask, live - "Can the hearts be interactive, like
     // a child waving a hand through balloons?" No longer IgnorePointer -
-    // but this trail now spans most of the dialog's height (trailHeight
-    // 1050 at the SUPPORT call site), so a full omnidirectional pan
-    // recognizer here would fight the ancestor SingleChildScrollView's
-    // own vertical drag recognizer for any gesture starting inside it,
-    // breaking scroll for a large chunk of the dialog. Horizontal-only
-    // drag callbacks don't compete with a vertical scroll gesture -
-    // Flutter resolves them by the drag's actual direction - and match
-    // what was actually asked for ("sway in the left or right
-    // direction") anyway.
-    return GestureDetector(
-      onHorizontalDragStart: (d) => setState(() => _pointer = d.localPosition),
-      onHorizontalDragUpdate: (d) =>
-          setState(() => _pointer = d.localPosition),
-      onHorizontalDragEnd: (_) => setState(() => _pointer = null),
-      onHorizontalDragCancel: () => setState(() => _pointer = null),
+    // first version used onHorizontalDragStart/Update, reasoning that a
+    // horizontal-only drag recognizer wouldn't compete with the ancestor
+    // SingleChildScrollView's vertical one. Real device feedback, same
+    // day: "Hearts don't move, only the screen moves up and down with
+    // finger swipes" - a real thumb swipe over a narrow 70px-wide column
+    // is rarely purely horizontal, so the gesture arena kept awarding it
+    // to the scroll view's recognizer instead, and the horizontal
+    // recognizer here just never won at all.
+    //
+    // Listener instead of GestureDetector: raw pointer events, not a
+    // gesture recognizer, so it never enters the arena and never
+    // competes with the scroll view for anything - both get every
+    // pointer event, unconditionally. translucent behavior keeps hit
+    // testing passing through to the scroll view underneath.
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (e) => setState(() => _pointer = e.localPosition),
+      onPointerMove: (e) => setState(() => _pointer = e.localPosition),
+      onPointerUp: (_) => setState(() => _pointer = null),
+      onPointerCancel: (_) => setState(() => _pointer = null),
       child: SizedBox(
         width: widget.trailWidth,
         height: widget.trailHeight,
