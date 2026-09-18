@@ -90,17 +90,25 @@ class BackupReminderService {
       throw StateError('Notifications are off for LocalSync - enable '
           'them in Settings > LocalSync > Notifications.');
     }
+    // 2026-09-18: real ask, live - "can the 1st one have the amber dot
+    // and the 2nd one have a red dot, to tie in the connection with the
+    // widgets." Same colour language as LocalSyncWidget.swift's own
+    // riskColor (yellow/amber, then red) - right in the title, so the
+    // two notifications read as the same two states the widget shows,
+    // not a separate, unrelated pair of alerts.
     await _scheduleOne(
       id: _amberNotificationId,
       delay: amberDelay ??
           await _resolveDelay(
               kAmberReminderDelay, (db) => db.getAmberAfterDays()),
+      title: '\u{1F7E1} LocalSync',
       body: 'A day since your last backup (sync) - worth a check.',
     );
     await _scheduleOne(
       id: _redNotificationId,
       delay: redDelay ??
           await _resolveDelay(kRedReminderDelay, (db) => db.getRedAfterDays()),
+      title: '\u{1F534} LocalSync',
       body: "It's been a while since your last backup (sync) - open "
           'LocalSync to catch up.',
     );
@@ -109,6 +117,7 @@ class BackupReminderService {
   Future<void> _scheduleOne({
     required int id,
     required Duration? delay,
+    required String title,
     required String body,
   }) async {
     if (delay == null) {
@@ -118,7 +127,7 @@ class BackupReminderService {
     await _plugin.zonedSchedule(
       id: id,
       scheduledDate: tz.TZDateTime.from(DateTime.now().add(delay), tz.UTC),
-      title: 'LocalSync',
+      title: title,
       body: body,
       notificationDetails: const NotificationDetails(
         iOS: DarwinNotificationDetails(),
