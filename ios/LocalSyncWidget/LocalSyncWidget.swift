@@ -131,10 +131,25 @@ struct SyncButton: View {
 // pushing/pulling. Gray/"Never synced" is its own state, not lumped
 // into red - a fresh install with no sync yet isn't a backup risk in
 // the same sense a device that's fallen behind is.
+//
+// 2026-09-18: real ask, live - "the notifications and widget traffic
+// light indicator are the same timers." The 1/7 cutoffs below are now
+// only the fallback - RemindersScreen (Dart) writes real
+// amberAfterDays/redAfterDays into this same App Group suite via
+// AppDelegate.swift's BackupStatusChannel.setReminderThresholds
+// whenever the user changes them, and BackupReminderService's own
+// notification delay is computed from the same redAfterDays value, not
+// a separately-hardcoded number. Falls back to 1/7 if unset, or if the
+// App Group write never lands at all (the known sideload/App-Group
+// container limitation documented elsewhere in this app's history -
+// see project_synclocal_app).
 private func riskColor(_ days: Int?) -> Color {
   guard let days = days else { return .gray }
-  if days < 1 { return .green }
-  if days <= 6 { return .yellow }
+  let defaults = UserDefaults(suiteName: appGroupSuite)
+  let amberAfter = (defaults?.object(forKey: "amberAfterDays") as? Int) ?? 1
+  let redAfter = (defaults?.object(forKey: "redAfterDays") as? Int) ?? 7
+  if days < amberAfter { return .green }
+  if days < redAfter { return .yellow }
   return .red
 }
 

@@ -162,6 +162,41 @@ class RepositoryProvider extends ChangeNotifier {
   Future<void> setAutoDiscoveryInterest(String price) =>
       _db.setAutoDiscoveryInterest(price);
 
+  // ── Reminder thresholds (amber/red days) ───────────────────────────────────
+  // 2026-09-18: real ask, live - "the notifications and widget traffic
+  // light indicator are the same timers." See database_service.dart's
+  // getAmberAfterDays/getRedAfterDays/setAmberAfterDays/setRedAfterDays.
+  // Setting either one does three things, not just a DB write: pushes
+  // both numbers to the widget's own App Group suite (best-effort, same
+  // silently-swallowed-on-this-signing-setup caveat as
+  // _recordBackupTimestamp above), and reschedules whatever notification
+  // is currently pending against the new red threshold right away, not
+  // just on the next sync.
+  Future<int?> getAmberAfterDays() => _db.getAmberAfterDays();
+  Future<int?> getRedAfterDays() => _db.getRedAfterDays();
+
+  Future<void> setAmberAfterDays(int days) async {
+    await _db.setAmberAfterDays(days);
+    await _pushReminderThresholds();
+  }
+
+  Future<void> setRedAfterDays(int days) async {
+    await _db.setRedAfterDays(days);
+    await _pushReminderThresholds();
+    await BackupReminderService().scheduleReminder();
+  }
+
+  Future<void> _pushReminderThresholds() async {
+    try {
+      final amber = await _db.getAmberAfterDays() ?? 1;
+      final red = await _db.getRedAfterDays() ?? 7;
+      await _backupStatusChannel.invokeMethod('setReminderThresholds', {
+        'amberAfterDays': amber,
+        'redAfterDays': red,
+      });
+    } catch (_) {}
+  }
+
   RepositoryProvider() { _init(); }
 
   Future<void> _init() async {

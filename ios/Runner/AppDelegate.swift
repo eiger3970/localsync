@@ -354,6 +354,8 @@ class WidgetActionChannel: NSObject {
 class BackupStatusChannel: NSObject {
   static let suiteName = "group.com.kworld.localsync"
   static let lastSyncKey = "lastSyncTimestamp"
+  static let amberAfterDaysKey = "amberAfterDays"
+  static let redAfterDaysKey = "redAfterDays"
 
   func register(with messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
@@ -362,6 +364,35 @@ class BackupStatusChannel: NSObject {
     )
     channel.setMethodCallHandler { call, result in
       switch call.method {
+      // 2026-09-18: real ask, live - "the notifications and widget
+      // traffic light indicator are the same timers." RemindersScreen
+      // (Dart) calls this whenever the user changes either threshold -
+      // same App Group suite/same fail-loud-if-nil pattern as recordSync
+      // just below, written once here so LocalSyncWidget.swift's
+      // riskColor reads the exact same numbers the notification's own
+      // delay is computed from, instead of two independently-hardcoded
+      // "3 days"/"7 days" ideas of the same thing.
+      case "setReminderThresholds":
+        guard let defaults = UserDefaults(suiteName: BackupStatusChannel.suiteName) else {
+          result(FlutterError(code: "no_app_group_suite",
+                               message: "UserDefaults(suiteName:) nil in Runner process",
+                               details: nil))
+          return
+        }
+        guard let args = call.arguments as? [String: Any],
+              let amberAfterDays = args["amberAfterDays"] as? Int,
+              let redAfterDays = args["redAfterDays"] as? Int else {
+          result(FlutterError(code: "bad_args",
+                               message: "expected amberAfterDays/redAfterDays ints",
+                               details: nil))
+          return
+        }
+        defaults.set(amberAfterDays, forKey: BackupStatusChannel.amberAfterDaysKey)
+        defaults.set(redAfterDays, forKey: BackupStatusChannel.redAfterDaysKey)
+        if #available(iOS 14.0, *) {
+          WidgetCenter.shared.reloadTimelines(ofKind: "LocalSyncWidget")
+        }
+        result(nil)
       case "recordSync":
         // 2026-09-17: real bug, live - "OK" was coming back from Dart
         // even though the widget still read ts=0. Root cause: the `?`

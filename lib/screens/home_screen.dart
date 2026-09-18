@@ -29,6 +29,7 @@ import 'linking_screen.dart';
 import 'welcome_hero_screen.dart';
 import '../features/linking/linking_controller.dart';
 import 'pairing_screen.dart';
+import 'reminders_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
 
@@ -211,6 +212,12 @@ class HomeScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const SettingsScreen()));
+                  }
+                  if (v == 'reminders') {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RemindersScreen()));
                   }
                   if (v == 'security') {
                     Navigator.push(
@@ -423,6 +430,24 @@ class HomeScreen extends StatelessWidget {
                           subtitle: provider.selectedRepo!.autoSync
                               ? 'Stop auto pull on app open'
                               : 'Pull automatically every time the app opens',
+                        ),
+                      ),
+                    // 2026-09-18: real ask, live - "name is Reminders, so
+                    // it sits in the Kebab icon menu between Pull
+                    // manually and Security." Controls the same
+                    // amber/red day thresholds LocalSyncWidget.swift's
+                    // traffic-light dot already used - see
+                    // reminders_screen.dart's own header for the full
+                    // history (this replaced a Settings-screen card from
+                    // earlier the same day, moved here per this exact
+                    // ask).
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'reminders',
+                        child: _MenuRow(
+                          icon: Icons.notifications_outlined,
+                          label: 'Reminders',
+                          subtitle: 'Widget colors & backup notification',
                         ),
                       ),
                     // 2026-08-27: moved here from a standalone AppBar icon -
@@ -1971,7 +1996,13 @@ class _StatusIcon extends StatelessWidget {
     final allOk = repos.every((r) => r.status == SyncStatus.ok);
 
     if (hasSyncing) {
-      return const Icon(Icons.sync, color: Colors.amber, size: 22);
+      // 2026-09-18: real feedback, live - "Security image is often amber
+      // with sync arrows, indicating a problem, but this is just the
+      // correct operation of the app, syncing." Kept amber (removing it
+      // would lose the at-a-glance "still working" signal entirely) but
+      // now spins continuously while syncing - motion reads as "active,"
+      // not "stuck/warning," the same problem color alone was causing.
+      return const _SpinningSyncIcon();
     }
     if (hasError) {
       return const Icon(Icons.error_outline, color: Colors.redAccent, size: 22);
@@ -1988,6 +2019,45 @@ class _StatusIcon extends StatelessWidget {
       return Icon(Icons.verified_user, color: kGreen, size: 22);
     }
     return Icon(Icons.circle_outlined, color: kTextDim, size: 22);
+  }
+}
+
+// 2026-09-18: real ask, live - amber Icons.sync now rotates continuously
+// while syncing (see _StatusIcon's own 2026-09-18 comment). Icons.sync
+// has 180-degree rotational symmetry, so a full turn reads as two
+// identical half-spins - still smooth, no visible seam.
+class _SpinningSyncIcon extends StatefulWidget {
+  const _SpinningSyncIcon();
+
+  @override
+  State<_SpinningSyncIcon> createState() => _SpinningSyncIconState();
+}
+
+class _SpinningSyncIconState extends State<_SpinningSyncIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1, milliseconds: 200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RotationTransition(
+      turns: _ctrl,
+      child: const Icon(Icons.sync, color: Colors.amber, size: 22),
+    );
   }
 }
 
