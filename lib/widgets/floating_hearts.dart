@@ -37,6 +37,12 @@ class FloatingHearts extends StatefulWidget {
   // concrete width from its child rather than an unbounded one. Also
   // matches "stem from support" better - a narrow trail near the icon,
   // not a full-dialog-width spread.
+  //
+  // 2026-09-18: real feedback, live - "Hearts no change, just the
+  // screen scrolls. The hearts might need a generous space around them
+  // for user fingers to drag." 70 -> 140 - a real fingertip is roughly
+  // 40-50px, so 70 left very little room either side of a heart to
+  // actually initiate a touch that lands inside this column at all.
   final double trailWidth;
   // 2026-09-18: real ask, live - "Support floating hearts decrease per
   // higher tiers." Paying users already get a calmer app overall (no
@@ -48,7 +54,7 @@ class FloatingHearts extends StatefulWidget {
     super.key,
     required this.color,
     this.trailHeight = 90,
-    this.trailWidth = 70,
+    this.trailWidth = 140,
     this.quiet = false,
   });
 
