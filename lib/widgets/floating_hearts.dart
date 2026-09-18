@@ -178,8 +178,17 @@ class _HeartsPainter extends CustomPainter {
   // How far a heart reaches out to react, and how hard it gets pushed
   // at the closest possible distance - tuned so the push reads as a
   // reaction to a hand passing near, not a violent flick.
-  static const _influenceRadius = 45.0;
-  static const _maxPush = 22.0;
+  //
+  // 2026-09-18: real feedback, live - "I swiped the hearts but nothing
+  // happens." With only 3-5 hearts staggered across the full 1050px
+  // trail at any one moment, 45px was too tight a radius for a single
+  // real swipe to reliably land near one - most of a short gesture's
+  // touch path simply had no heart within reach. 45 -> 160 (most of the
+  // 70px-wide column's height in practical reach, generous on the Y
+  // axis where actual misses were happening) so a swipe anywhere in the
+  // visible trail reacts, not just a pixel-precise one.
+  static const _influenceRadius = 160.0;
+  static const _maxPush = 28.0;
 
   @override
   void paint(Canvas canvas, Size size) {
