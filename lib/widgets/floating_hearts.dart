@@ -199,7 +199,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
             color: Colors.transparent,
             child: Container(
               padding: const EdgeInsets.all(8),
-              color: Colors.black,
+              // 2026-09-18 (round 11): real feedback, live - "same" even
+              // after lowering both thresholds, with "GYRO changes"
+              // already confirmed. Background flips green the instant
+              // |tilt| actually crosses the snap threshold (0.05) - the
+              // exact same condition the heart painter itself checks,
+              // through the one display mechanism already confirmed
+              // visible. Green with no heart reaction pins the bug to
+              // the painter specifically; staying black the whole time
+              // means tilt still never actually reaches 0.05 in
+              // practice, whatever the readout number shows.
+              color: _tilt.abs() > 0.05 ? Colors.green : Colors.black,
               child: Text(
                 _gyroError != null
                     ? 'GYRO ERR: $_gyroError'
