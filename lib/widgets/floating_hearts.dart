@@ -106,11 +106,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // stopped. Accumulate while actively turning, decay slowly
     // afterward (see the AnimationController listener below) - matches
     // "collect on the edge and continue floating up" (stays leaned for
-    // a while) rather than springing back instantly. Sensitivity
-    // unconfirmed without a real device, may still need tuning.
+    // a while) rather than springing back instantly.
+    //
+    // 2026-09-18 (round 3): real feedback, live - "unsure is swaying or
+    // not, but the movement if any is too small." 0.12 -> 0.4 - a
+    // normal, unhurried turn should reach full sway well before the
+    // motion finishes, not need an exaggerated snap-turn to register at
+    // all. Paired with the painter's own edge-snap change (blends all
+    // the way to the true edge at full tilt, not a fixed small offset).
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
-      _tilt = (_tilt + event.z * 0.12).clamp(-1.0, 1.0);
+      _tilt = (_tilt + event.z * 0.4).clamp(-1.0, 1.0);
     }, onError: (_) {});
     // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
     // for a full cycle even at the old, much shorter 90px trail - with
@@ -213,11 +219,6 @@ class _HeartsPainter extends CustomPainter {
       this.quiet = false,
       this.tilt = 0});
 
-  // Max px every heart shifts at full tilt, on top of its own ambient
-  // per-heart drift - generous enough to read clearly against the
-  // 140px-wide trail without most hearts riding the edge at rest.
-  static const _maxTiltSway = 45.0;
-
   @override
   void paint(Canvas canvas, Size size) {
     for (final h in hearts) {
@@ -229,7 +230,18 @@ class _HeartsPainter extends CustomPainter {
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
       var x = (size.width * (h.x + sway)).clamp(0.0, size.width);
-      x = (x + tilt * _maxTiltSway).clamp(0.0, size.width);
+      // 2026-09-18 (round 3): real ask, live - "the sway should just
+      // sway to the edge of the screen or until I stop tilting the
+      // phone." A fixed px offset (round 2) could still land short of
+      // the real edge depending on where a heart's own ambient drift
+      // put it. Blends toward whichever edge `tilt`'s sign points at
+      // instead, with blend strength equal to |tilt| - at full tilt
+      // this snaps all the way to the true edge regardless of starting
+      // position, not just partway there.
+      if (tilt != 0) {
+        final edgeTarget = tilt > 0 ? size.width : 0.0;
+        x = x + (edgeTarget - x) * tilt.abs();
+      }
       // Fade in near the bottom (origin), fade out near the top - never
       // pops in/out abruptly mid-rise.
       final fadeIn = localT < 0.15 ? localT / 0.15 : 1.0;
