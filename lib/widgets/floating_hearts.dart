@@ -338,6 +338,25 @@ class _HeartsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 2026-09-18 (round 13): real bug, found by reasoning about the
+    // call site (home_screen.dart) after round 12's fix still showed
+    // "GYRO shows green background" with hearts still not reacting.
+    // The GYRO debug text lives in a root-overlay OverlayEntry pinned
+    // to a FIXED SCREEN position (top: 60) - a totally different
+    // coordinate space from this widget's own box, which the call site
+    // positions at `bottom: 24, left: 0` inside the SUPPORT row's own
+    // Stack (140 wide, 1050 tall). Tilt itself was already proven
+    // correct by the overlay - this paints the same signal directly
+    // onto the actual hearts canvas instead, so there is no separate
+    // location or timing to doubt: a bright bar fills this exact box,
+    // in this exact paint call, if and only if the hearts painter
+    // itself sees tilt active right now. Remove once this is resolved.
+    if (tilt.abs() > 0.05) {
+      canvas.drawRect(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          Paint()..color = (tilt > 0 ? Colors.orange : Colors.cyan)
+              .withValues(alpha: 0.5));
+    }
     for (final h in hearts) {
       final localT = (t * h.speed + h.startOffset) % 1.0;
       // y=size.height (the widget's own bottom edge, right at SUPPORT's
