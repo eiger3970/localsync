@@ -33,6 +33,23 @@ import 'reminders_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
 
+// 2026-09-18: real bug, found after the SceneDelegate fix still left
+// "DEBUG PULL: anim=true playing=false" but no visible animation - a
+// classic GlobalKey mistake. These used to be created fresh inside
+// HomeScreen's own build() method every single rebuild - a brand-new
+// GlobalKey object at the same tree position makes Flutter discard the
+// old element and create a new one, which silently kills whatever
+// animation had just started (via triggerConfirm()) before it ever
+// paints a frame. Cold launch is full of rebuilds happening moments
+// apart (repos loading, theme loading, etc.) - exactly when a widget-
+// tap/Quick Action fires this. A real swipe never hit this because it
+// only ever happens once the app's already settled, long after that
+// initial churn. Module-level, created once for the app's lifetime -
+// only one sync gesture zone is ever visible at a time, so a single
+// persistent pair is correct for this app's actual usage.
+final _pullKey = GlobalKey<GifSwipeTriggerState>();
+final _pushKey = GlobalKey<GifSwipeTriggerState>();
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -744,42 +761,23 @@ class HomeScreen extends StatelessWidget {
           // race on cold launch, repo/UI still loading) so the sync
           // itself can never silently stop happening even if the
           // animation genuinely can't attach in time.
-          final pullKey = GlobalKey<GifSwipeTriggerState>();
-          final pushKey = GlobalKey<GifSwipeTriggerState>();
           final pendingQuickAction = provider.pendingQuickAction;
           if (pendingQuickAction != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               provider.clearPendingQuickAction();
               if (!context.mounted) return;
-              // 2026-09-18 (round 3): real ask, live - "no affect on gif
-              // and flow graphics" persisted even with the null-check
-              // fallback in place, and "normal swipe works" rules out
-              // the animation system itself being broken - so the
-              // fallback branch must be the one actually running every
-              // time, meaning .currentState is null here on this app's
-              // real cold-launch timing, not just in theory. Temporary,
-              // visible (no device console available) confirmation of
-              // exactly that, until this is confirmed either way.
               if (pendingQuickAction == 'action_pull') {
-                final state = pullKey.currentState;
+                final state = _pullKey.currentState;
                 if (state != null) {
                   state.triggerConfirm();
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'DEBUG: pullKey.currentState was null, using fallback'),
-                      duration: Duration(seconds: 4)));
                   onPull();
                 }
               } else if (pendingQuickAction == 'action_push') {
-                final state = pushKey.currentState;
+                final state = _pushKey.currentState;
                 if (state != null) {
                   state.triggerConfirm();
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'DEBUG: pushKey.currentState was null, using fallback'),
-                      duration: Duration(seconds: 4)));
                   onPush();
                 }
               }
@@ -807,8 +805,8 @@ class HomeScreen extends StatelessWidget {
           // bar (_AppBarRepoStatus above) - nothing left to show here
           // except the gesture zone, which now gets the full body.
           final gestureZone = _SyncGestureZone(
-            pullKey: pullKey,
-            pushKey: pushKey,
+            pullKey: _pullKey,
+            pushKey: _pushKey,
             // 2026-09-18: real ask, live - "middle between Pull and
             // Push is blank, perfect for ad space... add 2nd gap."
             // Tier 0 (free/genericFolder) only, same paid-tier-stays-
