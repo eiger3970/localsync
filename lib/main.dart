@@ -249,29 +249,13 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     // running yet. Feeds into the exact same pendingQuickAction the
     // Quick Actions already use - HomeScreen's own handling for
     // 'action_push'/'action_pull' needs zero changes.
-    // 2026-09-18: real ask, live - "Widget gif no message seen" for
-    // BOTH of home_screen.dart's own debug SnackBars, AND for this
-    // file's own rootNavigatorKey-based one, across every single test -
-    // including plain non-widget app opens, which should have shown
-    // "DEBUG getPendingAction returned: null" constantly if the display
-    // mechanism itself worked. That consistent silence points at the
-    // SnackBar attempt here, not at `action` itself - rootNavigatorKey.
-    // currentContext is likely still null this early (initState, before
-    // the first frame), so the whole attempt silently no-ops every
-    // time. Stashing the raw result on the provider instead, for
-    // home_screen.dart's own already-proven-reliable postFrameCallback
-    // (the one pendingQuickAction handling itself already uses
-    // successfully) to display once real UI exists.
     const MethodChannel('localsync/widget_action')
         .invokeMethod<String>('getPendingAction')
         .then((action) {
-      _repositoryProvider.lastWidgetActionDebug = 'returned: $action';
       if (action == 'push' || action == 'pull') {
         _repositoryProvider.setPendingQuickAction('action_$action');
       }
-    }).catchError((e) {
-      _repositoryProvider.lastWidgetActionDebug = 'threw: $e';
-    });
+    }).catchError((_) {});
   }
 
   @override
