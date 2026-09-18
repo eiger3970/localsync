@@ -151,9 +151,26 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // leave it, like a real steering wheel: turn one way and it stays
     // that way until you physically turn it back the other way
     // yourself, not on a timer.
+    // 2026-09-18 (round 9): real bug, found by reasoning through why
+    // "n increases" (events genuinely firing) but hearts still never
+    // moved left/right. Removing decay (round 4) meant nothing was ever
+    // pulling _tilt back toward 0 - ordinary gyroscope sensor noise
+    // (small non-zero readings even while the phone sits still) keeps
+    // accumulating in whatever direction it happens to drift, and with
+    // no decay to counter it, _tilt inevitably saturates at -1 or 1
+    // from noise alone within a few seconds, regardless of how the
+    // phone is actually being turned afterward - it just looks stuck.
+    // A deadzone fixes this at the source instead of reintroducing
+    // decay (which was removed for a real reason - it fought against
+    // holding a deliberate position): readings below real turning speed
+    // are ignored entirely, so noise never contributes at all, while a
+    // genuine turn (much faster than sensor noise) still accumulates
+    // and holds exactly as before.
+    const noiseFloor = 0.15;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
       _gyroEventCount++;
+      if (event.z.abs() < noiseFloor) return;
       _tilt = (_tilt + event.z * 0.4).clamp(-1.0, 1.0);
     }, onError: (e) {
       // 2026-09-18 (round 5): was silently swallowed - if motion access
