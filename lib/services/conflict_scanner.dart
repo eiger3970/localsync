@@ -25,8 +25,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'conflict_repair.dart'
-    show journalOrderedBodies, journalOrderedEntries, repositionedReplace;
+import 'conflict_repair.dart' show journalOrderedEntries, repositionedReplace;
 import 'database_service.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
@@ -569,10 +568,13 @@ Future<void> undoReferenceCallout(
 ///
 /// Pure string transform, no file I/O - same split as applyKeepBoth/
 /// applyResolution above.
+///
+/// 2026-09-18: matches applyKeepBoth's own 2026-09-18 change - no
+/// reordering here either, plain arrival-order concatenation.
 String applyMergeReference(String content, ReferenceEntry entry) {
   final matchedSpan = content.substring(entry.keptMarkerStart!, entry.matchEnd);
   final trailingNewline = matchedSpan.endsWith('\n') ? '\n' : '';
-  final bodies = journalOrderedBodies([entry.keptContent!, entry.body]);
+  final bodies = [entry.keptContent!, entry.body];
   final merged = '${bodies.join('\n\n')}$trailingNewline';
   // 2026-09-14: real feedback, live - same fix as applyResolution/
   // applyKeepBoth above. $merged is plain text, no wrapper, so the
@@ -763,24 +765,29 @@ class KeepBothResult {
 
 // 2026-09-16: [cleanUp] is the Tier 3 IAP addition
 // (kKeepBothCleanupEntitlementId, docs/product-tiers.md) - false (the
-// default) keeps free KEEP BOTH's existing, honest behavior exactly as
-// it always was: a plain concatenate, only reordered at the whole-body
-// level when every body starts with its own leading time. true swaps
-// in journalOrderedEntries' paragraph-level interleave instead, for
-// real cross-body chronological ordering.
+// default) keeps free KEEP BOTH's existing, honest behavior: a plain
+// concatenate in arrival order. true swaps in journalOrderedEntries'
+// paragraph-level interleave instead, for real cross-body chronological
+// ordering.
+//
+// 2026-09-18: real ask, live - "Keep both text: not reordered entry by
+// entry. Just, not reordered." Free KEEP BOTH used to still run
+// journalOrderedBodies (a whole-body chronological sort) even without
+// Clean Up - explicitly reverted per this ask, at the cost of possibly
+// reintroducing the 2026-09-16 "text with clock is out of order" report
+// for free-tier users who don't buy Clean Up. User's own tradeoff to
+// make, confirmed when asked.
 KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
     {bool cleanUp = false}) {
   final rawBodies = entry.versions.map((v) => v.body).toList();
-  final bodies =
-      cleanUp ? journalOrderedEntries(rawBodies) : journalOrderedBodies(rawBodies);
+  final bodies = cleanUp ? journalOrderedEntries(rawBodies) : rawBodies;
   final merged = bodies.join('\n\n');
   // 2026-09-15: no wrapper marker written any more (see the comment
   // above _decodeKeptBothData) - the merged text goes into the note
   // exactly as a plain resolution would, and undo state for it lives
   // in the local database instead.
   // 2026-09-14: real feedback, live - same fix as applyResolution
-  // above, checking $merged's own leading time (already chronologically
-  // sorted by journalOrderedBodies just above) to place it correctly.
+  // above, checking $merged's own leading time to place it correctly.
   final updated = repositionedReplace(
       content, entry.matchStart, entry.matchEnd, merged,
       timeCheckText: merged);

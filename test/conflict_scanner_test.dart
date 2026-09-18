@@ -196,8 +196,14 @@ void main() {
 
   group('applyKeepBoth - real 2026-09-07 case (NAB Bills incident review)', () {
     test(
-        'two unrelated entries land as plain text, ordered chronologically '
-        'when both have a leading HHMM time', () async {
+        'two unrelated entries land as plain text, in arrival order '
+        'even when both have a leading HHMM time', () async {
+      // 2026-09-18: real ask, live - "Keep both text: not reordered
+      // entry by entry. Just, not reordered." Free Keep Both used to
+      // sort chronologically whenever every side had a time (see this
+      // group's own name and history); now it never reorders at all -
+      // only Tier 3 Clean Up (journalOrderedEntries, cleanUp: true)
+      // still does.
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/Aug 28th, 2026.md');
@@ -219,9 +225,10 @@ void main() {
       expect(updated, isNot(contains('SYNC CONFLICT')));
       expect(updated, contains('0715 Clothes washed'));
       expect(updated, contains('2105 salad'));
-      // Chronological, not arrival order - 0715 happened before 2105.
-      expect(updated.indexOf('0715 Clothes washed'),
-          lessThan(updated.indexOf('2105 salad')));
+      // Arrival order, not chronological - 2105 (yours) came first in
+      // the file, so it stays first.
+      expect(updated.indexOf('2105 salad'),
+          lessThan(updated.indexOf('0715 Clothes washed')));
 
       // Re-scanning must not find a fresh conflict.
       await file.writeAsString(updated);
@@ -276,11 +283,12 @@ void main() {
       expect(updated, contains('first round'));
       expect(updated, contains('second round'));
       expect(updated, contains('third round'));
-      // All three have a leading HHMM - chronological: 0800, 0900, 1000.
-      expect(updated.indexOf('third round'),
-          lessThan(updated.indexOf('first round')));
+      // 2026-09-18: no reordering any more (see the group's first test) -
+      // arrival order, not chronological: first, second, third round.
       expect(updated.indexOf('first round'),
           lessThan(updated.indexOf('second round')));
+      expect(updated.indexOf('second round'),
+          lessThan(updated.indexOf('third round')));
     });
 
     // 2026-09-08: real feedback, live - "one tap" Undo for Keep Both,
@@ -481,7 +489,7 @@ void main() {
 
   group('mergeReferenceKeepingBoth - real 2026-09-07 case (Aug 24th note)', () {
     test(
-        'chronologically combines the kept and dropped sides when both have a leading time',
+        'combines the kept and dropped sides in arrival order, not reordered',
         () async {
       final dir = await Directory.systemTemp.createTemp('localsync_test_');
       addTearDown(() => dir.delete(recursive: true));
@@ -518,8 +526,9 @@ void main() {
       expect(merged, isNot(contains('SYNC CONFLICT')));
       expect(merged, isNot(contains('Already resolved')));
       expect(merged, isNot(contains('LOCALSYNC-KEPT')));
-      // 1500 comes before 2105 - chronological, not kept-first.
-      expect(merged.indexOf('1500'), lessThan(merged.indexOf('2105')));
+      // 2026-09-18: no reordering any more (matches applyKeepBoth's own
+      // 2026-09-18 change) - 2105 (the kept side) stays first.
+      expect(merged.indexOf('2105'), lessThan(merged.indexOf('1500')));
       expect(merged, contains('Next entry.'));
 
       // Nothing lost - a backup of both sides exists.
