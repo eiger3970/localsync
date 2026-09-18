@@ -163,4 +163,31 @@ class BackupReminderService {
     final pending = await _plugin.pendingNotificationRequests();
     return pending.map((p) => p.id).toList();
   }
+
+  /// 2026-09-18 (round 2): real ask, live - permission granted, every
+  /// notification setting toggle confirmed on, Focus confirmed off,
+  /// iOS confirms the requests are genuinely pending - and still
+  /// nothing ever arrives. That rules out permission/settings entirely,
+  /// leaving scheduling (zonedSchedule/timezone) as the one remaining
+  /// unverified piece. This bypasses scheduling completely - a plain
+  /// immediate .show(), no delay, no timezone math - to isolate whether
+  /// the bug is specific to zonedSchedule or whether notification
+  /// display itself is broken on this build regardless of how a
+  /// notification gets triggered.
+  Future<void> showImmediateTest() async {
+    if (kIsWeb) return;
+    await init();
+    if (_permissionGranted == false) {
+      throw StateError('Notifications are off for LocalSync - enable '
+          'them in Settings > LocalSync > Notifications.');
+    }
+    await _plugin.show(
+      id: 999,
+      title: 'LocalSync',
+      body: 'Immediate test - no scheduling involved.',
+      notificationDetails: const NotificationDetails(
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
+  }
 }
