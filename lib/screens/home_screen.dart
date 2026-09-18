@@ -446,7 +446,7 @@ class HomeScreen extends StatelessWidget {
                         value: 'reminders',
                         child: _MenuRow(
                           icon: Icons.notifications_outlined,
-                          label: 'Backup reminder',
+                          label: 'Reminder backup',
                           subtitle: 'Widget colours & sync notifications',
                         ),
                       ),
