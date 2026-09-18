@@ -438,21 +438,27 @@ private let backupStatusChannel = BackupStatusChannel()
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  // 2026-09-18: real bug, found after 6 rounds of "Widget gif no
+  // message seen" - this app declares UIApplicationSceneManifest in
+  // Info.plist (real UIScene support, see SceneDelegate.swift), and
+  // under that architecture iOS routes ALL url-open events through
+  // SceneDelegate instead - these two application(...) overrides below
+  // are dead code for that purpose, they never actually fire for a
+  // localsync:// tap. SceneDelegate.swift now has the real handling.
+  // Left in place (harmless) as a defensive fallback for any non-scene
+  // launch path, but PendingWidgetAction.value being set here should
+  // never be the thing that actually matters in practice.
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     retainLibgit2Symbols()
-    // Cold launch via widget tap - application(_:open:options:) below
-    // never fires in this case, the URL only ever shows up here.
     if let url = launchOptions?[.url] as? URL, url.scheme == "localsync" {
       PendingWidgetAction.value = url.host
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // Warm launch (app already running/backgrounded) - the cold-launch
-  // path above never fires in this case, this is the only one that does.
   override func application(
     _ app: UIApplication,
     open url: URL,
