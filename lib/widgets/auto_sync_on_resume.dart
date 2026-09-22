@@ -49,7 +49,26 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // Cold launch counts as "became the foreground app" too - the
     // lifecycle callback alone only fires on a RESUME from background,
     // never on the very first launch.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _autoSync());
+    //
+    // 2026-09-22: real crash/glitch found live - a widget tap is a cold
+    // launch, and main.dart's widget-action MethodChannel check is a
+    // real async round trip that doesn't necessarily resolve by the
+    // first frame. Firing _autoSync() straight off addPostFrameCallback
+    // used to run this before that check could possibly have set
+    // pendingQuickAction, so the `if (provider.pendingQuickAction !=
+    // null) return` guard below saw "nothing pending yet" and launched
+    // its own redundant silent push+pull, then the widget's real one ran
+    // moments later once the channel resolved - a real double-sync (the
+    // double-gif symptom on push, likely a contributor to the pull
+    // crash too). Awaiting pendingActionCheckDone here only delays the
+    // COLD LAUNCH path - it resolves once, at startup, so it's already
+    // complete on every later resume-from-background call below.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await context.read<RepositoryProvider>().pendingActionCheckDone;
+      if (!mounted) return;
+      _autoSync();
+    });
   }
 
   @override
