@@ -319,6 +319,35 @@ class FileUtilsChannel: NSObject {
 // callback that might fire before Dart is listening.
 enum PendingWidgetAction {
   static var value: String?
+  // 2026-09-22: real crash/error, live, single tap on the widget - "lots
+  // of crashing." iOS has a documented quirk where a cold launch via a
+  // scene URL delivers the SAME url through BOTH
+  // SceneDelegate.scene(_:willConnectTo:options:)'s own
+  // connectionOptions AND a near-immediate scene(_:openURLContexts:)
+  // call right after - two real, separate callback invocations for one
+  // tap. Without a guard, that sets `value` twice: Dart reads/clears it
+  // once (main.dart's single getPendingAction() call at startup), then
+  // the second delivery sets it again moments later with nothing
+  // re-reading it until some later event does (app resume, a manual
+  // sync) - a second real git operation for what was only ever one tap,
+  // exactly the concurrent-git_remote_connect crash class already fixed
+  // once for a different cause (2026-09-18's global _inFlight lock).
+  // accept() tracks the last URL actually accepted and drops an exact
+  // repeat within a short window instead of relying on both callbacks
+  // never firing for the same tap.
+  private static var lastAcceptedURL: URL?
+  private static var lastAcceptedAt: Date?
+
+  static func accept(_ url: URL) {
+    let now = Date()
+    if url == lastAcceptedURL, let last = lastAcceptedAt,
+       now.timeIntervalSince(last) < 3.0 {
+      return
+    }
+    lastAcceptedURL = url
+    lastAcceptedAt = now
+    value = url.host
+  }
 }
 
 class WidgetActionChannel: NSObject {
@@ -454,7 +483,7 @@ private let backupStatusChannel = BackupStatusChannel()
   ) -> Bool {
     retainLibgit2Symbols()
     if let url = launchOptions?[.url] as? URL, url.scheme == "localsync" {
-      PendingWidgetAction.value = url.host
+      PendingWidgetAction.accept(url)
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -465,7 +494,7 @@ private let backupStatusChannel = BackupStatusChannel()
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
     if url.scheme == "localsync" {
-      PendingWidgetAction.value = url.host
+      PendingWidgetAction.accept(url)
       return true
     }
     return super.application(app, open: url, options: options)
