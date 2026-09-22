@@ -143,6 +143,19 @@ class _FloatingHeartsState extends State<FloatingHearts>
   double _lean = _lastLean;
   DateTime? _lastFrameTime;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
+  // 2026-09-22 (round 2): real feedback, live, UNCHANGED after the
+  // dialog-reopen persistence fix above - "hearts incorrectly slide to
+  // the left text edge" when the phone isn't deliberately being turned
+  // right. Since the persistence fix didn't touch this, the real cause
+  // was never dialog reopen at all - it's this: a SINGLE gyroscope
+  // sample over 0.5 rad/s is enough to latch a direction, and ordinary
+  // handling (adjusting grip, scrolling this same dialog with a thumb)
+  // can easily produce one brief spike that fast without the user
+  // perceiving it as "tilting" at all. These two fields require the
+  // SAME direction to hold for a real, sustained stretch (not one
+  // sample) before actually committing to it - see the listener below.
+  double? _turnCandidateSign;
+  DateTime? _turnCandidateStart;
 
   @override
   void initState() {
@@ -229,12 +242,35 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // z. The mapping below had this backwards (positive z -> +1 ->
     // right edge); flipped so positive z (top swinging left) now maps
     // to -1 (left edge), matching this field's own documented meaning.
+    // 2026-09-22 (round 2): real feedback, live, still happening after
+    // round 1's persistence fix - "hearts incorrectly slide to the left
+    // text edge" from ordinary handling, not a deliberate turn. A single
+    // sample above turnThreshold used to commit instantly; now the SAME
+    // direction has to hold for `sustainedTurnDuration` before it
+    // actually latches, so a brief incidental spike (one frame of grip
+    // adjustment) gets reset by the very next normal-speed sample
+    // instead of committing - a real, deliberate wrist-turn easily
+    // holds direction for longer than 120ms, so this doesn't cost any
+    // real responsiveness.
     const turnThreshold = 0.5;
+    const sustainedTurnDuration = Duration(milliseconds: 120);
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
-      if (event.z.abs() < turnThreshold) return;
-      _tilt = event.z > 0 ? -1.0 : 1.0;
-      _lastTilt = _tilt;
+      if (event.z.abs() < turnThreshold) {
+        _turnCandidateSign = null;
+        return;
+      }
+      final sign = event.z > 0 ? -1.0 : 1.0;
+      final now = DateTime.now();
+      if (_turnCandidateSign != sign) {
+        _turnCandidateSign = sign;
+        _turnCandidateStart = now;
+        return;
+      }
+      if (now.difference(_turnCandidateStart!) >= sustainedTurnDuration) {
+        _tilt = sign;
+        _lastTilt = _tilt;
+      }
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
       // hearts just keep their ambient sway with no tilt reaction,

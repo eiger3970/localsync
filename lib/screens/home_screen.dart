@@ -1643,6 +1643,19 @@ void _showLargeLogo(BuildContext context) {
 Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
   final info = await PackageInfo.fromPlatform();
   if (!context.mounted) return;
+  // 2026-09-22 (round 2): real feedback, live - "hearts sway to right
+  // edge of text, not phone screen" PERSISTED even after wrapping the
+  // Stack in SizedBox(width: double.infinity). Real suspicion: whether
+  // SingleChildScrollView's cross axis constraint is actually BOUNDED
+  // (my original assumption) or UNBOUNDED (infinity) is genuinely
+  // ambiguous without a real device to check, and asking a SizedBox for
+  // `double.infinity` width against an ALREADY-infinite incoming
+  // constraint is undefined/broken in a way that would silently fail
+  // in a release build (no assertions there) rather than throw. An
+  // explicit, concrete number sidesteps that ambiguity entirely -
+  // BoxConstraints.enforce() clamps a finite request into whatever the
+  // incoming range is, bounded or not, so this is correct either way.
+  final heartsWidth = MediaQuery.sizeOf(context).width - 128;
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
@@ -1883,11 +1896,13 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             // was just the SUPPORT label's own narrow width - so
             // FloatingHearts was being squeezed down to that, no matter
             // what trailWidth it was actually given. SizedBox(width:
-            // double.infinity) forces the Stack itself to take the
-            // Column's full available width instead of shrink-wrapping
-            // to its narrowest child.
+            // heartsWidth) forces the Stack itself to take this
+            // explicit, concrete width instead of shrink-wrapping to
+            // its narrowest child - see this function's own
+            // `heartsWidth` comment above for why a concrete number
+            // replaced the first attempt's `double.infinity`.
             SizedBox(
-              width: double.infinity,
+              width: heartsWidth,
               child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -1925,7 +1940,7 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                   child: FloatingHearts(
                       color: kGreen,
                       trailHeight: 1050,
-                      trailWidth: MediaQuery.sizeOf(context).width - 128,
+                      trailWidth: heartsWidth,
                       quiet: paidTier),
                 ),
                 const _AboutHeader(
