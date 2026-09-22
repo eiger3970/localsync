@@ -222,12 +222,33 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // sample's contribution by the REAL elapsed time since the
     // previous sample (matching how decay already works), so the total
     // accumulated lean only depends on the actual physical motion, not
-    // how often it happens to get sampled. gyroSensitivity re-derived
-    // for this: a real ~2 rad/s deliberate turn sustained for ~0.3s
-    // should reach full lean - 2 * 0.3 = 0.6 rad integrated, so
-    // sensitivity ~= 1/0.6.
-    const gyroSensitivity = 1.7;
-    const noiseFloor = 0.04;
+    // how often it happens to get sampled.
+    //
+    // 2026-09-22 (round 6): real feedback, live, after round 5 - "hearts
+    // are incorrectly small... auto flow to left edge, rather than just
+    // up from where tilt ends" - SAME wording as round 5, meaning that
+    // fix's math was right but its TUNING wasn't. Two real, distinct
+    // sensor-behavior reasons, not one:
+    // (1) Real deliberate turns almost certainly aren't reaching
+    // anywhere near round 5's assumed 2 rad/s - size staying small
+    // (glyphSize blends toward the same leanAbs the x-position does, see
+    // _HeartsPainter.paint) means `_tilt` was never getting close to
+    // full lean even during a real intentional tilt. Sensitivity raised
+    // well past what 2 rad/s would need, so a realistic, more moderate
+    // real turn still reaches full lean quickly.
+    // (2) Consumer MEMS gyroscopes commonly have a small persistent
+    // per-device z-axis BIAS (a fixed non-zero reading even when
+    // genuinely still, not random noise that averages out) - if that
+    // bias sits above the old 0.04 rad/s noise floor, it never gets
+    // filtered out at all, and unlike real noise it doesn't cancel
+    // itself over time: it just steadily pushes `_tilt` one direction,
+    // settling wherever that steady push balances decay - never quite
+    // 0, never a real drift so extreme it reads as "stuck," matching
+    // "small" hearts that still won't go fully straight. Raised well
+    // above plausible bias levels while staying far below genuine
+    // deliberate-turn speed.
+    const gyroSensitivity = 5.0;
+    const noiseFloor = 0.09;
     _gyroSub =
         gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
             .listen((event) {
