@@ -425,6 +425,31 @@ class LinkingController extends ChangeNotifier {
   Future<void> _cloneInto(String path, String bookmark) async {
     _pickedVaultPath = path;
     _pickedVaultBookmark = bookmark;
+    // 2026-09-22: real bug, live, found immediately after today's own
+    // safety fix (_clearCachedRepoLocationForNewVault) shipped - "Git
+    // bare repo not found at the configured path on your desktop." That
+    // fix correctly stops a new vault from silently reusing a cached
+    // real-vault path, but left bareRepoPath as a literal empty string
+    // rather than turning "blank" into an actual fresh path - confirmed
+    // directly by reproducing the exact shell command
+    // _ensureBareRepoExists() runs with an empty path: `git init --bare
+    // ''` genuinely fails ("fatal: cannot mkdir : No such file or
+    // directory"), which git_service.dart's own _diagnose() then
+    // classifies as exactly this error (its 'no such file' branch).
+    // "Leave blank for a fresh one" (docs/desktop-setup.md) was never
+    // actually implemented as generating a fresh path - it only worked
+    // before by accident, via whatever stale cached value happened to
+    // already be sitting in bareRepoPath. Generates a real one now,
+    // named after the vault folder just picked (sanitized to safe git-
+    // path characters) plus a timestamp, so it's both meaningful and
+    // guaranteed not to collide with anything else on the desktop.
+    if (bareRepoPath.trim().isEmpty) {
+      final segments = path.split('/').where((s) => s.isNotEmpty).toList();
+      final folderName = segments.isNotEmpty ? segments.last : 'vault';
+      final safeName = folderName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      bareRepoPath = 'Documents/Git/LocalSync/${safeName}_$ts.git';
+    }
     _step = LinkingStep.cloning;
     notifyListeners();
 
