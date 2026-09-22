@@ -104,8 +104,47 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 const _HeadlinePoint(
                     icon: Icons.insert_drive_file_outlined,
                     text: 'No more lost files.'),
+                // 2026-09-22: real feedback, live - "cloud image is
+                // right or should be cloud with strike through, or
+                // local backup image?" Icons.backup_outlined reads as a
+                // cloud-upload glyph - a mixed signal on a screen whose
+                // whole pitch is "no cloud" (see the cloud_off caption
+                // line below), even before considering a strike-through
+                // version of it. The real reason this is safe isn't
+                // "backed up somewhere" at all, it's that a synced copy
+                // already exists on both devices - reused the same
+                // phone+laptop pairing icon the "Needs your phone + a
+                // desktop" caption line already uses further down this
+                // screen, scaled up to headline size, so the icon
+                // itself states the actual mechanism instead of
+                // implying a cloud that doesn't exist.
                 const _HeadlinePoint(
-                    icon: Icons.backup_outlined,
+                    iconWidget: SizedBox(
+                      width: 24,
+                      height: 18,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            child: Icon(Icons.smartphone,
+                                color: wTealDark, size: 11),
+                          ),
+                          Positioned(
+                            top: 3,
+                            left: 7,
+                            child: Icon(Icons.north_east,
+                                color: wTealDark, size: 10),
+                          ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Icon(Icons.laptop_mac,
+                                color: wTealDark, size: 12),
+                          ),
+                        ],
+                      ),
+                    ),
                     text: 'No more backup worries.'),
                 const _HeadlinePoint(
                     assetIcon: 'assets/logos/git-branches-only.svg',
@@ -253,8 +292,14 @@ class _HeadlinePoint extends StatelessWidget {
   // git mark (stroke only, no diamond, per direct request), not a
   // generic Material icon.
   final String? assetIcon;
+  // 2026-09-22: same reasoning as _CaptionLine's own iconWidget field
+  // below - the "No more backup worries" line's real icon (phone+laptop
+  // pairing) isn't a single Material glyph, so a caller can pass a
+  // composed widget instead of icon/assetIcon.
+  final Widget? iconWidget;
   final String text;
-  const _HeadlinePoint({this.icon, this.assetIcon, required this.text});
+  const _HeadlinePoint(
+      {this.icon, this.assetIcon, this.iconWidget, required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +308,9 @@ class _HeadlinePoint extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (assetIcon != null)
+          if (iconWidget != null)
+            iconWidget!
+          else if (assetIcon != null)
             SvgPicture.asset(assetIcon!,
                 width: 18,
                 height: 18,
