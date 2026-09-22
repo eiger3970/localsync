@@ -191,9 +191,24 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // separately, every frame, in build()'s own AnimatedBuilder
     // callback below - not here, since gyro events alone can't be
     // relied on to keep arriving once the phone is actually held still.
+    //
+    // 2026-09-22 (round 4): real regression, live - "hearts don't sway
+    // with tilt now." Root cause confirmed directly from the installed
+    // sensors_plus package source, not guessed: gyroscopeEventStream()
+    // defaults to SensorInterval.normalInterval, which is a real 200ms
+    // (5Hz) - genuinely sparse. Decay above runs every ANIMATION frame
+    // (~16ms, ~60Hz) regardless of whether a gyro sample just arrived,
+    // so between two default-rate samples, decay erodes roughly a fifth
+    // of whatever the previous sample contributed before the next one
+    // even lands - accumulation and decay were fighting on wildly
+    // different clocks. gameInterval (20ms, ~50Hz) brings gyro sampling
+    // close enough to the animation frame rate that decay no longer
+    // outpaces it between samples.
     const gyroSensitivity = 0.045;
     const noiseFloor = 0.04;
-    _gyroSub = gyroscopeEventStream().listen((event) {
+    _gyroSub =
+        gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
+            .listen((event) {
       if (!mounted) return;
       if (event.z.abs() < noiseFloor) return;
       _tilt = (_tilt - event.z * gyroSensitivity).clamp(-1.0, 1.0);
