@@ -122,19 +122,26 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // and this field's own round-2 comment below for why it's gyroscope-
   // driven rather than accelerometer-driven.
   //
-  // 2026-09-22: real feedback, live - "hearts should continue up from
-  // last point of tilt, rather than auto sliding to the left text
-  // edge." Every dialog open builds a brand-new _FloatingHeartsState -
-  // starting `_tilt`/`_lean` at 0 every time meant a real tilt from a
-  // PRIOR open was always forgotten, and the very next open looked like
-  // an unwanted slide back to the idle/ambient position near SUPPORT.
-  // Seeded from the module-level `_lastTilt`/`_lastLean` below instead
-  // (same "persist across widget instances" pattern this codebase
-  // already uses for _pullKey/_pushKey/_quickActionScheduled in
-  // home_screen.dart) - a fresh open now continues exactly where the
-  // last one left off, not just the same TARGET but the same already-
-  // eased visual position too, so there's no re-glide-from-center
-  // transient on reopen either.
+  // 2026-09-22 (round 3): real feedback, live - "hearts should simply
+  // follow physics: sway left or right until the phone is straight,
+  // then momentum would gently continue upwards without left or right
+  // sway." This directly overturns the "steering wheel, holds wherever
+  // you leave it, never decays on its own" design decided in round 4
+  // below (2026-09-18) - every "hearts stuck/auto-slid to an edge"
+  // complaint since then (rounds 1 and 2 above included) was this same
+  // design working exactly as built: once tilted, it was NEVER meant to
+  // return to center on its own. The user's own restated intent makes
+  // clear that was the wrong model all along, not a bug in it. Real
+  // physics now: `_tilt` continuously integrates raw angular velocity
+  // (sway grows the longer/faster the real turn) AND continuously
+  // decays back toward 0 every frame (see build()'s own 2026-09-22
+  // round-3 comment) - turning the phone sways it, releasing it (phone
+  // back to level) lets it settle back to straight-up within about a
+  // second, same as a pendulum losing momentum. The old latch/debounce
+  // mechanism (turnThreshold snap, then a sustained-direction
+  // requirement) is gone entirely, not tuned further - it was the wrong
+  // shape of fix for a "should return to center" requirement no amount
+  // of noise-filtering could ever satisfy.
   double _tilt = _lastTilt;
   // 2026-09-22: the continuous, eased value the painter actually reads
   // - see this file's own top-of-file 2026-09-22 comment. Glides
@@ -143,19 +150,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
   double _lean = _lastLean;
   DateTime? _lastFrameTime;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
-  // 2026-09-22 (round 2): real feedback, live, UNCHANGED after the
-  // dialog-reopen persistence fix above - "hearts incorrectly slide to
-  // the left text edge" when the phone isn't deliberately being turned
-  // right. Since the persistence fix didn't touch this, the real cause
-  // was never dialog reopen at all - it's this: a SINGLE gyroscope
-  // sample over 0.5 rad/s is enough to latch a direction, and ordinary
-  // handling (adjusting grip, scrolling this same dialog with a thumb)
-  // can easily produce one brief spike that fast without the user
-  // perceiving it as "tilting" at all. These two fields require the
-  // SAME direction to hold for a real, sustained stretch (not one
-  // sample) before actually committing to it - see the listener below.
-  double? _turnCandidateSign;
-  DateTime? _turnCandidateStart;
 
   @override
   void initState() {
@@ -171,106 +165,39 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // axis (angular velocity around the screen-normal axis) is what
     // actually detects this motion.
     //
-    // Accumulated into _tilt rather than read directly - gyroscope
-    // reports rotation SPEED, not a resting angle, so a phone held
-    // still (even mid-turn, even tilted) reports ~0; reading it
-    // directly would snap the sway back to center the instant the turn
-    // stopped. Accumulating instead means it holds wherever you leave
-    // it (round 4 below removed the original decay-back-to-center
-    // entirely) - matches "collect on the edge and continue floating
-    // up" (stays leaned) rather than springing back instantly.
+    // Between 2026-09-18 and 2026-09-22 this went through many rounds
+    // (accumulate-and-hold, deadzone, a hard latch, a sustained-turn
+    // debounce) all built on the same premise decided in round 4
+    // (2026-09-18): "_tilt holds exactly where you leave it, like a
+    // real steering wheel... not on a timer." That premise is what the
+    // 2026-09-22 round-3 comment above overturns - the user's own
+    // restated intent is real decay-to-center physics, not a hold. None
+    // of the intermediate designs are worth keeping detail on; they
+    // were all tuning the wrong model. Full history in this file's own
+    // git log if it's ever needed again.
     //
-    // 2026-09-18 (round 3): real feedback, live - "unsure is swaying or
-    // not, but the movement if any is too small." 0.12 -> 0.4 - a
-    // normal, unhurried turn should reach full sway well before the
-    // motion finishes, not need an exaggerated snap-turn to register at
-    // all. Paired with the painter's own edge-snap change (blends all
-    // the way to the true edge at full tilt, not a fixed small offset).
-    //
-    // 2026-09-18 (round 4): real feedback, live - "Hearts seems to
-    // move, but I can't make sense of it. They should be steerable like
-    // something to play with and move the phone around." The decay
-    // (below, since removed) fought against holding a position -
-    // turning the phone to a spot and holding it still there still let
-    // the lean drift back toward center on its own, which doesn't read
-    // as "steerable." No decay now - _tilt holds exactly where you
-    // leave it, like a real steering wheel: turn one way and it stays
-    // that way until you physically turn it back the other way
-    // yourself, not on a timer.
-    // 2026-09-18 (round 9): real bug, found by reasoning through why
-    // "n increases" (events genuinely firing) but hearts still never
-    // moved left/right. Removing decay (round 4) meant nothing was ever
-    // pulling _tilt back toward 0 - ordinary gyroscope sensor noise
-    // (small non-zero readings even while the phone sits still) keeps
-    // accumulating in whatever direction it happens to drift, and with
-    // no decay to counter it, _tilt inevitably saturates at -1 or 1
-    // from noise alone within a few seconds, regardless of how the
-    // phone is actually being turned afterward - it just looks stuck.
-    // A deadzone fixes this at the source instead of reintroducing
-    // decay (which was removed for a real reason - it fought against
-    // holding a deliberate position): readings below real turning speed
-    // are ignored entirely, so noise never contributes at all, while a
-    // genuine turn (much faster than sensor noise) still accumulates
-    // and holds exactly as before.
-    //
-    // 2026-09-18 (round 12): real bug, confirmed by the round-11
-    // diagnostic - "GYRO shows green background" STAYING green (not
-    // flickering) with hearts still showing no reaction. That pins it:
-    // the accumulator was never actually broken, it was PERMANENTLY
-    // SATURATED. Ordinary handling (picking the phone up, holding it to
-    // read the screen) easily exceeds 0.03 rad/s - far below deliberate
-    // turning speed - so _tilt drifted to +-1 within seconds of the
-    // dialog opening, every time, before any real "steering" input even
-    // happened. With zero decay (round 4), once saturated it can never
-    // recover on its own, so it just looks permanently frozen at one
-    // edge and further tilting has nowhere left to go.
-    //
-    // Replaced the leaky integral with a direct latch: a real, fast
-    // turn (0.5 rad/s - well above incidental handling, but a normal
-    // deliberate wrist-turn clears it easily) sets the lean outright;
-    // anything slower is ignored and leaves the lean exactly where it
-    // was. No accumulation at all, so there is nothing left to
-    // saturate - it can only ever be -1, 0, or 1, and only changes on a
-    // real turn.
-    // 2026-09-22: real bug, live - "hearts slide opposite way to
-    // gravity, should slide right with right phone tilt." Sign was
-    // inverted. The device's z axis points OUT of the screen toward the
-    // user, so by the right-hand rule a POSITIVE angular velocity
+    // Direction: the device's z axis points OUT of the screen toward
+    // the user, so by the right-hand rule a positive angular velocity
     // around it is counterclockwise as the user looks at the screen -
-    // i.e. the phone's top swinging LEFT, not right. Turning the top
-    // right is clockwise from the user's viewpoint, which is NEGATIVE
-    // z. The mapping below had this backwards (positive z -> +1 ->
-    // right edge); flipped so positive z (top swinging left) now maps
-    // to -1 (left edge), matching this field's own documented meaning.
-    // 2026-09-22 (round 2): real feedback, live, still happening after
-    // round 1's persistence fix - "hearts incorrectly slide to the left
-    // text edge" from ordinary handling, not a deliberate turn. A single
-    // sample above turnThreshold used to commit instantly; now the SAME
-    // direction has to hold for `sustainedTurnDuration` before it
-    // actually latches, so a brief incidental spike (one frame of grip
-    // adjustment) gets reset by the very next normal-speed sample
-    // instead of committing - a real, deliberate wrist-turn easily
-    // holds direction for longer than 120ms, so this doesn't cost any
-    // real responsiveness.
-    const turnThreshold = 0.5;
-    const sustainedTurnDuration = Duration(milliseconds: 120);
+    // the phone's top swinging LEFT, not right - hence the negation
+    // below (matches this field's own -1-left/+1-right convention).
+    //
+    // Real physics, decided 2026-09-22 (round 3): each gyro sample
+    // nudges `_tilt` by an amount proportional to how fast the phone is
+    // actually turning (a gentle wobble barely moves it, a real
+    // deliberate turn reaches full lean in well under a second) -
+    // small samples below `noiseFloor` are ignored so pure sensor noise
+    // contributes nothing at all. Decay back toward 0 happens
+    // separately, every frame, in build()'s own AnimatedBuilder
+    // callback below - not here, since gyro events alone can't be
+    // relied on to keep arriving once the phone is actually held still.
+    const gyroSensitivity = 0.045;
+    const noiseFloor = 0.04;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
-      if (event.z.abs() < turnThreshold) {
-        _turnCandidateSign = null;
-        return;
-      }
-      final sign = event.z > 0 ? -1.0 : 1.0;
-      final now = DateTime.now();
-      if (_turnCandidateSign != sign) {
-        _turnCandidateSign = sign;
-        _turnCandidateStart = now;
-        return;
-      }
-      if (now.difference(_turnCandidateStart!) >= sustainedTurnDuration) {
-        _tilt = sign;
-        _lastTilt = _tilt;
-      }
+      if (event.z.abs() < noiseFloor) return;
+      _tilt = (_tilt - event.z * gyroSensitivity).clamp(-1.0, 1.0);
+      _lastTilt = _tilt;
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
       // hearts just keep their ambient sway with no tilt reaction,
@@ -345,6 +272,20 @@ class _FloatingHeartsState extends State<FloatingHearts>
               ? 0.0
               : now.difference(_lastFrameTime!).inMicroseconds / 1e6;
           _lastFrameTime = now;
+          // 2026-09-22 (round 3): real feedback, live - "sway left or
+          // right until the phone is straight, then momentum would
+          // gently continue upwards without left or right sway." This
+          // is the actual decay the gyro listener above deliberately
+          // doesn't do itself (gyro events can go quiet the instant the
+          // phone is held still, which is exactly when decay needs to
+          // keep running) - every frame, regardless of whether a gyro
+          // event just fired, `_tilt` eases back toward 0 the same way
+          // `_lean` eases toward `_tilt` below. tiltDecayRate 1.1 means
+          // it takes roughly a second of holding the phone level to
+          // settle back to dead center - gentle, not an instant snap.
+          const tiltDecayRate = 1.1;
+          _tilt -= _tilt * (1 - exp(-tiltDecayRate * dt));
+          _lastTilt = _tilt;
           // 2026-09-22: real feedback, live - "hearts jump quickly...
           // can hearts slide slower." 4.0 reached the edge in ~1s (fast
           // enough to still read as a jump) - 1.2 stretches the same
