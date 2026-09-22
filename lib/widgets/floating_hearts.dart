@@ -64,6 +64,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
+// 2026-09-22: module-level, outlives any single FloatingHearts instance
+// - see _FloatingHeartsState's own 2026-09-22 comment for why tilt
+// needs to survive a dialog close/reopen instead of resetting.
+double _lastTilt = 0;
+double _lastLean = 0;
+
 class FloatingHearts extends StatefulWidget {
   final Color color;
   // How far above its own origin (y=0, bottom of this widget's box)
@@ -115,12 +121,26 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // see build()'s own 2026-09-18 comment for why this replaced touch,
   // and this field's own round-2 comment below for why it's gyroscope-
   // driven rather than accelerometer-driven.
-  double _tilt = 0;
+  //
+  // 2026-09-22: real feedback, live - "hearts should continue up from
+  // last point of tilt, rather than auto sliding to the left text
+  // edge." Every dialog open builds a brand-new _FloatingHeartsState -
+  // starting `_tilt`/`_lean` at 0 every time meant a real tilt from a
+  // PRIOR open was always forgotten, and the very next open looked like
+  // an unwanted slide back to the idle/ambient position near SUPPORT.
+  // Seeded from the module-level `_lastTilt`/`_lastLean` below instead
+  // (same "persist across widget instances" pattern this codebase
+  // already uses for _pullKey/_pushKey/_quickActionScheduled in
+  // home_screen.dart) - a fresh open now continues exactly where the
+  // last one left off, not just the same TARGET but the same already-
+  // eased visual position too, so there's no re-glide-from-center
+  // transient on reopen either.
+  double _tilt = _lastTilt;
   // 2026-09-22: the continuous, eased value the painter actually reads
   // - see this file's own top-of-file 2026-09-22 comment. Glides
   // toward `_tilt` every frame in build()'s AnimatedBuilder callback
   // rather than jumping straight to it.
-  double _lean = 0;
+  double _lean = _lastLean;
   DateTime? _lastFrameTime;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
 
@@ -214,6 +234,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
       if (!mounted) return;
       if (event.z.abs() < turnThreshold) return;
       _tilt = event.z > 0 ? -1.0 : 1.0;
+      _lastTilt = _tilt;
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
       // hearts just keep their ambient sway with no tilt reaction,
@@ -304,6 +325,7 @@ class _FloatingHeartsState extends State<FloatingHearts>
           // true edge pixel. Snap once the gap is imperceptible so it
           // actually, exactly arrives.
           if ((_tilt - _lean).abs() < 0.01) _lean = _tilt;
+          _lastLean = _lean;
           return CustomPaint(
             painter: _HeartsPainter(
                 t: _ctrl.value,
