@@ -192,11 +192,21 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // was. No accumulation at all, so there is nothing left to
     // saturate - it can only ever be -1, 0, or 1, and only changes on a
     // real turn.
+    // 2026-09-22: real bug, live - "hearts slide opposite way to
+    // gravity, should slide right with right phone tilt." Sign was
+    // inverted. The device's z axis points OUT of the screen toward the
+    // user, so by the right-hand rule a POSITIVE angular velocity
+    // around it is counterclockwise as the user looks at the screen -
+    // i.e. the phone's top swinging LEFT, not right. Turning the top
+    // right is clockwise from the user's viewpoint, which is NEGATIVE
+    // z. The mapping below had this backwards (positive z -> +1 ->
+    // right edge); flipped so positive z (top swinging left) now maps
+    // to -1 (left edge), matching this field's own documented meaning.
     const turnThreshold = 0.5;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
       if (event.z.abs() < turnThreshold) return;
-      _tilt = event.z > 0 ? 1.0 : -1.0;
+      _tilt = event.z > 0 ? -1.0 : 1.0;
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
       // hearts just keep their ambient sway with no tilt reaction,
@@ -274,6 +284,15 @@ class _FloatingHeartsState extends State<FloatingHearts>
           const easeRate = 4.0; // higher = snappier glide
           final alpha = 1 - exp(-easeRate * dt);
           _lean += (_tilt - _lean) * alpha;
+          // 2026-09-22: real ask, live - "hearts need to slide until
+          // reaching the left or right edge." Pure exponential easing
+          // only ever approaches _tilt asymptotically, never quite
+          // landing on it - close enough to look "arrived" after ~1s,
+          // but the painter's own edge blend (leanAbs, see
+          // _HeartsPainter.paint) would technically never hit the exact
+          // true edge pixel. Snap once the gap is imperceptible so it
+          // actually, exactly arrives.
+          if ((_tilt - _lean).abs() < 0.01) _lean = _tilt;
           return CustomPaint(
             painter: _HeartsPainter(
                 t: _ctrl.value,
