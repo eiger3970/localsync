@@ -36,12 +36,42 @@ class _QrScanScreenState extends State<QrScanScreen> {
   // crash on an already-unmounted route.
   bool _handled = false;
 
+  // 2026-09-22: real feedback, live - "I'm just an ignorant user, the
+  // app... needs to manage this." A real user scanned the website's
+  // own desktop-install QR code (a `sudo apt install ...` terminal
+  // command, meant for the DESKTOP, nothing to do with this screen)
+  // with THIS scanner instead of a real user-generated path QR code -
+  // there's no visual difference between "a QR code meant for this
+  // field" and "a QR code meant for something else entirely," so
+  // blindly accepting whatever text a camera decodes and stuffing it
+  // into a Settings path field was always going to happen to someone.
+  // Rejects anything that looks like a shell command or a URL instead
+  // of silently corrupting the field - simple pattern check, not
+  // perfect path validation (a real path can contain almost anything),
+  // but catches exactly this real failure mode and anything shaped
+  // like it.
+  static final _obviouslyNotAPathPattern = RegExp(
+      r'^(sudo|curl|wget|bash|sh|apt|apt-get|https?://)\b|\$\(|&&|\|\|');
+
   void _onDetect(BarcodeCapture capture) {
     if (_handled) return;
     final value = capture.barcodes.isNotEmpty
         ? capture.barcodes.first.rawValue
         : null;
     if (value == null || value.isEmpty) return;
+    if (_obviouslyNotAPathPattern.hasMatch(value.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "That QR code isn't a path - it looks like a terminal "
+              'command or a link. Scan the one meant for this field '
+              'instead.',
+              style: TextStyle(fontSize: 14)),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     _handled = true;
     Navigator.pop(context, value);
   }
