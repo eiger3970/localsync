@@ -1874,12 +1874,27 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             // rise above this row's own bounds without being clipped
             // by it - see floating_hearts.dart's own header for the
             // full history of what this replaced.
-            Stack(
+            // 2026-09-22: real bug, live - "hearts sway to right edge
+            // of text, not phone screen." Stack only sizes itself to
+            // its NON-positioned children (the SUPPORT label below) -
+            // Positioned children don't count toward that. With only
+            // `left: 0` set (no `right`), the Positioned's own max
+            // width was capped at `stackWidth - left`, and stackWidth
+            // was just the SUPPORT label's own narrow width - so
+            // FloatingHearts was being squeezed down to that, no matter
+            // what trailWidth it was actually given. SizedBox(width:
+            // double.infinity) forces the Stack itself to take the
+            // Column's full available width instead of shrink-wrapping
+            // to its narrowest child.
+            SizedBox(
+              width: double.infinity,
+              child: Stack(
               clipBehavior: Clip.none,
               children: [
                 Positioned(
                   bottom: 24,
                   left: 0,
+                  right: 0,
                   // 2026-09-18: real feedback, live (round 2) - "Hearts
                   // floating stop at credits, but should go to v0.0
                   // height." 420 only reached CREDITS, three sections up
@@ -1924,6 +1939,7 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                     // actually about the donation trail rising beside it.
                     pulse: true),
               ],
+              ),
             ),
             const SizedBox(height: 6),
             Text(
