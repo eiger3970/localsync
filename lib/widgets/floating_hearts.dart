@@ -71,15 +71,22 @@ class FloatingHearts extends StatefulWidget {
   final double trailHeight;
   // 2026-09-17: fixed width, not double.infinity - this now lives in a
   // Positioned(left: 0, ...) with no matching `right`, which needs a
-  // concrete width from its child rather than an unbounded one. Also
-  // matches "stem from support" better - a narrow trail near the icon,
-  // not a full-dialog-width spread.
+  // concrete width from its child rather than an unbounded one.
   //
   // 2026-09-18: real feedback, live - "Hearts no change, just the
   // screen scrolls. The hearts might need a generous space around them
   // for user fingers to drag." 70 -> 140 - a real fingertip is roughly
   // 40-50px, so 70 left very little room either side of a heart to
   // actually initiate a touch that lands inside this column at all.
+  //
+  // 2026-09-22: touch is long gone (tilt replaced it, see this file's
+  // own top-of-file 2026-09-18 comment), so the "room to drag" reason
+  // above is stale - real ask now, live: "hearts need to slide until
+  // reaching the left or right phone edges." This is the real box the
+  // tilt-glide travels across, so the call site now passes something
+  // close to the dialog's actual content width, not a small fixed
+  // number. The IDLE "stem from support" anchor stays narrow regardless
+  // of this value - see _HeartsPainter's own `_restWidth`.
   final double trailWidth;
   // 2026-09-18: real ask, live - "Support floating hearts decrease per
   // higher tiers." Paying users already get a calmer app overall (no
@@ -281,7 +288,11 @@ class _FloatingHeartsState extends State<FloatingHearts>
               ? 0.0
               : now.difference(_lastFrameTime!).inMicroseconds / 1e6;
           _lastFrameTime = now;
-          const easeRate = 4.0; // higher = snappier glide
+          // 2026-09-22: real feedback, live - "hearts jump quickly...
+          // can hearts slide slower." 4.0 reached the edge in ~1s (fast
+          // enough to still read as a jump) - 1.2 stretches the same
+          // glide to ~3s, now a real visible motion.
+          const easeRate = 1.2; // higher = snappier glide
           final alpha = 1 - exp(-easeRate * dt);
           _lean += (_tilt - _lean) * alpha;
           // 2026-09-22: real ask, live - "hearts need to slide until
@@ -358,15 +369,21 @@ class _HeartsPainter extends CustomPainter {
       // fraction of some distant ancestor's height.
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
-      final baseX = (size.width * (h.x + sway)).clamp(0.0, size.width);
-      // 2026-09-22: real feedback, live - "jump and appear left and
-      // then appear right... looking for a smooth glide." `tilt` is
-      // now the caller's already-eased `_lean` value (see
-      // _FloatingHeartsState.build()), not a raw instantaneous reading,
-      // so blending proportionally to it here draws a continuous glide
-      // toward whichever edge the device is leaning, rather than the
-      // old hard binary snap (round 8-15's own history is below, for
-      // context - this replaces that mechanism, not just its numbers).
+      // 2026-09-22: real feedback, live - "hearts jump quickly from
+      // left text edge to middle... can hearts slide slower to left and
+      // right phone edges?" Two distinct things folded into one ask:
+      // (1) the box itself now spans much closer to the real screen
+      // edges (see the call site's own comment for the width), so the
+      // tilt-glide has somewhere real to go - but (2) the IDLE ambient
+      // sway must stay anchored near SUPPORT's icon (the 2026-09-17
+      // "stem from support" requirement, still in force) rather than
+      // stretching out across the whole new width too. `_restWidth`
+      // keeps the ambient anchor at the same real on-screen distance
+      // from SUPPORT as before the box widened - only the tilt-glide
+      // target below (`edgeX`, using the real `size.width`) reaches the
+      // new true edge.
+      final baseX =
+          (_restWidth * (h.x + sway)).clamp(0.0, size.width);
       final leanAbs = tilt.abs();
       final edgeX = tilt > 0 ? size.width : 0.0;
       final x = _lerp(baseX, edgeX, leanAbs);
@@ -383,6 +400,12 @@ class _HeartsPainter extends CustomPainter {
           canvas, Offset(x, y), glyphSize, color.withValues(alpha: opacity));
     }
   }
+
+  // 2026-09-22: the original, deliberately narrow column width hearts
+  // idle within near SUPPORT - unrelated to `trailWidth` now, which is
+  // the much wider real box the tilt-glide travels across. See this
+  // method's own call-site comment above.
+  static const _restWidth = 140.0;
 
   static double _lerp(double a, double b, double t) =>
       a + (b - a) * t.clamp(0.0, 1.0);

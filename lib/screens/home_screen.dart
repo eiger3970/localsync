@@ -1895,8 +1895,23 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                   // dialog's own paidTier param doc (call site above)
                   // for why paid-vs-free is the real granularity
                   // available today.
+                  //
+                  // 2026-09-22: real ask, live - "hearts need to slide
+                  // until reaching the left or right phone edges."
+                  // AlertDialog's real defaults (Flutter framework,
+                  // unchanged by this dialog): insetPadding 40px each
+                  // side, contentPadding 24px each side - screen width
+                  // minus both gives this dialog's real usable content
+                  // width, which is what the tilt-glide should now
+                  // reach edge to edge. Idle sway stays anchored near
+                  // SUPPORT regardless of this value - see
+                  // FloatingHearts' own trailWidth doc and
+                  // _HeartsPainter's _restWidth.
                   child: FloatingHearts(
-                      color: kGreen, trailHeight: 1050, quiet: paidTier),
+                      color: kGreen,
+                      trailHeight: 1050,
+                      trailWidth: MediaQuery.sizeOf(context).width - 128,
+                      quiet: paidTier),
                 ),
                 const _AboutHeader(
                     icon: Icons.favorite_outline,
