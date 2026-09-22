@@ -20,6 +20,7 @@
 // screens first, which is the only routing change; the real pairing
 // flow (LinkingScreen) is untouched.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -119,32 +120,7 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 // itself states the actual mechanism instead of
                 // implying a cloud that doesn't exist.
                 const _HeadlinePoint(
-                    iconWidget: SizedBox(
-                      width: 24,
-                      height: 18,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            child: Icon(Icons.smartphone,
-                                color: wTealDark, size: 11),
-                          ),
-                          Positioned(
-                            top: 3,
-                            left: 7,
-                            child: Icon(Icons.north_east,
-                                color: wTealDark, size: 10),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Icon(Icons.laptop_mac,
-                                color: wTealDark, size: 12),
-                          ),
-                        ],
-                      ),
-                    ),
+                    iconWidget: _PhoneLaptopIcon(color: wTealDark, scale: 1.2),
                     text: 'No more backup worries.'),
                 const _HeadlinePoint(
                     assetIcon: 'assets/logos/git-branches-only.svg',
@@ -208,70 +184,27 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                 // paid - before discovering it) - not safe to cut
                 // outright. Icon-prefixed instead, so each line scans
                 // visually first, text second, rather than three
-                // consecutive paragraphs.
-                // 2026-09-09: real feedback, live - "left image is a
-                // shield, but change to a cloud with a strike through
-                // it." A shield reads as "protected" - this line is
-                // specifically about there being no cloud at all, which
-                // cloud_off (a literal cloud + diagonal strike) states
-                // directly instead of implying.
-                _CaptionLine(
-                    icon: Icons.cloud_off,
-                    text: 'No cloud. No account. Just you. Auto-detect '
-                        'only looks on your own local network - nothing '
-                        'leaves your devices.'),
-                const SizedBox(height: 6),
-                _CaptionLine(
-                    icon: Icons.phone_iphone,
-                    text: 'iPhone only. Works with a Linux or Mac '
-                        'desktop.'),
-                const SizedBox(height: 6),
-                // 2026-09-01: real feedback - "users need this
-                // information upfront... so 2 devices needed,
-                // connection Wi-Fi or cable and install desktop file."
-                // Someone could otherwise go through this whole screen,
-                // pick a path, even pay for the Obsidian one, before
-                // discovering a one-time desktop step exists at all -
-                // this says it plainly before any of that.
-                // 2026-09-09: real feedback, live - "left image can you
-                // change to a phone bottom left and laptop/desktop top
-                // right, similar to the app icon, with a little
-                // diagonal line joining them." Phone+laptop is the same
-                // motif already used in the Conflicts list's "Push to
-                // sync" step and the Keep Both screen's push hint
-                // (Icons.north_east as the diagonal join), with an
-                // actual phone glyph added here too since this line
-                // names "your phone" explicitly, not just "push."
-                _CaptionLine(
-                    iconWidget: SizedBox(
-                      width: 20,
-                      height: 15,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            bottom: 0,
-                            left: 0,
-                            child: Icon(Icons.smartphone,
-                                color: wInkDim, size: 9),
-                          ),
-                          Positioned(
-                            top: 3,
-                            left: 6,
-                            child: Icon(Icons.north_east,
-                                color: wInkDim, size: 8),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: Icon(Icons.laptop_mac,
-                                color: wInkDim, size: 10),
-                          ),
-                        ],
-                      ),
-                    ),
-                    text: 'Needs your phone + a desktop (or NAS), '
-                        'connected by Wi-Fi or cable, and a one-time '
-                        'setup file run once on the desktop.'),
+                // consecutive paragraphs. Superseded 2026-09-22 by
+                // _InfoCarousel below - same three facts, same reason
+                // they can't just be cut, but "icon-prefixed paragraphs
+                // stacked vertically" was STILL "nasty verbiage at the
+                // bottom" per direct feedback, even after this round's
+                // own fix. Full history kept here since the actual
+                // information requirement (and the incidents that
+                // established it - 2026-09-01, 2026-09-09) hasn't
+                // changed, only the presentation.
+                //
+                // 2026-09-22: real ask, live - "self scrolling images
+                // with succinct text, rather than the nasty verbiage at
+                // the bottom. Must be clear on the points though."
+                // _InfoCarousel auto-advances through the same three
+                // facts one at a time (swipeable too, via the dots) -
+                // each slide gets a real icon and one focused line
+                // instead of three consecutive paragraphs competing for
+                // attention at once. See docs/desktop-setup.md and this
+                // file's own 2026-09-01/2026-09-09 comments for why each
+                // fact has to stay - only the layout changed.
+                const _InfoCarousel(),
                 const SizedBox(height: 10),
                 Text('© 2026 LocalSync',
                     textAlign: TextAlign.center,
@@ -327,41 +260,207 @@ class _HeadlinePoint extends StatelessWidget {
   }
 }
 
-// 2026-09-04: real feedback, live - "front page is verbose, can it be
-// all visuals and images?" Icon-prefixed caption row for the three
-// bottom-of-screen info lines - lets each one scan visually first
-// (icon), text second, without cutting the actual information (see the
-// call sites' own comments for why each line still needs to say what
-// it says).
-class _CaptionLine extends StatelessWidget {
-  final IconData? icon;
-  // 2026-09-09: real feedback, live - the "Needs your phone + a
-  // desktop" line's icon should be a phone bottom-left + laptop
-  // top-right with a small diagonal line joining them, matching the
-  // app's own icon (icon_localsync_4objects_1024.svg) - no single
-  // Material glyph covers that, so a caller can pass a composed widget
-  // instead of one IconData. icon stays the plain path for every other
-  // caption line.
-  final Widget? iconWidget;
-  final String text;
-  const _CaptionLine({this.icon, this.iconWidget, required this.text})
-      : assert(icon != null || iconWidget != null);
+// 2026-09-22: shared by _HeadlinePoint's own "No more backup worries"
+// icon and _InfoCarousel's second slide below - was two separate
+// hand-copied Stack/Positioned trios (one here, one at the old
+// "Needs your phone + a desktop" caption line this replaced) before
+// this extraction. Matches the app's own icon
+// (icon_localsync_4objects_1024.svg) - no single Material glyph covers
+// "phone + laptop, diagonally joined," so this composes one from three.
+// scale keeps the same 20x15-at-scale-1.0 proportions for either
+// call site's own size need.
+class _PhoneLaptopIcon extends StatelessWidget {
+  final Color color;
+  final double scale;
+  const _PhoneLaptopIcon({required this.color, this.scale = 1.0});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+    return SizedBox(
+      width: 20 * scale,
+      height: 15 * scale,
+      child: Stack(
+        children: [
+          Positioned(
+            bottom: 0,
+            left: 0,
+            child: Icon(Icons.smartphone, color: color, size: 9 * scale),
+          ),
+          Positioned(
+            top: 3 * scale,
+            left: 6 * scale,
+            child: Icon(Icons.north_east, color: color, size: 8 * scale),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Icon(Icons.laptop_mac, color: color, size: 10 * scale),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CarouselSlideData {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconFg;
+  final String text;
+  const _CarouselSlideData({
+    required this.icon,
+    required this.iconBg,
+    required this.iconFg,
+    required this.text,
+  });
+}
+
+// 2026-09-22: real ask, live - "self scrolling images with succinct
+// text, rather than the nasty verbage at the bottom. Must be clear on
+// the points though." Replaces the three stacked _CaptionLine rows
+// this screen used to end on - same three facts (privacy, platform
+// requirement + the one-time desktop setup step, the push mechanic),
+// still not safe to cut per this file's own 2026-09-01/2026-09-09
+// history, just one at a time instead of three paragraphs competing
+// for attention at once. Auto-advances on a timer; tapping a dot also
+// jumps there and resets the timer, so it never fights a real swipe.
+class _InfoCarousel extends StatefulWidget {
+  const _InfoCarousel();
+
+  @override
+  State<_InfoCarousel> createState() => _InfoCarouselState();
+}
+
+class _InfoCarouselState extends State<_InfoCarousel> {
+  static const _slides = [
+    _CarouselSlideData(
+      icon: Icons.cloud_off,
+      iconBg: wTealBg,
+      iconFg: wTealDark,
+      text: 'No cloud, no account. Just your two devices - nothing '
+          'leaves your local network.',
+    ),
+    _CarouselSlideData(
+      // Icons.devices is the closest single Material glyph, but this
+      // screen already has a real, more specific icon for exactly this
+      // (_PhoneLaptopIcon) - built as its own widget below instead.
+      icon: Icons.devices,
+      iconBg: wVioletBg,
+      iconFg: wVioletDark,
+      text: 'iPhone + one desktop (Linux, Mac, or NAS) - connected by '
+          'Wi-Fi or cable, with a one-time setup file to run.',
+    ),
+    _CarouselSlideData(
+      icon: Icons.call_made,
+      iconBg: wTealBg,
+      iconFg: wTealDark,
+      text: 'Push sends your file over - one swipe on your phone, and '
+          'it lands on the desktop.',
+    ),
+  ];
+
+  late final PageController _pageController;
+  Timer? _timer;
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoAdvance();
+  }
+
+  void _startAutoAdvance() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
+      if (!mounted) return;
+      final next = (_index + 1) % _slides.length;
+      _pageController.animateToPage(next,
+          duration: const Duration(milliseconds: 450), curve: Curves.easeOut);
+    });
+  }
+
+  void _goTo(int i) {
+    _pageController.animateToPage(i,
+        duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+    _startAutoAdvance();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 1),
-          child: iconWidget ?? Icon(icon, size: 13, color: wInkDim),
+        Text('GOOD TO KNOW',
+            style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: wInkDim.withValues(alpha: 0.7))),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 74,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _slides.length,
+            onPageChanged: (i) {
+              // 2026-09-22: setState only, no timer reset here - a real
+              // swipe already got a fresh timer from the swipe gesture
+              // itself finishing (PageView handles that), and resetting
+              // AGAIN here would double-extend the dwell time on
+              // whatever slide a swipe just landed on.
+              setState(() => _index = i);
+            },
+            itemBuilder: (_, i) {
+              final s = _slides[i];
+              return Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                        color: s.iconBg,
+                        borderRadius: BorderRadius.circular(11)),
+                    child: i == 1
+                        ? Center(child: _PhoneLaptopIcon(color: s.iconFg))
+                        : Icon(s.icon, color: s.iconFg, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(s.text,
+                        style: TextStyle(
+                            fontSize: 12.5, height: 1.4, color: wInk)),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(text,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: wInkDim)),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_slides.length, (i) {
+            final active = i == _index;
+            return GestureDetector(
+              onTap: () => _goTo(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: active ? 16 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: active ? wTealDark : wInkDim.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            );
+          }),
         ),
       ],
     );
