@@ -249,13 +249,21 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     // running yet. Feeds into the exact same pendingQuickAction the
     // Quick Actions already use - HomeScreen's own handling for
     // 'action_push'/'action_pull' needs zero changes.
+    // 2026-09-22: real crash/glitch found live - widget PUSH double-gif'd,
+    // widget PULL crashed. This channel call is a real async round trip,
+    // and AutoSyncOnResume's own cold-launch check used to run before it
+    // could possibly resolve - see RepositoryProvider.pendingActionCheckDone
+    // for the full diagnosis. whenComplete (not just .then()'s success
+    // path) marks the check done either way, success or error, so
+    // AutoSyncOnResume never waits forever on a channel failure.
     const MethodChannel('localsync/widget_action')
         .invokeMethod<String>('getPendingAction')
         .then((action) {
       if (action == 'push' || action == 'pull') {
         _repositoryProvider.setPendingQuickAction('action_$action');
       }
-    }).catchError((_) {});
+    }).catchError((_) {}).whenComplete(
+        _repositoryProvider.markPendingActionCheckDone);
   }
 
   @override

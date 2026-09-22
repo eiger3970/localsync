@@ -98,6 +98,34 @@ class RepositoryProvider extends ChangeNotifier {
   }
   void clearPendingQuickAction() { _pendingQuickAction = null; }
 
+  // 2026-09-22: real feedback, live - widget PUSH showed its gif twice
+  // with a black-screen flash in between, widget PULL crashed outright.
+  // Root cause was already half-diagnosed in _inFlight's own 2026-09-18
+  // comment below: a widget tap is a cold launch, and main.dart's
+  // widget-action check (`localsync/widget_action` MethodChannel) is a
+  // real async round trip - AutoSyncOnResume's own postFrameCallback
+  // fires on the FIRST frame, before that round trip has necessarily
+  // resolved, so it sees pendingQuickAction still null and launches its
+  // OWN silent push+pull. The widget's real tap then runs moments later
+  // once the channel resolves. _inFlight going global (2026-09-18)
+  // stopped these two from racing CONCURRENTLY (the actual crash that
+  // commit fixed), but never stopped them from both running, back to
+  // back - exactly the redundant double-sync the double-gif symptom
+  // shows, and very likely what's still stressing the pull path enough
+  // to crash (no on-device crash log for this specific report yet - if
+  // the crash still recurs after this fix, that log is the next thing
+  // needed, not another guess).
+  //
+  // This future resolves once that specific async check has settled
+  // (action found or not) - AutoSyncOnResume awaits it before deciding
+  // whether to run its own auto-sync at cold launch, so it never acts
+  // on a stale "nothing pending yet" read again.
+  final Completer<void> _pendingActionCheckDone = Completer<void>();
+  Future<void> get pendingActionCheckDone => _pendingActionCheckDone.future;
+  void markPendingActionCheckDone() {
+    if (!_pendingActionCheckDone.isCompleted) _pendingActionCheckDone.complete();
+  }
+
   List<Repository>     get repos     => _repos;
   List<CommitTemplate> get templates => _templates;
   bool                 get loading   => _loading;
