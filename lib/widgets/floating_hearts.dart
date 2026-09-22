@@ -64,11 +64,24 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
-// 2026-09-22: module-level, outlives any single FloatingHearts instance
-// - see _FloatingHeartsState's own 2026-09-22 comment for why tilt
-// needs to survive a dialog close/reopen instead of resetting.
-double _lastTilt = 0;
-double _lastLean = 0;
+// 2026-09-22 (round 7): real feedback, live - "if I jerk the phone
+// right the hearts go right, but otherwise hearts gravitate to the
+// left edge." Removed the module-level persistence this file used to
+// have here (added round 1, "hearts should continue up from last
+// point of tilt" on dialog reopen). That reasoning belonged to the OLD
+// hold-forever tilt design (round 4, 2026-09-18) - round 3 (2026-09-22)
+// explicitly replaced that with decay-to-center physics, but this
+// leftover persistence never got reconciled with the new model, and
+// under decay-to-center it can only cause harm: decay only runs while
+// this widget is actually mounted (the AnimatedBuilder driving it is
+// disposed the instant the dialog closes), so any session closed
+// before decay fully finishes settling back to 0 freezes whatever
+// residual lean it had at that exact moment - and the NEXT open
+// inherited that stale value instead of genuinely starting at rest.
+// Repeated open/close testing cycles could accumulate exactly this
+// kind of "gravitates left for no reason" drift. Under the current
+// physics, every fresh open should start at true center, full stop -
+// there's no reason left to remember anything across instances.
 
 class FloatingHearts extends StatefulWidget {
   final Color color;
@@ -142,12 +155,12 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // requirement) is gone entirely, not tuned further - it was the wrong
   // shape of fix for a "should return to center" requirement no amount
   // of noise-filtering could ever satisfy.
-  double _tilt = _lastTilt;
+  double _tilt = 0;
   // 2026-09-22: the continuous, eased value the painter actually reads
   // - see this file's own top-of-file 2026-09-22 comment. Glides
   // toward `_tilt` every frame in build()'s AnimatedBuilder callback
   // rather than jumping straight to it.
-  double _lean = _lastLean;
+  double _lean = 0;
   DateTime? _lastFrameTime;
   // 2026-09-22 (round 5): real elapsed time between gyro samples, used
   // to make accumulation rate-independent - see the gyro listener's own
@@ -260,7 +273,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
       _lastGyroSampleTime = now;
       if (event.z.abs() < noiseFloor) return;
       _tilt = (_tilt - event.z * gyroSensitivity * dt).clamp(-1.0, 1.0);
-      _lastTilt = _tilt;
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
       // hearts just keep their ambient sway with no tilt reaction,
@@ -348,7 +360,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
           // settle back to dead center - gentle, not an instant snap.
           const tiltDecayRate = 1.1;
           _tilt -= _tilt * (1 - exp(-tiltDecayRate * dt));
-          _lastTilt = _tilt;
           // 2026-09-22: real feedback, live - "hearts jump quickly...
           // can hearts slide slower." 4.0 reached the edge in ~1s (fast
           // enough to still read as a jump) - 1.2 stretches the same
@@ -365,7 +376,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
           // true edge pixel. Snap once the gap is imperceptible so it
           // actually, exactly arrives.
           if ((_tilt - _lean).abs() < 0.01) _lean = _tilt;
-          _lastLean = _lean;
           return CustomPaint(
             painter: _HeartsPainter(
                 t: _ctrl.value,
