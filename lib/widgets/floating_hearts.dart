@@ -149,6 +149,10 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // rather than jumping straight to it.
   double _lean = _lastLean;
   DateTime? _lastFrameTime;
+  // 2026-09-22 (round 5): real elapsed time between gyro samples, used
+  // to make accumulation rate-independent - see the gyro listener's own
+  // round-5 comment for why this is needed now.
+  DateTime? _lastGyroSampleTime;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
 
   @override
@@ -204,14 +208,37 @@ class _FloatingHeartsState extends State<FloatingHearts>
     // different clocks. gameInterval (20ms, ~50Hz) brings gyro sampling
     // close enough to the animation frame rate that decay no longer
     // outpaces it between samples.
-    const gyroSensitivity = 0.045;
+    //
+    // 2026-09-22 (round 5): real regression, live - "hearts auto flow
+    // to left edge, rather than just up from where tilt ends." Real
+    // math bug in round 4's own fix: accumulation was a flat
+    // per-SAMPLE increment, with no time factor - switching from 5Hz to
+    // 50Hz sampling meant the SAME real motion now contributes roughly
+    // 10x more total accumulation per second than before (10x more
+    // samples, each still adding the same fixed amount), against a
+    // decay rate that was already correctly time-based and unchanged.
+    // Ordinary motion could now consistently outrun decay toward
+    // whichever direction it happened to lean. Real fix: scale each
+    // sample's contribution by the REAL elapsed time since the
+    // previous sample (matching how decay already works), so the total
+    // accumulated lean only depends on the actual physical motion, not
+    // how often it happens to get sampled. gyroSensitivity re-derived
+    // for this: a real ~2 rad/s deliberate turn sustained for ~0.3s
+    // should reach full lean - 2 * 0.3 = 0.6 rad integrated, so
+    // sensitivity ~= 1/0.6.
+    const gyroSensitivity = 1.7;
     const noiseFloor = 0.04;
     _gyroSub =
         gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
             .listen((event) {
       if (!mounted) return;
+      final now = DateTime.now();
+      final dt = _lastGyroSampleTime == null
+          ? 0.0
+          : now.difference(_lastGyroSampleTime!).inMicroseconds / 1e6;
+      _lastGyroSampleTime = now;
       if (event.z.abs() < noiseFloor) return;
-      _tilt = (_tilt - event.z * gyroSensitivity).clamp(-1.0, 1.0);
+      _tilt = (_tilt - event.z * gyroSensitivity * dt).clamp(-1.0, 1.0);
       _lastTilt = _tilt;
     }, onError: (_) {
       // Motion access denied/unavailable on this device/signing setup -
