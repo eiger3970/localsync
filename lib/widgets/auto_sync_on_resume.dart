@@ -63,12 +63,7 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // crash too). Awaiting pendingActionCheckDone here only delays the
     // COLD LAUNCH path - it resolves once, at startup, so it's already
     // complete on every later resume-from-background call below.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      await context.read<RepositoryProvider>().pendingActionCheckDone;
-      if (!mounted) return;
-      _autoSync();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _gatedAutoSync());
   }
 
   @override
@@ -79,7 +74,27 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _autoSync();
+    // 2026-09-22: real crash, live, confirmed via a fresh on-device .ips
+    // log AGAIN, on a build that already had every other fix this
+    // exact crash class has gotten today (the widget cold-launch race
+    // above, RepositoryProvider._init()'s own gating, the native
+    // double-delivery dedup in SceneDelegate.swift) - same
+    // concurrent-git_remote_connect BoringSSL abort every time. This
+    // callback was the real remaining gap: it called _autoSync()
+    // directly, with NONE of the pendingActionCheckDone gating the
+    // initState path above got - a widget/URL-triggered cold launch can
+    // plausibly deliver an explicit inactive->resumed transition here
+    // (a different OS-level activation path than a plain icon tap),
+    // racing the widget's real action through a door that was never
+    // actually closed. Routed through the same gate now.
+    if (state == AppLifecycleState.resumed) _gatedAutoSync();
+  }
+
+  Future<void> _gatedAutoSync() async {
+    if (!mounted) return;
+    await context.read<RepositoryProvider>().pendingActionCheckDone;
+    if (!mounted) return;
+    _autoSync();
   }
 
   Future<void> _autoSync() async {
