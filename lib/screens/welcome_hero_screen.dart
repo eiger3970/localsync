@@ -362,6 +362,15 @@ class _InfoCarouselState extends State<_InfoCarousel> {
   late final PageController _pageController;
   Timer? _timer;
   int _index = 0;
+  // 2026-09-22: real feedback, live - "carousels always annoy me by
+  // being way too fast to read the info... stop it from changing when
+  // I'm in the middle of reading it." Auto-advance now stops for good
+  // the instant the user touches this carousel at all (swipe or dot
+  // tap) - from that point on it's fully manual, never resumes on its
+  // own. Set the moment a touch is detected (Listener.onPointerDown,
+  // not onPageChanged - that fires for auto-advance too, so it can't
+  // tell a real swipe apart from the timer's own animateToPage call).
+  bool _userInteracted = false;
 
   @override
   void initState() {
@@ -372,18 +381,28 @@ class _InfoCarouselState extends State<_InfoCarousel> {
 
   void _startAutoAdvance() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 3500), (_) {
-      if (!mounted) return;
+    // 2026-09-22: real feedback, live, same round - "there's a lot of
+    // text to read." 3500ms was timed for the mockup's placeholder
+    // text, not these actual sentences. 6500ms even before any real
+    // interaction, on top of now stopping outright once touched at all.
+    _timer = Timer.periodic(const Duration(milliseconds: 6500), (_) {
+      if (!mounted || _userInteracted) return;
       final next = (_index + 1) % _slides.length;
       _pageController.animateToPage(next,
           duration: const Duration(milliseconds: 450), curve: Curves.easeOut);
     });
   }
 
+  void _markUserInteracted() {
+    if (_userInteracted) return;
+    _userInteracted = true;
+    _timer?.cancel();
+  }
+
   void _goTo(int i) {
+    _markUserInteracted();
     _pageController.animateToPage(i,
         duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
-    _startAutoAdvance();
   }
 
   @override
@@ -404,42 +423,45 @@ class _InfoCarouselState extends State<_InfoCarousel> {
                 letterSpacing: 0.8,
                 color: wInkDim.withValues(alpha: 0.7))),
         const SizedBox(height: 6),
-        SizedBox(
-          height: 74,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: _slides.length,
-            onPageChanged: (i) {
-              // 2026-09-22: setState only, no timer reset here - a real
-              // swipe already got a fresh timer from the swipe gesture
-              // itself finishing (PageView handles that), and resetting
-              // AGAIN here would double-extend the dwell time on
-              // whatever slide a swipe just landed on.
-              setState(() => _index = i);
-            },
-            itemBuilder: (_, i) {
-              final s = _slides[i];
-              return Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                        color: s.iconBg,
-                        borderRadius: BorderRadius.circular(11)),
-                    child: i == 1
-                        ? Center(child: _PhoneLaptopIcon(color: s.iconFg))
-                        : Icon(s.icon, color: s.iconFg, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(s.text,
-                        style: TextStyle(
-                            fontSize: 12.5, height: 1.4, color: wInk)),
-                  ),
-                ],
-              );
-            },
+        // 2026-09-22: Listener (fires on the raw touch-down, before
+        // Flutter's gesture arena decides whether it becomes a swipe, a
+        // tap-and-release, or nothing) rather than relying on
+        // onPageChanged below to infer a real swipe happened -
+        // onPageChanged fires identically for the auto-advance timer's
+        // own animateToPage call, so it can't tell a real touch apart
+        // from the timer by itself.
+        Listener(
+          onPointerDown: (_) => _markUserInteracted(),
+          child: SizedBox(
+            height: 74,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _slides.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (_, i) {
+                final s = _slides[i];
+                return Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: s.iconBg,
+                          borderRadius: BorderRadius.circular(11)),
+                      child: i == 1
+                          ? Center(child: _PhoneLaptopIcon(color: s.iconFg))
+                          : Icon(s.icon, color: s.iconFg, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(s.text,
+                          style: TextStyle(
+                              fontSize: 12.5, height: 1.4, color: wInk)),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 8),
