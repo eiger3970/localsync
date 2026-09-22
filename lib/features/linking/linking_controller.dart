@@ -177,9 +177,33 @@ class LinkingController extends ChangeNotifier {
   Future<void> startLinking() async {
     assert(_step == LinkingStep.idle || _step == LinkingStep.failed);
     _reset();
+    _clearCachedRepoLocationForNewVault();
     _isRunning = true;
     notifyListeners();
     await _checkPairing(newVault: true);
+  }
+
+  // 2026-09-22: real near-miss, live - a "fresh install" test ended up
+  // silently reusing the REAL production bareRepoPath/desktopVaultPath
+  // from main.dart's own DatabaseService().getBareRepoPath()/
+  // getDesktopVaultPath() restore-on-launch (see that file's own
+  // comments) - iOS commonly restores an app's shared_preferences
+  // (NSUserDefaults) from an iCloud backup on reinstall, so a "fresh
+  // install" doesn't actually guarantee a clean slate the way it does
+  // on, say, a fresh Android install. Those two fields are genuinely
+  // useful to keep cached for startLinkingExistingVault() ("I already
+  // have a vault, reconnect it" - deliberately wants the SAME desktop
+  // bare repo) - but for a genuinely NEW vault/folder (this method and
+  // startLinkingGenericFolder below), silently reusing a real file-path
+  // value the user never saw or confirmed is exactly what almost
+  // caused a real production vault to get corrupted today. Both
+  // "brand new" entry points now force these back to empty first, so a
+  // fresh bare repo genuinely gets created fresh - same "leave blank
+  // for a fresh one" behavior docs/desktop-setup.md already documents,
+  // now actually guaranteed rather than accidental.
+  void _clearCachedRepoLocationForNewVault() {
+    bareRepoPath = '';
+    desktopVaultPath = '';
   }
 
   // 2026-08-21: real redesign target flagged by the user (see the
@@ -212,6 +236,7 @@ class LinkingController extends ChangeNotifier {
   Future<void> startLinkingGenericFolder() async {
     assert(_step == LinkingStep.idle || _step == LinkingStep.failed);
     _reset();
+    _clearCachedRepoLocationForNewVault();
     _syncMode = SyncMode.genericFolder;
     _isRunning = true;
     notifyListeners();
