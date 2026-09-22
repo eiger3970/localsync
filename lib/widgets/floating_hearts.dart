@@ -33,6 +33,32 @@
 // gesture was a fight no amount of tuning was going to fully win.
 // Device tilt (gyroscope) replaces touch entirely here - no gesture, no
 // scroll conflict, nothing to compete for at all.
+//
+// 2026-09-22: real feedback, live - "hearts don't sway left and right,
+// rather jump and appear left and then appear right... looking for a
+// smooth glide." The 2026-09-18 rounds above deliberately landed on a
+// hard binary snap (round 8's own comment: "past a small threshold,
+// every heart sits exactly on that edge, full stop") because the
+// earlier proportional blend was too subtle to register as a reaction
+// at all on-device. Now that the gyro plumbing itself is proven working
+// (confirmed independently twice over, rounds 13/15), the ask has moved
+// from "is it reacting" to "does it look natural" - the instant x-jump
+// is now the actual problem, not too-subtle motion. Fixed by keeping
+// the tilt LATCH as-is (still -1/0/1, still only changes on a real fast
+// turn, see round 12's comment below) but no longer feeding it straight
+// into the painter - _lean now eases toward that target every frame
+// (real elapsed time, not frame-count, so it's consistent regardless of
+// device refresh rate), and the painter blends each heart's x/size/
+// opacity toward the edge proportionally to |_lean| instead of jumping.
+// Same steering-wheel semantics as before (holds wherever tilted, only
+// moves on a deliberate turn), now visibly gliding there instead of
+// teleporting.
+//
+// Also removed the on-screen "GYRO n=.. tilt=.." debug overlay (round 5
+// -14) - it did its job (proved the gyro stream and painter were both
+// genuinely wired up, several rounds ago) and was explicitly flagged
+// "remove once this is resolved" when added. Leaving real debug text
+// and a colored rect visible to an actual user was never the intent.
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -83,33 +109,13 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // and this field's own round-2 comment below for why it's gyroscope-
   // driven rather than accelerometer-driven.
   double _tilt = 0;
+  // 2026-09-22: the continuous, eased value the painter actually reads
+  // - see this file's own top-of-file 2026-09-22 comment. Glides
+  // toward `_tilt` every frame in build()'s AnimatedBuilder callback
+  // rather than jumping straight to it.
+  double _lean = 0;
+  DateTime? _lastFrameTime;
   StreamSubscription<GyroscopeEvent>? _gyroSub;
-  // 2026-09-18 (round 5): real ask, live - "hearts don't move at all"
-  // (gyroscope round, sway specifically - the base rise/drift still
-  // works). Tuning sensitivity/decay blindly hasn't converged in 4
-  // rounds - this counts real events and shows the live raw value so
-  // the next test gives direct ground truth (is the stream even
-  // delivering anything at all, and if so, how big are the real
-  // numbers) instead of another guess. Remove once this is resolved.
-  int _gyroEventCount = 0;
-  String? _gyroError;
-  // 2026-09-18 (round 6): real ask, live - "No debug text." The
-  // in-widget Positioned overlay (round 5) never actually showed up -
-  // most likely painted-over by SUPPORT's own row content sitting at
-  // nearly the same position in this dialog's Stack, or some other
-  // layout quirk specific to this exact spot. A periodic SnackBar
-  // (round 6) was tried next - real feedback, live (round 7): "error
-  // behind About text, so I can't read it" - the About dialog is almost
-  // certainly a showDialog() modal, whose own barrier/route sits above
-  // the ScaffoldMessenger's SnackBar layer, so the SnackBar was
-  // genuinely showing, just behind the dialog's own content.
-  //
-  // A raw OverlayEntry on the app's real ROOT overlay (rootOverlay:
-  // true) is the one thing guaranteed to paint above everything else,
-  // including any modal dialog currently open - nothing left between
-  // this and the actual pixels on screen.
-  Timer? _debugTimer;
-  OverlayEntry? _debugOverlay;
 
   @override
   void initState() {
@@ -189,56 +195,12 @@ class _FloatingHeartsState extends State<FloatingHearts>
     const turnThreshold = 0.5;
     _gyroSub = gyroscopeEventStream().listen((event) {
       if (!mounted) return;
-      _gyroEventCount++;
       if (event.z.abs() < turnThreshold) return;
       _tilt = event.z > 0 ? 1.0 : -1.0;
-    }, onError: (e) {
-      // 2026-09-18 (round 5): was silently swallowed - if motion access
-      // is denied/unavailable on this exact device/signing setup, the
-      // stream could error out immediately with zero visible sign at
-      // all, indistinguishable from "just not moving enough."
-      if (mounted) setState(() => _gyroError = '$e');
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final overlay = Overlay.of(context, rootOverlay: true);
-      final entry = OverlayEntry(
-        builder: (_) => Positioned(
-          top: 60,
-          left: 16,
-          right: 16,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              // 2026-09-18 (round 11): real feedback, live - "same" even
-              // after lowering both thresholds, with "GYRO changes"
-              // already confirmed. Background flips green the instant
-              // |tilt| actually crosses the snap threshold (0.05) - the
-              // exact same condition the heart painter itself checks,
-              // through the one display mechanism already confirmed
-              // visible. Green with no heart reaction pins the bug to
-              // the painter specifically; staying black the whole time
-              // means tilt still never actually reaches 0.05 in
-              // practice, whatever the readout number shows.
-              color: _tilt.abs() > 0.05 ? Colors.green : Colors.black,
-              child: Text(
-                _gyroError != null
-                    ? 'GYRO ERR: $_gyroError'
-                    : 'GYRO n=$_gyroEventCount tilt=${_tilt.toStringAsFixed(2)}',
-                style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-        ),
-      );
-      _debugOverlay = entry;
-      overlay.insert(entry);
-      _debugTimer = Timer.periodic(
-          const Duration(milliseconds: 300), (_) => entry.markNeedsBuild());
+    }, onError: (_) {
+      // Motion access denied/unavailable on this device/signing setup -
+      // hearts just keep their ambient sway with no tilt reaction,
+      // nothing left to update.
     });
     // 2026-09-18: real feedback, live - "too slow rising up." Was 9s
     // for a full cycle even at the old, much shorter 90px trail - with
@@ -281,8 +243,6 @@ class _FloatingHeartsState extends State<FloatingHearts>
 
   @override
   void dispose() {
-    _debugTimer?.cancel();
-    _debugOverlay?.remove();
     _gyroSub?.cancel();
     _ctrl.dispose();
     super.dispose();
@@ -300,15 +260,30 @@ class _FloatingHeartsState extends State<FloatingHearts>
       height: widget.trailHeight,
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) => CustomPaint(
-          painter: _HeartsPainter(
-              t: _ctrl.value,
-              hearts: _hearts,
-              color: widget.color,
-              quiet: widget.quiet,
-              tilt: _tilt),
-          size: Size.infinite,
-        ),
+        // 2026-09-22: eases `_lean` toward the latched `_tilt` target
+        // every tick (real elapsed time, not a fixed per-frame step, so
+        // the glide speed doesn't depend on the device's refresh rate)
+        // instead of handing the painter the raw instantly-latched
+        // value - see this file's own top-of-file comment.
+        builder: (_, __) {
+          final now = DateTime.now();
+          final dt = _lastFrameTime == null
+              ? 0.0
+              : now.difference(_lastFrameTime!).inMicroseconds / 1e6;
+          _lastFrameTime = now;
+          const easeRate = 4.0; // higher = snappier glide
+          final alpha = 1 - exp(-easeRate * dt);
+          _lean += (_tilt - _lean) * alpha;
+          return CustomPaint(
+            painter: _HeartsPainter(
+                t: _ctrl.value,
+                hearts: _hearts,
+                color: widget.color,
+                quiet: widget.quiet,
+                tilt: _lean),
+            size: Size.infinite,
+          );
+        },
       ),
     );
   }
@@ -364,43 +339,34 @@ class _HeartsPainter extends CustomPainter {
       // fraction of some distant ancestor's height.
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
-      var x = (size.width * (h.x + sway)).clamp(0.0, size.width);
-      // 2026-09-18 (round 8): "kiss" - a proportional blend was too
-      // subtle to tell apart from the hearts' own ambient sway. Hard
-      // binary snap instead: past a small threshold, every heart sits
-      // exactly on that edge, full stop, unmistakable either way -
-      // below it, no tilt effect at all. Removes any doubt about
-      // whether it's "sort of" reacting.
-      //
-      // 2026-09-18 (round 10): 0.15 -> 0.05, same reasoning as the
-      // noise floor above - a lighter tilt should still be enough to
-      // snap, not just a forceful one.
-      // 2026-09-18 (round 15): real feedback, live - "Hearts no change"
-      // even after round 14 shrank ambient sway to make an edge-snap
-      // stand out - and even with GYRO independently confirmed green
-      // (n rising) during the exact same test. Tilt reaching this
-      // painter is proven twice over now (round 13's stripe, this
-      // round's GYRO) - the x-snap below was never the missing piece.
-      // What's left: these glyphs are 7-13px, at up to 0.5 alpha, in a
-      // dialog full of other content - a plain x-jump on something
-      // that small and faint may just not register as "a reaction" at
-      // a glance. Boosting size and forcing full opacity on top of the
-      // x-snap removes any remaining doubt about visibility itself,
-      // separate from whether the snap is happening at all.
-      final tilted = tilt.abs() > 0.05;
-      if (tilted) {
-        x = tilt > 0 ? size.width : 0.0;
-      }
+      final baseX = (size.width * (h.x + sway)).clamp(0.0, size.width);
+      // 2026-09-22: real feedback, live - "jump and appear left and
+      // then appear right... looking for a smooth glide." `tilt` is
+      // now the caller's already-eased `_lean` value (see
+      // _FloatingHeartsState.build()), not a raw instantaneous reading,
+      // so blending proportionally to it here draws a continuous glide
+      // toward whichever edge the device is leaning, rather than the
+      // old hard binary snap (round 8-15's own history is below, for
+      // context - this replaces that mechanism, not just its numbers).
+      final leanAbs = tilt.abs();
+      final edgeX = tilt > 0 ? size.width : 0.0;
+      final x = _lerp(baseX, edgeX, leanAbs);
       // Fade in near the bottom (origin), fade out near the top - never
       // pops in/out abruptly mid-rise.
       final fadeIn = localT < 0.15 ? localT / 0.15 : 1.0;
       final fadeOut = localT > 0.78 ? (1 - localT) / 0.22 : 1.0;
-      final opacity = tilted ? 1.0 : (fadeIn * fadeOut).clamp(0.0, 1.0);
+      final ambientOpacity =
+          (fadeIn * fadeOut).clamp(0.0, 1.0) * (quiet ? 0.3 : 0.5);
+      final opacity = _lerp(ambientOpacity, 1.0, leanAbs);
       if (opacity <= 0.02) continue;
-      _paintHeartGlyph(canvas, Offset(x, y), tilted ? h.size * 1.8 : h.size,
-          color.withValues(alpha: tilted ? 1.0 : opacity * (quiet ? 0.3 : 0.5)));
+      final glyphSize = _lerp(h.size, h.size * 1.8, leanAbs);
+      _paintHeartGlyph(
+          canvas, Offset(x, y), glyphSize, color.withValues(alpha: opacity));
     }
   }
+
+  static double _lerp(double a, double b, double t) =>
+      a + (b - a) * t.clamp(0.0, 1.0);
 
   void _paintHeartGlyph(Canvas canvas, Offset center, double size, Color color) {
     final tp = TextPainter(
