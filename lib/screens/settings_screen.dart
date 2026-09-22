@@ -872,12 +872,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     final path = _pathCtrl.text.trim();
     final vaultPath = _vaultPathCtrl.text.trim();
     setState(() {
-      // 2026-08-28: same "can't be empty" validation as the bare repo
-      // path below - an empty desktopUser would mean every SSH
+      // 2026-08-28: an empty desktopUser would mean every SSH
       // connection tries to log in as no one at all.
       _userError = user.isEmpty ? 'Can\'t be empty' : null;
       _ipError = _ipPattern.hasMatch(ip) ? null : 'Not a valid IP address';
-      _pathError = path.isEmpty ? 'Can\'t be empty' : null;
+      // 2026-09-22: real bug, live - a blank bare repo path genuinely
+      // could not be saved ("Can't be empty"), directly contradicting
+      // docs/desktop-setup.md's own documented "leave blank for a
+      // fresh one" and today's earlier fix (_cloneInto now generates a
+      // real fresh path exactly when this field is empty). This
+      // validation predates that auto-creation feature, from when a
+      // user genuinely had to type a path by hand - never updated once
+      // blank became a real, meaningful, intentional value instead of
+      // an error. No error state now, matching desktopVaultPath's own
+      // already-correct handling just below.
+      _pathError = null;
     });
 
     // 2026-08-28: real bug, live - "Same error: Desktop username and IP
