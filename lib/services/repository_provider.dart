@@ -245,6 +245,28 @@ class RepositoryProvider extends ChangeNotifier {
     await Future.wait([_loadRepos(), _loadTemplates()]);
     _loading = false;
     notifyListeners();
+    // 2026-09-22: real crash/error found live - a widget PUSH ran its
+    // gif, then hit a generic sync error; widget PULL showed no gif at
+    // all (just the app bar's own status text), then crashed. The
+    // 2026-09-22 AutoSyncOnResume fix closed ONE redundant silent-sync
+    // path, but this loop is a SEPARATE, still-ungated third one: it
+    // runs unconditionally, on every cold launch, from this
+    // constructor - which fires before main.dart's initState() has even
+    // started (field initializers run before initState), so it was
+    // never possible for it to see pendingQuickAction as anything but
+    // null, no matter what the fix above did. A widget/quick-action tap
+    // still queues its own real sync behind this one via the global
+    // _inFlight lock (no concurrent-access crash), but this redundant
+    // silent pull - with no gif, no confirm dialog, nothing the
+    // 2026-09-16 "let the explicit one win" reasoning ever got applied
+    // to - still runs first every time, unlike AutoSyncOnResume's
+    // already-gated auto-sync. Same fix, extended here: wait for the
+    // same widget-action check to settle, then skip entirely if a
+    // widget/quick action turned out to be pending - the explicit one
+    // handles its own repo's sync, same as it already does for
+    // AutoSyncOnResume.
+    await pendingActionCheckDone;
+    if (_pendingQuickAction != null) return;
     // 2026-08-15: was syncRepository() (the old do-everything sync) -
     // launch behavior is "bring in whatever's new", i.e. a pull, never
     // a push of local changes the user hasn't reviewed yet.
