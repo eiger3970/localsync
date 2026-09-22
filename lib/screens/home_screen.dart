@@ -907,11 +907,24 @@ class HomeScreen extends StatelessWidget {
   // bug already fixed once tonight for stale pairing state), so simply
   // navigating here without resetting it first just displays leftover
   // state, not a fresh attempt. Reset before every navigation in.
+  //
+  // 2026-09-22: real bug, live - "Vault -> new -> ... shows PKM VAULT
+  // SETUP, wrong page for a free user." This navigated straight to
+  // LinkingScreen without ever setting preferredMode or offering a
+  // choice - WelcomeHeroScreen (first-launch only, until now) is the
+  // ONLY place that ever lets the user pick free vs Obsidian before
+  // proceeding, so a returning user adding a SECOND repo had no way to
+  // reach the free/genericFolder setup at all - LinkingScreen's own
+  // title ternary (line ~223) defaults to the Obsidian/PKM framing
+  // whenever preferredMode isn't genericFolder, which it never could be
+  // from this entry point. Routes through WelcomeHeroScreen now instead
+  // - same mode-choice + preview flow first launch already uses, not a
+  // new screen - reset() still happens first exactly as before.
   void _openLinking(BuildContext context) {
     context.read<LinkingController>().reset();
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LinkingScreen()),
+      MaterialPageRoute(builder: (_) => const WelcomeHeroScreen()),
     );
   }
 
