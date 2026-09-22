@@ -407,6 +407,36 @@ class RepositoryProvider extends ChangeNotifier {
     try {
       return await _runLocked(id, op);
     } finally {
+      // 2026-09-22: real crash, live, from an actual .ips log AGAIN -
+      // two DartWorker threads both inside git_remote_connect's SSH
+      // handshake at once, same BoringSSL abort as the 2026-09-18 crash
+      // this lock was built to prevent. Re-audited every call site that
+      // can reach git_remote_connect (AutoSyncOnResume, this
+      // provider's own _init() loop, conflict_repair.dart,
+      // discovery_service.dart) - all either already gated behind this
+      // lock or confirmed to never touch this native library at all
+      // (discovery_service.dart's probes and conflict_repair.dart are
+      // both local/pure-Dart, not git2dart). No remaining Dart-level
+      // bypass found.
+      //
+      // Leading remaining hypothesis, not yet confirmed: compute()'s
+      // returned Future resolving only means the RESULT MESSAGE was
+      // received from the isolate - it's not a guarantee that the
+      // isolate's own native-library cleanup (libgit2/libssh2/BoringSSL,
+      // all statically linked, sharing process-global state across
+      // EVERY isolate regardless of Dart-level boundaries) has actually
+      // finished on its own thread by that exact instant. A `_run()`
+      // call arriving immediately after `_inFlight` clears could start
+      // a brand new isolate's own git_remote_connect while the PREVIOUS
+      // isolate's native teardown is still mid-flight - genuine
+      // concurrent BoringSSL access despite the Dart-level lock being
+      // textbook-correct. A short real-world grace period before
+      // releasing the lock gives that teardown room to actually finish,
+      // cheaply, without needing to change how the lock itself works.
+      // If real crash logs still show this after this change, the
+      // hypothesis above is wrong and needs revisiting, not another
+      // delay tweak.
+      await Future.delayed(const Duration(milliseconds: 400));
       completer.complete();
       if (identical(_inFlight, completer.future)) _inFlight = null;
     }
