@@ -23,8 +23,16 @@ class SceneDelegate: FlutterSceneDelegate {
     // Cold launch via widget tap - the real equivalent of AppDelegate's
     // own application(_:didFinishLaunchingWithOptions:) override, which
     // never fires under this app's real UIScene architecture.
+    //
+    // 2026-09-22: real crash, live, single tap - iOS can ALSO fire
+    // scene(_:openURLContexts:) below with this exact same URL moments
+    // after this cold-launch delivery - a real, documented double
+    // delivery for one tap, not a guess. PendingWidgetAction.accept()
+    // (see its own comment in AppDelegate.swift) drops the repeat
+    // instead of both callbacks each independently believing they saw a
+    // fresh tap.
     if let url = connectionOptions.urlContexts.first?.url, url.scheme == "localsync" {
-      PendingWidgetAction.value = url.host
+      PendingWidgetAction.accept(url)
     }
   }
 
@@ -33,9 +41,12 @@ class SceneDelegate: FlutterSceneDelegate {
     // Warm launch (scene already connected/running) - the real
     // equivalent of AppDelegate's own application(_:open:options:)
     // override, which never fires under this app's real UIScene
-    // architecture.
+    // architecture. See willConnectTo above for why this goes through
+    // accept() now instead of a direct assignment - this callback can
+    // fire a second time for the SAME cold-launch tap willConnectTo
+    // already handled, not just for genuine later warm-launch taps.
     if let url = URLContexts.first?.url, url.scheme == "localsync" {
-      PendingWidgetAction.value = url.host
+      PendingWidgetAction.accept(url)
     }
   }
 }
