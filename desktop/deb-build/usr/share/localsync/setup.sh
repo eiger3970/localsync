@@ -794,7 +794,8 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 .qr{background:#fff;border-radius:16px;padding:22px;display:inline-block}
 .qr img{display:block;width:min(72vw,280px);height:min(72vw,280px)}
 .breadcrumb{font-size:13.5px;color:#7c9070;margin:16px 0 4px;line-height:1.5}
-.manual-note{font-size:13.5px;color:#7c9070;margin:34px 0 8px;line-height:1.5}
+.manual{margin-top:28px}
+.manual .values{margin:0 0 12px}
 .values{display:flex;flex-direction:column;gap:8px;text-align:left;font-family:'DejaVu Sans Mono',monospace}
 .chip{background:#10160e;border:1px solid #263420;border-radius:8px;padding:9px 12px}
 .chip b{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#7c9070;display:block;margin-bottom:3px;font-weight:400}
@@ -830,13 +831,19 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 </div>
 <div class="qr"><img src="data:image/png;base64,${QR_PNG_B64}" alt="LocalSync setup QR"></div>
 <p class="breadcrumb">Phone -&gt; LocalSync app -&gt; Settings -&gt; tap QR icon</p>
-<p class="manual-note">Manual values below if you'd rather type.</p>
+<!-- 2026-09-23: real feedback, live - "Manual values below if you'd
+     rather type; this needs to be default folded, with the option to
+     fold down to see details." The QR is the main path; the four typed
+     values now sit collapsed, same fold style as the "Why" section. -->
+<details class="why manual">
+<summary>Manual values, if you'd rather type</summary>
 <div class="values">
 <div class="chip"><b>1. Desktop username</b><span>${LOCALSYNC_USER:-$(whoami)}</span></div>
 <div class="chip"><b>2. Desktop IP address</b><span>${IP_RESULT:-not found}</span></div>
 <div class="chip"><b>3. Desktop sync folder</b><span>${BARE_REPO_PATH}</span></div>
 <div class="chip"><b>4. Desktop vault path</b><span>${BEST_VAULT_PATH:-(leave blank)}</span></div>
 </div>
+</details>
 ${WHY_SECTION}
 </div></body></html>
 HTMLEOF
