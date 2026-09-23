@@ -1643,13 +1643,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 // (kworld.space/localsync - a .deb on
                                 // Linux, a .command on macOS) now detects
                                 // and prints this exact answer as part of
-                                // its own one-time run, saved to "LocalSync
-                                // setup result.txt" on the Desktop -
+                                // its own one-time run, saved to "LocalSync_setup_
+                                // result_safe_to_delete.txt" on the Desktop -
                                 // pointing there first means most people
                                 // never need the manual steps below at all.
                                 (
                                   'Ran the desktop setup file already? '
-                                      'Check "LocalSync setup result.txt" '
+                                      'Check "LocalSync_setup_result_safe_to_delete.txt" '
                                       '- already has this',
                                   false
                                 ),
@@ -2089,13 +2089,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // is)." The desktop setup file (kworld.space/
                             // localsync) now detects and prints this
                             // exact answer as part of its own one-time
-                            // run, saved to "LocalSync setup result.txt"
+                            // run, saved to "LocalSync_setup_result_safe_to_delete.txt"
                             // on the Desktop - pointing there first means
                             // most people never need the manual steps
                             // below at all.
                             (
                               'Ran the desktop setup file already? '
-                                  'Check "LocalSync setup result.txt" '
+                                  'Check "LocalSync_setup_result_safe_to_delete.txt" '
                                   '- already has this',
                               false
                             ),
@@ -2353,13 +2353,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                             // is)." The desktop setup file (kworld.space/
                             // localsync) now detects and prints this
                             // exact answer as part of its own one-time
-                            // run, saved to "LocalSync setup result.txt"
+                            // run, saved to "LocalSync_setup_result_safe_to_delete.txt"
                             // on the Desktop - pointing there first means
                             // most people never need the manual steps
                             // below at all.
                             (
                               'Ran the desktop setup file already? '
-                                  'Check "LocalSync setup result.txt" '
+                                  'Check "LocalSync_setup_result_safe_to_delete.txt" '
                                   '- already has this',
                               false
                             ),
