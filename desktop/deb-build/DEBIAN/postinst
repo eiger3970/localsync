@@ -89,7 +89,7 @@ RESULT_DIR="$REAL_HOME"
 # on someone's Desktop uninvited reads as something they must keep.
 # Stays on the Desktop (still the one place a GUI-installer user finds
 # it), but the name and first line now say plainly it's disposable.
-RESULT_FILE="$RESULT_DIR/LocalSync_setup_result_safe_to_delete.txt"
+RESULT_FILE="$RESULT_DIR/LocalSync_setup_delete_once_installed.txt"
 
 # 2026-09-02: real feedback, live - "that will give me and users a
 # heart attack." The repeated "====" banner read as an error/warning,
