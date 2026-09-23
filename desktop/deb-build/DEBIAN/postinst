@@ -84,7 +84,12 @@ fi
 # a file manager double-click opens, no terminal needed to read it.
 RESULT_DIR="$REAL_HOME"
 [[ -d "$REAL_HOME/Desktop" ]] && RESULT_DIR="$REAL_HOME/Desktop"
-RESULT_FILE="$RESULT_DIR/LocalSync setup result.txt"
+# 2026-09-23: real feedback, live - "I don't know if it's an important
+# file I can't touch on my own personal desktop." A file that appears
+# on someone's Desktop uninvited reads as something they must keep.
+# Stays on the Desktop (still the one place a GUI-installer user finds
+# it), but the name and first line now say plainly it's disposable.
+RESULT_FILE="$RESULT_DIR/LocalSync_setup_result_safe_to_delete.txt"
 
 # 2026-09-02: real feedback, live - "that will give me and users a
 # heart attack." The repeated "====" banner read as an error/warning,
@@ -116,7 +121,13 @@ HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh
   echo "gone by the time you check LocalSync's Settings on your phone.)"
 } | tee -a "$RAW_LOG"
 ESC="$(printf '\033')"
-sed -E "s/${ESC}\[[0-9;]*m//g" "$RAW_LOG" > "$RESULT_FILE"
+{
+  echo "Safe to delete. This is only a copy of what LocalSync's desktop"
+  echo "setup showed, for filling in the phone app's Settings. Nothing"
+  echo "depends on this file - install the setup again to get it back."
+  echo
+  sed -E "s/${ESC}\[[0-9;]*m//g" "$RAW_LOG"
+} > "$RESULT_FILE"
 rm -f "$RAW_LOG"
 
 # Anything setup.sh (or the result file above) created under the real
