@@ -105,8 +105,11 @@ jobs:
         run: |
           set -euo pipefail
           APP=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
-          APPEX="$APP/PlugIns/LocalSyncWidget.appex"
-          test -d "$APPEX" || { echo "widget extension missing"; exit 1; }
+          # Found by type, not name - the built bundle is
+          # LocalSyncWidgetExtension.appex, not the target's own name.
+          APPEX=$(find "$APP/PlugIns" -maxdepth 1 -name "*.appex" | head -1)
+          test -n "$APPEX" && test -d "$APPEX" || { echo "widget extension missing"; ls -la "$APP/PlugIns" || true; exit 1; }
+          echo "Widget: $APPEX"
 
           # The widget's version must match the app's (App Store rule).
           V=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Info.plist")
