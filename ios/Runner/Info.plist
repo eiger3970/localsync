@@ -265,6 +265,15 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- 2026-09-24: real bug, live (screen recording) - a widget Push/Pull
+	     tap slid a second, still-loading copy of the home screen on top
+	     ("black screen except top bar"). Flutter 3.27+ turns its own deep
+	     linking ON when this key is absent, so localsync://push was also
+	     pushed onto the Navigator as a route to "/" (= home). The app
+	     already handles these URLs itself (SceneDelegate ->
+	     PendingWidgetAction -> widget_action channel); Flutter's copy off. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

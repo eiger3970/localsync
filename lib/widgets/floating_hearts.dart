@@ -161,6 +161,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // heart starts a new rise from SUPPORT.
   late final List<double> _drift;
   late final List<double> _lastLocalT;
+  // 2026-09-24 (round 10): real bug, found in the user's screen
+  // recording - right-side hearts vanished around the "LocalSync" line.
+  // localT used to come from _ctrl.value, which loops 0..1 every 5s; for
+  // a heart with speed != 1, (value * speed + offset) % 1 JUMPS back
+  // down its path at every loop (not a real "reached the top" wrap), and
+  // round 9 treated that jump as a new rise - resetting its drift, so a
+  // heart that had drifted right vanished mid-air. Continuous time
+  // instead (seconds / cycle length, never looping), so each heart only
+  // wraps when it truly finishes its rise.
+  double _cycles = 0;
+  static const _cycleSeconds = 5.0;
   DateTime? _lastFrameTime;
   StreamSubscription<AccelerometerEvent>? _accelSub;
 
@@ -228,20 +239,21 @@ class _FloatingHeartsState extends State<FloatingHearts>
               ? 0.0
               : now.difference(_lastFrameTime!).inMicroseconds / 1e6;
           _lastFrameTime = now;
+          _cycles += dt / _cycleSeconds;
           const easeRate = 3.0; // higher = snappier response to a turn
           _steer += (_steerTarget - _steer) * (1 - exp(-easeRate * dt));
           // Sideways speed: a full tilt crosses the whole box in ~1.2s.
           const driftSpeed = 0.85;
           for (var i = 0; i < _hearts.length; i++) {
             final h = _hearts[i];
-            final localT = (_ctrl.value * h.speed + h.startOffset) % 1.0;
+            final localT = (_cycles * h.speed + h.startOffset) % 1.0;
             if (localT < _lastLocalT[i]) _drift[i] = 0; // new rise
             _lastLocalT[i] = localT;
             _drift[i] = (_drift[i] + _steer * driftSpeed * dt).clamp(-1.0, 1.0);
           }
           return CustomPaint(
             painter: _HeartsPainter(
-                t: _ctrl.value,
+                t: _cycles,
                 hearts: _hearts,
                 color: widget.color,
                 quiet: widget.quiet,
@@ -272,7 +284,7 @@ class _Heart {
 }
 
 class _HeartsPainter extends CustomPainter {
-  final double t; // 0..1, loops
+  final double t; // continuous cycles (never loops) - see _cycles
   final List<_Heart> hearts;
   final Color color;
   final bool quiet;
