@@ -32,8 +32,8 @@ void main() {
         filesAppRouteText(
             '/private/var/mobile/Containers/Data/Application/A/Documents/V',
             'LocalSync/Vault Backup 202609241415'),
-        'Phone home screen > Files app (blue folder icon) > On My iPhone > '
-        'Obsidian > V > LocalSync > Vault Backup 202609241415');
+        'Phone home screen -> Files app (blue folder icon) -> On My iPhone -> '
+        'Obsidian -> V -> LocalSync -> Vault Backup 202609241415');
   });
 
   test('existingOriginRepoPath reads the folder\'s real desktop repo', () {

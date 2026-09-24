@@ -63,7 +63,7 @@ String filesAppRouteText(String absolutePath, [String extra = '']) {
     ...filesAppRoute(absolutePath),
     ...extra.split('/').where((p) => p.isNotEmpty),
   ];
-  return route.join(' > ');
+  return route.join(' -> ');
 }
 
 /// Opens the Files app straight at [absolutePath] (iOS "shareddocuments"
