@@ -1,7 +1,6 @@
 // main.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:share_plus/share_plus.dart';
@@ -17,6 +16,7 @@ import 'screens/home_screen.dart';
 import 'widgets/auto_sync_on_resume.dart';
 import 'widgets/flag_backdrop.dart';
 import 'widgets/flag_frame.dart';
+import 'services/widget_action.dart';
 
 // 2026-09-15: real feedback, live - a resolved-conflict banner's own
 // UNDO/view-backup link stopped responding once the screen that first
@@ -256,14 +256,9 @@ class _LocalSyncAppState extends State<LocalSyncApp> {
     // for the full diagnosis. whenComplete (not just .then()'s success
     // path) marks the check done either way, success or error, so
     // AutoSyncOnResume never waits forever on a channel failure.
-    const MethodChannel('localsync/widget_action')
-        .invokeMethod<String>('getPendingAction')
-        .then((action) {
-      if (action == 'push' || action == 'pull') {
-        _repositoryProvider.setPendingQuickAction('action_$action');
-      }
-    }).catchError((_) {}).whenComplete(
-        _repositoryProvider.markPendingActionCheckDone);
+    takePendingWidgetAction().then((action) {
+      if (action != null) _repositoryProvider.setPendingQuickAction(action);
+    }).whenComplete(_repositoryProvider.markPendingActionCheckDone);
   }
 
   @override
