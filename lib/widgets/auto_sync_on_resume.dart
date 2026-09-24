@@ -29,6 +29,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/repository_provider.dart';
+import '../services/widget_action.dart';
 
 class AutoSyncOnResume extends StatefulWidget {
   final Widget child;
@@ -87,7 +88,26 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // (a different OS-level activation path than a plain icon tap),
     // racing the widget's real action through a door that was never
     // actually closed. Routed through the same gate now.
-    if (state == AppLifecycleState.resumed) _gatedAutoSync();
+    if (state == AppLifecycleState.resumed) _resumed();
+  }
+
+  // 2026-09-24: real feedback, live - "Widgets push and pull causes a
+  // home screen black out, rather than gif and graphics." A widget tap
+  // on a warm app arrives as a plain resume, and nothing read the
+  // pending action here - the silent auto-sync ran instead. Read it
+  // first (services/widget_action.dart, consume-on-read, so a cold
+  // launch's own startup check and this can never both run it). If
+  // there is one, hand it to HomeScreen's pendingQuickAction watcher,
+  // which runs it through _runAndShow (gif, result SnackBar, chime);
+  // _autoSync already steps aside while a quick action is pending.
+  Future<void> _resumed() async {
+    final action = await takePendingWidgetAction();
+    if (!mounted) return;
+    if (action != null) {
+      context.read<RepositoryProvider>().setPendingQuickAction(action);
+      return;
+    }
+    _gatedAutoSync();
   }
 
   Future<void> _gatedAutoSync() async {
