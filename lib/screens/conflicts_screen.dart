@@ -520,8 +520,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                               style: TextStyle(color: kTextMid, fontSize: 15)),
                           const SizedBox(height: 8),
                           Text(
-                            'If you just resolved one, tap PUSH on the '
-                            'home screen to sync your desktop.',
+                            // 2026-09-24: "home screen" read as the phone's
+                            // Home Screen - this means LocalSync's own.
+                            'If you just resolved one, tap PUSH on '
+                            'LocalSync\'s main screen to sync your desktop.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: kTextDim, fontSize: 13),
                           ),
