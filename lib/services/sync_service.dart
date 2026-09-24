@@ -62,7 +62,6 @@ import 'dart:io';
 import 'dart:isolate' show SendPort, ReceivePort;
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show compute, debugPrint;
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:git2dart/git2dart.dart' as git;
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
@@ -71,6 +70,7 @@ import 'conflict_repair.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 import 'localsync_folder.dart';
+import '../generated/desktop_sync_script.dart';
 
 // ── Result types ───────────────────────────────────────────────────────────────
 // Plain data only, deliberately - these are the only things that cross
@@ -267,7 +267,7 @@ Future<SyncResult> runDesktopSyncScriptNow({
     // Make sure the script actually exists first - a user could tap
     // this before any pull has ever installed it (e.g. right after
     // pairing, before a first sync). Cheap and idempotent either way.
-    final script = await rootBundle.loadString('desktop/localsync_sync.sh');
+    final script = kDesktopSyncScript;
     final scriptB64 = base64Encode(utf8.encode(script));
     const remoteDir = r'$HOME/Documents/Scripts';
     const scriptPath = r'$HOME/Documents/Scripts/localsync_sync.sh';

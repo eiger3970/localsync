@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:git2dart/git2dart.dart';
 import '../features/linking/linking_state.dart';
 import 'sync_service.dart'
@@ -17,6 +16,7 @@ import 'sync_service.dart'
         SyncResult;
 import 'vault_backup.dart';
 import 'localsync_folder.dart';
+import '../generated/desktop_sync_script.dart';
 
 /// Extracts the repo path from a `ssh://user@host:port/path` URL - this
 /// app's own always-written format (see GitServiceImpl._remoteUrl and
@@ -277,7 +277,7 @@ class GitServiceImpl implements GitService {
           privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
     );
     try {
-      final script = await rootBundle.loadString('desktop/localsync_sync.sh');
+      final script = kDesktopSyncScript;
       final scriptB64 = base64Encode(utf8.encode(script));
       final escapedRepo = bareRepoPath.replaceAll("'", r"'\''");
       // Written to ~/Documents/Scripts/ - the exact path
