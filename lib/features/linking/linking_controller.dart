@@ -669,18 +669,20 @@ class LinkingController extends ChangeNotifier {
   // ("fresh vault ended up completely empty on disk" without it) - this
   // removal is a conscious tradeoff for the "add another" case, not a
   // re-verification that fresh creation still works without it.
+  // 2026-09-24: "@app " tags - each step's app shown as a badge, see
+  // widgets/app_badge.dart ("needs context for humans").
   List<String> get vaultCreationSteps => [
-        'swipe up to open $kNoteAppName',
-        'swipe from left to right',
-        'tap vault (bottom left)',
-        'tap Manage vaults...',
-        'tap Create new vault',
-        'Vault name: <Enter name...>',
-        'Store in iCloud: off by default',
-        'tap Create',
-        'new vault opens',
-        'New tab',
-        'force close $kNoteAppName',
+        '@localsync swipe up to open $kNoteAppName',
+        '@obsidian swipe from left to right',
+        '@obsidian tap vault (bottom left)',
+        '@obsidian tap Manage vaults...',
+        '@obsidian tap Create new vault',
+        '@obsidian Vault name: <Enter name...>',
+        '@obsidian Store in iCloud: off by default',
+        '@obsidian tap Create',
+        '@obsidian new vault opens',
+        '@obsidian New tab',
+        '@phone force close $kNoteAppName (swipe up from the bottom, flick it away)',
       ];
 
   // 2026-08-14: same idea as vaultCreationSteps, for the folder-picker
@@ -696,29 +698,29 @@ class LinkingController extends ChangeNotifier {
   // always folder-agnostic, only this copy wasn't.
   List<String> get vaultFolderSteps => _syncMode == SyncMode.genericFolder
       ? [
-          'swipe up to open the folder picker',
-          'tap Browse',
-          'navigate to the folder you want to sync',
-          'tap the folder to select it',
-          'tap Open',
-          'phone will pause up to a minute, checking the folder',
+          '@localsync swipe up to open the folder picker',
+          '@files tap Browse',
+          '@files navigate to the folder you want to sync',
+          '@files tap the folder to select it',
+          '@files tap Open',
+          '@localsync phone will pause up to a minute, checking the folder',
         ]
       : [
-          'swipe up to open VAULT FOLDER',
-          'tap Browse',
-          'tap On My iPhone (Browse/Locations/On My iPhone)',
-          'tap $kNoteAppName folder',
+          '@localsync swipe up to open VAULT FOLDER',
+          '@files tap Browse',
+          '@files tap On My iPhone (Browse/Locations/On My iPhone)',
+          '@files tap $kNoteAppName folder',
           // 2026-09-24: "new users won't be 100% sure what to pick with
           // no vaults or multiple vaults" - name it by what they did in
           // step 1, not "the vault".
-          'tap your vault - the name you typed in step 1',
-          'tap Open',
+          '@files tap your vault - the name you typed in step 1',
+          '@files tap Open',
           // 2026-08-15: was a separate warning Text below the checklist -
           // folded into the checklist itself per explicit direction, even
           // though it's not an action to perform (it's a heads-up), so
           // the whole sequence lives in one tickable list rather than
           // being split across two different UI elements.
-          'phone will pause up to a minute, downloading your notes',
+          '@localsync phone will pause up to a minute, downloading your notes',
         ];
 
   // 2026-08-11: "First," -> a step counter ("1 of 2") per explicit
