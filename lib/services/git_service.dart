@@ -16,6 +16,7 @@ import 'sync_service.dart'
         runDesktopSyncScriptNow,
         SyncResult;
 import 'vault_backup.dart';
+import 'localsync_folder.dart';
 
 /// Extracts the repo path from a `ssh://user@host:port/path` URL - this
 /// app's own always-written format (see GitServiceImpl._remoteUrl and
@@ -506,9 +507,7 @@ class GitServiceImpl implements GitService {
           // on top of that, never a replacement for it.
           String? existingName;
           try {
-            existingName = File('$localVaultPath/LocalSync/repo-name.txt')
-                .readAsStringSync()
-                .trim();
+            existingName = readRepoName(localVaultPath);
           } catch (_) {
             existingName = null;
           }

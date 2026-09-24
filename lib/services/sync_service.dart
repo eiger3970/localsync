@@ -70,6 +70,7 @@ import 'binary_conflict_log.dart';
 import 'conflict_repair.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
+import 'localsync_folder.dart';
 
 // ── Result types ───────────────────────────────────────────────────────────────
 // Plain data only, deliberately - these are the only things that cross
@@ -809,7 +810,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
                   // backup notes and fix it" problem, never a data-loss
                   // one.
                   final backupDir = Directory(
-                      '${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
+                      conflictBackupsDir(p.vaultPath));
                   backupDir.createSync(recursive: true);
                   final ts = backupTimestamp();
                   File('${backupDir.path}/'
@@ -855,12 +856,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         return SyncOk(
             'Downloaded latest notes and automatically combined non-'
             'overlapping desktop changes to ${autoMergedPaths.join(", ")} '
-            '(both original versions saved to LocalSync/Conflict Backups '
+            '(both original versions saved to ${lastKnownLocalSyncFolder}/Conflict Backups '
             'first, in case anything needs a second look).');
       }
 
       final backupDir =
-          Directory('${p.vaultPath}/$kLocalSyncFolderName/Conflict Backups');
+          Directory(conflictBackupsDir(p.vaultPath));
       backupDir.createSync(recursive: true);
       final ts = backupTimestamp();
       final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
@@ -890,7 +891,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           'Pull stopped: ${divergedPaths.join(", ")} has different real '
           'content on the desktop that couldn\'t be safely combined '
           'automatically$autoMergedNote. Saved the desktop\'s version to '
-          'LocalSync/Conflict Backups (${savedNames.join(", ")}) - please '
+          '${lastKnownLocalSyncFolder}/Conflict Backups (${savedNames.join(", ")}) - please '
           'combine both by hand before syncing further.');
     }
 
@@ -943,7 +944,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       final backupNote = result.backedUp.isEmpty
           ? ''
           : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-              'that version was saved to LocalSync/Conflict Backups before '
+              'that version was saved to ${lastKnownLocalSyncFolder}/Conflict Backups before '
               'this push replaced it, just in case.';
       final repairNote = result.repaired.isEmpty
           ? ''
@@ -1014,7 +1015,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final backupNote = result.backedUp.isEmpty
         ? ''
         : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-            'that version was saved to LocalSync/Conflict Backups before '
+            'that version was saved to ${lastKnownLocalSyncFolder}/Conflict Backups before '
             'this push replaced it, just in case.';
     final repairNote = result.repaired.isEmpty
         ? ''
@@ -1386,7 +1387,7 @@ List<String> verifyAndRepairCheckout(git.Repository repo, String vaultPath,
 /// Folders never worth walking/checking - git's own metadata, and this
 /// app's own backup output (which is never meant to match anything in
 /// git, by design).
-const _skipTopLevelDirs = {'.git', kLocalSyncFolderName};
+const _skipTopLevelDirs = {'.git'};
 
 /// 2026-09-06: real gap in verifyAndRepairCheckout above, found live the
 /// same day - it only ever runs right after a fresh reset, diffing the
@@ -1421,11 +1422,16 @@ List<String> verifyWorkingTreeMatchesHead(
   final headOid = repo.head.target;
   final headTree = git.Commit.lookup(repo: repo, oid: headOid).tree;
   final root = Directory(vaultPath);
+  // 2026-09-24: LocalSync's own folders are skipped by full path now
+  // (localsync_folder.dart), not as a top-level name - the folder can be
+  // nested, e.g. Projects/LocalSync.
+  final skipFolders = localSyncFolders(vaultPath);
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
     if (entity is! File) continue;
     final relPath = entity.path.substring(vaultPath.length + 1);
     final topLevel = relPath.split('/').first;
     if (_skipTopLevelDirs.contains(topLevel)) continue;
+    if (isInLocalSyncFolder(relPath, skipFolders)) continue;
     try {
       final expectedOid = _lookupPathOid(repo, headTree, relPath);
       if (expectedOid == null) continue; // Not tracked - a real user file.
@@ -1532,7 +1538,7 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
   }
   if (atRisk.isEmpty) return const [];
   final backupDir =
-      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+      Directory(conflictBackupsDir(vaultPath));
   backupDir.createSync(recursive: true);
   final ts = backupTimestamp();
   final savedNames = <String>[];
@@ -1769,7 +1775,7 @@ void _resolveBinaryConflict(
   String otherLabel,
 ) {
   final backupDir =
-      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+      Directory(conflictBackupsDir(vaultPath));
   backupDir.createSync(recursive: true);
   final rawName = relPath.split('/').last;
   // Extension preserved at the very end (not just appended after the

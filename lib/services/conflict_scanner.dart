@@ -27,6 +27,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'conflict_repair.dart' show journalOrderedEntries, repositionedReplace;
 import 'database_service.dart';
+import 'localsync_folder.dart';
 import 'vault_backup.dart';
 import 'vault_folder_service.dart';
 
@@ -130,6 +131,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   final entries = <ConflictEntry>[];
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
+  final skipFolders = localSyncFolders(vaultPath);
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
@@ -148,7 +150,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
     // conflicts resolved before that move and still have the old
     // top-level folders sitting around unmigrated.
     final relPath = entity.path.replaceFirst('${dir.path}/', '');
-    if (relPath.startsWith('$kLocalSyncFolderName/') ||
+    if (isInLocalSyncFolder(relPath, skipFolders) ||
         relPath.startsWith('LocalSync Vault Backup ') ||
         relPath.startsWith('LocalSync Conflict Backups/')) {
       continue;
@@ -239,7 +241,7 @@ Future<String> _backupConflictBeforeResolving(
   ConflictEntry entry,
 ) async {
   final backupDir =
-      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+      Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFileName = '$baseName - ${backupTimestamp()}.md';
@@ -256,7 +258,7 @@ Future<String> _backupConflictBeforeResolving(
     'Original file: ${entry.filePath}\n\n'
     '$sections',
   );
-  return '$kLocalSyncFolderName/Conflict Backups/$backupFileName';
+  return '${conflictBackupsRelPath(vaultPath)}/$backupFileName';
 }
 
 /// Pure string transform - given the file's current [content] and the
@@ -468,10 +470,15 @@ Future<List<ReferenceEntry>> scanForReferenceCallouts(String vaultPath) async {
   final entries = <ReferenceEntry>[];
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
+  final skipFolders = localSyncFolders(vaultPath);
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
     if (entity.path.contains('/$kLocalSyncFolderName/')) continue;
+    if (isInLocalSyncFolder(
+        entity.path.substring(vaultPath.length + 1), skipFolders)) {
+      continue;
+    }
     if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
     if (entity.path.contains('/LocalSync Vault Backup ')) continue;
 
@@ -591,7 +598,7 @@ Future<void> mergeReferenceKeepingBoth(
 ) async {
   if (entry.keptMarkerStart == null || entry.keptContent == null) return;
   final backupDir =
-      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+      Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =
@@ -620,7 +627,7 @@ Future<void> deleteReferenceCallout(
   ReferenceEntry entry,
 ) async {
   final backupDir =
-      Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+      Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =
@@ -907,6 +914,7 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
   final entries = <KeptBothEntry>[];
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
+  final skipFolders = localSyncFolders(vaultPath);
 
   // 2026-09-15: two sources now - legacy inline markers still sitting
   // in already-real notes (read-only, see _decodeKeptBothData's
@@ -923,6 +931,10 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
     if (entity.path.contains('/$kLocalSyncFolderName/')) continue;
+    if (isInLocalSyncFolder(
+        entity.path.substring(vaultPath.length + 1), skipFolders)) {
+      continue;
+    }
     if (entity.path.contains('/LocalSync Conflict Backups/')) continue;
     if (entity.path.contains('/LocalSync Vault Backup ')) continue;
 
