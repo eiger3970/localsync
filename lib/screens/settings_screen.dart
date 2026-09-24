@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
+import '../widgets/pulsing_glow.dart';
 import '../services/repository_provider.dart';
 import '../services/localsync_folder.dart';
 import '../services/sound_service.dart';
@@ -73,6 +74,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   // 2026-09-24: "Skins will need a fold, as there's a lot of them
   // taking up vertical space" - closed by default, shows the skin in use.
   bool _skinsOpen = false;
+  // 2026-09-24: real ask, live - "once camera qr scans all details and
+  // all details are filled in the screen, is it possible to glow the
+  // Save button, so the new user knows where the next action should be?"
+  bool _scanFilled = false;
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -208,6 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           if (value.isNotEmpty) fields[i].text = value;
         }
       });
+      _scanFilled = true;
       // 2026-09-24: real error, live, first setup - "GIT_ERROR_NET:
       // Invalid url: malformed hostname." The scan only FILLED the
       // fields; leaving Settings by the back arrow instead of Save threw
@@ -982,9 +988,16 @@ class _SettingsScreenState extends State<SettingsScreen>
               20, 12, 20, 12 + MediaQuery.of(context).viewInsets.bottom),
           child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _save,
-              child: const Text('Save'),
+            // Glows once a QR scan (or, during first setup, typing) has
+            // filled the required fields - Save is the next step then.
+            child: PulsingGlow(
+              active: _scanFilled ||
+                  (widget.neededForPairing && _stepsActive),
+              cornerRadius: 24,
+              child: ElevatedButton(
+                onPressed: _save,
+                child: const Text('Save'),
+              ),
             ),
           ),
         ),
