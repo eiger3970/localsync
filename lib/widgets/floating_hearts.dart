@@ -150,6 +150,17 @@ class _FloatingHeartsState extends State<FloatingHearts>
   // Smoothed steer actually painted - eases toward _steerTarget per
   // frame (real elapsed time, so the glide is the same at 60 or 120Hz).
   double _steer = 0;
+  // 2026-09-24 (round 9): real feedback, live - "Hearts still drift left
+  // when phone is moved from right tilt to upright. Only have hearts
+  // sway left if phone is tilted left of vertical." Round 8 bent every
+  // heart's path by the CURRENT steer, so easing back from right to
+  // upright swung the whole trail left. Each heart now carries its own
+  // sideways drift (fraction of the box width) that only CHANGES while
+  // the phone is tilted - tilt right pushes it right, upright holds it
+  // where it is, only a real left tilt moves it left. Reset when the
+  // heart starts a new rise from SUPPORT.
+  late final List<double> _drift;
+  late final List<double> _lastLocalT;
   DateTime? _lastFrameTime;
   StreamSubscription<AccelerometerEvent>? _accelSub;
 
@@ -193,6 +204,8 @@ class _FloatingHeartsState extends State<FloatingHearts>
         driftPhase: rng.nextDouble() * 2 * pi,
       ),
     );
+    _drift = List.filled(_hearts.length, 0.0);
+    _lastLocalT = List.filled(_hearts.length, 1.0);
   }
 
   @override
@@ -217,13 +230,22 @@ class _FloatingHeartsState extends State<FloatingHearts>
           _lastFrameTime = now;
           const easeRate = 3.0; // higher = snappier response to a turn
           _steer += (_steerTarget - _steer) * (1 - exp(-easeRate * dt));
+          // Sideways speed: a full tilt crosses the whole box in ~1.2s.
+          const driftSpeed = 0.85;
+          for (var i = 0; i < _hearts.length; i++) {
+            final h = _hearts[i];
+            final localT = (_ctrl.value * h.speed + h.startOffset) % 1.0;
+            if (localT < _lastLocalT[i]) _drift[i] = 0; // new rise
+            _lastLocalT[i] = localT;
+            _drift[i] = (_drift[i] + _steer * driftSpeed * dt).clamp(-1.0, 1.0);
+          }
           return CustomPaint(
             painter: _HeartsPainter(
                 t: _ctrl.value,
                 hearts: _hearts,
                 color: widget.color,
                 quiet: widget.quiet,
-                steer: _steer),
+                drift: List.of(_drift)),
             size: Size.infinite,
           );
         },
@@ -254,13 +276,13 @@ class _HeartsPainter extends CustomPainter {
   final List<_Heart> hearts;
   final Color color;
   final bool quiet;
-  final double steer; // -1 (left) .. 1 (right), smoothed
+  final List<double> drift; // per heart, fraction of the box width
   _HeartsPainter(
       {required this.t,
       required this.hearts,
       required this.color,
       this.quiet = false,
-      this.steer = 0});
+      this.drift = const []});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -269,12 +291,11 @@ class _HeartsPainter extends CustomPainter {
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
       final baseX = (_restWidth * (h.x + sway)).clamp(0.0, size.width);
-      // Round 8: steering bends the rising path - the offset grows with
-      // height (localT, eased), so a heart leaves SUPPORT where it
-      // always does and curves toward the tilted side as it rises,
-      // reaching up to the box edge near the top. Never a sideways slide
-      // of the whole trail.
-      final bend = steer * size.width * Curves.easeIn.transform(localT);
+      // Round 9: each heart's own accumulated drift (see the state's
+      // _drift) - it only moves sideways while the phone is tilted, and
+      // holds its place when the phone comes back upright.
+      final i = hearts.indexOf(h);
+      final bend = (i < drift.length ? drift[i] : 0.0) * size.width;
       final x = (baseX + bend).clamp(0.0, size.width);
       final fadeIn = localT < 0.15 ? localT / 0.15 : 1.0;
       final fadeOut = localT > 0.78 ? (1 - localT) / 0.22 : 1.0;
@@ -307,5 +328,5 @@ class _HeartsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HeartsPainter old) =>
-      old.t != t || old.steer != steer;
+      old.t != t || old.drift != drift;
 }
