@@ -155,7 +155,6 @@ flutter:
     - assets/pairing/
     - assets/flags/
     - assets/logos/
-    - desktop/localsync_sync.sh
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
