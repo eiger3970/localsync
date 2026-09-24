@@ -42,7 +42,7 @@ const kRevenueCatTestApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
 // Every other build (GitHub Actions, local, tests) keeps the test key,
 // exactly as before. Paste the key from RevenueCat -> Project settings
 // -> API keys -> App Store; like the test key, it's public by design.
-const kRevenueCatAppleApiKey = '';
+const kRevenueCatAppleApiKey = 'appl_SWulxOqLMjGGhkHALlxnHqAIDXP';
 const kIsStoreBuild = bool.fromEnvironment('STORE_BUILD');
 
 /// The key this build configures RevenueCat with. A store build with
