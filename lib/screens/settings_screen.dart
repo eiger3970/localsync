@@ -205,11 +205,19 @@ class _SettingsScreenState extends State<SettingsScreen>
           if (value.isNotEmpty) fields[i].text = value;
         }
       });
+      // 2026-09-24: real error, live, first setup - "GIT_ERROR_NET:
+      // Invalid url: malformed hostname." The scan only FILLED the
+      // fields; leaving Settings by the back arrow instead of Save threw
+      // them away, and setup went on with an empty desktop address. A
+      // scan is a deliberate, complete set of values from the desktop's
+      // own setup - saved immediately, staying on this screen.
+      await _save(closeAfter: false);
+      if (!mounted) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: kSurface,
-            content: Text('Filled in from desktop setup QR code',
+            content: Text('Filled in and saved from the desktop setup QR code',
                 style: TextStyle(color: kStar, fontSize: 14)),
             duration: const Duration(seconds: 3),
           ),
@@ -873,7 +881,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (!silent) setState(() => _notFoundOnWifi = true);
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool closeAfter = true}) async {
     final user = _userCtrl.text.trim();
     // 2026-08-28: real feedback, live - "the keyboard has no means to
     // type in 172.20.10.11/28" - `ip addr show` (this app's own help
@@ -933,7 +941,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     await provider.setDesktopVaultPath(vaultPath);
     linkingCtrl.updateDesktopVaultPath(vaultPath);
     if (_userError != null || _ipError != null || _pathError != null) return;
-    if (mounted) Navigator.pop(context);
+    if (closeAfter && mounted) Navigator.pop(context);
   }
 
   @override

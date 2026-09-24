@@ -124,6 +124,12 @@ class GitServiceImpl implements GitService {
 
   String get _remoteUrl => 'ssh://$sshUser@$sshHost:$sshPort$bareRepoPath';
 
+  /// 2026-09-24: where pullFromBareRepo's first-clone backup went
+  /// (vault-relative), or null if the folder was empty and nothing
+  /// needed backing up. LinkingController shows it on the success
+  /// screen - "a reminder after, WHERE, once things are working."
+  String? lastBackupRelPath;
+
   /// 2026-09-06: real gap found the same day as a real incident - a
   /// vault folder's own EXISTING git remote (from a prior link) used
   /// to be trusted as-is on re-link, never checked against what the
@@ -437,9 +443,11 @@ class GitServiceImpl implements GitService {
         } finally {
           repo.free();
         }
+        lastBackupRelPath = backedUp;
         return StepSuccess(
-            message: backedUp
-                ? 'Cloned bare repo (existing folder content backed up first).'
+            message: backedUp != null
+                ? 'Cloned bare repo (existing folder content backed up to '
+                    '$backedUp first).'
                 : 'Cloned bare repo');
       }
 
