@@ -676,7 +676,10 @@ class LinkingController extends ChangeNotifier {
           'tap Browse',
           'tap On My iPhone (Browse/Locations/On My iPhone)',
           'tap $kNoteAppName folder',
-          'tap the vault',
+          // 2026-09-24: "new users won't be 100% sure what to pick with
+          // no vaults or multiple vaults" - name it by what they did in
+          // step 1, not "the vault".
+          'tap your vault - the name you typed in step 1',
           'tap Open',
           // 2026-08-15: was a separate warning Text below the checklist -
           // folded into the checklist itself per explicit direction, even

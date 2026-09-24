@@ -2127,7 +2127,18 @@ class _ParkedViewState extends State<_ParkedView> {
                     onChanged: (checked) =>
                         setState(() => _vaultCreationChecked = checked),
                   )
-                else if (ctrl.step == LinkingStep.pickingVaultFolder)
+                else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
+                  // 2026-09-24: where the vault is, as a picture, above
+                  // the steps - see folder_route_view.dart.
+                  if (ctrl.syncMode != SyncMode.genericFolder)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: FolderRouteView([
+                        Crumb('On My iPhone', CrumbKind.device),
+                        Crumb(kNoteAppName, CrumbKind.folder),
+                        Crumb('your vault', CrumbKind.vault),
+                      ]),
+                    ),
                   _StepChecklist(
                     key: const ValueKey(2),
                     groupNumber: 2,
@@ -2145,7 +2156,8 @@ class _ParkedViewState extends State<_ParkedView> {
                               onOpenObsidian: ctrl.openObsidianNow)),
                     },
                     resilientSwipeIndices: const {0},
-                  )
+                  ),
+                ]
                 else
                   Container(
                     width: double.infinity,
