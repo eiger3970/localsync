@@ -38,6 +38,7 @@ import '../widgets/auto_sync_on_resume.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/app_badge.dart';
 import '../widgets/folder_route_view.dart';
 import '../services/files_app_path.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -2017,7 +2018,7 @@ class _ParkedViewState extends State<_ParkedView> {
   // have errors later on" - real device testing confirmed the folder
   // isn't created until force-close (step 1.10) actually happens, so
   // I'VE CREATED IT is now blocked until it's ticked. Tracked here
-  // (lifted out of _StepChecklist's own private state) so the swipe
+  // (lifted out of StepChecklist's own private state) so the swipe
   // confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
@@ -2115,7 +2116,7 @@ class _ParkedViewState extends State<_ParkedView> {
                 // resetting. A groupNumber-keyed instance per step
                 // forces a fresh State (and fresh _checked) each time.
                 if (ctrl.step == LinkingStep.awaitingVaultCreation)
-                  _StepChecklist(
+                  StepChecklist(
                     key: const ValueKey(1),
                     groupNumber: 1,
                     steps: ctrl.vaultCreationSteps,
@@ -2139,7 +2140,7 @@ class _ParkedViewState extends State<_ParkedView> {
                         Crumb('your vault', CrumbKind.vault),
                       ]),
                     ),
-                  _StepChecklist(
+                  StepChecklist(
                     key: const ValueKey(2),
                     groupNumber: 2,
                     steps: ctrl.vaultFolderSteps,
@@ -2177,7 +2178,7 @@ class _ParkedViewState extends State<_ParkedView> {
 
                 if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
                   // 2026-08-15: OPEN OBSIDIAN moved into checklist item
-                  // 1.1 itself (see _StepChecklist's firstItemSwipeAction
+                  // 1.1 itself (see StepChecklist's firstItemSwipeAction
                   // above) - the standalone swipe-up button that used to
                   // sit here is gone, per explicit direction.
                   // 2026-08-16: bottom-left instead of centered (no
@@ -2238,7 +2239,8 @@ class _ParkedViewState extends State<_ParkedView> {
 // progress marker for bouncing out to Obsidian or the native picker and
 // back, not something that needs to survive navigating away from this
 // screen.
-class _StepChecklist extends StatefulWidget {
+@visibleForTesting
+class StepChecklist extends StatefulWidget {
   final int groupNumber;
   final List<String> steps;
   // 2026-08-15: page 3/4 both start numbering at .1 (default); page 5's
@@ -2269,7 +2271,7 @@ class _StepChecklist extends StatefulWidget {
   // a sibling control (I'VE CREATED IT) can validate specific steps
   // were actually ticked before allowing its own confirm to proceed.
   final void Function(List<bool>)? onChanged;
-  const _StepChecklist({
+  const StepChecklist({
     super.key,
     required this.groupNumber,
     required this.steps,
@@ -2280,10 +2282,10 @@ class _StepChecklist extends StatefulWidget {
   });
 
   @override
-  State<_StepChecklist> createState() => _StepChecklistState();
+  State<StepChecklist> createState() => StepChecklistState();
 }
 
-class _StepChecklistState extends State<_StepChecklist> {
+class StepChecklistState extends State<StepChecklist> {
   late final List<bool> _checked = List.filled(widget.steps.length, false);
 
   @override
@@ -2309,11 +2311,28 @@ class _StepChecklistState extends State<_StepChecklist> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 2026-09-24: "needs context for humans" - every setup group
+          // happens on the phone; each step's app is its badge
+          // (widgets/app_badge.dart).
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+            child: Row(children: [
+              Icon(Icons.phone_iphone, size: 14, color: kTextMid),
+              const SizedBox(width: 4),
+              Text('ON YOUR PHONE',
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ]),
+          ),
           for (var i = 0; i < widget.steps.length; i++)
             if (widget.swipeActions.containsKey(i))
               _SwipeChecklistRow(
+                app: badgeFor(widget.steps, i),
                 label:
-                    '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+                    '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
                 onConfirm: widget.swipeActions[i]!,
                 resilient: widget.resilientSwipeIndices.contains(i),
                 onDone: () {
@@ -2341,8 +2360,12 @@ class _StepChecklistState extends State<_StepChecklist> {
                 dense: true,
                 activeColor: kGreen,
                 checkColor: kVoid,
-                title: Text(
-                  '${widget.groupNumber}.${i + widget.startIndex}  ${widget.steps[i]}',
+                title: Row(children: [
+                  AppBadge(badgeFor(widget.steps, i)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                  '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
                   style: TextStyle(
                     color: _checked[i] ? kTextMid : kStar,
                     fontSize: 16,
@@ -2350,7 +2373,9 @@ class _StepChecklistState extends State<_StepChecklist> {
                     decoration: _checked[i] ? TextDecoration.lineThrough : null,
                     decorationColor: kTextMid,
                   ),
-                ),
+                    ),
+                  ),
+                ]),
               ),
         ],
       ),
@@ -2365,6 +2390,8 @@ class _StepChecklistState extends State<_StepChecklist> {
 // no separate manual checkbox once the row itself performed the action.
 class _SwipeChecklistRow extends StatefulWidget {
   final String label;
+  // 2026-09-24: which app this step happens in - widgets/app_badge.dart.
+  final StepApp? app;
   final Future<void> Function() onConfirm;
   // 2026-08-17: reports completion back to the parent checklist's
   // _checked list, same as a ticked checkbox - needed now that a
@@ -2383,6 +2410,7 @@ class _SwipeChecklistRow extends StatefulWidget {
   // once swiped - there's no cancel-in-place scenario for it.
   final bool resilient;
   const _SwipeChecklistRow({
+    this.app,
     required this.label,
     required this.onConfirm,
     this.onDone,
@@ -2417,7 +2445,7 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
     if (!reached) return;
 
     // 2026-09-01: real feedback - same reward gap as the checkbox rows
-    // (see _StepChecklist's own onChanged), but this row had no visual
+    // (see StepChecklist's own onChanged), but this row had no visual
     // completion marker at all beyond a strikethrough - the arrow icon
     // just sat there greyed out (see build() below). Haptic bump here,
     // green check swapped in below, so a successful swipe reads as
@@ -2480,6 +2508,8 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
                             size: 20),
                   ),
                   const SizedBox(width: 10),
+                  AppBadge(widget.app),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       widget.label,
@@ -2862,17 +2892,17 @@ class _CompleteViewState extends State<_CompleteView>
             // checklist line entirely, matching page 2's I'VE CREATED IT
             // (no checklist line at all for the confirm action, just the
             // standalone gif control below).
-            _StepChecklist(
+            StepChecklist(
               key: const ValueKey(3),
               groupNumber: 3,
               startIndex: 0,
               swipeActions: {0: widget.ctrl.openObsidianNow},
               steps: const [
-                'swipe up to open $kNoteAppName',
-                'tap Trust author and enable plugins',
-                'wait for Indexing vault... to finish',
-                'tap X to skip Community plugins (set up later)',
-                'return to Localsync app',
+                '@localsync swipe up to open $kNoteAppName',
+                '@obsidian tap Trust author and enable plugins',
+                '@obsidian wait for Indexing vault... to finish',
+                '@obsidian tap X to skip Community plugins (set up later)',
+                '@phone switch back to the LocalSync app',
               ],
             ),
             const SizedBox(height: 16),
