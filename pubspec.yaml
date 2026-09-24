@@ -129,6 +129,9 @@ dependencies:
   # imports it directly, not just relying on the transitive pull-in.
   flutter_local_notifications: ^22.3.1
   timezone: ^0.11.1
+  # 2026-09-24: short completion sounds (push, pull, desktop sync, all
+  # conflicts cleared) - see lib/services/sound_service.dart.
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -146,6 +149,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/gifs/
+    - assets/sounds/
     - assets/icon/icon.png
     - assets/icon/logo_word_with_circle.png
     - assets/pairing/

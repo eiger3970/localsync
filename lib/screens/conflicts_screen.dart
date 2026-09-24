@@ -951,7 +951,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // what to look for once Obsidian opens.
                                   final backupRelPath = result?.backupRelPath;
                                   final backupFileName = backupRelPath == null
-                                      ? '${lastKnownLocalSyncFolder}/Conflict Backups'
+                                      ? '$lastKnownLocalSyncFolder/Conflict Backups'
                                       : backupRelPath.split('/').last;
                                   // 2026-08-19: "why is the button link needed?
                                   // ... make 'backed up' a link" - first pass
@@ -1240,7 +1240,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // where a resolution just wrote to
                                             // this exact note.
                                             TextSpan(
-                                                text: ' in ${lastKnownLocalSyncFolder}/Conflict Backups.'),
+                                                text: ' in $lastKnownLocalSyncFolder/Conflict Backups.'),
                                           ],
                                         ),
                                       ),
@@ -1605,7 +1605,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
             ),
             _SafetyPoint(
               icon: Icons.library_add_check,
-              text: 'A fresh copy is saved first, in ${lastKnownLocalSyncFolder}/Conflict Backups, '
+              text: 'A fresh copy is saved first, in $lastKnownLocalSyncFolder/Conflict Backups, '
                   'before anything is removed',
             ),
             _SafetyPoint(

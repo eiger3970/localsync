@@ -212,7 +212,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
                 child: Text(
                     widget.noteFilePath != null
                         ? 'No backups yet for this note.'
-                        : 'No backups in ${lastKnownLocalSyncFolder}/Conflict Backups yet.',
+                        : 'No backups in $lastKnownLocalSyncFolder/Conflict Backups yet.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: kTextMid, fontSize: 15)),
               ),
