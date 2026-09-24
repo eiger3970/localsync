@@ -250,7 +250,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         icon: Icons.library_add_check,
         color: kGreen,
         text: 'Backs up all text first, in ',
-        linkText: '${lastKnownLocalSyncFolder}/Conflict Backups',
+        linkText: '$lastKnownLocalSyncFolder/Conflict Backups',
         onLinkTap: () =>
             IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
       ),
@@ -560,7 +560,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 icon: Icons.library_add_check,
                 color: kGreen,
                 text: 'All text backed up first, in ',
-                linkText: '${lastKnownLocalSyncFolder}/Conflict Backups',
+                linkText: '$lastKnownLocalSyncFolder/Conflict Backups',
                 onLinkTap: () => IosAppServiceImpl()
                     .openObsidian(vaultName: widget.repo.name),
               ),
@@ -1124,7 +1124,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               'versions stacked up - they were never '
                               'fully resolved before another change '
                               'arrived. Tap the one to keep; the rest '
-                              'are still saved to "${lastKnownLocalSyncFolder}/Conflict Backups".',
+                              'are still saved to "$lastKnownLocalSyncFolder/Conflict Backups".',
                               style: TextStyle(color: kStar, fontSize: 15))
                           // 2026-09-14: real feedback, live, two
                           // rounds - first "I don't need to tap, as

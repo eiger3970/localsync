@@ -14,6 +14,7 @@
 // immediately, no app restart - and persist through RepositoryProvider
 // so it survives a relaunch too.
 
+import 'dart:async';
 import 'dart:math' show sin, pi, Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -24,6 +25,7 @@ import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
 import '../services/localsync_folder.dart';
+import '../services/sound_service.dart';
 import '../services/vault_backup.dart' show kLocalSyncFolderName;
 import '../services/vault_folder_service.dart';
 import 'qr_scan_screen.dart';
@@ -67,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   final _lsFolderCtrl = TextEditingController(text: kLocalSyncFolderName);
   String? _lsFolderSaved;
   bool _lsFolderBusy = false;
+  bool _soundsOn = true;
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -270,6 +273,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         vsync: this, duration: const Duration(milliseconds: 1900))
       ..repeat();
     _loadLocalSyncFolder();
+    SoundService.instance.isEnabled().then((v) {
+      if (mounted) setState(() => _soundsOn = v);
+    });
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
     });
@@ -2499,6 +2505,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Settings visit (neededForPairing false) still sees both.
             if (!widget.neededForPairing) ...[
               const SizedBox(height: 32),
+              _buildSoundsCard(),
+              const SizedBox(height: 28),
               _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
               _buildSkinsCard(),
@@ -2589,6 +2597,51 @@ class _SettingsScreenState extends State<SettingsScreen>
                 : 'Saved. New backups go to $saved. Existing backups '
                     'stay in $previous - move them in Obsidian if you '
                     'want them together.')));
+  }
+
+  // 2026-09-24: on/off for the completion chimes (sound_service.dart).
+  // Turning it ON plays the push chime once, so the switch doubles as a
+  // "what does it sound like" preview.
+  Widget _buildSoundsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      decoration:
+          BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+      child: Row(
+        children: [
+          Icon(_soundsOn ? Icons.volume_up_outlined : Icons.volume_off_outlined,
+              color: kTextMid, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('SOUNDS',
+                    style: TextStyle(
+                        color: kTextMid,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2)),
+                const SizedBox(height: 4),
+                Text('A short chime when Push, Pull, Desktop sync finish, '
+                    'or all conflicts are cleared. Follows the silent switch.',
+                    style: TextStyle(color: kStar, fontSize: 14, height: 1.4)),
+              ],
+            ),
+          ),
+          Switch(
+            value: _soundsOn,
+            activeThumbColor: kGreen,
+            onChanged: (v) async {
+              setState(() => _soundsOn = v);
+              await SoundService.instance.setEnabled(v);
+              if (v) unawaited(SoundService.instance.play(SoundEvent.push));
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLocalSyncFolderCard() {

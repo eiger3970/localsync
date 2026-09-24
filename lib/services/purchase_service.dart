@@ -29,7 +29,35 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 // same as Stripe's publishable keys. What's still actually missing is
 // the Apple Developer account / App Store product on the other side -
 // see this file's header comment.
-const kRevenueCatApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
+const kRevenueCatTestApiKey = 'test_hDQwOekjEiXiazeDDHAgGtqcCHx';
+
+// 2026-09-24: launch prep - "can the IAP stuff be done?" The test key
+// above only talks to RevenueCat's Test Store (no real money, works in
+// sideloaded builds). A real App Store purchase needs RevenueCat's
+// public Apple key (starts "appl_") AND a signed App Store/TestFlight
+// build - a sideloaded GitHub Actions build can't make real StoreKit
+// purchases at all. So the real key is used only when the build says
+// it's a store build:
+//   flutter build ipa --release --dart-define=STORE_BUILD=true
+// Every other build (GitHub Actions, local, tests) keeps the test key,
+// exactly as before. Paste the key from RevenueCat -> Project settings
+// -> API keys -> App Store; like the test key, it's public by design.
+const kRevenueCatAppleApiKey = '';
+const kIsStoreBuild = bool.fromEnvironment('STORE_BUILD');
+
+/// The key this build configures RevenueCat with. A store build with
+/// no Apple key pasted yet throws here, so init() never configures
+/// RevenueCat and every paywall shows its "not available" state -
+/// visible on the first TestFlight run, instead of silently shipping
+/// the Test Store to real customers.
+String get kRevenueCatApiKey {
+  if (!kIsStoreBuild) return kRevenueCatTestApiKey;
+  if (kRevenueCatAppleApiKey.isEmpty) {
+    throw StateError('STORE_BUILD=true but kRevenueCatAppleApiKey is empty '
+        '- paste the appl_ key into purchase_service.dart first.');
+  }
+  return kRevenueCatAppleApiKey;
+}
 
 // RevenueCat entitlement identifier, configured in the RevenueCat
 // dashboard once the project exists - not an App Store product ID

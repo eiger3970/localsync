@@ -856,7 +856,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         return SyncOk(
             'Downloaded latest notes and automatically combined non-'
             'overlapping desktop changes to ${autoMergedPaths.join(", ")} '
-            '(both original versions saved to ${lastKnownLocalSyncFolder}/Conflict Backups '
+            '(both original versions saved to $lastKnownLocalSyncFolder/Conflict Backups '
             'first, in case anything needs a second look).');
       }
 
@@ -891,7 +891,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           'Pull stopped: ${divergedPaths.join(", ")} has different real '
           'content on the desktop that couldn\'t be safely combined '
           'automatically$autoMergedNote. Saved the desktop\'s version to '
-          '${lastKnownLocalSyncFolder}/Conflict Backups (${savedNames.join(", ")}) - please '
+          '$lastKnownLocalSyncFolder/Conflict Backups (${savedNames.join(", ")}) - please '
           'combine both by hand before syncing further.');
     }
 
@@ -944,7 +944,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       final backupNote = result.backedUp.isEmpty
           ? ''
           : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-              'that version was saved to ${lastKnownLocalSyncFolder}/Conflict Backups before '
+              'that version was saved to $lastKnownLocalSyncFolder/Conflict Backups before '
               'this push replaced it, just in case.';
       final repairNote = result.repaired.isEmpty
           ? ''
@@ -1015,7 +1015,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final backupNote = result.backedUp.isEmpty
         ? ''
         : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-            'that version was saved to ${lastKnownLocalSyncFolder}/Conflict Backups before '
+            'that version was saved to $lastKnownLocalSyncFolder/Conflict Backups before '
             'this push replaced it, just in case.';
     final repairNote = result.repaired.isEmpty
         ? ''

@@ -11,7 +11,9 @@ import 'conflict_scanner.dart';
 import 'database_service.dart';
 import 'device_name.dart';
 import 'sync_service.dart';
+import 'sound_service.dart';
 import 'ssh_key_paths.dart';
+import 'vault_folder_service.dart';
 
 class RepositoryProvider extends ChangeNotifier {
   final _db = DatabaseService();
@@ -69,16 +71,55 @@ class RepositoryProvider extends ChangeNotifier {
   final Set<int> _reposWithConflicts = {};
   bool hasConflicts(int repoId) => _reposWithConflicts.contains(repoId);
 
+  // 2026-09-24: real ask, live - "Conflicts image shows white or amber
+  // without having to enter conflicts?" Two gaps: nothing ran this at
+  // app start (the set above starts empty, so a vault with conflicts
+  // left over from last time showed white until Conflicts was opened),
+  // and it scanned repo.localPath directly - on iOS the vault is another
+  // app's folder, only readable through its security-scoped bookmark
+  // (same as ConflictsScreen._scan), so the scan could come back empty
+  // and wrongly clear amber. Now resolves the bookmark first, and on any
+  // failure leaves the current colour alone rather than guessing.
   Future<void> refreshConflicts(int repoId) async {
-    final repo = _repos.firstWhere((r) => r.id == repoId,
-        orElse: () => throw StateError('refreshConflicts: no repo $repoId'));
-    final entries = await scanForConflicts(repo.localPath);
-    if (entries.isEmpty) {
-      _reposWithConflicts.remove(repoId);
-    } else {
-      _reposWithConflicts.add(repoId);
+    final repo = _repos.where((r) => r.id == repoId).firstOrNull;
+    if (repo == null) return;
+    final vf = VaultFolderService();
+    String? path;
+    var accessed = false;
+    try {
+      if (repo.vaultBookmark.isNotEmpty) {
+        path = await vf.startAccessing(repo.vaultBookmark);
+        accessed = path != null;
+      } else {
+        path = repo.localPath;
+      }
+      if (path == null) return;
+      final entries = await scanForConflicts(path);
+      if (entries.isEmpty) {
+        // 2026-09-24: "all conflicts cleared" chime - only on the real
+        // transition from some open conflicts to none, never on a
+        // routine re-check of an already-clean vault.
+        if (_reposWithConflicts.contains(repoId)) {
+          unawaited(SoundService.instance.play(SoundEvent.conflictsCleared));
+        }
+        _reposWithConflicts.remove(repoId);
+      } else {
+        _reposWithConflicts.add(repoId);
+      }
+      notifyListeners();
+    } catch (_) {
+      // Best-effort - an unreadable vault keeps the last known colour.
+    } finally {
+      if (accessed) await vf.stopAccessing(repo.vaultBookmark);
     }
-    notifyListeners();
+  }
+
+  /// Runs [refreshConflicts] for every repo - at startup, so the
+  /// Conflicts row is right before anything else happens.
+  Future<void> refreshAllConflicts() async {
+    for (final r in List.of(_repos)) {
+      if (r.id != null) await refreshConflicts(r.id!);
+    }
   }
 
   // 2026-09-16: same pattern as _pendingConflictRepoId above - an iOS
@@ -245,6 +286,10 @@ class RepositoryProvider extends ChangeNotifier {
     await Future.wait([_loadRepos(), _loadTemplates()]);
     _loading = false;
     notifyListeners();
+    // 2026-09-24: Conflicts row colour right from app start - see
+    // refreshConflicts. Fire-and-forget: a slow scan must not hold up
+    // the first frame or the auto-sync below.
+    refreshAllConflicts();
     // 2026-09-22: real crash/error found live - a widget PUSH ran its
     // gif, then hit a generic sync error; widget PULL showed no gif at
     // all (just the app bar's own status text), then crashed. The
@@ -516,6 +561,11 @@ class RepositoryProvider extends ChangeNotifier {
               // reach here.
               if (result case SyncOkWithConflicts()) {
                 _reposWithConflicts.add(id);
+              } else {
+                // 2026-09-24: a clean sync can also mean conflicts were
+                // resolved elsewhere (e.g. on the desktop) - re-check so
+                // amber clears without opening Conflicts.
+                unawaited(refreshConflicts(id));
               }
               await _recordBackupTimestamp();
               // 2026-09-18: real ask, live - "Sync timer for widgets

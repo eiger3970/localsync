@@ -1,5 +1,6 @@
 // screens/home_screen.dart
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,6 +33,7 @@ import 'pairing_screen.dart';
 import 'reminders_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
+import '../services/sound_service.dart';
 
 // 2026-09-18: real bug, found after the SceneDelegate fix still left
 // "DEBUG PULL: anim=true playing=false" but no visible animation - a
@@ -1339,6 +1341,9 @@ Future<void> _triggerDesktopSyncNow(
   // failure now gets its own red icon/text instead of borrowing
   // success styling.
   final isFailure = result is SyncFailed;
+  if (!isFailure) {
+    unawaited(SoundService.instance.play(SoundEvent.desktopSync));
+  }
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -1477,6 +1482,15 @@ Future<void> _runAndShow(
       if (!context.mounted) return;
       result = retried ?? pullResult;
     }
+  }
+  // 2026-09-24: completion chime (sound_service.dart) - only here, on
+  // the user-started path; background auto-sync never comes through
+  // _runAndShow, so it stays silent.
+  if (repo?.id != null && (result is SyncOk || result is SyncNoChanges)) {
+    final wasPush =
+        context.read<RepositoryProvider>().lastActionWasPush(repo!.id!);
+    unawaited(SoundService.instance
+        .play(wasPush ? SoundEvent.push : SoundEvent.pull));
   }
   // 2026-08-18: "make text size larger... on the main page 0's bottom
   // of screen message" - was relying on Flutter's default SnackBar
