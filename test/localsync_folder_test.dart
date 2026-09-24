@@ -90,7 +90,8 @@ void main() {
     File('${vault.path}/Projects/plan.md').writeAsStringSync('real note');
     File('${vault.path}/note.md').writeAsStringSync('top note');
 
-    expect(await backupVaultIfNotEmpty(vault.path), isTrue);
+    expect(await backupVaultIfNotEmpty(vault.path),
+        startsWith('Projects/LocalSync/Vault Backup '));
 
     final backups = Directory('${vault.path}/Projects/LocalSync')
         .listSync()

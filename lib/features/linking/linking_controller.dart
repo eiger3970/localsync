@@ -24,6 +24,8 @@ import '../../services/vault_folder_service.dart';
 import '../../constants.dart';
 import '../../models/repository.dart';
 import 'linking_state.dart';
+import '../../services/localsync_folder.dart';
+import '../../services/files_app_path.dart';
 
 class LinkingController extends ChangeNotifier {
   // 2026-08-28: was final, hardcoded to this developer's own desktop
@@ -282,7 +284,21 @@ class LinkingController extends ChangeNotifier {
 
   /// Called when the user taps "Select vault folder" - presents the
   /// native folder picker.
-  Future<void> pickVaultFolder() async {
+  // 2026-09-24: real ask, live - "users will pick wrong paths and sync
+  // might wipe their data... customers need a prompt informing them
+  // their data is backed up before, then a reminder after where." The
+  // backup itself already existed (vault_backup.dart, run by
+  // pullFromBareRepo before the first clone touches a non-empty
+  // folder); nothing TOLD anyone. [confirm] is the screen's dialog: it
+  // gets what's in the picked folder and returns whether to go ahead.
+  // Without it (tests, web stub) behaviour is unchanged.
+  String? _lastVaultBackupRelPath;
+  /// Where the first clone backed up the folder's earlier content
+  /// (vault-relative), or null if it was empty - for the success screen.
+  String? get lastVaultBackupRelPath => _lastVaultBackupRelPath;
+
+  Future<void> pickVaultFolder(
+      {Future<bool> Function(VaultFolderCheck check)? confirm}) async {
     if (_step != LinkingStep.pickingVaultFolder) return;
 
     if (kIsWeb) {
@@ -317,7 +333,48 @@ class LinkingController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    if (confirm != null) {
+      final check = await _checkPickedFolder(result.bookmark);
+      if (check != null && check.needsPrompt && !await confirm(check)) {
+        notifyListeners();
+        return; // stays on "pick your vault folder" - pick again
+      }
+    }
     await _cloneInto(result.path, result.bookmark);
+  }
+
+  /// Looks inside the picked folder (read-only) - null if it can't be
+  /// opened, in which case the clone step's own access check reports it.
+  Future<VaultFolderCheck?> _checkPickedFolder(String bookmark) async {
+    final path = await _vaultFolder.startAccessing(bookmark);
+    if (path == null) return null;
+    String name(FileSystemEntity e) =>
+        e.uri.pathSegments.lastWhere((x) => x.isNotEmpty);
+    try {
+      final dir = Directory(path);
+      final entries = await dir
+          .list(followLinks: false)
+          .where((e) => name(e) != '.DS_Store')
+          .toList();
+      final childVaults = <String>[];
+      for (final e in entries) {
+        if (e is Directory && await Directory('${e.path}/.obsidian').exists()) {
+          childVaults.add(name(e));
+        }
+      }
+      return VaultFolderCheck(
+        absolutePath: path,
+        folderName: name(dir),
+        isEmpty: entries.isEmpty,
+        isVault: await Directory('$path/.obsidian').exists(),
+        childVaults: childVaults..sort(),
+        backupFolder: localSyncFolder(path),
+      );
+    } catch (_) {
+      return null;
+    } finally {
+      await _vaultFolder.stopAccessing(bookmark);
+    }
   }
 
   void reset() {
@@ -459,6 +516,23 @@ class LinkingController extends ChangeNotifier {
       // after creating the bookmark) - must re-open it here for the
       // actual clone, and close it again afterward. Matched 1:1, not
       // left open across the whole app lifecycle.
+      //
+      // 2026-09-24: real error, live, first setup - "GIT_ERROR_NET:
+      // Invalid url: malformed hostname." PairingController already
+      // refuses an empty desktop address, but this clone step never
+      // checked, so an address lost after pairing (Settings filled by a
+      // QR scan and left without saving) reached libgit2 as
+      // "ssh://user@:22/..." - a raw git error instead of the plain fix.
+      // Same error and wording as the pairing check.
+      final missing = [
+        if (desktopUser.trim().isEmpty) 'Desktop username',
+        if (desktopIp.trim().isEmpty || desktopIp.trim().contains(' '))
+          'Desktop IP address',
+      ];
+      if (missing.isNotEmpty) {
+        return _fail(StepFailure(LinkingError.desktopNotConfigured,
+            debugDetail: 'Empty in Settings: ${missing.join(', ')}'));
+      }
       final accessPath = await _vaultFolder.startAccessing(bookmark);
       if (accessPath == null) {
         return _fail(const StepFailure(LinkingError.vaultFolderAccessLost));
@@ -487,6 +561,7 @@ class LinkingController extends ChangeNotifier {
         if (result case StepFailure()) {
           return _fail(result);
         }
+        _lastVaultBackupRelPath = git.lastBackupRelPath;
       } finally {
         await _vaultFolder.stopAccessing(bookmark);
       }
@@ -713,6 +788,7 @@ class LinkingController extends ChangeNotifier {
   // were still handing the next clone the old, bad bookmark.
   void _reset() {
     _step = LinkingStep.idle;
+    _lastVaultBackupRelPath = null;
     _lastFailure = null;
     _isRunning = false;
     _pickedVaultPath = null;
@@ -720,4 +796,44 @@ class LinkingController extends ChangeNotifier {
     _pickingFolder = false;
     _syncMode = SyncMode.obsidianVault;
   }
+}
+
+/// What pickVaultFolder found in the folder the user just picked.
+class VaultFolderCheck {
+  /// Live path from the picker - for the Files app route shown to the
+  /// user (files_app_path.dart), never shown raw.
+  final String absolutePath;
+  final String folderName;
+  final bool isEmpty;
+  /// Has its own .obsidian - it's a vault.
+  final bool isVault;
+  /// Sub-folders that are vaults - picking their parent (e.g. "Obsidian"
+  /// instead of "Obsidian_phone_vault") is the likely wrong-folder case.
+  final List<String> childVaults;
+  /// Where the backup will go inside it, e.g. "LocalSync".
+  final String backupFolder;
+  const VaultFolderCheck({
+    required this.absolutePath,
+    required this.folderName,
+    required this.isEmpty,
+    required this.isVault,
+    required this.childVaults,
+    required this.backupFolder,
+  });
+
+  bool get looksLikeParentOfVaults => !isVault && childVaults.isNotEmpty;
+
+  /// 2026-09-24: real ask, live - "there may be no vault for new installs
+  /// also." Obsidian's own top folder (Files: On My iPhone > Obsidian, or
+  /// iCloud Drive > Obsidian) with no vault in it yet - linking it would
+  /// make Obsidian's whole folder the vault.
+  bool get isObsidianTopFolderWithNoVault {
+    if (isVault || childVaults.isNotEmpty) return false;
+    final route = filesAppRoute(absolutePath);
+    return route.length == 2 && route.last == 'Obsidian';
+  }
+
+  /// Anything worth stopping to tell the user before linking.
+  bool get needsPrompt =>
+      !isEmpty || looksLikeParentOfVaults || isObsidianTopFolderWithNoVault;
 }

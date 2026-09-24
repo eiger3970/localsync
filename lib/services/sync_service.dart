@@ -1139,8 +1139,9 @@ Future<SyncResult> _withRepo(
         remote?.free();
         repo.free();
       }
-      return SyncOk(backedUp
-          ? 'Downloaded your notes (existing phone content backed up next to the vault first).'
+      return SyncOk(backedUp != null
+          ? 'Downloaded your notes. Your phone\'s earlier files are safe in '
+              '$backedUp - delete it once you\'ve checked your notes.'
           : 'Downloaded your notes.');
     } catch (e) {
       return SyncFailed(_diagnose(e), debugDetail: e.toString());

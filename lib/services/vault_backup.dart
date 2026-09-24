@@ -46,7 +46,10 @@ const kLocalSyncFolderName = 'LocalSync';
 
 /// If [vaultPath] already has any content, copies the whole thing to a
 /// timestamped folder before the caller does anything destructive to
-/// it. Returns true if a backup was actually made.
+/// it. Returns the backup's vault-relative path (e.g. "LocalSync/Vault
+/// Backup 202609241415") if one was made, else null - 2026-09-24: was a
+/// bool; the path is now shown to the user after setup ("tell them
+/// WHERE their data was backed up").
 ///
 /// 2026-08-18: was a *sibling* folder (`${vaultPath}_localsync_backup_
 /// ...`, next to the vault, not inside it) - real device testing hit
@@ -57,11 +60,11 @@ const kLocalSyncFolderName = 'LocalSync';
 /// parent directory - the same reason "LocalSync Conflict Backups"
 /// (created *inside* the vault) has never hit this, only this sibling
 /// path did. Moved inside the vault to match.
-Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
+Future<String?> backupVaultIfNotEmpty(String vaultPath) async {
   final dir = Directory(vaultPath);
-  if (!await dir.exists()) return false;
+  if (!await dir.exists()) return null;
   final entries = await dir.list().toList();
-  if (entries.isEmpty) return false;
+  if (entries.isEmpty) return null;
 
   // The backup folder now lives inside the very directory being copied
   // - skipName keeps this top-level call from walking straight into its
@@ -84,7 +87,7 @@ Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
   await _copyDirectoryContents(
       dir, Directory('$vaultPath/${localSyncFolder(vaultPath)}/$backupName'),
       skipPaths: skipPaths);
-  return true;
+  return '${localSyncFolder(vaultPath)}/$backupName';
 }
 
 /// 2026-09-06: real feedback - "will they fill up a user's phone

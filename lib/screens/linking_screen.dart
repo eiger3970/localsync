@@ -38,6 +38,9 @@ import '../widgets/auto_sync_on_resume.dart';
 import 'pairing_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/folder_route_view.dart';
+import '../services/files_app_path.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
 // black screen" / "I swiped right [LOCALSYNC HOME] and blackscreen".
@@ -2133,7 +2136,14 @@ class _ParkedViewState extends State<_ParkedView> {
                     // resilient: the native picker can be cancelled
                     // silently with no advance, unlike OPEN OBSIDIAN
                     // above - see _SwipeChecklistRow.resilient.
-                    swipeActions: {0: ctrl.pickVaultFolder},
+                    // 2026-09-24: confirm - wrong-folder check and the
+                    // "your files are backed up first" prompt, see
+                    // confirmVaultFolder.
+                    swipeActions: {
+                      0: () => ctrl.pickVaultFolder(
+                          confirm: (c) => confirmVaultFolder(context, c,
+                              onOpenObsidian: ctrl.openObsidianNow)),
+                    },
                     resilientSwipeIndices: const {0},
                   )
                 else
@@ -2754,6 +2764,15 @@ class _CompleteViewState extends State<_CompleteView>
               ),
             ],
           ),
+          // 2026-09-24: the "where" reminder - see BackupReminderCard.
+          if (widget.ctrl.lastVaultBackupRelPath != null) ...[
+            const SizedBox(height: 14),
+            BackupReminderCard(
+              backupRelPath: widget.ctrl.lastVaultBackupRelPath!,
+              vaultPath: widget.ctrl.pickedVaultPath,
+              onOpenObsidian: widget.ctrl.openObsidianNow,
+            ),
+          ],
           const SizedBox(height: 14),
           // Fixed 2026-08-09: this used to say "Your phone vault is
           // linked to your desktop" - overclaiming. Localsync can only
@@ -3478,6 +3497,206 @@ class _PrimaryButton extends StatelessWidget {
               fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 2),
         ),
         child: Text(label),
+      ),
+    );
+  }
+}
+
+// 2026-09-24: real ask, live - "users will pick wrong paths and sync
+// might wipe their data... customers need a prompt informing them their
+// data is backed up before, then a reminder after where." From
+// LinkingController's read-only look inside the picked folder:
+//  - Obsidian's own folder with no vault yet (new install) -> create one
+//  - the folder HOLDING vaults (picked "Obsidian", not a vault) -> pick
+//    one; no "use it anyway", this is exactly the mistake to stop
+//  - a folder with files -> they're copied to LocalSync/Vault Backup
+//    first, nothing deleted; Continue or Cancel
+// The "where" reminder after success is BackupReminderCard.
+@visibleForTesting
+Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
+    {Future<void> Function()? onOpenObsidian}) async {
+  // 2026-09-24: "eyes are bleeding from overwhelming text... add svg
+  // imagery and be less verbose." Each case is a picture of the folders
+  // (FolderRouteView) plus one short line, not a paragraph.
+  final route = filesAppRoute(check.absolutePath);
+  final here = crumbsFromRoute(route);
+
+  Widget body(String line, List<Crumb> crumbs) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FolderRouteView(crumbs),
+          const SizedBox(height: 14),
+          Text(line,
+              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.35)),
+        ],
+      );
+
+  Future<void> info(String title, Widget content, List<Widget> actions) =>
+      showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: kSurface,
+          title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+          content: content,
+          actions: actions,
+        ),
+      );
+
+  if (check.isObsidianTopFolderWithNoVault) {
+    await info(
+      'No vault yet',
+      body('Create a vault in Obsidian, then pick it here.', [
+        ...here.take(here.length - 1),
+        Crumb(here.last.label, CrumbKind.wrong),
+        const Crumb('your new vault', CrumbKind.vault),
+      ]),
+      [
+        Builder(
+            builder: (c) => TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: Text('PICK AGAIN', style: TextStyle(color: kTextDim)),
+                )),
+        if (onOpenObsidian != null)
+          Builder(
+              builder: (c) => TextButton(
+                    onPressed: () {
+                      Navigator.pop(c);
+                      onOpenObsidian();
+                    },
+                    child: Text('OPEN OBSIDIAN',
+                        style: TextStyle(
+                            color: kGreen, fontWeight: FontWeight.w700)),
+                  )),
+      ],
+    );
+    return false;
+  }
+
+  if (check.looksLikeParentOfVaults) {
+    await info(
+      'Pick one vault',
+      body('Open "${check.folderName}", tap one vault, then Open.', [
+        ...here.take(here.length - 1),
+        Crumb(here.last.label, CrumbKind.wrong),
+        for (final v in check.childVaults)
+          Crumb(v, CrumbKind.vault, depth: here.length),
+      ]),
+      [
+        Builder(
+            builder: (c) => TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: Text('PICK AGAIN',
+                      style: TextStyle(
+                          color: kGreen, fontWeight: FontWeight.w700)),
+                )),
+      ],
+    );
+    return false;
+  }
+
+  final go = await showDialog<bool>(
+    context: context,
+    builder: (dialogCtx) => AlertDialog(
+      backgroundColor: kSurface,
+      title: Text('Backed up first',
+          style: TextStyle(color: kStar, fontSize: 16)),
+      content: body('Nothing is deleted.', [
+        const Crumb('Home Screen', CrumbKind.home),
+        const Crumb('Files', CrumbKind.filesApp),
+        ...crumbsFromRoute(route, vaultIndex: route.length - 1),
+        Crumb(check.backupFolder, CrumbKind.folder),
+        const Crumb('Vault Backup <date>', CrumbKind.backup),
+      ]),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogCtx, false),
+          child: Text('CANCEL', style: TextStyle(color: kTextDim)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogCtx, true),
+          child: Text('CONTINUE',
+              style: TextStyle(color: kGreen, fontWeight: FontWeight.w700)),
+        ),
+      ],
+    ),
+  );
+  return go ?? false;
+}
+
+/// 2026-09-24: the "where" reminder after a successful first setup -
+/// "a reminder after where, once things are working." Shown on the
+/// "Your notes have arrived!" screen whenever the first clone backed up
+/// earlier files.
+@visibleForTesting
+class BackupReminderCard extends StatelessWidget {
+  final String backupRelPath;
+  // The linked vault as the picker returned it - drawn as a folder
+  // route, and SHOW IN FILES's target.
+  final String? vaultPath;
+  // LinkingController.openObsidianNow - opens the just-linked vault.
+  final Future<void> Function() onOpenObsidian;
+  const BackupReminderCard(
+      {super.key,
+      required this.backupRelPath,
+      required this.vaultPath,
+      required this.onOpenObsidian});
+
+  @override
+  Widget build(BuildContext context) {
+    final route = vaultPath == null ? <String>[] : filesAppRoute(vaultPath!);
+    final backupParts =
+        backupRelPath.split('/').where((p) => p.isNotEmpty).toList();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: kSurface,
+          border: Border.all(color: kGreen.withValues(alpha: 0.5))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('YOUR EARLIER FILES ARE SAFE',
+              style: TextStyle(
+                  color: kGreen,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          FolderRouteView([
+            const Crumb('Home Screen', CrumbKind.home),
+            const Crumb('Files', CrumbKind.filesApp),
+            ...crumbsFromRoute(route, vaultIndex: route.length - 1),
+            for (var i = 0; i < backupParts.length; i++)
+              Crumb(backupParts[i],
+                  i == backupParts.length - 1 ? CrumbKind.backup : CrumbKind.folder),
+          ]),
+          const SizedBox(height: 10),
+          Text('Delete it once your notes look right.',
+              style: TextStyle(color: kTextMid, fontSize: 13)),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 4,
+            children: [
+              if (vaultPath != null)
+                TextButton(
+                  onPressed: () => launchUrl(
+                      filesAppUri('$vaultPath/$backupRelPath'),
+                      mode: LaunchMode.externalApplication),
+                  child: Text('SHOW IN FILES',
+                      style: TextStyle(
+                          color: kGreen, fontWeight: FontWeight.w700)),
+                ),
+              TextButton(
+                onPressed: onOpenObsidian,
+                child: Text('OPEN IN OBSIDIAN',
+                    style:
+                        TextStyle(color: kGreen, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
