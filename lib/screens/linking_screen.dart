@@ -2082,10 +2082,16 @@ class _ParkedViewState extends State<_ParkedView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 2026-09-24: extra bottom margin clear of iOS's home-indicator
+        // swipe zone - a swipe control sitting right at the bottom edge
+        // (the dog on "Create your vault") opened the app switcher
+        // instead of the control.
+        final bottomPad = 24 + MediaQuery.viewPaddingOf(context).bottom + 32;
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPad),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight - 48),
+            constraints: BoxConstraints(
+                minHeight: constraints.maxHeight - 24 - bottomPad),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -2327,10 +2333,22 @@ class StepChecklistState extends State<StepChecklist> {
                       letterSpacing: 1.2)),
             ]),
           ),
-          for (var i = 0; i < widget.steps.length; i++)
+          for (var i = 0; i < widget.steps.length; i++) ...[
+            // 2026-09-24: the app label sits ABOVE the step where the app
+            // changes, not in a column beside every step - that column
+            // took 84px of width, wrapped most steps onto two lines and
+            // pushed the swipe dog into iOS's bottom-edge app-switcher
+            // gesture ("I can't swipe the dog, the whole app swipes").
+            if (badgeFor(widget.steps, i) != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(4, i == 0 ? 2 : 8, 4, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: AppBadge(badgeFor(widget.steps, i)!),
+                ),
+              ),
             if (widget.swipeActions.containsKey(i))
               _SwipeChecklistRow(
-                app: badgeFor(widget.steps, i),
                 label:
                     '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
                 onConfirm: widget.swipeActions[i]!,
@@ -2360,11 +2378,7 @@ class StepChecklistState extends State<StepChecklist> {
                 dense: true,
                 activeColor: kGreen,
                 checkColor: kVoid,
-                title: Row(children: [
-                  AppBadge(badgeFor(widget.steps, i)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
+                title: Text(
                   '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
                   style: TextStyle(
                     color: _checked[i] ? kTextMid : kStar,
@@ -2373,10 +2387,9 @@ class StepChecklistState extends State<StepChecklist> {
                     decoration: _checked[i] ? TextDecoration.lineThrough : null,
                     decorationColor: kTextMid,
                   ),
-                    ),
-                  ),
-                ]),
+                ),
               ),
+          ],
         ],
       ),
     );
@@ -2390,8 +2403,6 @@ class StepChecklistState extends State<StepChecklist> {
 // no separate manual checkbox once the row itself performed the action.
 class _SwipeChecklistRow extends StatefulWidget {
   final String label;
-  // 2026-09-24: which app this step happens in - widgets/app_badge.dart.
-  final StepApp? app;
   final Future<void> Function() onConfirm;
   // 2026-08-17: reports completion back to the parent checklist's
   // _checked list, same as a ticked checkbox - needed now that a
@@ -2410,7 +2421,6 @@ class _SwipeChecklistRow extends StatefulWidget {
   // once swiped - there's no cancel-in-place scenario for it.
   final bool resilient;
   const _SwipeChecklistRow({
-    this.app,
     required this.label,
     required this.onConfirm,
     this.onDone,
@@ -2508,8 +2518,6 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
                             size: 20),
                   ),
                   const SizedBox(width: 10),
-                  AppBadge(widget.app),
-                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       widget.label,

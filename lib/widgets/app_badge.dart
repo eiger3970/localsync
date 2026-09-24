@@ -23,13 +23,8 @@ enum StepApp { phone, localsync, obsidian, files }
   return (null, step);
 }
 
-/// Fixed width so step text lines up whether or not a row shows a badge.
-const kAppBadgeWidth = 84.0;
-
 class AppBadge extends StatelessWidget {
-  /// Null draws nothing but keeps the width - for a row in the same app
-  /// as the row above it (the badge only appears where the app changes).
-  final StepApp? app;
+  final StepApp app;
   const AppBadge(this.app, {super.key});
 
   static const _obsidianPurple = Color(0xFFA78BFA);
@@ -48,30 +43,23 @@ class AppBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (app == null) return const SizedBox(width: kAppBadgeWidth);
-    final (label, icon, color) = look(app!);
-    return SizedBox(
-      width: kAppBadgeWidth,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-          decoration: BoxDecoration(
-            border: Border.all(color: color.withValues(alpha: 0.7)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 11, color: color),
-            const SizedBox(width: 3),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8)),
-          ]),
-        ),
+    final (label, icon, color) = look(app);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: color.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(4),
       ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 3),
+        Text(label,
+            style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8)),
+      ]),
     );
   }
 }
