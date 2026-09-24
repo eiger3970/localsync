@@ -1900,9 +1900,14 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             const _AboutHeader(
                 icon: Icons.menu_book_outlined, label: 'SETUP GUIDE'),
             const SizedBox(height: 6),
+            // 2026-09-24: "SETUP GUIDE seems wrong, where's the guide, the
+            // website just has the desktop download file?" There is no
+            // separate written guide - the guide IS this app's own
+            // step-by-step setup, plus the desktop setup file once.
             Text(
-              'Desktop-side setup (git, SSH, the bare repo) - '
-              'kworld.space/localsync',
+              'Phone: the setup steps in this app guide you, one step at '
+              'a time.\nDesktop: install the LocalSync setup file once, '
+              'from kworld.space/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 20),
