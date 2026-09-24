@@ -343,6 +343,22 @@ class LinkingController extends ChangeNotifier {
     await _cloneInto(result.path, result.bookmark);
   }
 
+  /// The desktop repo path [bookmark]'s folder is already linked to
+  /// (its .git/config origin), or null - see _cloneInto.
+  Future<String?> _existingRepoPathFor(String bookmark) async {
+    final path = await _vaultFolder.startAccessing(bookmark);
+    if (path == null) return null;
+    try {
+      final config = File('$path/.git/config');
+      if (!await config.exists()) return null;
+      return existingOriginRepoPath(await config.readAsString());
+    } catch (_) {
+      return null;
+    } finally {
+      await _vaultFolder.stopAccessing(bookmark);
+    }
+  }
+
   /// Looks inside the picked folder (read-only) - null if it can't be
   /// opened, in which case the clone step's own access check reports it.
   Future<VaultFolderCheck?> _checkPickedFolder(String bookmark) async {
@@ -500,6 +516,22 @@ class LinkingController extends ChangeNotifier {
     // named after the vault folder just picked (sanitized to safe git-
     // path characters) plus a timestamp, so it's both meaningful and
     // guaranteed not to collide with anything else on the desktop.
+    // 2026-09-24: real error, live, first install on a phone whose vault
+    // was already synced - "This vault folder is already linked to a
+    // different bare repo than the one in Settings. ... This folder's
+    // repo: .../Md_files_bare.git  Settings' repo: Documents/Git/
+    // LocalSync/Obsidian_phone_vault_1790254923967.git". Obsidian setup
+    // always runs startLinking (new vault), which clears the cached repo
+    // path (the 2026-09-22 safety fix) and generated a brand-new desktop
+    // repo name here - for a vault that already HAS one. The identity
+    // check caught it (nothing was damaged), but setup could never
+    // finish. A folder already linked to a desktop repo now keeps that
+    // link: the folder's own git config is the truth about which repo
+    // its notes belong to, not a freshly invented name.
+    if (bareRepoPath.trim().isEmpty && !kIsWeb) {
+      final existing = await _existingRepoPathFor(bookmark);
+      if (existing != null) bareRepoPath = existing;
+    }
     if (bareRepoPath.trim().isEmpty) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       final folderName = segments.isNotEmpty ? segments.last : 'vault';

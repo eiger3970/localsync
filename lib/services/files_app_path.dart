@@ -58,7 +58,7 @@ List<String> filesAppRoute(String absolutePath) {
 /// from cloud use."
 String filesAppRouteText(String absolutePath, [String extra = '']) {
   final route = [
-    'Home Screen',
+    'Phone home screen',
     'Files app (blue folder icon)',
     ...filesAppRoute(absolutePath),
     ...extra.split('/').where((p) => p.isNotEmpty),

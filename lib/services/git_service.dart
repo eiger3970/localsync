@@ -31,6 +31,18 @@ String? bareRepoPathFromSshUrl(String url) {
   return match?.group(1);
 }
 
+/// 2026-09-24: the desktop repo path a vault folder is ALREADY linked
+/// to, read straight from its .git/config (plain text - no libgit2, so
+/// unit-testable here too). Null if the folder has no git link yet or
+/// the origin URL isn't LocalSync's ssh:// shape.
+String? existingOriginRepoPath(String gitConfigText) {
+  final section = RegExp(r'\[remote "origin"\]([^\[]*)').firstMatch(gitConfigText);
+  if (section == null) return null;
+  final url = RegExp(r'^\s*url\s*=\s*(\S+)\s*$', multiLine: true)
+      .firstMatch(section.group(1)!);
+  return url == null ? null : bareRepoPathFromSshUrl(url.group(1)!);
+}
+
 /// Git operations via git2dart (FFI bindings to libgit2, statically linked
 /// on iOS via CocoaPods - see lib/STRUCTURE.md for why this replaced the
 /// original Working Copy delegation plan).
