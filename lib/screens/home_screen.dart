@@ -133,7 +133,8 @@ class HomeScreen extends StatelessWidget {
                             ({bool confirmed = false}) => provider
                                 .pullRepository(provider.selectedRepo!.id!,
                                     confirmed: confirmed),
-                            repo: provider.selectedRepo),
+                            repo: provider.selectedRepo,
+                            sound: SoundEvent.pull),
                         onSelect: provider.selectRepo,
                       ),
               ),
@@ -743,7 +744,8 @@ class HomeScreen extends StatelessWidget {
               context,
               ({bool confirmed = false}) =>
                   provider.pullRepository(repo.id!, confirmed: confirmed),
-              repo: repo);
+              repo: repo,
+              sound: SoundEvent.pull);
           // 2026-09-15: real feedback, live - "when a user with no
           // claudeai has this error, will it be fixed by the app?"
           // Fixed for the Conflicts screen's own PUSH button
@@ -758,6 +760,7 @@ class HomeScreen extends StatelessWidget {
               ({bool confirmed = false}) =>
                   provider.pushRepository(repo.id!, confirmed: confirmed),
               repo: repo,
+              sound: SoundEvent.push,
               pullFallback: ({bool confirmed = false}) =>
                   provider.pullRepository(repo.id!, confirmed: confirmed));
           // 2026-09-16: same pattern as pendingConflictRepoId just above -
@@ -1450,6 +1453,10 @@ Future<void> _runAndShow(
   Future<SyncResult?> Function({bool confirmed}) op, {
   Repository? repo,
   Future<SyncResult?> Function({bool confirmed})? pullFallback,
+  // 2026-09-24: which chime - set by the caller that knows what it
+  // started. Was read back from RepositoryProvider.lastActionWasPush,
+  // and the user heard Push and Pull swapped every time.
+  SoundEvent? sound,
 }) async {
   var result = await op();
   if (!context.mounted || result == null) return;
@@ -1486,11 +1493,8 @@ Future<void> _runAndShow(
   // 2026-09-24: completion chime (sound_service.dart) - only here, on
   // the user-started path; background auto-sync never comes through
   // _runAndShow, so it stays silent.
-  if (repo?.id != null && (result is SyncOk || result is SyncNoChanges)) {
-    final wasPush =
-        context.read<RepositoryProvider>().lastActionWasPush(repo!.id!);
-    unawaited(SoundService.instance
-        .play(wasPush ? SoundEvent.push : SoundEvent.pull));
+  if (sound != null && (result is SyncOk || result is SyncNoChanges)) {
+    unawaited(SoundService.instance.play(sound));
   }
   // 2026-08-18: "make text size larger... on the main page 0's bottom
   // of screen message" - was relying on Flutter's default SnackBar
@@ -1611,6 +1615,7 @@ void _showFullError(BuildContext context, Repository repo) {
                   ? provider.pushRepository(repo.id!, confirmed: confirmed)
                   : provider.pullRepository(repo.id!, confirmed: confirmed),
               repo: repo,
+              sound: wasPush ? SoundEvent.push : SoundEvent.pull,
             );
           },
           child: Text('TRY AGAIN',

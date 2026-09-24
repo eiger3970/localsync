@@ -70,6 +70,9 @@ class _SettingsScreenState extends State<SettingsScreen>
   String? _lsFolderSaved;
   bool _lsFolderBusy = false;
   bool _soundsOn = true;
+  // 2026-09-24: "Skins will need a fold, as there's a lot of them
+  // taking up vertical space" - closed by default, shows the skin in use.
+  bool _skinsOpen = false;
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -2736,18 +2739,29 @@ class _SettingsScreenState extends State<SettingsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.palette_outlined, color: kTextMid, size: 18),
-              const SizedBox(width: 8),
-              Text('SKINS',
-                  style: TextStyle(
-                      color: kTextMid,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2)),
-            ],
+          InkWell(
+            onTap: () => setState(() => _skinsOpen = !_skinsOpen),
+            child: Row(
+              children: [
+                Icon(Icons.palette_outlined, color: kTextMid, size: 18),
+                const SizedBox(width: 8),
+                Text('SKINS',
+                    style: TextStyle(
+                        color: kTextMid,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2)),
+                const Spacer(),
+                if (!_skinsOpen)
+                  Text(themeService.palette.label,
+                      style: TextStyle(color: kStar, fontSize: 14)),
+                const SizedBox(width: 6),
+                Icon(_skinsOpen ? Icons.expand_less : Icons.expand_more,
+                    color: kTextMid, size: 22),
+              ],
+            ),
           ),
+          if (_skinsOpen) ...[
           const SizedBox(height: 12),
           // 2026-08-21: was a single Expanded-in-a-Row (fine for 3
           // skins, cramped and overflow-prone once the national-flag
@@ -2793,6 +2807,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ],
             ),
           ),
+          ],
         ],
       ),
     );
