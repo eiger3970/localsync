@@ -118,6 +118,13 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $B" "$APPEX/Info.plist"
           echo "Version $V ($B)"
 
+          # Apple rejects any executable-marked file in the bundle that
+          # isn't signed code (error 90035) - desktop/localsync_sync.sh
+          # ships as a Flutter asset with its +x bit. In the app it's only
+          # text the app copies to the desktop and chmods +x there
+          # (git_service.dart / sync_service.dart), so drop the bit here.
+          find "$APP" -path "*/flutter_assets/*" -type f -perm +111 -print -exec chmod a-x {} +
+
           # Inside out: widget, embedded frameworks/dylibs, then the app.
           cp "$RUNNER_TEMP/widget.mobileprovision" "$APPEX/embedded.mobileprovision"
           codesign --force --sign "$IDENTITY" --keychain "$KC" \
