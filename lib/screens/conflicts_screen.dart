@@ -28,6 +28,7 @@ import 'backup_compare_screen.dart';
 import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
 import 'kept_both_screen.dart';
+import '../services/localsync_folder.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
 // brand-new conflict and a pile of unrelated older ones still look like
@@ -950,7 +951,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // what to look for once Obsidian opens.
                                   final backupRelPath = result?.backupRelPath;
                                   final backupFileName = backupRelPath == null
-                                      ? 'LocalSync/Conflict Backups'
+                                      ? '${lastKnownLocalSyncFolder}/Conflict Backups'
                                       : backupRelPath.split('/').last;
                                   // 2026-08-19: "why is the button link needed?
                                   // ... make 'backed up' a link" - first pass
@@ -1238,9 +1239,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // hadn't noticed. Told here, right
                                             // where a resolution just wrote to
                                             // this exact note.
-                                            const TextSpan(
-                                                text: ' in LocalSync/Conflict '
-                                                    'Backups.'),
+                                            TextSpan(
+                                                text: ' in ${lastKnownLocalSyncFolder}/Conflict Backups.'),
                                           ],
                                         ),
                                       ),
@@ -1605,8 +1605,8 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
             ),
             _SafetyPoint(
               icon: Icons.library_add_check,
-              text: 'A fresh copy is saved first, in LocalSync/Conflict '
-                  'Backups, before anything is removed',
+              text: 'A fresh copy is saved first, in ${lastKnownLocalSyncFolder}/Conflict Backups, '
+                  'before anything is removed',
             ),
             _SafetyPoint(
               icon: Icons.undo,

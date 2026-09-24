@@ -379,13 +379,21 @@ BEST_SYNC_EPOCH=""
 # table on that - works regardless of what the vault happens to be
 # named.
 declare -A IDENTITY_BY_PATH
+# 2026-09-24: repo-name.txt can now sit in a nested LocalSync folder
+# (e.g. Projects/LocalSync, set via the vault's .localsync_folder - see
+# localsync_sync.sh's localsync_folder). Walks up from the file to the
+# nearest folder with a .git, instead of assuming exactly two levels.
 while IFS= read -r -d '' rn; do
-  vault_dir="$(dirname "$(dirname "$rn")")"
+  vault_dir="$(dirname "$rn")"
+  for _ in 1 2 3 4; do
+    vault_dir="$(dirname "$vault_dir")"
+    [[ -d "$vault_dir/.git" ]] && break
+  done
   [[ -d "$vault_dir/.git" ]] || continue
   remote_url="$(git -C "$vault_dir" remote get-url origin 2>/dev/null)"
   [[ -n "$remote_url" ]] || continue
   IDENTITY_BY_PATH["$remote_url"]="$(cat "$rn" 2>/dev/null)"
-done < <(find "$HOME/Documents" -maxdepth 5 -path "*/LocalSync/repo-name.txt" -print0 2>/dev/null)
+done < <(find "$HOME/Documents" -maxdepth 7 -path "*/LocalSync/repo-name.txt" -not -path "*/Conflict Backups/*" -print0 2>/dev/null)
 
 MATCH_PATHS=()
 MATCH_LABELS=()

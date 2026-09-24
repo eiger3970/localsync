@@ -20,7 +20,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'vault_backup.dart';
+import 'localsync_folder.dart';
 
 const _logFileName = 'binary_conflicts.json';
 
@@ -58,7 +58,7 @@ class BinaryConflictLogEntry {
 }
 
 File _logFile(String vaultPath) =>
-    File('$vaultPath/$kLocalSyncFolderName/Conflict Backups/$_logFileName');
+    File('${conflictBackupsDir(vaultPath)}/$_logFileName');
 
 /// Appends one resolved-binary-conflict record. Read-modify-write of a
 /// small JSON array - conflicts on distinct files land as distinct
@@ -96,7 +96,7 @@ List<BinaryConflictLogEntry> scanBinaryConflictLog(String vaultPath) =>
 /// before. A second swap is possible by hand from the backups folder,
 /// even though the log entry itself is single-use once acted on.
 void swapBinaryConflict(String vaultPath, BinaryConflictLogEntry entry) {
-  final backupDir = '$vaultPath/$kLocalSyncFolderName/Conflict Backups';
+  final backupDir = conflictBackupsDir(vaultPath);
   final otherBytes = File('$backupDir/${entry.otherBackupName}').readAsBytesSync();
   File('$vaultPath/${entry.path}').writeAsBytesSync(otherBytes);
 

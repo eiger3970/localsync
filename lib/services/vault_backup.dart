@@ -21,6 +21,8 @@
 
 import 'dart:io';
 
+import 'localsync_folder.dart';
+
 String backupTimestamp() {
   final n = DateTime.now();
   String p2(int v) => v.toString().padLeft(2, '0');
@@ -37,6 +39,9 @@ String backupTimestamp() {
 // Backups". Deliberately NOT nested under a "Projects" folder or any
 // other user-specific convention - the app can't assume a given vault
 // is organized that way.
+// 2026-09-24: this is now only the DEFAULT - a vault can move it (e.g.
+// to Projects/LocalSync) via .localsync_folder, see localsync_folder.dart.
+// Build paths with localSyncFolder(vaultPath), not this constant.
 const kLocalSyncFolderName = 'LocalSync';
 
 /// If [vaultPath] already has any content, copies the whole thing to a
@@ -67,10 +72,18 @@ Future<bool> backupVaultIfNotEmpty(String vaultPath) async {
   // just this one timestamped backup - a vault backup copying its own
   // sibling "Conflict Backups" folder into itself would be pointless
   // (see kLocalSyncFolderName's own doc for why they share one parent).
+  // 2026-09-24: skips every LocalSync folder by full path, not one
+  // top-level name - the folder can now be nested (e.g.
+  // Projects/LocalSync, see localsync_folder.dart), and skipping the
+  // whole "Projects" name would silently leave real notes out of the
+  // backup.
   final backupName = 'Vault Backup ${backupTimestamp()}';
+  final skipPaths = {
+    for (final f in localSyncFolders(vaultPath)) '$vaultPath/$f',
+  };
   await _copyDirectoryContents(
-      dir, Directory('$vaultPath/$kLocalSyncFolderName/$backupName'),
-      skipName: kLocalSyncFolderName);
+      dir, Directory('$vaultPath/${localSyncFolder(vaultPath)}/$backupName'),
+      skipPaths: skipPaths);
   return true;
 }
 
@@ -96,7 +109,7 @@ Future<void> pruneOldConflictBackups(String vaultPath,
   // listing loop - "best-effort" needs to mean the entire thing, not
   // most of it.
   try {
-    final dir = Directory('$vaultPath/$kLocalSyncFolderName/Conflict Backups');
+    final dir = Directory(conflictBackupsDir(vaultPath));
     if (!await dir.exists()) return;
     final cutoff = DateTime.now().subtract(maxAge);
     final tsPattern = RegExp(r'(\d{12})(?:\.[^.]*)?$');
@@ -130,15 +143,19 @@ Future<void> pruneOldConflictBackups(String vaultPath,
 Future<void> _copyDirectoryContents(
   Directory source,
   Directory dest, {
-  String? skipName,
+  Set<String> skipPaths = const {},
 }) async {
   await dest.create(recursive: true);
   await for (final entity in source.list(followLinks: false)) {
     final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty);
-    if (name == skipName) continue;
+    final entityPath = entity.path.endsWith('/')
+        ? entity.path.substring(0, entity.path.length - 1)
+        : entity.path;
+    if (skipPaths.contains(entityPath)) continue;
     final destPath = '${dest.path}/$name';
     if (entity is Directory) {
-      await _copyDirectoryContents(entity, Directory(destPath));
+      await _copyDirectoryContents(entity, Directory(destPath),
+          skipPaths: skipPaths);
     } else if (entity is File) {
       await entity.copy(destPath);
     }

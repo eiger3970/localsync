@@ -23,6 +23,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/repository_provider.dart';
+import '../services/localsync_folder.dart';
+import '../services/vault_backup.dart' show kLocalSyncFolderName;
+import '../services/vault_folder_service.dart';
 import 'qr_scan_screen.dart';
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
@@ -59,6 +62,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   // folder" - same as before this field existed, not a broken/invalid
   // state.
   late final TextEditingController _vaultPathCtrl;
+  // 2026-09-24: where LocalSync keeps its own folder in the vault - see
+  // localsync_folder.dart. Loaded from the vault itself on open.
+  final _lsFolderCtrl = TextEditingController(text: kLocalSyncFolderName);
+  String? _lsFolderSaved;
+  bool _lsFolderBusy = false;
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -261,6 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     _sparkleCtrl2 = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1900))
       ..repeat();
+    _loadLocalSyncFolder();
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
     });
@@ -759,6 +768,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     _ipCtrl.dispose();
     _pathCtrl.dispose();
     _vaultPathCtrl.dispose();
+    _lsFolderCtrl.dispose();
     _sparkleCtrl1.dispose();
     _sparkleCtrl2.dispose();
     super.dispose();
@@ -2489,6 +2499,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Settings visit (neededForPairing false) still sees both.
             if (!widget.neededForPairing) ...[
               const SizedBox(height: 32),
+              _buildLocalSyncFolderCard(),
+              const SizedBox(height: 28),
               _buildSkinsCard(),
               const SizedBox(height: 28),
               // 2026-08-29: real feedback, live - "this IAP would appear
@@ -2514,6 +2526,142 @@ class _SettingsScreenState extends State<SettingsScreen>
   // against. Right now every palette is freely selectable, so this is
   // actually testable today rather than sitting inert like
   // purchase_service.dart/ConflictPickerUpsell.
+  // 2026-09-24: real feedback, live - "Desktop Obsidian shows a
+  // LocalSync folder again, but should be in Projects/". Reads and
+  // writes the vault's .localsync_folder (localsync_folder.dart) through
+  // the vault's own security-scoped bookmark, same access pattern as
+  // backup_compare_screen.dart. The file syncs to the desktop with the
+  // next sync, so both sides move together.
+  Future<void> _loadLocalSyncFolder() async {
+    final repo = context.read<RepositoryProvider>().selectedRepo;
+    if (repo == null || repo.vaultBookmark.isEmpty) return;
+    final vf = VaultFolderService();
+    final path = await vf.startAccessing(repo.vaultBookmark);
+    if (path == null) return;
+    try {
+      final folder = localSyncFolder(path);
+      if (!mounted) return;
+      setState(() {
+        _lsFolderSaved = folder;
+        _lsFolderCtrl.text = folder;
+      });
+    } finally {
+      await vf.stopAccessing(repo.vaultBookmark);
+    }
+  }
+
+  Future<void> _saveLocalSyncFolder() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final repo = context.read<RepositoryProvider>().selectedRepo;
+    if (repo == null || repo.vaultBookmark.isEmpty) return;
+    if (sanitizeLocalSyncFolder(_lsFolderCtrl.text) == null) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Use a folder inside the vault, like '
+              'Projects/LocalSync - no "..", no leading "/" and no '
+              'names starting with a dot.')));
+      return;
+    }
+    final previous = _lsFolderSaved ?? kLocalSyncFolderName;
+    setState(() => _lsFolderBusy = true);
+    final vf = VaultFolderService();
+    final path = await vf.startAccessing(repo.vaultBookmark);
+    String? saved;
+    try {
+      if (path != null) saved = setLocalSyncFolder(path, _lsFolderCtrl.text);
+    } catch (_) {
+      saved = null;
+    } finally {
+      if (path != null) await vf.stopAccessing(repo.vaultBookmark);
+    }
+    if (!mounted) return;
+    setState(() {
+      _lsFolderBusy = false;
+      if (saved != null) {
+        _lsFolderSaved = saved;
+        _lsFolderCtrl.text = saved;
+      }
+    });
+    messenger.showSnackBar(SnackBar(
+        content: Text(saved == null
+            ? 'Could not save - LocalSync could not open the vault folder.'
+            : saved == previous
+                ? 'Saved: $saved'
+                : 'Saved. New backups go to $saved. Existing backups '
+                    'stay in $previous - move them in Obsidian if you '
+                    'want them together.')));
+  }
+
+  Widget _buildLocalSyncFolderCard() {
+    final repo = context.watch<RepositoryProvider>().selectedRepo;
+    if (repo == null || repo.vaultBookmark.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final changed = _lsFolderSaved != null &&
+        _lsFolderCtrl.text.trim() != _lsFolderSaved;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration:
+          BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.folder_outlined, color: kTextMid, size: 18),
+              const SizedBox(width: 8),
+              Text('LOCALSYNC FOLDER',
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Where LocalSync keeps its backups inside "${repo.name}". '
+            'Applies to every device synced with this vault.',
+            style: TextStyle(color: kStar, fontSize: 14, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _lsFolderCtrl,
+            enabled: !_lsFolderBusy,
+            autocorrect: false,
+            style: TextStyle(color: kStar, fontSize: 16),
+            decoration: InputDecoration(
+              hintText: 'e.g. Projects/LocalSync',
+              hintStyle: TextStyle(color: kTextDim),
+              enabledBorder:
+                  OutlineInputBorder(borderSide: BorderSide(color: kBorder)),
+              focusedBorder:
+                  OutlineInputBorder(borderSide: BorderSide(color: kGreen)),
+            ),
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _saveLocalSyncFolder(),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed:
+                  _lsFolderBusy || !changed ? null : _saveLocalSyncFolder,
+              // "SAVE FOLDER", not "SAVE" - this screen already has its
+              // own bottom Save button for the pairing fields, and this
+              // one saves immediately, on its own.
+              child: Text('SAVE FOLDER',
+                  style: TextStyle(
+                      color: changed ? kGreen : kTextDim,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSkinsCard() {
     final themeService = context.watch<ThemeService>();
     return Container(

@@ -21,9 +21,9 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
 import '../services/backup_compare.dart';
-import '../services/vault_backup.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
+import '../services/localsync_folder.dart';
 
 // 2026-09-06: same brighter red conflict_picker_screen.dart's own
 // _kBrightRed uses for its "other side" panel - Material's default
@@ -80,7 +80,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
     final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
     if (path == null) return const [];
     try {
-      final dir = Directory('$path/$kLocalSyncFolderName/Conflict Backups');
+      final dir = Directory(conflictBackupsDir(path));
       if (!await dir.exists()) return const [];
       var names = await dir
           .list()
@@ -115,7 +115,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
       String backupContent;
       try {
         backupContent = await File(
-                '$path/$kLocalSyncFolderName/Conflict Backups/$backupName')
+                '${conflictBackupsDir(path)}/$backupName')
             .readAsString();
       } finally {
         await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
@@ -151,7 +151,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
           .toList();
       matches = matchingLivePaths(allFiles, original);
       backupContent = await File(
-              '$path/$kLocalSyncFolderName/Conflict Backups/$backupName')
+              '${conflictBackupsDir(path)}/$backupName')
           .readAsString();
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
@@ -212,7 +212,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
                 child: Text(
                     widget.noteFilePath != null
                         ? 'No backups yet for this note.'
-                        : 'No backups in LocalSync/Conflict Backups yet.',
+                        : 'No backups in ${lastKnownLocalSyncFolder}/Conflict Backups yet.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: kTextMid, fontSize: 15)),
               ),

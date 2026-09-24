@@ -89,18 +89,55 @@ verify_repo_identity() {
 # mismatch between two devices now reads as "Personal Vault" vs "Test
 # Vault," not two 80-character paths that have to be compared character
 # by character.
-REPO_NAME_FILE="LocalSync/repo-name.txt"
+# ── LocalSync folder location ─────────────────────────────────────────────────
+# 2026-09-24: real feedback - "Desktop Obsidian shows a LocalSync folder
+# again, but should be in Projects/". The folder is now a per-vault
+# setting: one line in the hidden $VAULT/.localsync_folder (e.g.
+# "Projects/LocalSync"), set from the phone app's Settings and synced
+# like any other file. Mirrors lib/services/localsync_folder.dart
+# exactly - same file, same cleaning rules, same default - so phone
+# and desktop always write to the same place. No file or an unsafe
+# value means the default, LocalSync.
+localsync_folder() {
+  local raw="" seg out=""
+  if [[ -f "$VAULT/.localsync_folder" ]]; then
+    raw=$(grep -m1 -v '^[[:space:]]*$' "$VAULT/.localsync_folder" 2>/dev/null || true)
+  fi
+  raw="${raw//\\//}"
+  raw="$(echo "$raw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  if [[ -z "$raw" || "$raw" == /* ]]; then echo "LocalSync"; return; fi
+  local IFS='/'
+  local -a parts
+  read -ra parts <<< "$raw"
+  for seg in "${parts[@]}"; do
+    seg="$(echo "$seg" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    [[ -z "$seg" ]] && continue
+    if [[ "$seg" == .* ]]; then echo "LocalSync"; return; fi
+    out="${out:+$out/}$seg"
+  done
+  echo "${out:-LocalSync}"
+}
+
+# repo-name.txt lives in the LocalSync folder; a vault linked before the
+# folder setting existed still has it in the default LocalSync/, which
+# is read as a fallback (never moved or recreated - one name per vault).
 ensure_repo_name() {
-  if [[ -f "$REPO_NAME_FILE" ]]; then
-    log "Repo: $(cat "$REPO_NAME_FILE")"
+  local folder name_file
+  folder="$(localsync_folder)"
+  name_file="$folder/repo-name.txt"
+  if [[ ! -f "$name_file" && -f "LocalSync/repo-name.txt" ]]; then
+    name_file="LocalSync/repo-name.txt"
+  fi
+  if [[ -f "$name_file" ]]; then
+    log "Repo: $(cat "$name_file")"
     return 0
   fi
   local base default_name
   base=$(basename "$BARE_REPO")
   base="${base%.git}"
   default_name=$(echo "$base" | tr '_-' ' ' | sed -e 's/\b\(.\)/\u\1/g')
-  mkdir -p "LocalSync"
-  echo "$default_name" > "$REPO_NAME_FILE"
+  mkdir -p "$folder"
+  echo "$default_name" > "$name_file"
   log "Repo: $default_name (name file created - rename it in Obsidian any time)"
 }
 
@@ -167,7 +204,7 @@ repair_md_conflicts() {
 # callout, so this is the whole-file equivalent of the markdown repair
 # above, not an afterthought.
 repair_binary_conflicts() {
-  local backup_dir="$VAULT/LocalSync/Conflict Backups"
+  local backup_dir="$VAULT/$(localsync_folder)/Conflict Backups"
   local resolved=0
   while IFS= read -r -d '' path; do
     [[ "$path" == *.md ]] && continue
