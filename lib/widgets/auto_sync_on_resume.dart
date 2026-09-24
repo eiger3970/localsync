@@ -135,7 +135,10 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // When a Quick Action is already about to run an explicit,
     // visible sync, this auto one is redundant - skip it and let the
     // explicit one be the only thing that runs, not two racing.
-    if (provider.pendingQuickAction != null) return;
+    if (provider.pendingQuickAction != null ||
+        provider.quickActionJustHandled) {
+      return;
+    }
     final repo = provider.selectedRepo;
     if (repo?.id == null) return;
     _syncing = true;

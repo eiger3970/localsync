@@ -135,8 +135,24 @@ class RepositoryProvider extends ChangeNotifier {
   String? get pendingQuickAction => _pendingQuickAction;
   void setPendingQuickAction(String action) {
     _pendingQuickAction = action;
+    _lastQuickActionAt = DateTime.now();
     notifyListeners();
   }
+
+  // 2026-09-24: real regression, live - widget Push: "shows gif and
+  // graphics for a second, but then black screen with top bar" reading
+  // "Pushed as 202609241530. downloading notes..." - the silent
+  // auto-sync's own push+pull running right behind the widget's push.
+  // Same class as 2026-09-18 round 5: HomeScreen clears
+  // pendingQuickAction when it starts the action, and AutoSyncOnResume's
+  // "a quick action is pending, skip" guard read that flag after it was
+  // already cleared. Guard on WHEN a quick action arrived instead of
+  // whether the flag is still set - no ordering to get wrong.
+  DateTime? _lastQuickActionAt;
+  bool get quickActionJustHandled =>
+      _lastQuickActionAt != null &&
+      DateTime.now().difference(_lastQuickActionAt!) <
+          const Duration(seconds: 15);
   void clearPendingQuickAction() { _pendingQuickAction = null; }
 
   // 2026-09-22: real feedback, live - widget PUSH showed its gif twice
