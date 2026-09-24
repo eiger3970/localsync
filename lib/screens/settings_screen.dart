@@ -2513,11 +2513,14 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Settings visit (neededForPairing false) still sees both.
             if (!widget.neededForPairing) ...[
               const SizedBox(height: 32),
-              _buildSoundsCard(),
-              const SizedBox(height: 28),
+              // 2026-09-24: "That's not alphabetical" - LOCALSYNC FOLDER,
+              // SKINS, SOUNDS (house rule: alphabetical unless a stated
+              // reason); IN DEVELOPMENT stays last, it isn't a setting.
               _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
               _buildSkinsCard(),
+              const SizedBox(height: 28),
+              _buildSoundsCard(),
               const SizedBox(height: 28),
               // 2026-08-29: real feedback, live - "this IAP would appear
               // in the Conflicts page when there's a conflict... move

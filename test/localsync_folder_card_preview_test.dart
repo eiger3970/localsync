@@ -81,7 +81,7 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextField, 'LocalSync'), 'Projects/LocalSync');
     await tester.pump();
-    Scrollable.ensureVisible(tester.element(find.text('SOUNDS')), alignment: 0.05);
+    Scrollable.ensureVisible(tester.element(card), alignment: 0.05);
     // Settings has looping sparkle animations - pumpAndSettle never
     // settles, so a fixed pump instead.
     await tester.pump(const Duration(milliseconds: 500));

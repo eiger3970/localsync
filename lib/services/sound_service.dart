@@ -55,13 +55,26 @@ class SoundService {
   Future<void> play(SoundEvent event) async {
     try {
       if (!await isEnabled()) return;
-      final player = _player ??= AudioPlayer()
-        ..setAudioContext(AudioContext(
+      // Awaited, inside the try: the session setup's own failure must be
+      // caught here like any other, not escape as an unhandled error,
+      // and the first chime must not start before the setup is done.
+      var player = _player;
+      if (player == null) {
+        player = AudioPlayer();
+        await player.setAudioContext(AudioContext(
+          // 2026-09-24: real bug, live - "Sounds nothing heard", then a
+          // crash reaching SOUNDS in Settings. mixWithOthers is only
+          // allowed with playback/playAndRecord/multiRoute (an assert in
+          // audioplayers' own AudioContextIOS, stripped in release) -
+          // with ambient, iOS rejects the whole session setup, so every
+          // play() failed. Ambient already mixes with other audio.
           iOS: AudioContextIOS(
             category: AVAudioSessionCategory.ambient,
-            options: const {AVAudioSessionOptions.mixWithOthers},
+            options: const {},
           ),
         ));
+        _player = player;
+      }
       await player.stop();
       await player.play(AssetSource(_asset(event)));
     } catch (_) {}
