@@ -3614,7 +3614,7 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
       title: Text('Backed up first',
           style: TextStyle(color: kStar, fontSize: 16)),
       content: body('Nothing is deleted.', [
-        const Crumb('Home Screen', CrumbKind.home),
+        const Crumb('Phone home screen', CrumbKind.home),
         const Crumb('Files', CrumbKind.filesApp),
         ...crumbsFromRoute(route, vaultIndex: route.length - 1),
         Crumb(check.backupFolder, CrumbKind.folder),
@@ -3677,7 +3677,7 @@ class BackupReminderCard extends StatelessWidget {
                   letterSpacing: 1.2)),
           const SizedBox(height: 10),
           FolderRouteView([
-            const Crumb('Home Screen', CrumbKind.home),
+            const Crumb('Phone home screen', CrumbKind.home),
             const Crumb('Files', CrumbKind.filesApp),
             ...crumbsFromRoute(route, vaultIndex: route.length - 1),
             for (var i = 0; i < backupParts.length; i++)

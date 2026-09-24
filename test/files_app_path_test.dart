@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/services/files_app_path.dart';
+import 'package:localsync/services/git_service.dart' show existingOriginRepoPath;
 
 void main() {
   test('Obsidian local vault (app Documents) -> On My iPhone > Obsidian', () {
@@ -31,7 +32,17 @@ void main() {
         filesAppRouteText(
             '/private/var/mobile/Containers/Data/Application/A/Documents/V',
             'LocalSync/Vault Backup 202609241415'),
-        'Home Screen > Files app (blue folder icon) > On My iPhone > '
+        'Phone home screen > Files app (blue folder icon) > On My iPhone > '
         'Obsidian > V > LocalSync > Vault Backup 202609241415');
+  });
+
+  test('existingOriginRepoPath reads the folder\'s real desktop repo', () {
+    const config = '[core]\n\trepositoryformatversion = 0\n'
+        '[remote "origin"]\n\turl = ssh://rapi5@172.20.10.11:22'
+        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git\n'
+        '\tfetch = +refs/heads/*:refs/remotes/origin/*\n[branch "main"]\n';
+    expect(existingOriginRepoPath(config),
+        '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git');
+    expect(existingOriginRepoPath('[core]\n'), isNull);
   });
 }
