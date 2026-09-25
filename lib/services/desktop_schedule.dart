@@ -62,3 +62,22 @@ String desktopCronCommand({
   return '$keep; echo "$cron LOCALSYNC_BARE_REPO=\'$escapedRepo\' $vaultEnv'
       '$scriptPath >/dev/null 2>&1") | crontab -';
 }
+
+/// The desktop-folder part of a desktop command line. A desktop vault path
+/// set in Settings wins; otherwise the desktop folder is named like the
+/// phone folder, Documents/LocalSync/<phone folder name>.
+///
+/// 2026-09-25: Ken - "I named the folder normally on the phone, then the
+/// desktop folder is the foldername that's weird" - it was named after the
+/// internal repo id (LocalSync_free_test_1790344809012). The script reads
+/// LOCALSYNC_NAME for its default folder (desktop/localsync_sync.sh).
+String desktopFolderEnv(String? desktopVaultPath, String? folderName) {
+  String q(String v) => "'${v.replaceAll("'", r"'\''")}'";
+  final vault = desktopVaultPath?.trim() ?? '';
+  if (vault.isNotEmpty) return 'LOCALSYNC_VAULT=${q(vault)} ';
+  final name = (folderName ?? '')
+      .replaceAll(RegExp(r'[/\x00-\x1f]'), '')
+      .trim();
+  if (name.isEmpty || name == '.' || name == '..') return '';
+  return 'LOCALSYNC_NAME=${q(name)} ';
+}

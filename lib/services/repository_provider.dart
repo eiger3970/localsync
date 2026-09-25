@@ -417,6 +417,7 @@ class RepositoryProvider extends ChangeNotifier {
       remotePath: repo.remotePath,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
       desktopVaultPath: await _db.getDesktopVaultPath(),
+      folderName: repo.name,
     );
   }
 
@@ -430,6 +431,7 @@ class RepositoryProvider extends ChangeNotifier {
       remotePath: repo.remotePath,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
       desktopVaultPath: await _db.getDesktopVaultPath(),
+      folderName: repo.name,
     );
     // 2026-09-18: real ask, live - "Sync timer for widgets and phone
     // notification to remind when last backed up." This path doesn't
