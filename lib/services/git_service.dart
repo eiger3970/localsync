@@ -354,9 +354,8 @@ class GitServiceImpl implements GitService {
       // get/setDesktopVaultPath) - only added to the cron line when the
       // user actually set one, so a fresh setup with nothing typed in
       // still gets the script's own safe default untouched.
-      final vaultEnv = (desktopVaultPath != null && desktopVaultPath!.trim().isNotEmpty)
-          ? "LOCALSYNC_VAULT='${desktopVaultPath!.trim().replaceAll("'", r"'\''")}' "
-          : '';
+      final vaultEnv = desktopFolderEnv(
+          desktopVaultPath, localVaultPath.split('/').where((x) => x.isNotEmpty).lastOrNull);
       //
       // 2026-08-30: real bug, confirmed live - every log line appeared
       // twice. This cron line redirected stdout to
@@ -399,6 +398,7 @@ class GitServiceImpl implements GitService {
       sshPrivateKeyPath: sshPrivateKeyPath,
       sshPassphrase: sshPassphrase,
       desktopVaultPath: desktopVaultPath,
+      folderName: localVaultPath.split('/').where((x) => x.isNotEmpty).lastOrNull,
     );
   }
 

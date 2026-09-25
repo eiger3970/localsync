@@ -41,7 +41,10 @@ set -euo pipefail
 # default, vault.git, still lands in ~/Documents/LocalSync/vault), and one
 # lock per repo, so two schedules never skip each other's runs.
 BARE_REPO="${LOCALSYNC_BARE_REPO:-$HOME/Documents/Git/LocalSync/vault.git}"
-VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/$(basename "$BARE_REPO" .git)}"
+# 2026-09-25: LOCALSYNC_NAME (the phone folder's name, sent by the app)
+# names the default folder, so it matches the phone - the repo id was used
+# before ("LocalSync_free_test_1790344809012").
+VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/${LOCALSYNC_NAME:-$(basename "$BARE_REPO" .git)}}"
 BRANCH="${LOCALSYNC_BRANCH:-main}"
 LOG="${LOCALSYNC_LOG:-$HOME/.localsync_sync.log}"
 LOCK="/tmp/localsync_sync_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1).lock"

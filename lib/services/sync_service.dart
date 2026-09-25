@@ -254,6 +254,7 @@ Future<SyncResult> runDesktopSyncScriptNow({
   required String sshPrivateKeyPath,
   String sshPassphrase = '',
   String? desktopVaultPath,
+  String? folderName,
 }) async {
   SSHClient? client;
   try {
@@ -283,9 +284,7 @@ Future<SyncResult> runDesktopSyncScriptNow({
               'desktop: ${String.fromCharCodes(installRes.stderr)}');
     }
     final escapedRepo = remotePath.replaceAll("'", r"'\''");
-    final vaultEnv = (desktopVaultPath != null && desktopVaultPath.trim().isNotEmpty)
-        ? "LOCALSYNC_VAULT='${desktopVaultPath.trim().replaceAll("'", r"'\''")}' "
-        : '';
+    final vaultEnv = desktopFolderEnv(desktopVaultPath, folderName);
     final runCmd =
         "LOCALSYNC_BARE_REPO='$escapedRepo' $vaultEnv\"$scriptPath\"";
     final runRes = await client.runWithResult(runCmd);
@@ -322,6 +321,7 @@ Future<SyncResult> applyDesktopSchedule({
   required String sshPrivateKeyPath,
   String sshPassphrase = '',
   String? desktopVaultPath,
+  String? folderName,
 }) async {
   SSHClient? client;
   try {
@@ -346,9 +346,7 @@ Future<SyncResult> applyDesktopSchedule({
               'desktop: ${String.fromCharCodes(installRes.stderr)}');
     }
     final escapedRepo = remotePath.replaceAll("'", r"'\''");
-    final vaultEnv = (desktopVaultPath != null && desktopVaultPath.trim().isNotEmpty)
-        ? "LOCALSYNC_VAULT='${desktopVaultPath.trim().replaceAll("'", r"'\''")}' "
-        : '';
+    final vaultEnv = desktopFolderEnv(desktopVaultPath, folderName);
     final res = await client.runWithResult(desktopCronCommand(
         schedule: schedule,
         escapedRepo: escapedRepo,
