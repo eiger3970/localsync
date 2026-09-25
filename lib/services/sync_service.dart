@@ -56,6 +56,7 @@
 //
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
+import 'desktop_schedule.dart';
 import 'dart:async' show StreamController;
 import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
@@ -307,6 +308,63 @@ Future<SyncResult> runDesktopSyncScriptNow({
 }
 
 // ── SyncService ────────────────────────────────────────────────────────────────
+
+/// Writes [schedule] to the desktop's crontab now, over SSH - Settings ->
+/// DESKTOP SYNC calls this so a change applies at once, not at the next
+/// setup. Also (re)writes the script, same as runDesktopSyncScriptNow.
+Future<SyncResult> applyDesktopSchedule({
+  required DesktopSchedule schedule,
+  required String remoteHost,
+  required int remotePort,
+  required String remoteUser,
+  required String remotePath,
+  required String sshPrivateKeyPath,
+  String sshPassphrase = '',
+  String? desktopVaultPath,
+}) async {
+  SSHClient? client;
+  try {
+    final socket = await SSHSocket.connect(remoteHost, remotePort,
+        timeout: const Duration(seconds: 15));
+    final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+    client = SSHClient(
+      socket,
+      username: remoteUser,
+      identities: SSHKeyPair.fromPem(
+          privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+    );
+    final scriptB64 = base64Encode(utf8.encode(kDesktopSyncScript));
+    const scriptPath = r'$HOME/Documents/Scripts/localsync_sync.sh';
+    final installRes = await client.runWithResult(
+        'mkdir -p "\$HOME/Documents/Scripts" && '
+        "echo '$scriptB64' | base64 -d > \"$scriptPath\" && "
+        'chmod +x "$scriptPath"');
+    if (installRes.exitCode != 0) {
+      return SyncFailed(LinkingError.connectionRefused,
+          debugDetail: 'Could not write localsync_sync.sh on the '
+              'desktop: ${String.fromCharCodes(installRes.stderr)}');
+    }
+    final escapedRepo = remotePath.replaceAll("'", r"'\''");
+    final vaultEnv = (desktopVaultPath != null && desktopVaultPath.trim().isNotEmpty)
+        ? "LOCALSYNC_VAULT='${desktopVaultPath.trim().replaceAll("'", r"'\''")}' "
+        : '';
+    final res = await client.runWithResult(desktopCronCommand(
+        schedule: schedule,
+        escapedRepo: escapedRepo,
+        vaultEnv: vaultEnv,
+        scriptPath: scriptPath));
+    if (res.exitCode != 0) {
+      return SyncFailed(LinkingError.connectionRefused,
+          debugDetail: 'Could not update the desktop schedule: '
+              '${String.fromCharCodes(res.stderr)}');
+    }
+    return SyncOk('Desktop sync: ${schedule.label.toLowerCase()}');
+  } catch (e) {
+    return SyncFailed(LinkingError.connectionRefused, debugDetail: '$e');
+  } finally {
+    client?.close();
+  }
+}
 
 class SyncService {
   final String vaultPath;

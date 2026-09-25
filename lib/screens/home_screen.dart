@@ -1802,16 +1802,19 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             const SizedBox(height: 6),
             Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
-              'open an issue at',
+              'get in touch at',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
             ),
             // 2026-09-25: real ask, live - "Contact, change url text to a
             // link." Same kGreen as the FOSS licenses link in this dialog.
+            // Then: "webpage is nasty, might need to use the
+            // kworld.space/contact page which is more user friendly" -
+            // the Codeberg repo page is for developers, not support.
             GestureDetector(
               onTap: () => launchUrl(
-                  Uri.parse('https://codeberg.org/kworld/localsync'),
+                  Uri.parse('https://kworld.space/contact?app=localsync'),
                   mode: LaunchMode.externalApplication),
-              child: Text('codeberg.org/kworld/localsync',
+              child: Text('kworld.space/contact',
                   style: TextStyle(
                       color: kGreen,
                       fontSize: 13,
@@ -1955,6 +1958,24 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               'a time.\nDesktop: install the LocalSync setup file once, '
               'from kworld.space/localsync',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            // 2026-09-25: Ken's ask - a guide link for users wanting more
+            // help. The Codeberg desktop-setup.md was "for pros and nerds";
+            // this is the new picture guide, kworld.space/localsync/guide.
+            const SizedBox(height: 6),
+            Text('Picture guide:',
+                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
+            GestureDetector(
+              onTap: () => launchUrl(
+                  Uri.parse('https://kworld.space/localsync/guide'),
+                  mode: LaunchMode.externalApplication),
+              child: Text('kworld.space/localsync/guide',
+                  style: TextStyle(
+                      color: kGreen,
+                      fontSize: 13,
+                      height: 1.6,
+                      decoration: TextDecoration.underline,
+                      decorationColor: kGreen)),
             ),
             const SizedBox(height: 20),
             // 2026-08-23: real feature request, live - "donation link

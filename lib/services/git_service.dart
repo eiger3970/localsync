@@ -1,3 +1,4 @@
+import 'desktop_schedule.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
@@ -327,9 +328,11 @@ class GitServiceImpl implements GitService {
       // to /dev/null instead - the script's own tee is the real logging
       // path, this redirect only exists so cron doesn't try to email
       // stray output.
-      final cronCmd = '(crontab -l 2>/dev/null | grep -v localsync_sync.sh; '
-          'echo "*/5 * * * * LOCALSYNC_BARE_REPO=\'$escapedRepo\' $vaultEnv'
-          '$scriptPath >/dev/null 2>&1") | crontab -';
+      final cronCmd = desktopCronCommand(
+          schedule: await loadDesktopSchedule(),
+          escapedRepo: escapedRepo,
+          vaultEnv: vaultEnv,
+          scriptPath: scriptPath);
       await client.runWithResult(cronCmd);
     } catch (_) {
       // Best-effort convenience step - never fails the real setup over

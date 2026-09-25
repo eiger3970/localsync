@@ -149,6 +149,26 @@ ensure_repo_name() {
 exec 9>"$LOCK"
 flock -n 9 || { log "Already running — skipping"; exit 0; }
 
+# ── Backup before the first sync ──────────────────────────────────────────────
+# 2026-09-25: Ken - "Desktop backup, absolutely, but inform user it actions
+# and the location." The phone copies its vault before its first sync
+# (lib/services/vault_backup.dart); the desktop now does the same, once per
+# vault, before this script ever merges into it. The copy goes OUTSIDE the
+# vault, in ~/Documents/LocalSync Backups/ - inside, it would be committed
+# and synced to the phone, doubling the vault on a phone's small storage.
+# A marker in $HOME (not in the vault, so it never syncs) keeps it to once.
+BACKUP_ROOT="${LOCALSYNC_BACKUP_ROOT:-$HOME/Documents/LocalSync Backups}"
+first_backup_marker="$HOME/.localsync_first_backup_$(printf '%s' "$VAULT" | cksum | cut -d' ' -f1)"
+if [[ ! -f "$first_backup_marker" ]]; then
+  if [[ -d "$VAULT" && -n "$(ls -A "$VAULT" 2>/dev/null)" ]]; then
+    backup_dest="$BACKUP_ROOT/$(basename "$VAULT") $(date '+%Y%m%d%H%M')"
+    mkdir -p "$backup_dest" || die "Cannot create backup folder: $backup_dest"
+    cp -a "$VAULT/." "$backup_dest/" || die "Backup before first sync failed - nothing synced: $VAULT -> $backup_dest"
+    log "Backed up $VAULT before its first sync -> $backup_dest"
+  fi
+  echo "$VAULT" > "$first_backup_marker"
+fi
+
 # ── Bootstrap: clone the working copy on first run ────────────────────────────
 # docs/desktop-setup.md only ever documented creating the bare repo -
 # nothing clones a working copy from it. First run does that instead of

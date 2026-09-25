@@ -1,5 +1,6 @@
 // services/repository_provider.dart
 
+import 'desktop_schedule.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -404,6 +405,21 @@ class RepositoryProvider extends ChangeNotifier {
   // early. The desktop script already has to tolerate being invoked
   // concurrently (cron fires it every 5 minutes regardless of whether
   // a prior run finished), so no extra client-side locking added here.
+  Future<SyncResult> applyDesktopScheduleNow(
+      int id, DesktopSchedule schedule) async {
+    final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
+        StateError('applyDesktopScheduleNow: no repo with id $id'));
+    return applyDesktopSchedule(
+      schedule: schedule,
+      remoteHost: repo.remoteHost,
+      remotePort: repo.remotePort,
+      remoteUser: repo.remoteUser,
+      remotePath: repo.remotePath,
+      sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
+      desktopVaultPath: await _db.getDesktopVaultPath(),
+    );
+  }
+
   Future<SyncResult?> triggerDesktopSyncNow(int id) async {
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
         StateError('triggerDesktopSyncNow: no repo with id $id'));

@@ -30,6 +30,8 @@ import '../services/sound_service.dart';
 import '../services/vault_backup.dart' show kLocalSyncFolderName;
 import '../services/vault_folder_service.dart';
 import 'qr_scan_screen.dart';
+import '../services/desktop_schedule.dart';
+import '../services/sync_service.dart' show SyncOk;
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
 
@@ -71,6 +73,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   String? _lsFolderSaved;
   bool _lsFolderBusy = false;
   bool _soundsOn = true;
+  DesktopSchedule _desktopSchedule = DesktopSchedule.every5min;
+  bool _desktopScheduleBusy = false;
   // 2026-09-24: "Skins will need a fold, as there's a lot of them
   // taking up vertical space" - closed by default, shows the skin in use.
   bool _skinsOpen = false;
@@ -292,6 +296,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     _loadLocalSyncFolder();
     SoundService.instance.isEnabled().then((v) {
       if (mounted) setState(() => _soundsOn = v);
+    });
+    loadDesktopSchedule().then((v) {
+      if (mounted) setState(() => _desktopSchedule = v);
     });
     context.read<RepositoryProvider>().getAutoDiscoveryInterest().then((v) {
       if (mounted) setState(() => _interestSelected = v);
@@ -2532,6 +2539,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               // 2026-09-24: "That's not alphabetical" - LOCALSYNC FOLDER,
               // SKINS, SOUNDS (house rule: alphabetical unless a stated
               // reason); IN DEVELOPMENT stays last, it isn't a setting.
+              _buildDesktopSyncCard(),
+              const SizedBox(height: 28),
               _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
               _buildSkinsCard(),
@@ -2672,6 +2681,92 @@ class _SettingsScreenState extends State<SettingsScreen>
               }
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  // 2026-09-25: see desktop_schedule.dart - how often the desktop syncs
+  // by itself, or never (manual only). Applied to the desktop at once.
+  Future<void> _setDesktopSchedule(DesktopSchedule s) async {
+    final repo = context.read<RepositoryProvider>().selectedRepo;
+    if (repo?.id == null || s == _desktopSchedule) return;
+    final previous = _desktopSchedule;
+    setState(() {
+      _desktopSchedule = s;
+      _desktopScheduleBusy = true;
+    });
+    final result = await context
+        .read<RepositoryProvider>()
+        .applyDesktopScheduleNow(repo!.id!, s);
+    if (!mounted) return;
+    final ok = result is SyncOk;
+    if (ok) await saveDesktopSchedule(s);
+    if (!mounted) return;
+    setState(() {
+      _desktopScheduleBusy = false;
+      if (!ok) _desktopSchedule = previous;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(ok
+            ? 'Desktop sync: ${s.label.toLowerCase()}'
+            : 'Could not reach the desktop - nothing changed. Is it awake '
+                'and on the same network?')));
+  }
+
+  Widget _buildDesktopSyncCard() {
+    final repo = context.watch<RepositoryProvider>().selectedRepo;
+    if (repo == null) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration:
+          BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.computer, color: kTextMid, size: 18),
+              const SizedBox(width: 8),
+              Text('DESKTOP SYNC TIMER',
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text('How often your desktop syncs by itself.',
+              style: TextStyle(color: kStar, fontSize: 14, height: 1.4)),
+          const SizedBox(height: 6),
+          for (final s in DesktopSchedule.values)
+            InkWell(
+              onTap: _desktopScheduleBusy ? null : () => _setDesktopSchedule(s),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                        _desktopSchedule == s
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: _desktopSchedule == s ? kGreen : kTextDim,
+                        size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                        child: Text(s.label,
+                            style: TextStyle(color: kStar, fontSize: 15))),
+                    if (_desktopScheduleBusy && _desktopSchedule == s)
+                      const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

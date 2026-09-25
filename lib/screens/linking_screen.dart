@@ -3725,6 +3725,24 @@ class BackupReminderCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text('Delete it once your notes look right.',
               style: TextStyle(color: kTextMid, fontSize: 13)),
+          // 2026-09-25: Ken - desktop backup "absolutely, but inform user
+          // it actions and the location" / "might be polite". The desktop
+          // script copies its folder once before its first sync
+          // (desktop/localsync_sync.sh, "Backup before the first sync").
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.computer, color: kTextMid, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    'Your desktop keeps a copy too, before its first sync: '
+                    'Documents -> LocalSync Backups',
+                    style: TextStyle(color: kTextMid, fontSize: 13)),
+              ),
+            ],
+          ),
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 4,
