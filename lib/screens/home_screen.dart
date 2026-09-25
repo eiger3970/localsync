@@ -27,6 +27,7 @@ import '../widgets/pkm_sync_upsell.dart';
 import '../widgets/sync_confirm_dialog.dart';
 import 'commit_screen.dart';
 import 'conflicts_screen.dart';
+import 'deleted_files_screen.dart';
 import 'linking_screen.dart';
 import 'welcome_hero_screen.dart';
 import '../features/linking/linking_controller.dart';
@@ -227,6 +228,10 @@ class HomeScreen extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 0, right: 6),
                 icon: Icon(Icons.more_vert, color: kGreen, size: 22),
                 onSelected: (v) {
+                  if (v == 'deleted' && provider.selectedRepo != null) {
+                    Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => DeletedFilesScreen(repo: provider.selectedRepo!)));
+                  }
                   if (v == 'pair') _openPairing(context);
                   if (v == 'link') _openLinking(context);
                   if (v == 'about') {
@@ -393,6 +398,14 @@ class HomeScreen extends StatelessWidget {
                     // made a change, not just when (see sync_service.dart's
                     // _signatureFor). Placeholder in the explainer, not a
                     // real/pseudonym example - names never go in app UI text.
+                    // 2026-09-25: restore files deleted on either device.
+                    const PopupMenuItem(
+                      value: 'deleted',
+                      child: _MenuRow(
+                        icon: Icons.restore_from_trash_outlined,
+                        label: 'Deleted files - restore',
+                      ),
+                    ),
                     const PopupMenuItem(
                       value: 'device_name',
                       child: _MenuRow(

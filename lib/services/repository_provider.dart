@@ -477,6 +477,29 @@ class RepositoryProvider extends ChangeNotifier {
   // sync operations ever run at once, full stop, matching what the
   // crash log actually showed was unsafe.
   Future<void>? _inFlight;
+
+  /// 2026-09-25: runs [fn] on the selected folder's real path, inside the
+  /// same one-at-a-time lock as push/pull (so a restore never overlaps a
+  /// sync on the same .git) and with iOS folder access opened and closed.
+  Future<T?> withRepoFolder<T>(Repository repo, T Function(String path) fn) async {
+    final prior = _inFlight;
+    final done = Completer<void>();
+    _inFlight = done.future;
+    if (prior != null) await prior.catchError((_) {});
+    final folders = VaultFolderService();
+    try {
+      final path = kIsWeb ? repo.localPath : await folders.startAccessing(repo.vaultBookmark);
+      if (path == null) return null;
+      try {
+        return fn(path);
+      } finally {
+        if (!kIsWeb) await folders.stopAccessing(repo.vaultBookmark);
+      }
+    } finally {
+      done.complete();
+      if (identical(_inFlight, done.future)) _inFlight = null;
+    }
+  }
   bool get isSyncing => _inFlight != null;
 
   Future<SyncResult?> _run(
