@@ -3656,7 +3656,7 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
         const Crumb('Files', CrumbKind.filesApp),
         ...crumbsFromRoute(route, vaultIndex: route.length - 1),
         Crumb(check.backupFolder, CrumbKind.folder),
-        const Crumb('Vault Backup <date>', CrumbKind.backup),
+        const Crumb('Backup <date>', CrumbKind.backup),
       ]),
       actions: [
         TextButton(

@@ -91,12 +91,12 @@ void main() {
     File('${vault.path}/note.md').writeAsStringSync('top note');
 
     expect(await backupVaultIfNotEmpty(vault.path),
-        startsWith('Projects/LocalSync/Vault Backup '));
+        startsWith('Projects/LocalSync/Backup '));
 
     final backups = Directory('${vault.path}/Projects/LocalSync')
         .listSync()
         .whereType<Directory>()
-        .where((d) => d.path.contains('Vault Backup '))
+        .where((d) => d.path.contains('/Backup '))
         .toList();
     expect(backups, hasLength(1));
     final b = backups.single.path;
