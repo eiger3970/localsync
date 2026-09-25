@@ -283,6 +283,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
     _vaultPathCtrl =
         TextEditingController(text: ctrl.desktopVaultPath ?? '');
+    // 2026-09-25: show the SELECTED synced folder's own desktop path.
+    final selected = context.read<RepositoryProvider>().selectedRepo;
+    if (selected != null) {
+      context.read<RepositoryProvider>()
+          .getDesktopVaultPathFor(selected.remotePath)
+          .then((v) { if (mounted) _vaultPathCtrl.text = v ?? ''; });
+    }
     _sparklePhase1 = _sparkleRand.nextDouble();
     _sparklePhase2 = _sparkleRand.nextDouble();
     _sparklePhase3 = _sparkleRand.nextDouble();
@@ -954,7 +961,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     }
     // 2026-09-02: optional field, no error state to gate on - blank is
     // a valid, meaningful value (see the field's own comment above).
-    await provider.setDesktopVaultPath(vaultPath);
+    // 2026-09-25: saved for the selected synced folder only.
+    final selectedRepoPath = provider.selectedRepo?.remotePath ?? path;
+    await provider.setDesktopVaultPathFor(selectedRepoPath, vaultPath);
     linkingCtrl.updateDesktopVaultPath(vaultPath);
     if (_userError != null || _ipError != null || _pathError != null) return;
     if (closeAfter && mounted) Navigator.pop(context);

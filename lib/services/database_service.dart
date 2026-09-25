@@ -272,6 +272,35 @@ class DatabaseService {
     return prefs.getString(_kDesktopVaultPathKey);
   }
 
+  // 2026-09-25: one desktop folder PER synced folder, keyed by its desktop
+  // repo path. The single Settings value used to apply to every synced
+  // folder, so a second folder (Ken's free test) pointed at the Obsidian
+  // vault's desktop folder. The old single value still counts for the repo
+  // it was set for: the one in Settings' bare repo path.
+  static const _kDesktopVaultPathsKey = 'desktop_vault_paths';
+
+  Future<String?> getDesktopVaultPathFor(String repoPath) async {
+    if (kIsWeb) return null;
+    final prefs = await SharedPreferences.getInstance();
+    final map = Map<String, dynamic>.from(
+        jsonDecode(prefs.getString(_kDesktopVaultPathsKey) ?? '{}') as Map);
+    if (map.containsKey(repoPath)) return map[repoPath] as String?;
+    final legacy = prefs.getString(_kDesktopVaultPathKey);
+    final legacyRepo = await getBareRepoPath();
+    return legacy != null && legacy.trim().isNotEmpty && legacyRepo == repoPath
+        ? legacy
+        : null;
+  }
+
+  Future<void> setDesktopVaultPathFor(String repoPath, String path) async {
+    if (kIsWeb) return;
+    final prefs = await SharedPreferences.getInstance();
+    final map = Map<String, dynamic>.from(
+        jsonDecode(prefs.getString(_kDesktopVaultPathsKey) ?? '{}') as Map);
+    map[repoPath] = path.trim();
+    await prefs.setString(_kDesktopVaultPathsKey, jsonEncode(map));
+  }
+
   Future<void> setDesktopVaultPath(String path) async {
     if (kIsWeb) {
       _webDesktopVaultPath = path;

@@ -240,6 +240,9 @@ class RepositoryProvider extends ChangeNotifier {
   // edit required.
   Future<String?> getDesktopVaultPath() => _db.getDesktopVaultPath();
   Future<void> setDesktopVaultPath(String path) => _db.setDesktopVaultPath(path);
+  Future<String?> getDesktopVaultPathFor(String repoPath) => _db.getDesktopVaultPathFor(repoPath);
+  Future<void> setDesktopVaultPathFor(String repoPath, String path) =>
+      _db.setDesktopVaultPathFor(repoPath, path);
 
   // ── Auto-discovery interest capture ────────────────────────────────────────
   // See database_service.dart's getAutoDiscoveryInterest/
@@ -416,7 +419,7 @@ class RepositoryProvider extends ChangeNotifier {
       remoteUser: repo.remoteUser,
       remotePath: repo.remotePath,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
-      desktopVaultPath: await _db.getDesktopVaultPath(),
+      desktopVaultPath: await _db.getDesktopVaultPathFor(repo.remotePath),
       folderName: repo.name,
     );
   }
@@ -430,7 +433,7 @@ class RepositoryProvider extends ChangeNotifier {
       remoteUser: repo.remoteUser,
       remotePath: repo.remotePath,
       sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
-      desktopVaultPath: await _db.getDesktopVaultPath(),
+      desktopVaultPath: await _db.getDesktopVaultPathFor(repo.remotePath),
       folderName: repo.name,
     );
     // 2026-09-18: real ask, live - "Sync timer for widgets and phone
