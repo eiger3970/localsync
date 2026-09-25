@@ -369,7 +369,18 @@ export SYNCO_OTHER_TIME=$(git log -1 --format=%cd --date=format:"%Y-%m-%d %H:%M"
 # ── Compare and sync ───────────────────────────────────────────────────────────
 LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse "origin/$BRANCH")
-BASE=$(git merge-base HEAD "origin/$BRANCH")
+# 2026-09-25: real stall, live (Ken's free-version test) - the desktop
+# folder and the phone started separate histories (desktop cloned an empty
+# repo while the phone's first push was failing). merge-base then fails,
+# and with set -e the script used to exit silently right after "Fetched"
+# on every run - the phone's file never arrived. No common base now means
+# "merge both sides", nothing dropped.
+BASE=$(git merge-base HEAD "origin/$BRANCH" 2>/dev/null || true)
+MERGE_EXTRA=()
+if [[ -z "$BASE" ]]; then
+  log "⚡ Desktop and phone started separately - joining both histories"
+  MERGE_EXTRA=(--allow-unrelated-histories)
+fi
 
 push_with_retry() {
   if git push origin "$BRANCH"; then
@@ -399,7 +410,7 @@ elif [[ "$REMOTE" = "$BASE" ]]; then
 
 else
   log "⚡ Diverged — merging..."
-  if git merge --no-ff -m "Merge desktop and phone $(date '+%Y-%m-%d %H:%M:%S')" "origin/$BRANCH"; then
+  if git merge --no-ff "${MERGE_EXTRA[@]}" -m "Merge desktop and phone $(date '+%Y-%m-%d %H:%M:%S')" "origin/$BRANCH"; then
     repair_conflicts
   else
     log "  Merge conflict — repairing (both sides kept)..."
