@@ -16,12 +16,14 @@ import 'package:flutter/services.dart';
 
 const _channel = MethodChannel('localsync/widget_action');
 
-/// 'action_push' / 'action_pull' if the widget was tapped since the last
+/// 'action_push' / 'action_pull' / 'action_desktop' if the widget was tapped since the last
 /// read, else null. Never throws (no native side in tests/desktop).
 Future<String?> takePendingWidgetAction() async {
   try {
     final action = await _channel.invokeMethod<String>('getPendingAction');
-    if (action == 'push' || action == 'pull') return 'action_$action';
+    if (action == 'push' || action == 'pull' || action == 'desktop') {
+      return 'action_$action';
+    }
   } catch (_) {}
   return null;
 }

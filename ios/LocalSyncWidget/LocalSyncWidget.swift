@@ -143,6 +143,23 @@ struct SyncButton: View {
 // App Group write never lands at all (the known sideload/App-Group
 // container limitation documented elsewhere in this app's history -
 // see project_synclocal_app).
+// 2026-09-25: Ken - "Widget desktop manual push? Small image bottom
+// right?" A small desktop icon in the bottom-right corner runs Desktop
+// sync (same as LocalSync main screen -> ⋮ -> Desktop sync), via
+// localsync://desktop like the Push/Pull buttons. The rest of the widget
+// (the LocalSync title row) still opens the app.
+struct DesktopSyncCorner: View {
+  let size: CGFloat
+  var body: some View {
+    Link(destination: URL(string: "localsync://desktop")!) {
+      Image(systemName: "desktopcomputer")
+        .font(.system(size: size, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.85))
+        .padding(4)
+    }
+  }
+}
+
 private func riskColor(_ days: Int?) -> Color {
   guard let days = days else { return .gray }
   let defaults = UserDefaults(suiteName: appGroupSuite)
@@ -200,6 +217,7 @@ struct LocalSyncWidgetView: View {
         }
       }
       .padding(8)
+      .overlay(alignment: .bottomTrailing) { DesktopSyncCorner(size: 11) }
       .containerBackground(localSyncGradient, for: .widget)
     case .systemLarge:
       VStack(spacing: 12) {
@@ -218,6 +236,7 @@ struct LocalSyncWidgetView: View {
         }
       }
       .padding()
+      .overlay(alignment: .bottomTrailing) { DesktopSyncCorner(size: 15) }
       .containerBackground(localSyncGradient, for: .widget)
     default: // .systemMedium
       VStack(spacing: 6) {
@@ -232,6 +251,7 @@ struct LocalSyncWidgetView: View {
         }
       }
       .padding()
+      .overlay(alignment: .bottomTrailing) { DesktopSyncCorner(size: 15) }
       .containerBackground(localSyncGradient, for: .widget)
     }
   }
