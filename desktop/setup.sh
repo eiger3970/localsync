@@ -866,6 +866,35 @@ else
   echo "install qrencode', then re-run this file.)"
 fi
 
+# ── Desktop shortcut to the synced folders ───────────────────────────────
+# 2026-09-25: Ken - a basic user needs to know where to drop files for the
+# phone, without hunting through Documents. One "LocalSync" shortcut on
+# the desktop opens Documents/LocalSync, where each synced folder lives.
+# It's only a shortcut: deleting it deletes nothing (and a messy or
+# locked-down desktop can simply do without it). Never replaces anything
+# already called LocalSync on the desktop.
+SYNC_HOME="$HOME/Documents/LocalSync"
+mkdir -p "$SYNC_HOME"
+DESKTOP_DIR=""
+if [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]] && command -v xdg-user-dir >/dev/null 2>&1; then
+  DESKTOP_DIR="$(sudo -u "$LOCALSYNC_USER" xdg-user-dir DESKTOP 2>/dev/null || true)"
+elif command -v xdg-user-dir >/dev/null 2>&1; then
+  DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+fi
+[[ -z "$DESKTOP_DIR" || "$DESKTOP_DIR" == "$HOME" ]] && DESKTOP_DIR="$HOME/Desktop"
+if [[ -d "$DESKTOP_DIR" && ! -e "$DESKTOP_DIR/LocalSync" ]]; then
+  if ln -s "$SYNC_HOME" "$DESKTOP_DIR/LocalSync" 2>/dev/null; then
+    if [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]]; then
+      chown -h "$LOCALSYNC_USER" "$DESKTOP_DIR/LocalSync" 2>/dev/null || true
+      chown "$LOCALSYNC_USER" "$SYNC_HOME" 2>/dev/null || true
+    fi
+    echo
+    echo "${GREEN}✓ Added a 'LocalSync' shortcut to your desktop.${RESET}"
+    echo "  Drop files into your synced folder there to send them to your phone."
+    echo "  It's only a shortcut - delete it any time; your files stay in Documents -> LocalSync."
+  fi
+fi
+
 # ── Setup details, last - not the headline, just for reference ──────────
 echo
 echo "Setup details:"

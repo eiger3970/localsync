@@ -2773,6 +2773,28 @@ class _SettingsScreenState extends State<SettingsScreen>
             ],
           ),
           const SizedBox(height: 10),
+          // 2026-09-25: Ken - users need to know where to drop files on
+          // the desktop for the phone, without hunting for it.
+          FutureBuilder<String?>(
+            future: context
+                .read<RepositoryProvider>()
+                .getDesktopVaultPathFor(repo.remotePath),
+            builder: (_, snap) {
+              final custom = (snap.data ?? '').trim();
+              final where = custom.isNotEmpty
+                  ? custom
+                  : 'Documents -> LocalSync -> ${repo.name}';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                    'On your desktop: $where\n'
+                    'Drop files in there to send them to this phone. '
+                    'The LocalSync shortcut on the desktop opens it - '
+                    'deleting that shortcut deletes nothing.',
+                    style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
+              );
+            },
+          ),
           Text('How often your desktop syncs by itself.',
               style: TextStyle(color: kStar, fontSize: 14, height: 1.4)),
           const SizedBox(height: 6),
