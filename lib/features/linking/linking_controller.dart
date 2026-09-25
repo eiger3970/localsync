@@ -587,7 +587,10 @@ class LinkingController extends ChangeNotifier {
           sshPublicKeyPath: _publicKeyPath!,
           sshPort: sshPort,
           deviceName: deviceName,
-          desktopVaultPath: desktopVaultPath,
+          // 2026-09-25: this folder's own desktop path, never another
+          // synced folder's (see DatabaseService.getDesktopVaultPathFor).
+          desktopVaultPath:
+              await DatabaseService().getDesktopVaultPathFor(bareRepoPath),
         );
         final result = await git.pullFromBareRepo();
         if (result case StepFailure()) {
