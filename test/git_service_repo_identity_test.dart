@@ -38,4 +38,19 @@ void main() {
           isNull);
     });
   });
+  group('sshRepoUrl', () {
+    test('relative path becomes home-relative, not glued to the port', () {
+      final u = sshRepoUrl('rapi5', '172.20.10.11', 22, 'Documents/Git/LocalSync/free_1.git');
+      expect(u, 'ssh://rapi5@172.20.10.11:22/~/Documents/Git/LocalSync/free_1.git');
+      expect(bareRepoPathFromSshUrl(u), 'Documents/Git/LocalSync/free_1.git');
+    });
+    test('absolute path unchanged', () {
+      final u = sshRepoUrl('rapi5', 'h', 22, '/home/rapi5/x.git');
+      expect(u, 'ssh://rapi5@h:22/home/rapi5/x.git');
+      expect(bareRepoPathFromSshUrl(u), '/home/rapi5/x.git');
+    });
+  });
 }
+
+// 2026-09-25: "invalid url: malformed hostname" on a brand-new setup - a
+// relative repo path glued straight after the port.

@@ -29,7 +29,25 @@ import '../generated/desktop_sync_script.dart';
 /// a mismatch.
 String? bareRepoPathFromSshUrl(String url) {
   final match = RegExp(r'^ssh://[^@]+@[^:]+:\d+(.+)$').firstMatch(url);
-  return match?.group(1);
+  final path = match?.group(1);
+  // Undo sshRepoUrl's home-relative form, so a stored relative path
+  // ("Documents/Git/...") compares equal to its own URL.
+  if (path != null && path.startsWith('/~/')) return path.substring(3);
+  return path;
+}
+
+/// 2026-09-25: real error, live, free-version test - "GIT_ERROR_NET:
+/// invalid url: malformed hostname". A new setup names its desktop repo
+/// relative to the desktop home ("Documents/Git/LocalSync/<name>.git"),
+/// and gluing that straight after the port gave
+/// "ssh://user@host:22Documents/..." - the port ran into the path. Every
+/// brand-new user hit it; older setups had absolute paths. A relative
+/// path is now written as "/~/Documents/..." (home-relative, which
+/// libgit2 and git-upload-pack both understand); absolute paths are
+/// unchanged.
+String sshRepoUrl(String user, String host, int port, String repoPath) {
+  final p = repoPath.startsWith('/') ? repoPath : '/~/$repoPath';
+  return 'ssh://$user@$host:$port$p';
 }
 
 /// 2026-09-24: the desktop repo path a vault folder is ALREADY linked
@@ -135,7 +153,7 @@ class GitServiceImpl implements GitService {
     this.desktopVaultPath,
   });
 
-  String get _remoteUrl => 'ssh://$sshUser@$sshHost:$sshPort$bareRepoPath';
+  String get _remoteUrl => sshRepoUrl(sshUser, sshHost, sshPort, bareRepoPath);
 
   /// 2026-09-24: where pullFromBareRepo's first-clone backup went
   /// (vault-relative), or null if the folder was empty and nothing
