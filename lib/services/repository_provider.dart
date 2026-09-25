@@ -4,6 +4,7 @@ import 'desktop_schedule.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../features/linking/linking_state.dart';
 import '../models/repository.dart';
 import '../models/commit_template.dart';
@@ -202,9 +203,16 @@ class RepositoryProvider extends ChangeNotifier {
         orElse: () => _repos.first);
   }
 
+  // 2026-09-25: Ken pushed the wrong folder twice - after an update the
+  // app fell back to the first folder. The chosen folder is now remembered
+  // on this phone across restarts and updates.
+  static const _kSelectedRepoKey = 'selected_repo_id';
   void selectRepo(int id) {
     _selectedRepoId = id;
     notifyListeners();
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_kSelectedRepoKey, id))
+        .catchError((_) => true);
   }
 
   // ── Device name ─────────────────────────────────────────────────────────────
@@ -304,6 +312,10 @@ class RepositoryProvider extends ChangeNotifier {
     // NOT stable across reinstalls; that whole class of problem doesn't
     // apply to a bookmark into a different app's stable storage.
     await Future.wait([_loadRepos(), _loadTemplates()]);
+    try {
+      _selectedRepoId ??=
+          (await SharedPreferences.getInstance()).getInt(_kSelectedRepoKey);
+    } catch (_) {}
     _loading = false;
     notifyListeners();
     // 2026-09-24: Conflicts row colour right from app start - see
@@ -734,6 +746,9 @@ class RepositoryProvider extends ChangeNotifier {
     // via the app-bar switcher.
     _selectedRepoId = id;
     notifyListeners();
+    SharedPreferences.getInstance()
+        .then((p) => p.setInt(_kSelectedRepoKey, id))
+        .catchError((_) => true);
   }
 
   Future<void> removeRepository(int id) async {
