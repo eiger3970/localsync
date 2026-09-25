@@ -80,7 +80,9 @@ Future<String?> backupVaultIfNotEmpty(String vaultPath) async {
   // Projects/LocalSync, see localsync_folder.dart), and skipping the
   // whole "Projects" name would silently leave real notes out of the
   // backup.
-  final backupName = 'Vault Backup ${backupTimestamp()}';
+  // 2026-09-25: Ken - free users sync plain folders; "Vault" is Obsidian
+  // talk that confuses them. Plain "Backup <date>" for everyone.
+  final backupName = 'Backup ${backupTimestamp()}';
   final skipPaths = {
     for (final f in localSyncFolders(vaultPath)) '$vaultPath/$f',
   };
