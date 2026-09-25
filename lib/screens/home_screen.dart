@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
@@ -1147,13 +1148,35 @@ class _SyncGestureZone extends StatelessWidget {
       this.pullKey,
       this.pushKey});
 
+  // 2026-09-25: one sync at a time, from any source - a swipe while a
+  // push, pull or the silent auto-sync is still running is refused
+  // with this message instead of starting a second one.
+  void _showBusy(BuildContext context) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text('Sync running - wait for it to finish',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kStar, fontSize: 16)),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = context.read<RepositoryProvider>();
+    bool isBusy() => provider.isSyncing;
     return Column(
       children: [
         Expanded(
           child: GifSwipeTrigger(
             key: pullKey,
+            isBusy: isBusy,
+            onBusy: () => _showBusy(context),
             caption: 'PULL',
             swipeDown: true,
             // 2026-08-17: "a lot of black space between PULL and
@@ -1187,6 +1210,8 @@ class _SyncGestureZone extends StatelessWidget {
         Expanded(
           child: GifSwipeTrigger(
             key: pushKey,
+            isBusy: isBusy,
+            onBusy: () => _showBusy(context),
             caption: 'PUSH',
             swipeDown: false,
             gifHeight: 198,
@@ -1777,8 +1802,22 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             const SizedBox(height: 6),
             Text(
               '$kNoteAppName support and FOSS collaboration welcome - '
-              'open an issue at codeberg.org/kworld/localsync',
+              'open an issue at',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            // 2026-09-25: real ask, live - "Contact, change url text to a
+            // link." Same kGreen as the FOSS licenses link in this dialog.
+            GestureDetector(
+              onTap: () => launchUrl(
+                  Uri.parse('https://codeberg.org/kworld/localsync'),
+                  mode: LaunchMode.externalApplication),
+              child: Text('codeberg.org/kworld/localsync',
+                  style: TextStyle(
+                      color: kGreen,
+                      fontSize: 13,
+                      height: 1.6,
+                      decoration: TextDecoration.underline,
+                      decorationColor: kGreen)),
             ),
             const SizedBox(height: 20),
             const _AboutHeader(
@@ -1806,39 +1845,6 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               'Raspberry Pi, Terminal, Text Editor, Transport Lausanne, '
               'Vim',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
-              onPressed: () => showLicensePage(
-                context: context,
-                applicationName: 'LocalSync',
-                applicationVersion: kAppVersion,
-              ),
-              // 2026-09-17: real ask, live - "maybe gnu animal?" User
-              // sourced the actual file themselves (gnu.org's own
-              // gnu-profile.svg, the plain silhouette - the more
-              // detailed gnuhead_plain.svg turned illegible at icon
-              // scale when both were previewed side by side). Copied
-              // in untouched, tinted via colorFilter same as the
-              // pairing screen's key/lock icons.
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset('assets/logos/gnu-profile.svg',
-                      width: 16,
-                      colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
-                  const SizedBox(width: 6),
-                  // 2026-09-18: real ask, live - "Open-source
-                  // licences, change to FOSS licences?" Matches the
-                  // CONTACT section's own "FOSS collaboration welcome"
-                  // wording just above - one consistent term instead
-                  // of two for the same idea.
-                  Text('FOSS licenses',
-                      style: TextStyle(color: kGreen, fontSize: 13)),
-                ],
-              ),
             ),
             const SizedBox(height: 20),
             const _AboutHeader(
@@ -1883,6 +1889,46 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               '1 copy kept off-site (SSD USB enclosure FTW) - LocalSync '
               'it there too, a 3rd device on top of the pair above',
               style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            // 2026-09-25: real ask, live - "FOSS licences, why not
+            // alphabetical? Listed before disclaimer." Was an unlabeled
+            // link tucked under CREDITS; now its own section in
+            // alphabetical order (CONTACT, CREDITS, DISCLAIMER, FOSS
+            // LICENSES, SETUP GUIDE, SUPPORT).
+            const _AboutHeader(
+                icon: Icons.description_outlined, label: 'FOSS LICENSES'),
+            TextButton(
+              style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: 'LocalSync',
+                applicationVersion: kAppVersion,
+              ),
+              // 2026-09-17: real ask, live - "maybe gnu animal?" User
+              // sourced the actual file themselves (gnu.org's own
+              // gnu-profile.svg, the plain silhouette - the more
+              // detailed gnuhead_plain.svg turned illegible at icon
+              // scale when both were previewed side by side). Copied
+              // in untouched, tinted via colorFilter same as the
+              // pairing screen's key/lock icons.
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SvgPicture.asset('assets/logos/gnu-profile.svg',
+                      width: 16,
+                      colorFilter: ColorFilter.mode(kGreen, BlendMode.srcIn)),
+                  const SizedBox(width: 6),
+                  // 2026-09-18: real ask, live - "Open-source
+                  // licences, change to FOSS licences?" Matches the
+                  // CONTACT section's own "FOSS collaboration welcome"
+                  // wording just above - one consistent term instead
+                  // of two for the same idea.
+                  Text('FOSS licenses',
+                      style: TextStyle(color: kGreen, fontSize: 13)),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             // 2026-08-21: real feedback, live - "where is the manual

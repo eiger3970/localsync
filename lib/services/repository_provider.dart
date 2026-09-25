@@ -456,15 +456,23 @@ class RepositoryProvider extends ChangeNotifier {
   // sync operations ever run at once, full stop, matching what the
   // crash log actually showed was unsafe.
   Future<void>? _inFlight;
+  bool get isSyncing => _inFlight != null;
 
   Future<SyncResult?> _run(
     int id,
     Stream<SyncEvent> Function(SyncService) op,
   ) async {
+    // 2026-09-25: real crash, .ips log showed THREE DartWorker threads in
+    // git_remote_fetch's SSH handshake at once - the actual root cause of
+    // the 09-18/09-22 crashes, not isolate teardown. _inFlight used to be
+    // claimed only AFTER awaiting `prior`, so with 3+ callers queued, the
+    // 2nd and 3rd both captured the same `prior`, both woke when it
+    // finished, and ran together. Claiming the slot synchronously, before
+    // any await, makes every caller chain behind the one before it.
     final prior = _inFlight;
-    if (prior != null) await prior.catchError((_) {});
     final completer = Completer<void>();
     _inFlight = completer.future;
+    if (prior != null) await prior.catchError((_) {});
     try {
       return await _runLocked(id, op);
     } finally {
