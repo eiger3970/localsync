@@ -210,7 +210,9 @@ class _FloatingHeartsState extends State<FloatingHearts>
         x: 0.5 + (rng.nextDouble() - 0.5) * 0.5,
         startOffset: rng.nextDouble(),
         speed: 0.6 + rng.nextDouble() * 0.5,
-        size: 7 + rng.nextDouble() * 6,
+        // 2026-09-25: Ken - "Hearts are too small, the bigger ones were
+        // better." Back to the pre-2026-09-17 size range (10-21).
+        size: 10 + rng.nextDouble() * 11,
         drift: (rng.nextDouble() - 0.5) * 0.15,
         driftPhase: rng.nextDouble() * 2 * pi,
       ),
