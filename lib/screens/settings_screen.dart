@@ -1099,6 +1099,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                               decoration: TextDecoration.underline,
                               decorationColor: Colors.blue.shade900)),
                     ),
+                    // 2026-09-25: Ken - installing on the desktop is "unconventional
+                    // for installing a phone app, then doing something in a
+                    // physically different location... just in case, the guide
+                    // is there." One tap to the picture guide, right where the
+                    // desktop step starts.
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => launchUrl(
+                          Uri.parse('https://kworld.space/localsync/guide'),
+                          mode: LaunchMode.externalApplication),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.menu_book_outlined,
+                              color: Colors.blue.shade900, size: 18),
+                          const SizedBox(width: 6),
+                          Text('Lost? Picture guide',
+                              style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.blue.shade900)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     // 2026-09-04: real feedback, live - "no verbose
                     // text, only clear visuals" then "the key is to see
