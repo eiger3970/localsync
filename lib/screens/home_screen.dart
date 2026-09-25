@@ -819,6 +819,10 @@ class HomeScreen extends StatelessWidget {
                 } else {
                   onPush();
                 }
+              } else if (pendingQuickAction == 'action_desktop') {
+                // 2026-09-25: the widget's bottom-right desktop icon -
+                // same as ⋮ -> Desktop sync.
+                _triggerDesktopSyncNow(context, provider, repo.id!);
               }
             });
           }
