@@ -57,6 +57,7 @@
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
 import 'desktop_schedule.dart';
+import 'git_service.dart' show sshRepoUrl;
 import 'dart:async' show StreamController;
 import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
@@ -420,7 +421,7 @@ class SyncService {
       );
 
   String get _remoteUrl =>
-      'ssh://$remoteUser@$remoteHost:$remotePort$remotePath';
+      sshRepoUrl(remoteUser, remoteHost, remotePort, remotePath);
 
   /// Bring remote changes down. Commits any dirty local tree first
   /// (established app behavior - doesn't block the user on git plumbing
