@@ -27,9 +27,7 @@ for CI (the App Store build pipeline needs a macOS runner).
 
 ## Desktop setup
 
-See [docs/desktop-setup.md](docs/desktop-setup.md) for the full guide - git,
-SSH, and auto-discovery, covered by one terminal command or a double-click
-file for Mac/Linux.
+Picture guide: https://kworld.space/localsync/guide
 
 ## Support
 
