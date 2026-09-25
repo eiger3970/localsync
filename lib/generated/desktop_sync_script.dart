@@ -35,11 +35,16 @@ set -euo pipefail
 
 # ── Config - override via environment, or edit these defaults ────────────────
 # Matches docs/desktop-setup.md's documented bare-repo convention.
-VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/vault}"
+# 2026-09-25: more than one vault/folder per desktop (Ken's free-version
+# test next to his real vault). The default desktop folder and the lock are
+# now per bare repo: ~/Documents/LocalSync/<repo name> (so the setup
+# default, vault.git, still lands in ~/Documents/LocalSync/vault), and one
+# lock per repo, so two schedules never skip each other's runs.
 BARE_REPO="${LOCALSYNC_BARE_REPO:-$HOME/Documents/Git/LocalSync/vault.git}"
+VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/$(basename "$BARE_REPO" .git)}"
 BRANCH="${LOCALSYNC_BRANCH:-main}"
 LOG="${LOCALSYNC_LOG:-$HOME/.localsync_sync.log}"
-LOCK="/tmp/localsync_sync.lock"
+LOCK="/tmp/localsync_sync_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1).lock"
 # Reuses the user's own proven repair script directly rather than a
 # forked copy - override if this repo is checked out somewhere else.
 REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/Documents/Scripts/repair_conflicts.py}"

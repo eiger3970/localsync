@@ -41,17 +41,22 @@ Future<void> saveDesktopSchedule(DesktopSchedule s) async {
   await prefs.setString(_kDesktopScheduleKey, s.name);
 }
 
-/// Shell command that replaces LocalSync's crontab line on the desktop -
-/// removes any existing localsync_sync.sh line, then adds one back unless
-/// [schedule] is manual. [escapedRepo] and [vaultEnv] are already
-/// shell-quoted, same as the callers built them before this existed.
+/// Shell command that replaces THIS repo's LocalSync crontab line on the
+/// desktop, then adds it back unless [schedule] is manual. [escapedRepo]
+/// and [vaultEnv] are already shell-quoted, same as the callers built them.
+///
+/// 2026-09-25: used to drop EVERY localsync_sync.sh line - so setting up a
+/// second vault/folder on the same desktop (Ken's free-version test next to
+/// his real vault) silently removed the first vault's schedule. Now only
+/// the line for this bare repo is replaced; other vaults' lines stay.
 String desktopCronCommand({
   required DesktopSchedule schedule,
   required String escapedRepo,
   required String vaultEnv,
   required String scriptPath,
 }) {
-  final keep = '(crontab -l 2>/dev/null | grep -v localsync_sync.sh';
+  final thisRepo = "LOCALSYNC_BARE_REPO='$escapedRepo'";
+  final keep = '(crontab -l 2>/dev/null | grep -vF "$thisRepo"';
   final cron = schedule.cron;
   if (cron == null) return '$keep) | crontab -';
   return '$keep; echo "$cron LOCALSYNC_BARE_REPO=\'$escapedRepo\' $vaultEnv'
