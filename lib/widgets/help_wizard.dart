@@ -234,14 +234,16 @@ class _WorkflowStep {
 // genuinely does a full two-way sync each run (fetch, merge, push) -
 // "sync" in the button's name means exactly that, not a third, separate
 // operation from push/pull.
-const _desktopPushNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'send its data first - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Desktop sync if you don't want to wait (it "
-    'runs both directions at once, so this covers it either way.)';
-const _desktopPullNote = 'Your OTHER device (computer/desktop/laptop) must '
-    'receive the data - happens automatically every few minutes once '
-    "paired, or tap ⋮ then Desktop sync if you don't want to wait (it "
-    'runs both directions at once, so this covers it either way.)';
+// 2026-09-25: real feedback, live - "Desktop push, what is 'it'? Do you
+// mean LocalSync? Can this verbose paragraph be presented more
+// clearly?" One run-on sentence with a vague "it" -> two short lines:
+// what happens by itself, then the exact route to do it now.
+const _desktopPushNote = 'Desktop sends its changes by itself every few '
+    'minutes.\nTo send now: LocalSync main screen -> ⋮ -> Desktop sync '
+    '(sends and receives in one go).';
+const _desktopPullNote = 'Desktop receives changes by itself every few '
+    'minutes.\nTo receive now: LocalSync main screen -> ⋮ -> Desktop sync '
+    '(sends and receives in one go).';
 
 // PUSH always points north-east (sending out), PULL always points
 // south-west (receiving in) - one consistent direction language across

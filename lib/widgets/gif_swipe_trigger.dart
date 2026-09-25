@@ -45,6 +45,14 @@ class GifSwipeTrigger extends StatefulWidget {
   // wait for the full, honest animation instead of just the network
   // call.
   final VoidCallback? onSettled;
+  // 2026-09-25: real ask, live - "once one swipe is successful, further
+  // swipes don't disturb the action until said action is complete."
+  // Each trigger's own _playing only guards itself - a PUSH swipe while
+  // a PULL (or the silent auto-sync) was running still started a second
+  // sync. When isBusy() says a sync is already running anywhere, the
+  // swipe is refused before the animation starts and onBusy explains.
+  final bool Function()? isBusy;
+  final VoidCallback? onBusy;
   const GifSwipeTrigger({
     super.key,
     this.assetPath,
@@ -55,6 +63,8 @@ class GifSwipeTrigger extends StatefulWidget {
     required this.onConfirm,
     this.onSettled,
     this.animationBuilder,
+    this.isBusy,
+    this.onBusy,
   }) : assert(assetPath != null || animationBuilder != null,
             'GifSwipeTrigger needs either assetPath or animationBuilder');
 
@@ -145,6 +155,10 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
   }
 
   void _triggerConfirm() {
+    if (widget.isBusy?.call() ?? false) {
+      widget.onBusy?.call();
+      return;
+    }
     _anim?.trigger(widget.onConfirm).then((_) {
       if (mounted) widget.onSettled?.call();
     });

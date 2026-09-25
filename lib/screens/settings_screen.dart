@@ -2627,8 +2627,11 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   // 2026-09-24: on/off for the completion chimes (sound_service.dart).
-  // Turning it ON plays the push chime once, so the switch doubles as a
-  // "what does it sound like" preview.
+  // 2026-09-25: real feedback, live - "Sounds on switch makes horrible
+  // sound, different from the app's real sound... misleading." Then:
+  // "it's a good opportunity to preview the user to what to expect,
+  // maybe add the desktop succeeded sound?" Turning it ON now plays the
+  // Desktop sync chime (was the push chime).
   Widget _buildSoundsCard() {
     return Container(
       width: double.infinity,
@@ -2663,7 +2666,10 @@ class _SettingsScreenState extends State<SettingsScreen>
             onChanged: (v) async {
               setState(() => _soundsOn = v);
               await SoundService.instance.setEnabled(v);
-              if (v) unawaited(SoundService.instance.play(SoundEvent.push));
+              if (v) {
+                unawaited(
+                    SoundService.instance.play(SoundEvent.desktopSync));
+              }
             },
           ),
         ],
@@ -2705,37 +2711,40 @@ class _SettingsScreenState extends State<SettingsScreen>
             style: TextStyle(color: kStar, fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _lsFolderCtrl,
-            enabled: !_lsFolderBusy,
-            autocorrect: false,
-            style: TextStyle(color: kStar, fontSize: 16),
-            decoration: InputDecoration(
-              hintText: 'e.g. Projects/LocalSync',
-              hintStyle: TextStyle(color: kTextDim),
-              enabledBorder:
-                  OutlineInputBorder(borderSide: BorderSide(color: kBorder)),
-              focusedBorder:
-                  OutlineInputBorder(borderSide: BorderSide(color: kGreen)),
-            ),
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _saveLocalSyncFolder(),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed:
-                  _lsFolderBusy || !changed ? null : _saveLocalSyncFolder,
-              // "SAVE FOLDER", not "SAVE" - this screen already has its
-              // own bottom Save button for the pairing fields, and this
-              // one saves immediately, on its own.
-              child: Text('SAVE FOLDER',
-                  style: TextStyle(
-                      color: changed ? kGreen : kTextDim,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2)),
-            ),
+          // 2026-09-25: real feedback, live - "can this move up to same
+          // line as field? Seems like a lot of space wasted." Save sits
+          // right of the field now, not on its own row under it.
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _lsFolderCtrl,
+                  enabled: !_lsFolderBusy,
+                  autocorrect: false,
+                  style: TextStyle(color: kStar, fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Projects/LocalSync',
+                    hintStyle: TextStyle(color: kTextDim),
+                    enabledBorder:
+                        OutlineInputBorder(borderSide: BorderSide(color: kBorder)),
+                    focusedBorder:
+                        OutlineInputBorder(borderSide: BorderSide(color: kGreen)),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  onSubmitted: (_) => _saveLocalSyncFolder(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed:
+                    _lsFolderBusy || !changed ? null : _saveLocalSyncFolder,
+                child: Text('SAVE',
+                    style: TextStyle(
+                        color: changed ? kGreen : kTextDim,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2)),
+              ),
+            ],
           ),
         ],
       ),
