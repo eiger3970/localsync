@@ -44,6 +44,11 @@ void main() {
       expect(u, 'ssh://rapi5@172.20.10.11:22/~/Documents/Git/LocalSync/free_1.git');
       expect(bareRepoPathFromSshUrl(u), 'Documents/Git/LocalSync/free_1.git');
     });
+    test('a broken saved address counts as the same repo (so it gets repaired)', () {
+      const broken = 'ssh://rapi5@172.20.10.11:22Documents/Git/LocalSync/free_1.git';
+      final fixed = sshRepoUrl('rapi5', '172.20.10.11', 22, 'Documents/Git/LocalSync/free_1.git');
+      expect(bareRepoPathFromSshUrl(broken), bareRepoPathFromSshUrl(fixed));
+    });
     test('absolute path unchanged', () {
       final u = sshRepoUrl('rapi5', 'h', 22, '/home/rapi5/x.git');
       expect(u, 'ssh://rapi5@h:22/home/rapi5/x.git');

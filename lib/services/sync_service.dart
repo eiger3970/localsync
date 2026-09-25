@@ -57,7 +57,7 @@
 // SyncPhase lives in models/repository.dart — not duplicated here.
 
 import 'desktop_schedule.dart';
-import 'git_service.dart' show sshRepoUrl;
+import 'git_service.dart' show sshRepoUrl, lookupOrigin;
 import 'dart:async' show StreamController;
 import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
@@ -1247,7 +1247,8 @@ Future<SyncResult> _withRepo(
       finishMergeCommit(repo, p.deviceName);
       repo.stateCleanup();
     }
-    remote = git.Remote.lookup(repo: repo, name: 'origin');
+    // 2026-09-25: repair a saved broken address first (see lookupOrigin).
+    remote = lookupOrigin(repo, p.remoteUrl);
     return op(repo, remote, callbacks);
   } catch (e) {
     return SyncFailed(_diagnose(e), debugDetail: e.toString());

@@ -50,6 +50,27 @@ String sshRepoUrl(String user, String host, int port, String repoPath) {
   return 'ssh://$user@$host:$port$p';
 }
 
+/// 2026-09-25: the origin remote, with a saved broken address repaired
+/// first. A setup that failed on build 208 or older left
+/// "ssh://user@host:22Documents/..." in the folder's .git/config, and
+/// every later attempt reused it - "invalid url: malformed hostname"
+/// even on the fixed build. When the saved address points at the SAME
+/// desktop repo (same path) but isn't the address LocalSync would write
+/// today (broken, or the desktop's IP changed), it's rewritten to
+/// [expectedUrl]. A different repo is left alone - that's the identity
+/// check's job, not this.
+Remote lookupOrigin(Repository repo, String expectedUrl) {
+  final remote = Remote.lookup(repo: repo, name: 'origin');
+  final current = remote.url;
+  if (current == expectedUrl) return remote;
+  final samePath = bareRepoPathFromSshUrl(current) != null &&
+      bareRepoPathFromSshUrl(current) == bareRepoPathFromSshUrl(expectedUrl);
+  if (!samePath) return remote;
+  remote.free();
+  Remote.setUrl(repo: repo, remote: 'origin', url: expectedUrl);
+  return Remote.lookup(repo: repo, name: 'origin');
+}
+
 /// 2026-09-24: the desktop repo path a vault folder is ALREADY linked
 /// to, read straight from its .git/config (plain text - no libgit2, so
 /// unit-testable here too). Null if the folder has no git link yet or
@@ -428,7 +449,7 @@ class GitServiceImpl implements GitService {
           originUrl: _remoteUrl,
         );
         try {
-          final remote = Remote.lookup(repo: repo, name: 'origin');
+          final remote = lookupOrigin(repo, _remoteUrl);
           // 2026-08-30: real device bug - "cannot locate remote-tracking
           // branch 'origin/main'" on a brand new phone folder. A bare
           // repo fresh from `git init --bare` (prepareBareRepo above) has
@@ -521,7 +542,7 @@ class GitServiceImpl implements GitService {
               repo, 'Vault contents before linking', deviceName);
         }
 
-        final remote = Remote.lookup(repo: repo, name: 'origin');
+        final remote = lookupOrigin(repo, _remoteUrl);
         // 2026-09-06: real incident - this vault folder's own remote,
         // set the last time it was linked, is what everything below
         // actually syncs against - not _remoteUrl/bareRepoPath, which
@@ -648,7 +669,7 @@ class GitServiceImpl implements GitService {
     try {
       final repo = Repository.open(localVaultPath);
       try {
-        final remote = Remote.lookup(repo: repo, name: 'origin');
+        final remote = lookupOrigin(repo, _remoteUrl);
         remote.push(
           refspecs: ['refs/heads/$defaultBranch:refs/heads/$defaultBranch'],
           callbacks: _callbacks,
@@ -680,7 +701,7 @@ class GitServiceImpl implements GitService {
     try {
       final repo = Repository.open(localVaultPath);
       try {
-        final remote = Remote.lookup(repo: repo, name: 'origin');
+        final remote = lookupOrigin(repo, _remoteUrl);
         final refs = remote.ls(callbacks: _callbacks);
         final head = refs.firstWhere(
           (r) => r.name == 'refs/heads/$defaultBranch',
