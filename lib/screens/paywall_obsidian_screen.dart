@@ -51,8 +51,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
   Future<void> _load() async {
     final offerings = await widget.purchases.getOfferings();
     final package = offerings?.current?.availablePackages
-        .where((p) =>
-            p.storeProduct.identifier.contains(kPkmSyncEntitlementId))
+        .where((p) => p.storeProduct.identifier.contains(kPkmSyncEntitlementId))
         .firstOrNull;
     if (!mounted) return;
     setState(() {
@@ -72,8 +71,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
     try {
       final info = await widget.purchases.purchasePackage(package);
       final unlocked =
-          info?.entitlements.active.containsKey(kPkmSyncEntitlementId) ??
-              false;
+          info?.entitlements.active.containsKey(kPkmSyncEntitlementId) ?? false;
       if (!mounted) return;
       if (unlocked) {
         Navigator.pop(context, true);
@@ -196,8 +194,7 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                        color: wCream,
-                        border: Border.all(color: _pVioletBg)),
+                        color: wCream, border: Border.all(color: _pVioletBg)),
                     child: Text('Coming soon',
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -218,19 +215,25 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                   // once kPkmSyncEntitlementId has a real, purchasable
                   // RevenueCat product and this branch can go back to
                   // being a dead end.
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context, true),
-                    // 2026-09-18: real feedback, live - "Text under
-                    // Coming soon too small." 11px -> 13px, matching
-                    // the sibling Keep Both & Clean Up screen's fix.
-                    child: Text('Skip for testing (no product configured yet)',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: wInkDim,
-                            fontSize: 13,
-                            decoration: TextDecoration.underline)),
-                  ),
+                  // 2026-09-26: store builds (TestFlight/App Store) never show this -
+                  // strangers could unlock for free while products fail to load.
+                  // Sideloaded dev builds (no STORE_BUILD) keep it for testing.
+                  if (!kIsStoreBuild) ...[
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context, true),
+                      // 2026-09-18: real feedback, live - "Text under
+                      // Coming soon too small." 11px -> 13px, matching
+                      // the sibling Keep Both & Clean Up screen's fix.
+                      child: Text(
+                          'Skip for testing (no product configured yet)',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: wInkDim,
+                              fontSize: 13,
+                              decoration: TextDecoration.underline)),
+                    ),
+                  ],
                 ],
                 if (_error != null) ...[
                   const SizedBox(height: 8),
@@ -271,8 +274,8 @@ class _Bullet extends StatelessWidget {
           Container(
             width: 20,
             height: 20,
-            decoration: const BoxDecoration(
-                color: _pVioletBg, shape: BoxShape.circle),
+            decoration:
+                const BoxDecoration(color: _pVioletBg, shape: BoxShape.circle),
             child: Icon(Icons.check, color: _pVioletDark, size: 14),
           ),
           const SizedBox(width: 10),

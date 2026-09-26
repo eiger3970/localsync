@@ -3211,14 +3211,9 @@ class _CustomiseSkinTile extends StatelessWidget {
               'want, and it gets designed as a real skin for you.',
               style: TextStyle(color: kTextMid, fontSize: 13.5, height: 1.4),
             ),
-            const SizedBox(height: 10),
-            // Placeholder - see this class's own header comment for why.
-            Text('Price: TBD (placeholder)',
-                style: TextStyle(
-                    color: kTextDim,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5)),
+            // 2026-09-26: "Price: TBD (placeholder)" line removed before
+            // external TestFlight testers - add a real price here once
+            // one exists.
           ],
         ),
         actions: [
