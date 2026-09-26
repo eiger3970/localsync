@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/purchase_service.dart';
 import '../theme.dart';
 
@@ -147,7 +148,9 @@ class _PaywallKeepBothCleanupScreenState
               const _Bullet(
                   text: 'Falls back to the free behavior automatically if '
                       'any entry has no clock time'),
-              const _Bullet(text: 'Pay once. No subscription, ever.'),
+              // 2026-09-26: Auto merge is now a yearly subscription
+              // (US$49.99/year) - was "Pay once. No subscription, ever."
+              const _Bullet(text: 'Yearly - cancel anytime'),
               const Spacer(),
               if (_busy)
                 Center(
@@ -170,7 +173,7 @@ class _PaywallKeepBothCleanupScreenState
                             offset: const Offset(0, 4)),
                       ],
                     ),
-                    child: Text('Unlock clean up - $_priceLabel',
+                    child: Text('Unlock clean up - $_priceLabel / year',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             color: Colors.black,
@@ -233,6 +236,32 @@ class _PaywallKeepBothCleanupScreenState
                   ),
                 ],
               ),
+              // Apple requires this for auto-renewable subscriptions:
+              // price + period, auto-renew terms, Terms and Privacy links.
+              const SizedBox(height: 10),
+              Text(
+                '${_priceLabel ?? ''} per year. Renews automatically unless '
+                'cancelled at least 24 hours before the year ends. Manage '
+                'or cancel in iPhone Settings -> Apple Account -> '
+                'Subscriptions.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: kTextDim, height: 1.4),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _LegalLink(
+                      label: 'Terms of Use',
+                      url: 'https://www.apple.com/legal/internet-services/'
+                          'itunes/dev/stdeula/'),
+                  Text('  ·  ',
+                      style: TextStyle(fontSize: 10, color: kTextDim)),
+                  const _LegalLink(
+                      label: 'Privacy Policy',
+                      url: 'https://kworld.space/privacy'),
+                ],
+              ),
             ],
           ),
         ),
@@ -264,6 +293,24 @@ class _Bullet extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  final String label;
+  final String url;
+  const _LegalLink({required this.label, required this.url});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10,
+              color: kTextDim,
+              decoration: TextDecoration.underline)),
     );
   }
 }
