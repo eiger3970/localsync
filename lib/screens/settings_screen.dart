@@ -24,13 +24,15 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../widgets/pulsing_glow.dart';
-import '../models/repository.dart' show SyncMode;
+import '../models/repository.dart' show Repository, SyncMode;
 import '../services/repository_provider.dart';
 import '../services/localsync_folder.dart';
 import '../services/sound_service.dart';
 import '../services/vault_backup.dart' show kLocalSyncFolderName;
 import '../services/vault_folder_service.dart';
 import 'qr_scan_screen.dart';
+import 'reminders_screen.dart';
+import 'security_info_screen.dart';
 import '../services/desktop_schedule.dart';
 import '../services/sync_service.dart' show SyncOk;
 import '../services/theme_service.dart';
@@ -58,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   // (desktop vault path) and the "git bare repo path" wording on field 3.
   // Pairing a new folder follows the choice made on the welcome screen;
   // otherwise the folder currently selected on the main screen.
+  Repository? get _repo => context.watch<RepositoryProvider>().selectedRepo;
+
   bool get _isFreeFolder {
     if (widget.neededForPairing) {
       return context.read<LinkingController>().preferredMode ==
@@ -1308,6 +1312,38 @@ class _SettingsScreenState extends State<SettingsScreen>
             // not the sequential locking that screen also does (flagged
             // separately - this page is also used to edit one already-
             // configured field later, which a hard lock would break).
+            // 2026-09-26: set-once items moved here from the kebab menu
+            // (kebab = everyday actions, Settings = set once). Sections
+            // alphabetical: About, Auto pull, Connection (Pair + fields
+            // 1-4 + Remove), Desktop sync timer, Device name, LocalSync
+            // folder, Reminder backup, Security, Skins, Sounds.
+            // Tiles that need home screen flows pop with the same action
+            // value the kebab used - home_screen.dart runs it.
+            if (!widget.neededForPairing) ...[
+              _SettingsTile(
+                  icon: Icons.info_outline,
+                  label: 'About',
+                  onTap: () => Navigator.pop(context, 'about')),
+              if (_repo != null)
+                _SettingsTile(
+                  icon: Icons.sync,
+                  label: 'Auto pull',
+                  subtitle: 'Pull every time the app opens',
+                  trailing: Switch(
+                    value: _repo!.autoSync,
+                    activeColor: kGreen,
+                    onChanged: (_) => context
+                        .read<RepositoryProvider>()
+                        .toggleAutoSync(_repo!.id!),
+                  ),
+                ),
+              _SettingsTile(
+                  svgAsset: 'assets/pairing/pairing_phone_key.svg',
+                  label: 'Pair with desktop',
+                  subtitle: 'New phone, or lost connection',
+                  onTap: () => Navigator.pop(context, 'pair')),
+              const SizedBox(height: 28),
+            ],
             Text('1. DESKTOP USERNAME',
                 style: TextStyle(
                     color: _stepColor,
@@ -2575,6 +2611,16 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
             ],
+            if (!widget.neededForPairing && _repo != null) ...[
+              const SizedBox(height: 28),
+              _SettingsTile(
+                  icon: Icons.link_off,
+                  iconColor: Colors.redAccent,
+                  label: 'Remove this connection',
+                  labelColor: Colors.redAccent,
+                  subtitle: 'Stops syncing this folder - files stay',
+                  onTap: () => Navigator.pop(context, 'delete')),
+            ],
             // 2026-08-30: real device feedback - "Skins needs to be
             // better separated from the 3 steps, which will add
             // confusion to new users setting up pairing." Both cards
@@ -2590,8 +2636,32 @@ class _SettingsScreenState extends State<SettingsScreen>
               // reason); IN DEVELOPMENT stays last, it isn't a setting.
               _buildDesktopSyncCard(),
               const SizedBox(height: 28),
+              _SettingsTile(
+                  icon: Icons.smartphone,
+                  label: 'Device name',
+                  subtitle: 'Shown in sync conflicts',
+                  onTap: () => Navigator.pop(context, 'device_name')),
+              const SizedBox(height: 28),
               _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
+              if (_repo != null) ...[
+                _SettingsTile(
+                    icon: Icons.notifications_outlined,
+                    label: 'Reminder backup',
+                    subtitle: 'Widget colours & sync notifications',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RemindersScreen()))),
+                _SettingsTile(
+                    icon: Icons.shield_outlined,
+                    label: 'Security',
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SecurityInfoScreen()))),
+                const SizedBox(height: 28),
+              ],
               _buildSkinsCard(),
               const SizedBox(height: 28),
               _buildSoundsCard(),
@@ -3285,6 +3355,65 @@ class _CustomiseSkinTile extends StatelessWidget {
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// 2026-09-26: one row style for the items moved in from the kebab menu -
+// same icon + label + one-line subtitle shape as the kebab's _MenuRow.
+class _SettingsTile extends StatelessWidget {
+  final IconData? icon;
+  final String? svgAsset;
+  final Color? iconColor;
+  final String label;
+  final Color? labelColor;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  const _SettingsTile({
+    this.icon,
+    this.svgAsset,
+    this.iconColor,
+    required this.label,
+    this.labelColor,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = iconColor ?? kStar;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            svgAsset != null
+                ? SvgPicture.asset(svgAsset!,
+                    width: 18,
+                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn))
+                : Icon(icon, color: color, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label,
+                      style:
+                          TextStyle(color: labelColor ?? kStar, fontSize: 14)),
+                  if (subtitle != null)
+                    Text(subtitle!,
+                        style: TextStyle(color: kTextMid, fontSize: 13)),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
           ],
         ),
       ),

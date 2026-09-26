@@ -227,69 +227,7 @@ class HomeScreen extends StatelessWidget {
                 // 15dp) and closed just that small real difference.
                 padding: const EdgeInsets.only(left: 0, right: 6),
                 icon: Icon(Icons.more_vert, color: kGreen, size: 22),
-                onSelected: (v) {
-                  if (v == 'deleted' && provider.selectedRepo != null) {
-                    Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => DeletedFilesScreen(repo: provider.selectedRepo!)));
-                  }
-                  if (v == 'pair') _openPairing(context);
-                  if (v == 'link') _openLinking(context);
-                  if (v == 'about') {
-                    // 2026-09-18: real ask, live - "Support floating
-                    // hearts decrease per higher tiers." The only real,
-                    // currently-wired signal for this is repo.syncMode -
-                    // an Obsidian-vault repo can't exist without already
-                    // having gone through the Tier 1 unlock flow
-                    // (PkmSyncUpsell's onUnlocked), while Tier 2/3/4
-                    // aren't gated by a real purchase yet (still
-                    // "ungated during testing," per docs/product-
-                    // tiers.md) - so paid-vs-free is the real
-                    // granularity available today, not a finer ladder.
-                    _showAbout(context,
-                        paidTier: provider.selectedRepo?.syncMode ==
-                            SyncMode.obsidianVault);
-                  }
-                  if (v == 'device_name') _editDeviceName(context, provider);
-                  if (v == 'settings') {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SettingsScreen()));
-                  }
-                  if (v == 'reminders') {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const RemindersScreen()));
-                  }
-                  if (v == 'security') {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SecurityInfoScreen()));
-                  }
-                  final repo = provider.selectedRepo;
-                  if (repo == null) return;
-                  if (v == 'commit') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => CommitScreen(repo: repo)),
-                    );
-                  }
-                  if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
-                  if (v == 'sync_desktop_now') {
-                    _triggerDesktopSyncNow(context, provider, repo.id!);
-                  }
-                  if (v == 'conflicts') {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => ConflictsScreen(repo: repo)))
-                        .then((_) => provider.refreshConflicts(repo.id!));
-                  }
-                  if (v == 'delete') _confirmDelete(context, provider, repo);
-                },
+                onSelected: (v) => _onMenuAction(context, provider, v),
                 // 2026-08-18: full menu cleanup per explicit list - one
                 // flat alphabetical order (About, Conflicts, Connection,
                 // Device name, Pair, Pull, Vault), no dividers. Commit
@@ -334,23 +272,11 @@ class HomeScreen extends StatelessWidget {
                             label: 'Desktop sync',
                             // 2026-09-17: reworded to the user's own
                             // exact wording, used verbatim.
-                            subtitle:
-                                'Runs desktop immediately, rather than '
+                            subtitle: 'Runs desktop immediately, rather than '
                                 'waiting',
                           ),
                         ),
                       ),
-                    // 2026-09-18: real ask, live (round 2) - "About to
-                    // be above Commit with message... alphabetical."
-                    // Restored to before Commit - as a bonus, About,
-                    // Commit and Conflicts now read in genuine
-                    // alphabetical order (A < Comm < Conf) without
-                    // Commit needing to be a special-cased deviation for
-                    // this stretch of the list at all.
-                    const PopupMenuItem(
-                      value: 'about',
-                      child: _MenuRow(icon: Icons.info_outline, label: 'About'),
-                    ),
                     // Commit stays pinned near the top since it's what
                     // gets tapped most once set up is done - a stated
                     // reason to deviate from alphabetical, not an
@@ -375,22 +301,12 @@ class HomeScreen extends StatelessWidget {
                         child: _MenuRow(
                           icon: Icons.compare_arrows,
                           iconColor: provider.selectedRepo != null &&
-                                  provider.hasConflicts(
-                                      provider.selectedRepo!.id!)
+                                  provider
+                                      .hasConflicts(provider.selectedRepo!.id!)
                               ? Colors.amber
                               : null,
                           label: 'Conflicts',
                           subtitle: 'Files with unresolved sync conflicts',
-                        ),
-                      ),
-                    if (hasRepo)
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: _MenuRow(
-                          icon: Icons.link_off,
-                          iconColor: Colors.redAccent,
-                          label: 'Connection of sync - remove',
-                          labelColor: Colors.redAccent,
                         ),
                       ),
                     // 2026-08-18: device-level, not repo-scoped - used as
@@ -406,148 +322,18 @@ class HomeScreen extends StatelessWidget {
                         label: 'Deleted files - restore',
                       ),
                     ),
-                    const PopupMenuItem(
-                      value: 'device_name',
-                      child: _MenuRow(
-                        icon: Icons.smartphone,
-                        label: 'Device name',
-                        subtitle: 'Shown in sync conflicts',
-                      ),
-                    ),
                     PopupMenuItem(
-                      value: 'pair',
-                      // 2026-08-16: "can the key be pairing_phone_key.svg" -
-                      // real key asset from the pairing gesture, not a
-                      // stand-in Material icon like the rest of this menu -
-                      // this one's kept custom since it's already built and
-                      // matches the pairing screen's own theme.
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/pairing/pairing_phone_key.svg',
-                            width: 18,
-                            colorFilter:
-                                ColorFilter.mode(kStar, BlendMode.srcIn),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text('Pair with desktop',
-                                    style:
-                                        TextStyle(color: kStar, fontSize: 14)),
-                                Text('New phone, or lost connection',
-                                    style: TextStyle(
-                                        color: kTextMid, fontSize: 13)),
-                              ],
-                            ),
-                          ),
-                        ],
+                      value: 'link',
+                      child: _MenuRow(
+                        icon: Icons.phone_iphone,
+                        label: provider.repos.isEmpty
+                            ? 'Vault - set up'
+                            : 'Vault - add another',
+                        subtitle: provider.repos.isEmpty
+                            ? 'Link a $kContainerName to this phone'
+                            : 'Link another $kContainerName to this phone',
                       ),
                     ),
-                    // 2026-08-18: renamed from Switch to manual/auto -
-                    // "Pull manually"/"Pull automatically" says the actual
-                    // action, not a generic mode-switch label.
-                    if (hasRepo)
-                      PopupMenuItem(
-                        value: 'toggle_auto',
-                        child: _MenuRow(
-                          // 2026-08-21: real feedback, live - "Pull
-                          // manually is not a hand... I'll create the svg
-                          // for this" - Icons.swipe_down_alt didn't read
-                          // as a hand on-device, user is building a
-                          // custom SVG for this themselves. Reverted to
-                          // the original icon in the meantime rather than
-                          // guessing at another Material substitute.
-                          icon: Icons.sync,
-                          // 2026-08-30: real device feedback - "why anti
-                          // clockwise, is clockwise possible?" Mirrored
-                          // (see _MenuRow's own comment on flipIcon for
-                          // why a mirror, not a rotation, is what
-                          // actually reverses it) - genuinely unverified
-                          // which direction either version reads as on a
-                          // real device, Material icon glyphs don't
-                          // render in this repo's headless test setup.
-                          flipIcon: true,
-                          label: provider.selectedRepo!.autoSync
-                              ? 'Pull manually'
-                              : 'Pull automatically',
-                          // 2026-08-21: real feedback, live - "change to:
-                          // stop auto pull on app open" - shorter, same
-                          // meaning.
-                          subtitle: provider.selectedRepo!.autoSync
-                              ? 'Stop auto pull on app open'
-                              : 'Pull automatically every time the app opens',
-                        ),
-                      ),
-                    // 2026-09-18: real ask, live - "name is Reminders, so
-                    // it sits in the Kebab icon menu between Pull
-                    // manually and Security." Controls the same
-                    // amber/red day thresholds LocalSyncWidget.swift's
-                    // traffic-light dot already used - see
-                    // reminders_screen.dart's own header for the full
-                    // history. Round 2: renamed label ("Reminders are a
-                    // backup reminder one could say") and "colors" ->
-                    // "colours".
-                    if (hasRepo)
-                      const PopupMenuItem(
-                        value: 'reminders',
-                        child: _MenuRow(
-                          icon: Icons.notifications_outlined,
-                          label: 'Reminder backup',
-                          subtitle: 'Widget colours & sync notifications',
-                        ),
-                      ),
-                    // 2026-08-27: moved here from a standalone AppBar icon -
-                    // "keep help on the title bar... security icon can move
-                    // to the kebab menu" (real feedback, live). Alphabetical
-                    // slot between Pull and Settings, same as everything
-                    // else in this menu. Reuses _StatusIcon's own
-                    // icon/color logic (still a real shield glyph, colored
-                    // by sync/error state) rather than a fixed icon -
-                    // that live-status meaning is exactly what's being
-                    // traded for Help's bar slot, so it's worth keeping
-                    // inside the menu even though it's no longer glanceable
-                    // without opening it.
-                    if (hasRepo)
-                      PopupMenuItem(
-                        value: 'security',
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // 2026-09-09: real feedback, live - "keep
-                            // the link to open How your data is
-                            // protected, but the image tapped shows
-                            // what the status means, just a few short
-                            // text words." A nested GestureDetector
-                            // wins the gesture arena over the
-                            // PopupMenuItem's own tap (same pattern as
-                            // an IconButton inside a ListTile) - tapping
-                            // the icon shows the status as a SnackBar
-                            // and stops there (PopupMenuItem.onTap
-                            // never fires, menu stays open), tapping
-                            // anywhere else in the row still closes the
-                            // menu and opens the full explanation
-                            // screen exactly as before.
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => ScaffoldMessenger.of(context)
-                                  .showSnackBar(SnackBar(
-                                content: Text(
-                                    _securityStatusLabel(provider.repos)),
-                                duration: const Duration(seconds: 2),
-                              )),
-                              child: _StatusIcon(repos: provider.repos),
-                            ),
-                            const SizedBox(width: 12),
-                            Text('Security',
-                                style: TextStyle(color: kStar, fontSize: 14)),
-                          ],
-                        ),
-                      ),
                     // 2026-08-20: real user feedback - "this is difficult
                     // for users, I need to build this in." Desktop IP
                     // drifts (USB tether vs hotspot vs plain DHCP
@@ -591,19 +377,9 @@ class HomeScreen extends StatelessWidget {
                         // address entirely - real pushback, live:
                         // "where's the fucking IP address?" One compact
                         // line naming all three real fields instead.
-                        subtitle: 'IP, sync folder & vault path',
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'link',
-                      child: _MenuRow(
-                        icon: Icons.phone_iphone,
-                        label: provider.repos.isEmpty
-                            ? 'Vault - set up'
-                            : 'Vault - add another',
-                        subtitle: provider.repos.isEmpty
-                            ? 'Link a $kContainerName to this phone'
-                            : 'Link another $kContainerName to this phone',
+                        // 2026-09-26: Settings now also holds the items moved out of
+                        // the kebab - IP stays named first (see above).
+                        subtitle: 'IP, sync folder, device name & more',
                       ),
                     ),
                   ];
@@ -701,9 +477,9 @@ class HomeScreen extends StatelessWidget {
               provider.clearPendingConflict();
               if (pendingRepo != null && context.mounted) {
                 Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ConflictsScreen(repo: pendingRepo)))
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => ConflictsScreen(repo: pendingRepo)))
                     .then((_) => provider.refreshConflicts(pendingRepo.id!));
               }
             });
@@ -911,6 +687,69 @@ class HomeScreen extends StatelessWidget {
   // user who'd corrected their address via the Desktop IP setting
   // below would still hit this stale value re-pairing. Reads the live
   // controller instead of a second, disconnected copy.
+  void _onMenuAction(
+      BuildContext context, RepositoryProvider provider, String v) {
+    if (v == 'deleted' && provider.selectedRepo != null) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  DeletedFilesScreen(repo: provider.selectedRepo!)));
+    }
+    if (v == 'pair') _openPairing(context);
+    if (v == 'link') _openLinking(context);
+    if (v == 'about') {
+      // 2026-09-18: real ask, live - "Support floating
+      // hearts decrease per higher tiers." The only real,
+      // currently-wired signal for this is repo.syncMode -
+      // an Obsidian-vault repo can't exist without already
+      // having gone through the Tier 1 unlock flow
+      // (PkmSyncUpsell's onUnlocked), while Tier 2/3/4
+      // aren't gated by a real purchase yet (still
+      // "ungated during testing," per docs/product-
+      // tiers.md) - so paid-vs-free is the real
+      // granularity available today, not a finer ladder.
+      _showAbout(context,
+          paidTier: provider.selectedRepo?.syncMode == SyncMode.obsidianVault);
+    }
+    if (v == 'device_name') _editDeviceName(context, provider);
+    if (v == 'settings') {
+      // 2026-09-26: set-once items moved from the kebab into Settings.
+      // Settings pops with the same action value; handled here so the
+      // existing flows (pairing, About, rename, remove) are reused as-is.
+      Navigator.push<String>(context,
+          MaterialPageRoute(builder: (_) => const SettingsScreen())).then((a) {
+        if (a != null && context.mounted) _onMenuAction(context, provider, a);
+      });
+    }
+    if (v == 'reminders') {
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const RemindersScreen()));
+    }
+    if (v == 'security') {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const SecurityInfoScreen()));
+    }
+    final repo = provider.selectedRepo;
+    if (repo == null) return;
+    if (v == 'commit') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => CommitScreen(repo: repo)),
+      );
+    }
+    if (v == 'toggle_auto') provider.toggleAutoSync(repo.id!);
+    if (v == 'sync_desktop_now') {
+      _triggerDesktopSyncNow(context, provider, repo.id!);
+    }
+    if (v == 'conflicts') {
+      Navigator.push(context,
+              MaterialPageRoute(builder: (_) => ConflictsScreen(repo: repo)))
+          .then((_) => provider.refreshConflicts(repo.id!));
+    }
+    if (v == 'delete') _confirmDelete(context, provider, repo);
+  }
+
   void _openPairing(BuildContext context) {
     final ctrl = context.read<LinkingController>();
     Navigator.push(
@@ -1051,8 +890,7 @@ class HomeScreen extends StatelessWidget {
               children: [
                 Icon(Icons.close_rounded, color: kTextDim, size: 16),
                 const SizedBox(width: 4),
-                Text('Cancel',
-                    style: TextStyle(color: kTextDim, fontSize: 15)),
+                Text('Cancel', style: TextStyle(color: kTextDim, fontSize: 15)),
               ],
             ),
           ),
@@ -1406,7 +1244,10 @@ Future<void> _triggerDesktopSyncNow(
               assetPath: 'assets/gifs/dog_success_stand.gif',
               playing: true,
               height: 28,
-              frameDurationOverrides: {4: Duration(milliseconds: 700), 5: Duration(milliseconds: 50)},
+              frameDurationOverrides: {
+                4: Duration(milliseconds: 700),
+                5: Duration(milliseconds: 50)
+              },
             )
           else
             const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
@@ -2025,56 +1866,56 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
             SizedBox(
               width: heartsWidth,
               child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  bottom: 24,
-                  left: 0,
-                  right: 0,
-                  // 2026-09-18: real feedback, live (round 2) - "Hearts
-                  // floating stop at credits, but should go to v0.0
-                  // height." 420 only reached CREDITS, three sections up
-                  // from SUPPORT - measured the real distance from the
-                  // version line's own bottom edge to SUPPORT's bottom
-                  // edge with a throwaway test replica of this exact
-                  // Column (real text, real spacing): 1047px. Minus the
-                  // 24px bottom offset above, 1023px is the real minimum
-                  // to reach the version line - 1050 clears it with a
-                  // small margin instead of stopping just short again.
-                  // 2026-09-18: real ask, live - "Support floating
-                  // hearts decrease per higher tiers." See this
-                  // dialog's own paidTier param doc (call site above)
-                  // for why paid-vs-free is the real granularity
-                  // available today.
-                  //
-                  // 2026-09-22: real ask, live - "hearts need to slide
-                  // until reaching the left or right phone edges."
-                  // AlertDialog's real defaults (Flutter framework,
-                  // unchanged by this dialog): insetPadding 40px each
-                  // side, contentPadding 24px each side - screen width
-                  // minus both gives this dialog's real usable content
-                  // width, which is what the tilt-glide should now
-                  // reach edge to edge. Idle sway stays anchored near
-                  // SUPPORT regardless of this value - see
-                  // FloatingHearts' own trailWidth doc and
-                  // _HeartsPainter's _restWidth.
-                  child: FloatingHearts(
-                      color: kGreen,
-                      trailHeight: 1050,
-                      trailWidth: heartsWidth,
-                      quiet: paidTier),
-                ),
-                const _AboutHeader(
-                    icon: Icons.favorite_outline,
-                    label: 'SUPPORT',
-                    // 2026-09-18: real ask, live - "SUPPORT have heart
-                    // change from grey to green fading like a heart
-                    // beat." Every other _AboutHeader icon stays the
-                    // plain static kTextDim grey (pulse defaults false) -
-                    // only SUPPORT's heart pulses, since only SUPPORT is
-                    // actually about the donation trail rising beside it.
-                    pulse: true),
-              ],
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    bottom: 24,
+                    left: 0,
+                    right: 0,
+                    // 2026-09-18: real feedback, live (round 2) - "Hearts
+                    // floating stop at credits, but should go to v0.0
+                    // height." 420 only reached CREDITS, three sections up
+                    // from SUPPORT - measured the real distance from the
+                    // version line's own bottom edge to SUPPORT's bottom
+                    // edge with a throwaway test replica of this exact
+                    // Column (real text, real spacing): 1047px. Minus the
+                    // 24px bottom offset above, 1023px is the real minimum
+                    // to reach the version line - 1050 clears it with a
+                    // small margin instead of stopping just short again.
+                    // 2026-09-18: real ask, live - "Support floating
+                    // hearts decrease per higher tiers." See this
+                    // dialog's own paidTier param doc (call site above)
+                    // for why paid-vs-free is the real granularity
+                    // available today.
+                    //
+                    // 2026-09-22: real ask, live - "hearts need to slide
+                    // until reaching the left or right phone edges."
+                    // AlertDialog's real defaults (Flutter framework,
+                    // unchanged by this dialog): insetPadding 40px each
+                    // side, contentPadding 24px each side - screen width
+                    // minus both gives this dialog's real usable content
+                    // width, which is what the tilt-glide should now
+                    // reach edge to edge. Idle sway stays anchored near
+                    // SUPPORT regardless of this value - see
+                    // FloatingHearts' own trailWidth doc and
+                    // _HeartsPainter's _restWidth.
+                    child: FloatingHearts(
+                        color: kGreen,
+                        trailHeight: 1050,
+                        trailWidth: heartsWidth,
+                        quiet: paidTier),
+                  ),
+                  const _AboutHeader(
+                      icon: Icons.favorite_outline,
+                      label: 'SUPPORT',
+                      // 2026-09-18: real ask, live - "SUPPORT have heart
+                      // change from grey to green fading like a heart
+                      // beat." Every other _AboutHeader icon stays the
+                      // plain static kTextDim grey (pulse defaults false) -
+                      // only SUPPORT's heart pulses, since only SUPPORT is
+                      // actually about the donation trail rising beside it.
+                      pulse: true),
+                ],
               ),
             ),
             const SizedBox(height: 6),
@@ -2138,7 +1979,9 @@ class _AboutHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        pulse ? _HeartbeatIcon(icon: icon) : Icon(icon, color: kTextDim, size: 13),
+        pulse
+            ? _HeartbeatIcon(icon: icon)
+            : Icon(icon, color: kTextDim, size: 13),
         const SizedBox(width: 5),
         Text(label,
             style: TextStyle(
