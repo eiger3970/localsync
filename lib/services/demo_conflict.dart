@@ -12,6 +12,7 @@
 //   stage 2 -> both behave like real conflicts (paywalls)
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,14 +37,23 @@ const kDemoConflictNote = '# Diary - Saturday\n'
     '\n';
 
 class DemoConflict {
-  static Future<int> stage() async =>
-      (await SharedPreferences.getInstance()).getInt(_stageKey) ?? 0;
+  /// 2026-09-26: Ken - "Shouldn't Conflicts be amber as there's a test
+  /// conflict in there?" True while the sample still has a free try, so
+  /// the main screen's Conflicts icon can glow amber for it too.
+  static final triesLeft = ValueNotifier<bool>(true);
+
+  static Future<int> stage() async {
+    final s = (await SharedPreferences.getInstance()).getInt(_stageKey) ?? 0;
+    triesLeft.value = s < 2;
+    return s;
+  }
 
   /// Called after a demo resolution finishes; only moves forward.
   static Future<void> advancePast(int finishedStage) async {
     final prefs = await SharedPreferences.getInstance();
     final now = prefs.getInt(_stageKey) ?? 0;
     if (finishedStage >= now) await prefs.setInt(_stageKey, finishedStage + 1);
+    triesLeft.value = (prefs.getInt(_stageKey) ?? 0) < 2;
   }
 
   static bool isDemo(Repository repo) =>

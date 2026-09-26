@@ -89,11 +89,39 @@ class _DeletedFilesScreenState extends State<DeletedFilesScreen> {
                     )
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _files!.length,
+                      itemCount: _files!.length + 1,
                       separatorBuilder: (_, __) =>
                           Divider(color: kBorder, height: 1),
                       itemBuilder: (_, i) {
-                        final f = _files![i];
+                        // 2026-09-26: Ken - "Deleted files - restore, does
+                        // this cause an absolute mess? Can this be
+                        // explained somewhere?" Said once, above the list.
+                        if (i == 0) {
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.verified_user_outlined,
+                                    color: kGreen, size: 18),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                      'RESTORE puts a file back where it was. '
+                                      'It never replaces anything: if a file '
+                                      'with that name is there now, the copy '
+                                      'is named "(restored)". Then swipe PUSH '
+                                      'to send it to the desktop.',
+                                      style: TextStyle(
+                                          color: kTextMid,
+                                          fontSize: 13,
+                                          height: 1.4)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        final f = _files![i - 1];
                         final done = _restored.contains(f.path);
                         return ListTile(
                           leading: Icon(Icons.insert_drive_file_outlined,

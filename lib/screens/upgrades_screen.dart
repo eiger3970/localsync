@@ -79,6 +79,24 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
         children: [
           Text('Syncing your files stays free. These add convenience.',
               style: TextStyle(color: kTextMid, fontSize: 13)),
+          const SizedBox(height: 14),
+          // 2026-09-26: Ken - "say data protection ... Someone in a panic
+          // will appreciate this", as a positive statement.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.verified_user_outlined, color: kGreen, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                    'Two devices edit the same note? LocalSync keeps both '
+                    'versions safe. Every upgrade backs up both versions '
+                    'first, so you can always restore.\n'
+                    'Your data is precious. Your private data is priceless.',
+                    style: TextStyle(color: kStar, fontSize: 13, height: 1.5)),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           // Alphabetical (house rule).
           _UpgradeTile(

@@ -1353,6 +1353,26 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTap: () => Navigator.pop(context, 'pair')),
               const SizedBox(height: 28),
             ],
+            // 2026-09-26: Ken - "Settings 1. 2. 3. 4. can this be auto
+            // populated by a qr code on the desktop? ... I see no qr
+            // coder." The scanner only showed during first setup; now
+            // always one tap above the fields it fills.
+            if (!widget.neededForPairing) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _scanInto(_pathCtrl, 'DESKTOP SETUP'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: kGreen),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: Icon(Icons.qr_code_scanner, color: kGreen, size: 20),
+                  label: Text('Scan desktop QR code - fills in 1 to 4',
+                      style: TextStyle(color: kGreen, fontSize: 13)),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             Text('1. DESKTOP USERNAME',
                 style: TextStyle(
                     color: _stepColor,

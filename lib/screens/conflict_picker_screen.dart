@@ -58,6 +58,9 @@ typedef ConflictResolvedResult = ({
   // zero navigation, no screen to go hunt for - while the permanent
   // path still exists underneath for later.
   KeptBothEntry? keptBoth,
+  // 2026-09-26: non-null only for a MERGE TEXT result - same immediate
+  // UNDO on the success message.
+  MergeUndo? mergeUndo,
 });
 
 class ConflictPickerScreen extends StatefulWidget {
@@ -267,9 +270,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         color: kGreen,
         // 2026-09-18: real feedback, live - "not reordered entry by
         // entry. Just, not reordered." simplified per direct wording.
-        text: 'Both texts kept as one block each, in time order if both '
-            'start with a clock time HHMM - not reordered '
-            '(see KEEP BOTH & CLEAN UP for that)',
+        // 2026-09-26: Ken - "Says KEEP BOTH, but that doesn't sort the
+        // times. If it does sort times, seems to make KEEP BOTH & CLEAN
+        // UP redundant." Says plainly what is NOT sorted.
+        text: 'Times inside each text are not sorted - each text stays '
+            'one block. To sort every entry by time, use KEEP BOTH & '
+            'CLEAN UP',
       ),
       // 2026-09-08, fifth pass - real feedback, live: icon review.
       // done_all (two checks) reads as "both/every version," distinct
@@ -345,7 +351,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('Merge text instead',
+        title: Text('Merge text',
             style: TextStyle(color: kStar, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -361,6 +367,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               icon: Icons.tune,
               color: kGreen,
               text: 'More control than Keep Both, but more work',
+            ),
+            _DialogPoint(
+              icon: Icons.undo,
+              color: kGreen,
+              text: 'UNDO button appears right after, on the confirmation',
             ),
             _DialogPoint(
               icon: Icons.lock,
@@ -496,6 +507,49 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: _keepBothDialogPoints(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text('Got it', style: TextStyle(color: kGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 2026-09-26: Ken - "KEEP BOTH & CLEAN UP could have a button the same
+  // width as the others and an i." Same points its old confirm showed.
+  void _showCleanUpInfo() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text('Keep both & clean up',
+            style: TextStyle(color: kStar, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ..._keepBothDialogPoints().take(2),
+            _DialogPoint(
+              icon: Icons.auto_fix_high,
+              color: kGreen,
+              text: 'Every timestamped entry from both sides, interleaved '
+                  'by clock time - not just each side kept as one block',
+            ),
+            _DialogPoint(
+              icon: Icons.done_all,
+              color: kGreen,
+              text: 'Both texts kept, as plain text',
+            ),
+            _DialogPoint(
+              icon: Icons.visibility,
+              color: kGreen,
+              text: 'Text visible, all kept as plain text paragraphs, '
+                  'nothing hidden',
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -744,6 +798,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
           keptBoth: null,
+          mergeUndo: null,
         ),
       );
     }
@@ -756,33 +811,35 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // manually assembling pieces (MERGE PIECES INSTEAD below). This is the
   // one-tap "both belong here" fix - see conflict_scanner.dart's
   // mergeConflictKeepingBoth for what it actually writes.
-  Future<void> _confirmAndKeepBoth() async {
-    final proceed = await showDialog<bool>(
+  // 2026-09-26: Ken - "Conflicts doubles up with the KEEP BOTH and i with
+  // the same information ... change the action button to: Are you sure?
+  // Yes No." The full explanation lives behind the i next to each button
+  // (read first, without acting); the button itself only confirms.
+  Future<bool> _areYouSure(String title) async {
+    final yes = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('Keep both texts?',
-            style: TextStyle(color: kStar, fontSize: 17)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: _keepBothDialogPoints(),
-        ),
+        title: Text(title, style: TextStyle(color: kStar, fontSize: 17)),
+        content: Text('Are you sure?',
+            style: TextStyle(color: kTextMid, fontSize: 15)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Not now',
-                style: TextStyle(color: kTextMid, fontSize: 15)),
+            child: Text('No', style: TextStyle(color: kTextMid, fontSize: 15)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child:
-                Text('Keep both', style: TextStyle(color: kStar, fontSize: 15)),
+            child: Text('Yes', style: TextStyle(color: kStar, fontSize: 15)),
           ),
         ],
       ),
     );
-    if (proceed == true) await _keepBoth();
+    return yes == true;
+  }
+
+  Future<void> _confirmAndKeepBoth() async {
+    if (await _areYouSure('Keep both texts?')) await _keepBoth();
   }
 
   // 2026-09-16: Tier 3 IAP ("Keep Both & Clean Up" -
@@ -810,51 +867,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       if (unlocked != true || !mounted) return;
     }
 
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Text('Keep both texts, cleaned up?',
-            style: TextStyle(color: kStar, fontSize: 17)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ..._keepBothDialogPoints().take(2),
-            _DialogPoint(
-              icon: Icons.auto_fix_high,
-              color: kGreen,
-              text: 'Every timestamped entry from both sides, interleaved '
-                  'by clock time - not just each side kept as one block',
-            ),
-            _DialogPoint(
-              icon: Icons.done_all,
-              color: kGreen,
-              text: 'Both texts kept, as plain text',
-            ),
-            _DialogPoint(
-              icon: Icons.visibility,
-              color: kGreen,
-              text: 'Text visible, all kept as plain text paragraphs, '
-                  'nothing hidden',
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Not now',
-                style: TextStyle(color: kTextMid, fontSize: 15)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child:
-                Text('Keep both', style: TextStyle(color: kStar, fontSize: 15)),
-          ),
-        ],
-      ),
-    );
-    if (proceed == true) await _keepBoth(cleanUp: true);
+    if (await _areYouSure('Keep both texts, cleaned up?')) {
+      await _keepBoth(cleanUp: true);
+    }
   }
 
   Future<void> _keepBoth({bool cleanUp = false}) async {
@@ -897,6 +912,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
           keptBoth: keptBoth,
+          mergeUndo: null,
         ),
       );
     }
@@ -1322,7 +1338,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                   '- "${titleFor(duplicateSide)}" repeats '
                                   'the same paragraph twice.'
                               : mergeWouldHelp
-                                  ? '"Merge text instead" below can keep '
+                                  ? '"Merge text" below can keep '
                                       'one copy plus everything from the '
                                       'other side.\n"${titleFor(duplicateSide)}" '
                                       '(${duplicateSide == 0 ? 'left' : 'right'}) '
@@ -1457,6 +1473,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                                 letterSpacing: 0.3)),
                       ),
                     ),
+                    IconButton(
+                      icon: Icon(Icons.info_outline, color: kTextDim, size: 20),
+                      tooltip: 'What is this?',
+                      onPressed: _showCleanUpInfo,
+                    ),
                   ],
                 ),
                 if (useDiff && versions.length == 2) ...[
@@ -1514,7 +1535,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           // neutral: bright enough to read as live, not
                           // borrowed from either side's identity.
                           icon: Icon(Icons.merge, color: kStar, size: 18),
-                          label: Text('MERGE TEXT INSTEAD',
+                          label: Text('MERGE TEXT',
                               style: TextStyle(
                                   color: kStar,
                                   fontSize: 12,

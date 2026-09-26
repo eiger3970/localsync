@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../constants.dart';
 import '../models/repository.dart';
+import '../services/demo_conflict.dart';
 import '../services/device_name.dart';
 import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
@@ -309,9 +310,12 @@ class HomeScreen extends StatelessWidget {
                         // about the specific menu item it names.
                         child: _MenuRow(
                           icon: Icons.compare_arrows,
-                          iconColor: provider.selectedRepo != null &&
-                                  provider
-                                      .hasConflicts(provider.selectedRepo!.id!)
+                          // 2026-09-26: also amber while the sample
+                          // conflict still has a free try waiting.
+                          iconColor: (provider.selectedRepo != null &&
+                                      provider.hasConflicts(
+                                          provider.selectedRepo!.id!)) ||
+                                  DemoConflict.triesLeft.value
                               ? Colors.amber
                               : null,
                           label: 'Conflicts',
@@ -1893,7 +1897,11 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                 clipBehavior: Clip.none,
                 children: [
                   Positioned(
-                    bottom: 24,
+                    // 2026-09-26: Ken - "can you start the hearts any
+                    // lower, near the heart SUPPORT?" 24 -> 0 starts them
+                    // at the SUPPORT heart itself; trailHeight +24 below
+                    // keeps the top still reaching the version line.
+                    bottom: 0,
                     left: 0,
                     right: 0,
                     // 2026-09-18: real feedback, live (round 2) - "Hearts
@@ -1925,7 +1933,7 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                     // _HeartsPainter's _restWidth.
                     child: FloatingHearts(
                         color: kGreen,
-                        trailHeight: 1050,
+                        trailHeight: 1074,
                         trailWidth: heartsWidth,
                         quiet: paidTier),
                   ),

@@ -997,6 +997,26 @@ Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
   }
 }
 
+/// 2026-09-26: Ken - "MERGE TEXT ... build in a UNDO as well". The whole
+/// note before and after a MERGE TEXT resolution, so the success banner
+/// can put it back in one tap.
+class MergeUndo {
+  final String filePath; // relative to the vault
+  final String before;
+  final String after;
+  const MergeUndo(this.filePath, this.before, this.after);
+}
+
+/// Puts the note back exactly as it was before MERGE TEXT. Returns false
+/// (and writes nothing) if the note changed since the merge - never
+/// overwrite newer edits.
+Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
+  final file = File('$vaultPath/${undo.filePath}');
+  if (await file.readAsString() != undo.after) return false;
+  await VaultFolderService().coordinatedWrite(file.path, undo.before);
+  return true;
+}
+
 Future<String> mergeConflictKeepingBoth(
   String vaultPath,
   ConflictEntry entry, {

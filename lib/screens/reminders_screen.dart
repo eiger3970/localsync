@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
 import '../services/backup_reminder_service.dart';
+import '../services/purchase_service.dart' show kIsStoreBuild;
 import '../services/repository_provider.dart';
 
 class RemindersScreen extends StatefulWidget {
@@ -80,91 +81,96 @@ class _RemindersScreenState extends State<RemindersScreen> {
               },
             ),
             const SizedBox(height: 28),
-            // 2026-09-18: "make it testable" - no Xcode/device-console
-            // access to confirm delivery any faster than waiting the
-            // real thresholds out. Same scheduleReminder() a real sync
-            // success already calls, both notifications on short delays
-            // instead of real days.
-            TextButton(
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
-              onPressed: () async {
-                // 2026-09-18: real ask, live - "I tapped Send test
-                // notifications and nothing." scheduleReminder() used to
-                // swallow its own errors, so this always showed the
-                // "scheduled" text even when it silently failed (no
-                // notification permission being the real, common cause -
-                // iOS schedules it fine and just never shows the banner).
-                // Now catches and reports the real reason instead.
-                String message;
-                try {
-                  final service = BackupReminderService();
-                  await service.scheduleReminder(
-                    amberDelay: const Duration(seconds: 8),
-                    redDelay: const Duration(seconds: 14),
+            // 2026-09-26: Ken - "Send test notifications and Send immediate
+            // test need to be removed now or before launch." Developer
+            // builds only, same STORE_BUILD gate as the paywall skip.
+            if (!kIsStoreBuild) ...[
+              // 2026-09-18: "make it testable" - no Xcode/device-console
+              // access to confirm delivery any faster than waiting the
+              // real thresholds out. Same scheduleReminder() a real sync
+              // success already calls, both notifications on short delays
+              // instead of real days.
+              TextButton(
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+                onPressed: () async {
+                  // 2026-09-18: real ask, live - "I tapped Send test
+                  // notifications and nothing." scheduleReminder() used to
+                  // swallow its own errors, so this always showed the
+                  // "scheduled" text even when it silently failed (no
+                  // notification permission being the real, common cause -
+                  // iOS schedules it fine and just never shows the banner).
+                  // Now catches and reports the real reason instead.
+                  String message;
+                  try {
+                    final service = BackupReminderService();
+                    await service.scheduleReminder(
+                      amberDelay: const Duration(seconds: 8),
+                      redDelay: const Duration(seconds: 14),
+                    );
+                    // 2026-09-18: real ask, live - "same message [no
+                    // notification showing]" even with permission granted
+                    // and Focus off. Confirms with iOS itself whether the
+                    // requests actually landed, not just that the API call
+                    // didn't throw.
+                    final pendingCount =
+                        (await service.pendingNotificationIds()).length;
+                    message = pendingCount >= 2
+                        ? 'iOS confirms $pendingCount pending - background '
+                            'the app now, amber in ~8s, red in ~14s.'
+                        : 'Scheduled, but iOS only shows $pendingCount '
+                            'pending (expected 2) - the request itself is '
+                            'being dropped somewhere, not just suppressed '
+                            'on display.';
+                  } catch (e) {
+                    message = 'Could not schedule: $e';
+                  }
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(message),
+                        duration: const Duration(seconds: 8)),
                   );
-                  // 2026-09-18: real ask, live - "same message [no
-                  // notification showing]" even with permission granted
-                  // and Focus off. Confirms with iOS itself whether the
-                  // requests actually landed, not just that the API call
-                  // didn't throw.
-                  final pendingCount =
-                      (await service.pendingNotificationIds()).length;
-                  message = pendingCount >= 2
-                      ? 'iOS confirms $pendingCount pending - background '
-                          'the app now, amber in ~8s, red in ~14s.'
-                      : 'Scheduled, but iOS only shows $pendingCount '
-                          'pending (expected 2) - the request itself is '
-                          'being dropped somewhere, not just suppressed '
-                          'on display.';
-                } catch (e) {
-                  message = 'Could not schedule: $e';
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(message),
-                      duration: const Duration(seconds: 8)),
-                );
-              },
-              child: Text('Send test notifications',
-                  style: TextStyle(color: kGreen, fontSize: 13)),
-            ),
-            const SizedBox(height: 6),
-            // 2026-09-18 (round 2): real ask, live - permission granted,
-            // every notification toggle confirmed on, Focus confirmed
-            // off, and still nothing arrives even with "2 pending"
-            // confirmed. This bypasses scheduling entirely (a plain
-            // immediate .show()) to isolate whether the bug is specific
-            // to zonedSchedule/timezone or whether notification display
-            // itself is broken on this build regardless of trigger.
-            TextButton(
-              style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
-              onPressed: () async {
-                String message;
-                try {
-                  await BackupReminderService().showImmediateTest();
-                  message = 'Sent immediately, no delay - check now.';
-                } catch (e) {
-                  message = 'Could not send: $e';
-                }
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text(message),
-                      duration: const Duration(seconds: 6)),
-                );
-              },
-              child: Text('Send immediate test (no scheduling)',
-                  style: TextStyle(color: kGreen, fontSize: 13)),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "Widget colours may not update on this build - a known "
-              'signing limitation. The notifications above are unaffected.',
-              style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
-            ),
+                },
+                child: Text('Send test notifications',
+                    style: TextStyle(color: kGreen, fontSize: 13)),
+              ),
+              const SizedBox(height: 6),
+              // 2026-09-18 (round 2): real ask, live - permission granted,
+              // every notification toggle confirmed on, Focus confirmed
+              // off, and still nothing arrives even with "2 pending"
+              // confirmed. This bypasses scheduling entirely (a plain
+              // immediate .show()) to isolate whether the bug is specific
+              // to zonedSchedule/timezone or whether notification display
+              // itself is broken on this build regardless of trigger.
+              TextButton(
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, alignment: Alignment.centerLeft),
+                onPressed: () async {
+                  String message;
+                  try {
+                    await BackupReminderService().showImmediateTest();
+                    message = 'Sent immediately, no delay - check now.';
+                  } catch (e) {
+                    message = 'Could not send: $e';
+                  }
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(message),
+                        duration: const Duration(seconds: 6)),
+                  );
+                },
+                child: Text('Send immediate test (no scheduling)',
+                    style: TextStyle(color: kGreen, fontSize: 13)),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Widget colours may not update on this build - a known "
+                'signing limitation. The notifications above are unaffected.',
+                style: TextStyle(color: kTextDim, fontSize: 12, height: 1.5),
+              ),
+            ],
           ],
         ),
       ),
