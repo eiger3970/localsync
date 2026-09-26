@@ -24,6 +24,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../widgets/pulsing_glow.dart';
+import '../models/repository.dart' show SyncMode;
 import '../services/repository_provider.dart';
 import '../services/localsync_folder.dart';
 import '../services/sound_service.dart';
@@ -52,6 +53,20 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with TickerProviderStateMixin {
+  // 2026-09-26: real feedback - "Free users shouldn't be exposed to
+  // advanced terms like obsidian." Free (plain folder) sync hides field 4
+  // (desktop vault path) and the "git bare repo path" wording on field 3.
+  // Pairing a new folder follows the choice made on the welcome screen;
+  // otherwise the folder currently selected on the main screen.
+  bool get _isFreeFolder {
+    if (widget.neededForPairing) {
+      return context.read<LinkingController>().preferredMode ==
+          SyncMode.genericFolder;
+    }
+    return context.read<RepositoryProvider>().selectedRepo?.syncMode ==
+        SyncMode.genericFolder;
+  }
+
   static final _ipPattern =
       RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$');
 
@@ -192,8 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       TextEditingController controller, String fieldLabel) async {
     final result = await Navigator.push<String>(
       context,
-      MaterialPageRoute(
-          builder: (_) => QrScanScreen(fieldLabel: fieldLabel)),
+      MaterialPageRoute(builder: (_) => QrScanScreen(fieldLabel: fieldLabel)),
     );
     if (result == null || !mounted) return;
     final lines = result.split('\n');
@@ -281,14 +295,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     _userCtrl = TextEditingController(text: ctrl.desktopUser);
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
-    _vaultPathCtrl =
-        TextEditingController(text: ctrl.desktopVaultPath ?? '');
+    _vaultPathCtrl = TextEditingController(text: ctrl.desktopVaultPath ?? '');
     // 2026-09-25: show the SELECTED synced folder's own desktop path.
     final selected = context.read<RepositoryProvider>().selectedRepo;
     if (selected != null) {
-      context.read<RepositoryProvider>()
+      context
+          .read<RepositoryProvider>()
           .getDesktopVaultPathFor(selected.remotePath)
-          .then((v) { if (mounted) _vaultPathCtrl.text = v ?? ''; });
+          .then((v) {
+        if (mounted) _vaultPathCtrl.text = v ?? '';
+      });
     }
     _sparklePhase1 = _sparkleRand.nextDouble();
     _sparklePhase2 = _sparkleRand.nextDouble();
@@ -479,8 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.info_outline,
-                                color: kTextDim, size: 15),
+                            Icon(Icons.info_outline, color: kTextDim, size: 15),
                             const SizedBox(width: 5),
                             Text(
                                 showDetails
@@ -495,14 +510,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                       ),
                     ),
                     if (showDetails)
-                      _buildStepPoint(
-                          (
-                            '${detailsIntro ?? "Full details:"}\n'
-                                '\n$_cmdToken',
-                            false
-                          ),
-                          detailsCommand,
-                          false),
+                      _buildStepPoint((
+                        '${detailsIntro ?? "Full details:"}\n'
+                            '\n$_cmdToken',
+                        false
+                      ), detailsCommand, false),
                   ],
                 ],
               ),
@@ -637,7 +649,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       TextSpan(
         text: command,
         style: TextStyle(
-            color: kGreen, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+            color: kGreen,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace'),
       ),
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
@@ -672,8 +686,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800)),
                         TextSpan(
-                            text:
-                                'Paste it somewhere you can reach from your '
+                            text: 'Paste it somewhere you can reach from your '
                                 'desktop (a notes app, a message to '
                                 "yourself, an SSH client) - it won't "
                                 'paste directly into a desktop terminal',
@@ -723,7 +736,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       spans.add(TextSpan(
         text: match.group(0),
         style: TextStyle(
-            color: kGreen, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
+            color: kGreen,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'monospace'),
       ));
       last = match.end;
     }
@@ -1007,8 +1022,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Glows once a QR scan (or, during first setup, typing) has
             // filled the required fields - Save is the next step then.
             child: PulsingGlow(
-              active: _scanFilled ||
-                  (widget.neededForPairing && _stepsActive),
+              active: _scanFilled || (widget.neededForPairing && _stepsActive),
               cornerRadius: 24,
               child: ElevatedButton(
                 onPressed: _save,
@@ -1194,8 +1208,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                           color: Colors.transparent,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(28),
-                            onTap: () =>
-                                _scanInto(_pathCtrl, 'DESKTOP SETUP'),
+                            onTap: () => _scanInto(_pathCtrl, 'DESKTOP SETUP'),
                             child: Padding(
                               padding: const EdgeInsets.all(6),
                               child: Stack(
@@ -1220,8 +1233,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
-                                              color: kGreen.withValues(
-                                                  alpha: 0.5),
+                                              color:
+                                                  kGreen.withValues(alpha: 0.5),
                                               blurRadius: 8,
                                               spreadRadius: 1)
                                         ]),
@@ -1311,7 +1324,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                   // aren't consistent... I prefer the green." Was
                   // kTextMid (a muted grey), inconsistent with the git
                   // bare repo path field's own accent-colored icon.
-                  child: Icon(Icons.person_outline, color: _stepColor, size: 22),
+                  child:
+                      Icon(Icons.person_outline, color: _stepColor, size: 22),
                 ),
                 Expanded(
                   child: TextField(
@@ -1335,8 +1349,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                       hintText: 'e.g. rapi5',
                       errorText: _userError,
                       suffixIcon: IconButton(
-                        icon: Icon(Icons.info_outline,
-                            color: kTextDim, size: 20),
+                        icon:
+                            Icon(Icons.info_outline, color: kTextDim, size: 20),
                         tooltip: 'What is this?',
                         onPressed: () => _showInfo(
                           'Desktop username',
@@ -1464,8 +1478,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                           // "add a line space here"
                                           // before the static helper
                                           // text below it.
-                                          padding: const EdgeInsets.only(
-                                              bottom: 12),
+                                          padding:
+                                              const EdgeInsets.only(bottom: 12),
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -1502,9 +1516,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                               // guaranteed fallback, not
                                               // a replacement for it.
                                               Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 6),
+                                                padding: const EdgeInsets.only(
+                                                    top: 6),
                                                 child: Text(
                                                   'If iOS just asked to '
                                                   'allow local network '
@@ -1545,24 +1558,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                                               // opens it with no new
                                               // native plugin at all.
                                               Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 2),
+                                                padding: const EdgeInsets.only(
+                                                    top: 2),
                                                 child: TextButton(
-                                                  style: TextButton
-                                                      .styleFrom(
-                                                    padding:
-                                                        EdgeInsets.zero,
-                                                    minimumSize:
-                                                        Size.zero,
+                                                  style: TextButton.styleFrom(
+                                                    padding: EdgeInsets.zero,
+                                                    minimumSize: Size.zero,
                                                     tapTargetSize:
                                                         MaterialTapTargetSize
                                                             .shrinkWrap,
-                                                    alignment: Alignment
-                                                        .centerLeft,
+                                                    alignment:
+                                                        Alignment.centerLeft,
                                                   ),
-                                                  onPressed: () =>
-                                                      launchUrl(Uri.parse(
+                                                  onPressed: () => launchUrl(
+                                                      Uri.parse(
                                                           'app-settings:')),
                                                   child: Text(
                                                     'Open Local Network '
@@ -1890,7 +1899,10 @@ class _SettingsScreenState extends State<SettingsScreen>
             // existing 28+divider+28 above was the mismatch - "3." below
             // uses that same 28+divider+28 with nothing extra added.
             // Removed to match.
-            Text('3. DESKTOP SYNC FOLDER (git bare repo path)',
+            Text(
+                _isFreeFolder
+                    ? '3. DESKTOP SYNC FOLDER'
+                    : '3. DESKTOP SYNC FOLDER (git bare repo path)',
                 style: TextStyle(
                     color: _stepColor,
                     fontSize: 11,
@@ -2015,248 +2027,248 @@ class _SettingsScreenState extends State<SettingsScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                        icon:
-                            Icon(Icons.info_outline, color: kTextDim, size: 20),
-                        tooltip: 'How do I find this?',
-                        // 2026-08-21: real question, live - "is this
-                        // live if the user has a different git bare
-                        // repo or is this hard coded text?" It WAS
-                        // hardcoded to this developer's own repo name
-                        // (Md_files_bare.git) - wrong for any other
-                        // real vault. Now reads the field's own live
-                        // text at the moment the dialog opens instead.
-                        // 2026-08-28: real feedback, live - "how do I
-                        // create a new LocalSync git folder? Can the app
-                        // walk me through?" This help dialog only ever
-                        // covered finding an EXISTING bare repo - no
-                        // help at all for the much more common first-
-                        // time case, someone with nothing to find yet.
-                        // Since git_service.dart's _ensureBareRepoExists()
-                        // (2026-08-28) creates the path automatically on
-                        // first pairing, that's now the actual answer -
-                        // leads with it instead of assuming a repo
-                        // already exists.
-                        // 2026-09-02: real feedback, live - "remove
-                        // Setting your desktop sync folder so 2 and 3
-                        // manual setup is similar and consistent in
-                        // style." Retitled to match step 3's dialog
-                        // ("Manual setup"), points renumbered inline
-                        // instead of bulleted prose, same trim as that
-                        // dialog got on 2026-09-01.
-                        // 2026-09-02: real feedback, live - "step 1
-                        // makes no sense" (both dialogs) - the numbered
-                        // list had been mixing an auto-setup explanation
-                        // in with the manual fallback steps, and
-                        // restating "run this command" that the command
-                        // box above already labels. Auto setup is now
-                        // an un-numbered lead line (context, not a
-                        // step); the numbered list is only the genuine
-                        // manual steps, same shape as step 3's dialog.
-                        // 2026-09-02: real feedback, live - "isn't step
-                        // 2 optimised? there's already the magic star
-                        // option for a suggested path, some redundancy."
-                        // Right - the ✨ "Use suggested path" tap target
-                        // sits right on this field already (plus the
-                        // laptop icon above it), so explaining "just
-                        // type any path" here in prose duplicated
-                        // something already visible and one tap away.
-                        // Dropped the lead line entirely - this dialog's
-                        // real, distinct job is finding/reusing an
-                        // EXISTING folder, which the numbered list below
-                        // already covers on its own.
-                        // 2026-09-02: real feedback, live - "if I sync
-                        // to a wrong folder, syncing can wipe or mess
-                        // up data... tell me how you find the correct
-                        // path, so a user can know how to do this from
-                        // the app." Fair - the old command just listed
-                        // bare folder NAMES, on a real machine that
-                        // also matches every unrelated project's own
-                        // .git folder, with zero way to tell which one
-                        // is actually yours short of guessing. This
-                        // version shows each one's last sync date and
-                        // message (or "empty, safe to use") - real
-                        // LocalSync syncs read as "Desktop sync
-                        // 2026-..." or "Initial sync from phone," not
-                        // "fix: typo in README," so a genuine LocalSync
-                        // folder is recognisable, not a coin flip.
-                        onPressed: () => _showHelp(
-                          'Manual setup',
-                          // 2026-09-03: real bug, caught by the user
-                          // actually running this in a terminal - "too
-                          // verbose and eyebleed." `-name '*.git'` also
-                          // matches the plain hidden `.git` folder every
-                          // normal project has (any name ending in
-                          // ".git" includes ".git" itself), so this was
-                          // listing every software repo under
-                          // ~/Documents/Git, not just real LocalSync
-                          // bare sync folders (which are always named
-                          // `something.git` as their own visible
-                          // directory, never the bare hidden name).
-                          // `! -name '.git'` excludes exactly that one
-                          // literal name and nothing else.
-                          //
-                          // 2026-09-03: real feedback, live - "needs a
-                          // line break or line separator from command,
-                          // so user easily reads results... it's all
-                          // gobble de gook until output is clean." The
-                          // command text and its real terminal output
-                          // ran together with nothing between them -
-                          // leading `echo;` prints one blank line before
-                          // the results start, so there's a visible
-                          // break between "the command I typed" and
-                          // "what it printed."
-                          //
-                          // 2026-09-03: real feedback, live - "can the
-                          // command 1 output be sorted better, is there
-                          // some sort of priority?" There wasn't - `find`
-                          // returns filesystem traversal order, nothing
-                          // to do with relevance. Restructured to a
-                          // sort-then-print two-pass (same shape as the
-                          // vault-path command's own score-then-sort),
-                          // keyed on each repo's last-commit unix
-                          // timestamp (`%at`, sorts correctly as a plain
-                          // number - the previous single-pass loop
-                          // couldn't sort at all, since it printed each
-                          // repo as it found it instead of after seeing
-                          // them all) - most recently used first, empty
-                          // repos (timestamp 0) sink to the bottom as
-                          // the least-likely-to-be-your-real-folder
-                          // fallback option.
-                          //
-                          // 2026-09-03: real feedback, live - "needs Top
-                          // entry at the top, not the bottom." Sorting
-                          // alone still made someone read the whole list
-                          // to find the best guess - a summary line (same
-                          // info the #1 list item already has, just
-                          // repeated first) now prints before the full
-                          // list, so the answer is visible without
-                          // reading past the first two lines. Worded as
-                          // "Best path to use:" rather than "Top entry:"
-                          // per the very next round of feedback - "Top
-                          // entry" was still an unexplained technical
-                          // label, this says outright what to do with
-                          // it.
-                          //
-                          // 2026-09-03: real feedback, live - "be
-                          // consistent... only the top result shown
-                          // clearly... then the user has the option for
-                          // the full command with the full raw data
-                          // output in a 2nd command offered in an i."
-                          // The full sorted list moved out of this
-                          // primary command entirely (now just the
-                          // "Best path to use" summary, no trailing
-                          // `while` loop) - it's the `detailsCommand`
-                          // below, behind the "Show full details" toggle.
-                          'echo; results=\$(for d in \$(find '
-                              '~/Documents/Git -maxdepth 3 '
-                              "-name '*.git' ! -name '.git' -type d); do "
-                              't=\$(git --git-dir="\$d" log -1 '
-                              '--format=%at 2>/dev/null); echo '
-                              '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn'
-                              '); top_t=\$(echo "\$results" | head -1 | '
-                              "cut -d'|' -f1); top_d=\$(echo \"\$results\" "
-                              "| head -1 | cut -d'|' -f2); "
-                              'if [ "\$top_t" = "0" ]; then echo "Best '
-                              'path to use: \$top_d (empty, safe to '
-                              'use)"; '
-                              'else top_msg=\$(git --git-dir="\$top_d" '
-                              "log -1 --format='%ad - %s' --date=short "
-                              '2>/dev/null); echo "Best path to use: '
-                              '\$top_d"; '
-                              'echo "  last sync: \$top_msg"; fi',
-                          [
-                            // 2026-09-03: real feedback, live - "the app
-                            // setup steps can say, refer to the desktop
-                            // program (whatever the name of the file
-                            // is)." The desktop setup file (kworld.space/
-                            // localsync) now detects and prints this
-                            // exact answer as part of its own one-time
-                            // run, saved to "LocalSync_setup_delete_once_installed.txt"
-                            // on the Desktop - pointing there first means
-                            // most people never need the manual steps
-                            // below at all.
-                            (
-                              'Ran the desktop setup file already? '
-                                  'Check "LocalSync_setup_delete_once_installed.txt" '
-                                  '- already has this',
-                              false
+                            icon: Icon(Icons.info_outline,
+                                color: kTextDim, size: 20),
+                            tooltip: 'How do I find this?',
+                            // 2026-08-21: real question, live - "is this
+                            // live if the user has a different git bare
+                            // repo or is this hard coded text?" It WAS
+                            // hardcoded to this developer's own repo name
+                            // (Md_files_bare.git) - wrong for any other
+                            // real vault. Now reads the field's own live
+                            // text at the moment the dialog opens instead.
+                            // 2026-08-28: real feedback, live - "how do I
+                            // create a new LocalSync git folder? Can the app
+                            // walk me through?" This help dialog only ever
+                            // covered finding an EXISTING bare repo - no
+                            // help at all for the much more common first-
+                            // time case, someone with nothing to find yet.
+                            // Since git_service.dart's _ensureBareRepoExists()
+                            // (2026-08-28) creates the path automatically on
+                            // first pairing, that's now the actual answer -
+                            // leads with it instead of assuming a repo
+                            // already exists.
+                            // 2026-09-02: real feedback, live - "remove
+                            // Setting your desktop sync folder so 2 and 3
+                            // manual setup is similar and consistent in
+                            // style." Retitled to match step 3's dialog
+                            // ("Manual setup"), points renumbered inline
+                            // instead of bulleted prose, same trim as that
+                            // dialog got on 2026-09-01.
+                            // 2026-09-02: real feedback, live - "step 1
+                            // makes no sense" (both dialogs) - the numbered
+                            // list had been mixing an auto-setup explanation
+                            // in with the manual fallback steps, and
+                            // restating "run this command" that the command
+                            // box above already labels. Auto setup is now
+                            // an un-numbered lead line (context, not a
+                            // step); the numbered list is only the genuine
+                            // manual steps, same shape as step 3's dialog.
+                            // 2026-09-02: real feedback, live - "isn't step
+                            // 2 optimised? there's already the magic star
+                            // option for a suggested path, some redundancy."
+                            // Right - the ✨ "Use suggested path" tap target
+                            // sits right on this field already (plus the
+                            // laptop icon above it), so explaining "just
+                            // type any path" here in prose duplicated
+                            // something already visible and one tap away.
+                            // Dropped the lead line entirely - this dialog's
+                            // real, distinct job is finding/reusing an
+                            // EXISTING folder, which the numbered list below
+                            // already covers on its own.
+                            // 2026-09-02: real feedback, live - "if I sync
+                            // to a wrong folder, syncing can wipe or mess
+                            // up data... tell me how you find the correct
+                            // path, so a user can know how to do this from
+                            // the app." Fair - the old command just listed
+                            // bare folder NAMES, on a real machine that
+                            // also matches every unrelated project's own
+                            // .git folder, with zero way to tell which one
+                            // is actually yours short of guessing. This
+                            // version shows each one's last sync date and
+                            // message (or "empty, safe to use") - real
+                            // LocalSync syncs read as "Desktop sync
+                            // 2026-..." or "Initial sync from phone," not
+                            // "fix: typo in README," so a genuine LocalSync
+                            // folder is recognisable, not a coin flip.
+                            onPressed: () => _showHelp(
+                              'Manual setup',
+                              // 2026-09-03: real bug, caught by the user
+                              // actually running this in a terminal - "too
+                              // verbose and eyebleed." `-name '*.git'` also
+                              // matches the plain hidden `.git` folder every
+                              // normal project has (any name ending in
+                              // ".git" includes ".git" itself), so this was
+                              // listing every software repo under
+                              // ~/Documents/Git, not just real LocalSync
+                              // bare sync folders (which are always named
+                              // `something.git` as their own visible
+                              // directory, never the bare hidden name).
+                              // `! -name '.git'` excludes exactly that one
+                              // literal name and nothing else.
+                              //
+                              // 2026-09-03: real feedback, live - "needs a
+                              // line break or line separator from command,
+                              // so user easily reads results... it's all
+                              // gobble de gook until output is clean." The
+                              // command text and its real terminal output
+                              // ran together with nothing between them -
+                              // leading `echo;` prints one blank line before
+                              // the results start, so there's a visible
+                              // break between "the command I typed" and
+                              // "what it printed."
+                              //
+                              // 2026-09-03: real feedback, live - "can the
+                              // command 1 output be sorted better, is there
+                              // some sort of priority?" There wasn't - `find`
+                              // returns filesystem traversal order, nothing
+                              // to do with relevance. Restructured to a
+                              // sort-then-print two-pass (same shape as the
+                              // vault-path command's own score-then-sort),
+                              // keyed on each repo's last-commit unix
+                              // timestamp (`%at`, sorts correctly as a plain
+                              // number - the previous single-pass loop
+                              // couldn't sort at all, since it printed each
+                              // repo as it found it instead of after seeing
+                              // them all) - most recently used first, empty
+                              // repos (timestamp 0) sink to the bottom as
+                              // the least-likely-to-be-your-real-folder
+                              // fallback option.
+                              //
+                              // 2026-09-03: real feedback, live - "needs Top
+                              // entry at the top, not the bottom." Sorting
+                              // alone still made someone read the whole list
+                              // to find the best guess - a summary line (same
+                              // info the #1 list item already has, just
+                              // repeated first) now prints before the full
+                              // list, so the answer is visible without
+                              // reading past the first two lines. Worded as
+                              // "Best path to use:" rather than "Top entry:"
+                              // per the very next round of feedback - "Top
+                              // entry" was still an unexplained technical
+                              // label, this says outright what to do with
+                              // it.
+                              //
+                              // 2026-09-03: real feedback, live - "be
+                              // consistent... only the top result shown
+                              // clearly... then the user has the option for
+                              // the full command with the full raw data
+                              // output in a 2nd command offered in an i."
+                              // The full sorted list moved out of this
+                              // primary command entirely (now just the
+                              // "Best path to use" summary, no trailing
+                              // `while` loop) - it's the `detailsCommand`
+                              // below, behind the "Show full details" toggle.
+                              'echo; results=\$(for d in \$(find '
+                                  '~/Documents/Git -maxdepth 3 '
+                                  "-name '*.git' ! -name '.git' -type d); do "
+                                  't=\$(git --git-dir="\$d" log -1 '
+                                  '--format=%at 2>/dev/null); echo '
+                                  '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn'
+                                  '); top_t=\$(echo "\$results" | head -1 | '
+                                  "cut -d'|' -f1); top_d=\$(echo \"\$results\" "
+                                  "| head -1 | cut -d'|' -f2); "
+                                  'if [ "\$top_t" = "0" ]; then echo "Best '
+                                  'path to use: \$top_d (empty, safe to '
+                                  'use)"; '
+                                  'else top_msg=\$(git --git-dir="\$top_d" '
+                                  "log -1 --format='%ad - %s' --date=short "
+                                  '2>/dev/null); echo "Best path to use: '
+                                  '\$top_d"; '
+                                  'echo "  last sync: \$top_msg"; fi',
+                              [
+                                // 2026-09-03: real feedback, live - "the app
+                                // setup steps can say, refer to the desktop
+                                // program (whatever the name of the file
+                                // is)." The desktop setup file (kworld.space/
+                                // localsync) now detects and prints this
+                                // exact answer as part of its own one-time
+                                // run, saved to "LocalSync_setup_delete_once_installed.txt"
+                                // on the Desktop - pointing there first means
+                                // most people never need the manual steps
+                                // below at all.
+                                (
+                                  'Ran the desktop setup file already? '
+                                      'Check "LocalSync_setup_delete_once_installed.txt" '
+                                      '- already has this',
+                                  false
+                                ),
+                                ('OR, do this manually:', false),
+                                // 2026-09-03: real feedback, live - "which
+                                // step asks for the command, fix it." No
+                                // step here ever actually said to run it -
+                                // the command just appeared, detached,
+                                // somewhere else in the dialog. Added an
+                                // explicit step 1 for it (renumbered the
+                                // rest). Followed by "just fucking inline
+                                // command" - the command sits inside this
+                                // step's own sentence via _cmdToken, not in
+                                // a separate box beside it. Followed by
+                                // "the long command gives people eye bleed,
+                                // tuck away in a dropdown" - command dropped
+                                // from this step's own text, revealed via
+                                // the _kCommandToggle row after it instead.
+                                (
+                                  '1. Desktop: run this Terminal command - '
+                                      '"Best path to use" is the answer',
+                                  false
+                                ),
+                                _kCommandToggle,
+                                // 2026-09-02: real feedback, live - "mass
+                                // switching from Desktop and Phone, I want
+                                // this cleared up... Phone: bla / Desktop:
+                                // bla." Every step now says outright which
+                                // device it happens on, instead of leaving
+                                // that to be inferred from field names or
+                                // context a dialog doesn't carry.
+                                //
+                                // 2026-09-03: real feedback, live - "is
+                                // there some sort of priority?" Now that the
+                                // command sorts by recency, the top result
+                                // is the best first guess - same "the top
+                                // result is..." framing the vault-path
+                                // dialog's own step 2 already uses.
+                                (
+                                  '2. Phone: the top result is probably '
+                                      "yours - a real LocalSync folder's "
+                                      'last message reads like "Desktop '
+                                      'sync 2026-..." or "Initial sync from '
+                                      'phone," not an unrelated project '
+                                      "commit. If you're not sure, pick an "
+                                      'empty one instead - nothing to mix '
+                                      'up',
+                                  false
+                                ),
+                                (
+                                  '3. Phone: copy that path into the '
+                                      'Settings page, DESKTOP SYNC FOLDER '
+                                      'field',
+                                  false
+                                ),
+                                if (_pathCtrl.text.trim().isNotEmpty)
+                                  (
+                                    '4. Phone: currently set to '
+                                        '${_pathCtrl.text.trim()}',
+                                    false
+                                  ),
+                              ],
+                              showBullets: false,
+                              detailsCommand: 'echo; for d in \$(find '
+                                  '~/Documents/Git -maxdepth 3 '
+                                  "-name '*.git' ! -name '.git' -type d); do "
+                                  't=\$(git --git-dir="\$d" log -1 '
+                                  '--format=%at 2>/dev/null); echo '
+                                  '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn '
+                                  "| while IFS='|' read -r t d; do "
+                                  'echo "\$d"; if [ "\$t" = "0" ]; then echo '
+                                  '"  (empty, safe to use)"; else '
+                                  "git --git-dir=\"\$d\" log -1 --format='  "
+                                  "last sync: %ad - %s' --date=short "
+                                  '2>/dev/null; fi; done',
+                              detailsIntro: 'Full details - every existing '
+                                  'sync folder, most recently used first:',
+                              titleIcon: Icons.keyboard_outlined,
                             ),
-                            ('OR, do this manually:', false),
-                            // 2026-09-03: real feedback, live - "which
-                            // step asks for the command, fix it." No
-                            // step here ever actually said to run it -
-                            // the command just appeared, detached,
-                            // somewhere else in the dialog. Added an
-                            // explicit step 1 for it (renumbered the
-                            // rest). Followed by "just fucking inline
-                            // command" - the command sits inside this
-                            // step's own sentence via _cmdToken, not in
-                            // a separate box beside it. Followed by
-                            // "the long command gives people eye bleed,
-                            // tuck away in a dropdown" - command dropped
-                            // from this step's own text, revealed via
-                            // the _kCommandToggle row after it instead.
-                            (
-                              '1. Desktop: run this Terminal command - '
-                                  '"Best path to use" is the answer',
-                              false
-                            ),
-                            _kCommandToggle,
-                            // 2026-09-02: real feedback, live - "mass
-                            // switching from Desktop and Phone, I want
-                            // this cleared up... Phone: bla / Desktop:
-                            // bla." Every step now says outright which
-                            // device it happens on, instead of leaving
-                            // that to be inferred from field names or
-                            // context a dialog doesn't carry.
-                            //
-                            // 2026-09-03: real feedback, live - "is
-                            // there some sort of priority?" Now that the
-                            // command sorts by recency, the top result
-                            // is the best first guess - same "the top
-                            // result is..." framing the vault-path
-                            // dialog's own step 2 already uses.
-                            (
-                              '2. Phone: the top result is probably '
-                                  "yours - a real LocalSync folder's "
-                                  'last message reads like "Desktop '
-                                  'sync 2026-..." or "Initial sync from '
-                                  'phone," not an unrelated project '
-                                  "commit. If you're not sure, pick an "
-                                  'empty one instead - nothing to mix '
-                                  'up',
-                              false
-                            ),
-                            (
-                              '3. Phone: copy that path into the '
-                                  'Settings page, DESKTOP SYNC FOLDER '
-                                  'field',
-                              false
-                            ),
-                            if (_pathCtrl.text.trim().isNotEmpty)
-                              (
-                                '4. Phone: currently set to '
-                                    '${_pathCtrl.text.trim()}',
-                                false
-                              ),
-                          ],
-                          showBullets: false,
-                          detailsCommand: 'echo; for d in \$(find '
-                              '~/Documents/Git -maxdepth 3 '
-                              "-name '*.git' ! -name '.git' -type d); do "
-                              't=\$(git --git-dir="\$d" log -1 '
-                              '--format=%at 2>/dev/null); echo '
-                              '"\${t:-0}|\$d"; done | sort -t\'|\' -k1 -rn '
-                              "| while IFS='|' read -r t d; do "
-                              'echo "\$d"; if [ "\$t" = "0" ]; then echo '
-                              '"  (empty, safe to use)"; else '
-                              "git --git-dir=\"\$d\" log -1 --format='  "
-                              "last sync: %ad - %s' --date=short "
-                              '2>/dev/null; fi; done',
-                          detailsIntro: 'Full details - every existing '
-                              'sync folder, most recently used first:',
-                          titleIcon: Icons.keyboard_outlined,
-                        ),
                           ),
                         ],
                       ),
@@ -2326,241 +2338,243 @@ class _SettingsScreenState extends State<SettingsScreen>
             // line... it's an eye distraction, just the space alone is
             // enough." Reverses the call above - Divider dropped,
             // space-only gap.
-            const SizedBox(height: 40),
-            Text('4. DESKTOP VAULT PATH (optional)',
-                style: TextStyle(
-                    color: _stepColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, right: 10),
-                  child: Icon(Icons.folder_open, color: _stepColor, size: 22),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _vaultPathCtrl,
-                    style: TextStyle(color: kStar, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: '/home/user/Documents/Obsidian/MyVault '
-                          '(leave blank for a fresh folder)',
-                      // 2026-09-04: real feedback, live - see the sync-
-                      // folder field's matching comment above. Same fix:
-                      // removed, the banner's own scan icon is now the
-                      // one place to tap.
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                        icon: Icon(Icons.info_outline,
-                            color: kTextDim, size: 20),
-                        tooltip: 'What is this?',
-                        onPressed: () => _showHelp(
-                          'Desktop vault path',
-                          // 2026-09-03: real feedback, live - "step 2,
-                          // how?" Fair - "recognise your real vault's
-                          // folder" had nothing to go on, the old command
-                          // just listed bare paths with zero
-                          // distinguishing info. Same gap the sync-folder
-                          // dialog's own command already solved (shows
-                          // last-sync date/message).
-                          // 2026-09-03: real feedback, live - "don't have
-                          // the user read with eye bleed... likelihood
-                          // xx% this is your real vault, based on the
-                          // most notes, most recent edit date and not an
-                          // old backup." The first fix (raw note count +
-                          // date per candidate) still made the user do
-                          // the comparison themselves across 5 lines -
-                          // this computes an actual score per candidate
-                          // (60% weight on recency, 40% on note count,
-                          // relative to whichever candidate wins each
-                          // measure) and prints one plain-language line.
-                          // Verified against this Pi's real 5 candidates
-                          // before writing this: the true vault scored
-                          // 100%, a genuinely-close backup (edited the
-                          // day before) scored 95% - not a false
-                          // 100%-vs-0%, an honest reflection of real
-                          // ambiguity when two candidates are close.
-                          //
-                          // 2026-09-03: real feedback, live - "needs a
-                          // line break or line separator from command,
-                          // so user easily reads results... it's all
-                          // gobble de gook until output is clean." Same
-                          // fix as the sync-folder command - leading
-                          // `echo;` prints one blank line before this
-                          // pipeline's real output starts.
-                          //
-                          // 2026-09-03: real feedback, live - "be
-                          // consistent... only the top result shown
-                          // clearly... then the user has the option for
-                          // the full command with the full raw data
-                          // output in a 2nd command offered in an i."
-                          // `| head -1` keeps just the winning candidate
-                          // (same scoring pipeline, one line changed) -
-                          // the full ranked list of all candidates moved
-                          // to `detailsCommand` below.
-                          'echo; find ~/Documents -maxdepth 3 -iname '
-                              '"*.obsidian" '
-                              '-type d | sed \'s#/.obsidian\$##\' | while '
-                              'read -r v; do n=\$(find "\$v" -iname "*.md" '
-                              '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
-                              '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
-                              'sort -rn | head -1); e=\${e%.*}; echo '
-                              '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
-                              '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
-                              'if(\$2+0>maxn)maxn=\$2+0; '
-                              'if(\$3+0>maxe)maxe=\$3+0} '
-                              'END{for(i=1;i<=NR;i++){'
-                              'ns=(maxn>0)?n[i]/maxn:0; '
-                              'age=(maxe-e[i])/86400; '
-                              'rs=(age<=0)?1:1/(1+age/14); '
-                              'sc=int(100*(0.4*ns+0.6*rs)); '
-                              'if(sc>100)sc=100; '
-                              'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
-                              '-t\'|\' -k2 -rn | head -1 | while '
-                              'IFS=\'|\' read -r path score notes epoch; '
-                              'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
-                              '2>/dev/null || echo unknown); echo '
-                              '"Best vault to use: \$path"; echo '
-                              '"  ~\${score}% likely your real vault '
-                              '(\$notes notes, last edited \$d)"; done',
-                          [
-                            // 2026-09-03: real feedback, live - "the app
-                            // setup steps can say, refer to the desktop
-                            // program (whatever the name of the file
-                            // is)." The desktop setup file (kworld.space/
-                            // localsync) now detects and prints this
-                            // exact answer as part of its own one-time
-                            // run, saved to "LocalSync_setup_delete_once_installed.txt"
-                            // on the Desktop - pointing there first means
-                            // most people never need the manual steps
-                            // below at all.
-                            (
-                              'Ran the desktop setup file already? '
-                                  'Check "LocalSync_setup_delete_once_installed.txt" '
-                                  '- already has this',
-                              false
-                            ),
-                            ('OR, do this manually:', false),
-                            // 2026-09-03: real feedback, live - "you have
-                            // reversed the instruction, focus on the
-                            // negative rather than the positive action I
-                            // need to do... a recovery of my existing
-                            // phone and desktop folders, so the sync
-                            // doesn't lose any data." Led with the
-                            // leave-it-blank/fresh-folder case first,
-                            // which is backwards for someone actually
-                            // trying to reconnect to real existing data -
-                            // now leads with the recovery action itself
-                            // and its no-data-loss outcome, with the
-                            // blank/fresh-folder option mentioned last as
-                            // the alternative, not the headline.
-                            // 2026-09-03: real feedback, live - "clean up
-                            // step 4." Tightened the lead line (dropped
-                            // "and keep syncing your real notes," which
-                            // just restated "it becomes the one syncing
-                            // from now on" two clauses later) and step 3
-                            // (dropped "DESKTOP VAULT PATH" - the user is
-                            // already looking at that exact field, "this
-                            // field" says the same thing without
-                            // reprinting its own name back at them).
-                            // 2026-09-03: real feedback, live - "too
-                            // verbose... make point form." Was one dense
-                            // sentence; same three facts, one per line.
-                            // 2026-09-03: real feedback, live - "way too
-                            // verbose." "It becomes the one syncing from
-                            // now on" was cut - implied by entering a
-                            // path into this exact field, not new
-                            // information once said explicitly.
-                            (
-                              "Enter your existing vault's folder path "
-                                  'below to recover it - nothing is lost',
-                              false
-                            ),
-                            (
-                              'Leave blank only for a fresh, empty '
-                                  'folder instead',
-                              false
-                            ),
-                            // 2026-09-03: real feedback, live - "step 1,
-                            // run the command (show command here)" then
-                            // "just fucking inline command" - a boxed
-                            // element positioned right above this step
-                            // still wasn't "inline." The command sat
-                            // inside this step's own sentence via
-                            // _cmdToken. Followed by "the long command
-                            // gives people eye bleed, tuck away in a
-                            // dropdown" - command dropped from this
-                            // step's own text, revealed via the
-                            // _kCommandToggle row after it instead.
-                            //
-                            // 2026-09-03, earlier: "work that into the
-                            // step 4 walkthrough." The command output is
-                            // sorted highest-likelihood first now - step
-                            // 1 says so, step 2 says "top" instead of
-                            // "highest %" since sorting already put it
-                            // there.
-                            (
-                              '1. Desktop: run this Terminal command - '
-                                  'it\'s your real vault, scored against '
-                                  'every other folder Obsidian has opened',
-                              false
-                            ),
-                            _kCommandToggle,
-                            (
-                              '2. Phone: copy that exact path into this '
-                                  'field, then Save',
-                              false
-                            ),
-                            if (_vaultPathCtrl.text.trim().isNotEmpty)
-                              (
-                                '3. Phone: currently set to '
-                                    '${_vaultPathCtrl.text.trim()}',
-                                false
+            if (!_isFreeFolder) ...[
+              const SizedBox(height: 40),
+              Text('4. DESKTOP VAULT PATH (optional)',
+                  style: TextStyle(
+                      color: _stepColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5)),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 10),
+                    child: Icon(Icons.folder_open, color: _stepColor, size: 22),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: _vaultPathCtrl,
+                      style: TextStyle(color: kStar, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: '/home/user/Documents/Obsidian/MyVault '
+                            '(leave blank for a fresh folder)',
+                        // 2026-09-04: real feedback, live - see the sync-
+                        // folder field's matching comment above. Same fix:
+                        // removed, the banner's own scan icon is now the
+                        // one place to tap.
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.info_outline,
+                                  color: kTextDim, size: 20),
+                              tooltip: 'What is this?',
+                              onPressed: () => _showHelp(
+                                'Desktop vault path',
+                                // 2026-09-03: real feedback, live - "step 2,
+                                // how?" Fair - "recognise your real vault's
+                                // folder" had nothing to go on, the old command
+                                // just listed bare paths with zero
+                                // distinguishing info. Same gap the sync-folder
+                                // dialog's own command already solved (shows
+                                // last-sync date/message).
+                                // 2026-09-03: real feedback, live - "don't have
+                                // the user read with eye bleed... likelihood
+                                // xx% this is your real vault, based on the
+                                // most notes, most recent edit date and not an
+                                // old backup." The first fix (raw note count +
+                                // date per candidate) still made the user do
+                                // the comparison themselves across 5 lines -
+                                // this computes an actual score per candidate
+                                // (60% weight on recency, 40% on note count,
+                                // relative to whichever candidate wins each
+                                // measure) and prints one plain-language line.
+                                // Verified against this Pi's real 5 candidates
+                                // before writing this: the true vault scored
+                                // 100%, a genuinely-close backup (edited the
+                                // day before) scored 95% - not a false
+                                // 100%-vs-0%, an honest reflection of real
+                                // ambiguity when two candidates are close.
+                                //
+                                // 2026-09-03: real feedback, live - "needs a
+                                // line break or line separator from command,
+                                // so user easily reads results... it's all
+                                // gobble de gook until output is clean." Same
+                                // fix as the sync-folder command - leading
+                                // `echo;` prints one blank line before this
+                                // pipeline's real output starts.
+                                //
+                                // 2026-09-03: real feedback, live - "be
+                                // consistent... only the top result shown
+                                // clearly... then the user has the option for
+                                // the full command with the full raw data
+                                // output in a 2nd command offered in an i."
+                                // `| head -1` keeps just the winning candidate
+                                // (same scoring pipeline, one line changed) -
+                                // the full ranked list of all candidates moved
+                                // to `detailsCommand` below.
+                                'echo; find ~/Documents -maxdepth 3 -iname '
+                                    '"*.obsidian" '
+                                    '-type d | sed \'s#/.obsidian\$##\' | while '
+                                    'read -r v; do n=\$(find "\$v" -iname "*.md" '
+                                    '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
+                                    '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
+                                    'sort -rn | head -1); e=\${e%.*}; echo '
+                                    '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
+                                    '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
+                                    'if(\$2+0>maxn)maxn=\$2+0; '
+                                    'if(\$3+0>maxe)maxe=\$3+0} '
+                                    'END{for(i=1;i<=NR;i++){'
+                                    'ns=(maxn>0)?n[i]/maxn:0; '
+                                    'age=(maxe-e[i])/86400; '
+                                    'rs=(age<=0)?1:1/(1+age/14); '
+                                    'sc=int(100*(0.4*ns+0.6*rs)); '
+                                    'if(sc>100)sc=100; '
+                                    'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
+                                    '-t\'|\' -k2 -rn | head -1 | while '
+                                    'IFS=\'|\' read -r path score notes epoch; '
+                                    'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
+                                    '2>/dev/null || echo unknown); echo '
+                                    '"Best vault to use: \$path"; echo '
+                                    '"  ~\${score}% likely your real vault '
+                                    '(\$notes notes, last edited \$d)"; done',
+                                [
+                                  // 2026-09-03: real feedback, live - "the app
+                                  // setup steps can say, refer to the desktop
+                                  // program (whatever the name of the file
+                                  // is)." The desktop setup file (kworld.space/
+                                  // localsync) now detects and prints this
+                                  // exact answer as part of its own one-time
+                                  // run, saved to "LocalSync_setup_delete_once_installed.txt"
+                                  // on the Desktop - pointing there first means
+                                  // most people never need the manual steps
+                                  // below at all.
+                                  (
+                                    'Ran the desktop setup file already? '
+                                        'Check "LocalSync_setup_delete_once_installed.txt" '
+                                        '- already has this',
+                                    false
+                                  ),
+                                  ('OR, do this manually:', false),
+                                  // 2026-09-03: real feedback, live - "you have
+                                  // reversed the instruction, focus on the
+                                  // negative rather than the positive action I
+                                  // need to do... a recovery of my existing
+                                  // phone and desktop folders, so the sync
+                                  // doesn't lose any data." Led with the
+                                  // leave-it-blank/fresh-folder case first,
+                                  // which is backwards for someone actually
+                                  // trying to reconnect to real existing data -
+                                  // now leads with the recovery action itself
+                                  // and its no-data-loss outcome, with the
+                                  // blank/fresh-folder option mentioned last as
+                                  // the alternative, not the headline.
+                                  // 2026-09-03: real feedback, live - "clean up
+                                  // step 4." Tightened the lead line (dropped
+                                  // "and keep syncing your real notes," which
+                                  // just restated "it becomes the one syncing
+                                  // from now on" two clauses later) and step 3
+                                  // (dropped "DESKTOP VAULT PATH" - the user is
+                                  // already looking at that exact field, "this
+                                  // field" says the same thing without
+                                  // reprinting its own name back at them).
+                                  // 2026-09-03: real feedback, live - "too
+                                  // verbose... make point form." Was one dense
+                                  // sentence; same three facts, one per line.
+                                  // 2026-09-03: real feedback, live - "way too
+                                  // verbose." "It becomes the one syncing from
+                                  // now on" was cut - implied by entering a
+                                  // path into this exact field, not new
+                                  // information once said explicitly.
+                                  (
+                                    "Enter your existing vault's folder path "
+                                        'below to recover it - nothing is lost',
+                                    false
+                                  ),
+                                  (
+                                    'Leave blank only for a fresh, empty '
+                                        'folder instead',
+                                    false
+                                  ),
+                                  // 2026-09-03: real feedback, live - "step 1,
+                                  // run the command (show command here)" then
+                                  // "just fucking inline command" - a boxed
+                                  // element positioned right above this step
+                                  // still wasn't "inline." The command sat
+                                  // inside this step's own sentence via
+                                  // _cmdToken. Followed by "the long command
+                                  // gives people eye bleed, tuck away in a
+                                  // dropdown" - command dropped from this
+                                  // step's own text, revealed via the
+                                  // _kCommandToggle row after it instead.
+                                  //
+                                  // 2026-09-03, earlier: "work that into the
+                                  // step 4 walkthrough." The command output is
+                                  // sorted highest-likelihood first now - step
+                                  // 1 says so, step 2 says "top" instead of
+                                  // "highest %" since sorting already put it
+                                  // there.
+                                  (
+                                    '1. Desktop: run this Terminal command - '
+                                        'it\'s your real vault, scored against '
+                                        'every other folder Obsidian has opened',
+                                    false
+                                  ),
+                                  _kCommandToggle,
+                                  (
+                                    '2. Phone: copy that exact path into this '
+                                        'field, then Save',
+                                    false
+                                  ),
+                                  if (_vaultPathCtrl.text.trim().isNotEmpty)
+                                    (
+                                      '3. Phone: currently set to '
+                                          '${_vaultPathCtrl.text.trim()}',
+                                      false
+                                    ),
+                                ],
+                                showBullets: false,
+                                detailsCommand: 'echo; find ~/Documents '
+                                    '-maxdepth 3 -iname "*.obsidian" '
+                                    '-type d | sed \'s#/.obsidian\$##\' | while '
+                                    'read -r v; do n=\$(find "\$v" -iname "*.md" '
+                                    '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
+                                    '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
+                                    'sort -rn | head -1); e=\${e%.*}; echo '
+                                    '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
+                                    '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
+                                    'if(\$2+0>maxn)maxn=\$2+0; '
+                                    'if(\$3+0>maxe)maxe=\$3+0} '
+                                    'END{for(i=1;i<=NR;i++){'
+                                    'ns=(maxn>0)?n[i]/maxn:0; '
+                                    'age=(maxe-e[i])/86400; '
+                                    'rs=(age<=0)?1:1/(1+age/14); '
+                                    'sc=int(100*(0.4*ns+0.6*rs)); '
+                                    'if(sc>100)sc=100; '
+                                    'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
+                                    '-t\'|\' -k2 -rn | while '
+                                    'IFS=\'|\' read -r path score notes epoch; '
+                                    'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
+                                    '2>/dev/null || echo unknown); echo '
+                                    '"\$path"; echo "  ~\${score}% likely your '
+                                    'real vault (\$notes notes, last edited '
+                                    '\$d)"; done',
+                                detailsIntro: 'Full details - every folder '
+                                    'Obsidian has opened, ranked:',
+                                titleIcon: Icons.computer,
                               ),
+                            ),
                           ],
-                          showBullets: false,
-                          detailsCommand: 'echo; find ~/Documents '
-                              '-maxdepth 3 -iname "*.obsidian" '
-                              '-type d | sed \'s#/.obsidian\$##\' | while '
-                              'read -r v; do n=\$(find "\$v" -iname "*.md" '
-                              '2>/dev/null | wc -l); e=\$(find "\$v" -iname '
-                              '"*.md" -printf \'%T@\\n\' 2>/dev/null | '
-                              'sort -rn | head -1); e=\${e%.*}; echo '
-                              '"\$v|\$n|\${e:-0}"; done | awk -F\'|\' '
-                              '\'{p[NR]=\$1;n[NR]=\$2;e[NR]=\$3; '
-                              'if(\$2+0>maxn)maxn=\$2+0; '
-                              'if(\$3+0>maxe)maxe=\$3+0} '
-                              'END{for(i=1;i<=NR;i++){'
-                              'ns=(maxn>0)?n[i]/maxn:0; '
-                              'age=(maxe-e[i])/86400; '
-                              'rs=(age<=0)?1:1/(1+age/14); '
-                              'sc=int(100*(0.4*ns+0.6*rs)); '
-                              'if(sc>100)sc=100; '
-                              'print p[i]"|"sc"|"n[i]"|"e[i]}}\' | sort '
-                              '-t\'|\' -k2 -rn | while '
-                              'IFS=\'|\' read -r path score notes epoch; '
-                              'do d=\$(date -d "@\$epoch" +%Y-%m-%d '
-                              '2>/dev/null || echo unknown); echo '
-                              '"\$path"; echo "  ~\${score}% likely your '
-                              'real vault (\$notes notes, last edited '
-                              '\$d)"; done',
-                          detailsIntro: 'Full details - every folder '
-                              'Obsidian has opened, ranked:',
-                          titleIcon: Icons.computer,
                         ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
             // 2026-08-30: real device feedback - "Skins needs to be
             // better separated from the 3 steps, which will add
             // confusion to new users setting up pairing." Both cards
@@ -2698,7 +2712,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2)),
                 const SizedBox(height: 4),
-                Text('A short chime when Push, Pull, Desktop sync finish, '
+                Text(
+                    'A short chime when Push, Pull, Desktop sync finish, '
                     'or all conflicts are cleared. Follows the silent switch.',
                     style: TextStyle(color: kStar, fontSize: 14, height: 1.4)),
               ],
@@ -2711,8 +2726,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               setState(() => _soundsOn = v);
               await SoundService.instance.setEnabled(v);
               if (v) {
-                unawaited(
-                    SoundService.instance.play(SoundEvent.desktopSync));
+                unawaited(SoundService.instance.play(SoundEvent.desktopSync));
               }
             },
           ),
@@ -2791,7 +2805,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                     'Drop files in there to send them to this phone. '
                     'The LocalSync shortcut on the desktop opens it - '
                     'deleting that shortcut deletes nothing.',
-                    style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
+                    style:
+                        TextStyle(color: kTextMid, fontSize: 13, height: 1.4)),
               );
             },
           ),
@@ -2834,8 +2849,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (repo == null || repo.vaultBookmark.isEmpty) {
       return const SizedBox.shrink();
     }
-    final changed = _lsFolderSaved != null &&
-        _lsFolderCtrl.text.trim() != _lsFolderSaved;
+    final changed =
+        _lsFolderSaved != null && _lsFolderCtrl.text.trim() != _lsFolderSaved;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -2877,10 +2892,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                   decoration: InputDecoration(
                     hintText: 'e.g. Projects/LocalSync',
                     hintStyle: TextStyle(color: kTextDim),
-                    enabledBorder:
-                        OutlineInputBorder(borderSide: BorderSide(color: kBorder)),
-                    focusedBorder:
-                        OutlineInputBorder(borderSide: BorderSide(color: kGreen)),
+                    enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: kBorder)),
+                    focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: kGreen)),
                   ),
                   onChanged: (_) => setState(() {}),
                   onSubmitted: (_) => _saveLocalSyncFolder(),
@@ -2936,51 +2951,51 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
           if (_skinsOpen) ...[
-          const SizedBox(height: 12),
-          // 2026-08-21: was a single Expanded-in-a-Row (fine for 3
-          // skins, cramped and overflow-prone once the national-flag
-          // skins brought the count to 7) - Wrap with a fixed swatch
-          // width lets it flow onto multiple lines cleanly instead.
-          // 2026-08-29: real feedback, live, TWO rounds - "left
-          // aligned, leaving a nasty right space" fixed with
-          // WrapAlignment.center first, confirmed on-device it did
-          // NOTHING. Real cause found on the second pass: the parent
-          // Column uses CrossAxisAlignment.start, which never stretches
-          // its children to the container's full width in the first
-          // place - Wrap was shrink-wrapping to fit its own content, so
-          // there was no extra space inside it for WrapAlignment.center
-          // to center within. SizedBox(width: double.infinity) forces
-          // the Wrap itself to actually span the full width first, so
-          // centering has real room to do something.
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final palette in allPalettes) ...[
-                  // 2026-08-29: real feedback, live - "add a Customise
-                  // button, left of the us skin... user sends me a text
-                  // or image, I read it and design it." Placed inline in
-                  // the same grid, right
-                  // before the first flag skin, rather than a separate
-                  // section - reads as one more skin choice, not a
-                  // different kind of thing bolted on.
-                  if (palette.id == 'us')
-                    const SizedBox(width: 84, child: _CustomiseSkinTile()),
-                  SizedBox(
-                    width: 84,
-                    child: _SkinSwatch(
-                      palette: palette,
-                      selected: themeService.palette.id == palette.id,
-                      onTap: () => themeService.select(palette),
+            const SizedBox(height: 12),
+            // 2026-08-21: was a single Expanded-in-a-Row (fine for 3
+            // skins, cramped and overflow-prone once the national-flag
+            // skins brought the count to 7) - Wrap with a fixed swatch
+            // width lets it flow onto multiple lines cleanly instead.
+            // 2026-08-29: real feedback, live, TWO rounds - "left
+            // aligned, leaving a nasty right space" fixed with
+            // WrapAlignment.center first, confirmed on-device it did
+            // NOTHING. Real cause found on the second pass: the parent
+            // Column uses CrossAxisAlignment.start, which never stretches
+            // its children to the container's full width in the first
+            // place - Wrap was shrink-wrapping to fit its own content, so
+            // there was no extra space inside it for WrapAlignment.center
+            // to center within. SizedBox(width: double.infinity) forces
+            // the Wrap itself to actually span the full width first, so
+            // centering has real room to do something.
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final palette in allPalettes) ...[
+                    // 2026-08-29: real feedback, live - "add a Customise
+                    // button, left of the us skin... user sends me a text
+                    // or image, I read it and design it." Placed inline in
+                    // the same grid, right
+                    // before the first flag skin, rather than a separate
+                    // section - reads as one more skin choice, not a
+                    // different kind of thing bolted on.
+                    if (palette.id == 'us')
+                      const SizedBox(width: 84, child: _CustomiseSkinTile()),
+                    SizedBox(
+                      width: 84,
+                      child: _SkinSwatch(
+                        palette: palette,
+                        selected: themeService.palette.id == palette.id,
+                        onTap: () => themeService.select(palette),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
           ],
         ],
       ),
