@@ -10,6 +10,7 @@ import '../models/repository.dart';
 import '../models/commit_template.dart';
 import 'backup_reminder_service.dart';
 import 'conflict_scanner.dart';
+import 'demo_conflict.dart';
 import 'database_service.dart';
 import 'device_name.dart';
 import 'sync_service.dart';
@@ -82,6 +83,23 @@ class RepositoryProvider extends ChangeNotifier {
   // (same as ConflictsScreen._scan), so the scan could come back empty
   // and wrongly clear amber. Now resolves the bookmark first, and on any
   // failure leaves the current colour alone rather than guessing.
+  // 2026-09-26: real bug, live - "didn't update the amber to white after
+  // exiting Conflicts. I had to re-enter Conflicts and exit." The rescan
+  // on return raced ConflictsScreen's own last scan for the same
+  // security-scoped folder and failed silently (keeps the old colour).
+  // ConflictsScreen now reports every scan it completes here, so the
+  // colour is already right before the user even leaves.
+  void setHasConflicts(int repoId, bool has) {
+    if (has == _reposWithConflicts.contains(repoId)) return;
+    if (has) {
+      _reposWithConflicts.add(repoId);
+    } else {
+      _reposWithConflicts.remove(repoId);
+      unawaited(SoundService.instance.play(SoundEvent.conflictsCleared));
+    }
+    notifyListeners();
+  }
+
   Future<void> refreshConflicts(int repoId) async {
     final repo = _repos.where((r) => r.id == repoId).firstOrNull;
     if (repo == null) return;
@@ -119,6 +137,7 @@ class RepositoryProvider extends ChangeNotifier {
   /// Runs [refreshConflicts] for every repo - at startup, so the
   /// Conflicts row is right before anything else happens.
   Future<void> refreshAllConflicts() async {
+    await DemoConflict.stage(); // sets DemoConflict.triesLeft
     for (final r in List.of(_repos)) {
       if (r.id != null) await refreshConflicts(r.id!);
     }

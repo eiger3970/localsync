@@ -21,6 +21,7 @@
 // composed string still gets folded in as a reference callout by
 // applyResolution, same safety net as every other resolution path.
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../models/repository.dart';
@@ -88,9 +89,14 @@ class _MergePickerScreenState extends State<MergePickerScreen> {
     final vaultFolder = VaultFolderService();
     final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
     String? backupRelPath;
+    MergeUndo? mergeUndo;
     try {
       if (path != null) {
+        final file = File('$path/${widget.entry.filePath}');
+        final before = await file.readAsString();
         backupRelPath = await resolveConflict(path, widget.entry, chosen);
+        mergeUndo =
+            MergeUndo(widget.entry.filePath, before, await file.readAsString());
         await DatabaseService().addResolvedRecords(
           recordsFor(widget.entry, DateTime.now()),
         );
@@ -105,6 +111,8 @@ class _MergePickerScreenState extends State<MergePickerScreen> {
           resolved: true,
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
+          keptBoth: null,
+          mergeUndo: mergeUndo,
         ),
       );
     }

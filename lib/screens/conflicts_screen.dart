@@ -7,6 +7,7 @@
 // in Obsidian by hand for now - the tap-to-pick resolution UI is the
 // deliberately deferred step 2, once this list itself proves useful.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
@@ -18,6 +19,7 @@ import '../services/binary_conflict_log.dart';
 import '../services/conflict_scanner.dart';
 import '../services/database_service.dart';
 import '../services/purchase_service.dart';
+import '../services/repository_provider.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/conflict_picker_upsell.dart';
@@ -143,6 +145,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       // plain mutation here wouldn't trigger that outer widget to
       // rebuild at all. Needs its own explicit setState.
       if (mounted) setState(() => _hasActiveConflicts = entries.isNotEmpty);
+      // 2026-09-26: keeps the main screen's amber/white Conflicts icon
+      // in step with every scan here (see setHasConflicts).
+      if (mounted && widget.repo.id != null) {
+        context
+            .read<RepositoryProvider>()
+            .setHasConflicts(widget.repo.id!, entries.isNotEmpty);
+      }
       // 2026-09-14: real feedback, live - the push-reminder glow
       // (_pushReminderGlowing) should reset the moment a conflict newer
       // than the one just resolved shows up - a fresh, unpushed round of
@@ -294,6 +303,35 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
     if (mounted) setState(() => _future = _scan());
+  }
+
+  /// 2026-09-26: UNDO for MERGE TEXT - puts the whole note back as it
+  /// was, unless it changed since (then says so, writes nothing).
+  Future<void> _undoMergeNow(MergeUndo undo) async {
+    final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
+    if (path == null) return;
+    bool done;
+    try {
+      done = await undoMerge(path, undo);
+    } finally {
+      await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
+    }
+    // This screen is usually popped to Home by now (see the banner
+    // below) - report through the root navigator, not `context`.
+    final navContext = rootNavigatorKey.currentContext;
+    if (!done && navContext != null) {
+      ScaffoldMessenger.of(navContext).showSnackBar(const SnackBar(
+          content: Text('Not undone - the note changed since the merge. '
+              'The backup is in LocalSync/Conflict Backups.')));
+    }
+    if (mounted) {
+      setState(() => _future = _scan());
+    } else if (widget.repo.id != null && navContext != null) {
+      // ignore: use_build_context_synchronously
+      unawaited(navContext
+          .read<RepositoryProvider>()
+          .refreshConflicts(widget.repo.id!));
+    }
   }
 
   Future<void> _checkForReverts(List<ConflictEntry> entries) async {
@@ -1302,6 +1340,23 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               }
                                               _undoKeptBothNow(
                                                   result!.keptBoth!);
+                                            },
+                                            child: Text('UNDO',
+                                                style:
+                                                    TextStyle(color: kGreen)),
+                                          ),
+                                        if (result?.mergeUndo != null)
+                                          TextButton(
+                                            onPressed: () {
+                                              final navContext =
+                                                  rootNavigatorKey
+                                                      .currentContext;
+                                              if (navContext != null) {
+                                                ScaffoldMessenger.of(navContext)
+                                                    .hideCurrentMaterialBanner();
+                                              }
+                                              _undoMergeNow(
+                                                  result!.mergeUndo!);
                                             },
                                             child: Text('UNDO',
                                                 style:
