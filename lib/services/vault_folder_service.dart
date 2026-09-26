@@ -14,6 +14,8 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 
+import 'demo_conflict.dart' show kDemoBookmarkPrefix;
+
 class VaultFolderResult {
   final String path;
   final String bookmark; // base64-encoded security-scoped bookmark
@@ -50,6 +52,11 @@ class VaultFolderService {
   /// bookmark could not be resolved (folder moved/deleted/permission
   /// revoked - the user would need to pick it again via [pickFolder]).
   Future<String?> startAccessing(String bookmark) async {
+    // 2026-09-26: the demo conflict lives in the app's own storage, which
+    // needs no security-scoped bookmark - the "bookmark" is just its path.
+    if (bookmark.startsWith(kDemoBookmarkPrefix)) {
+      return bookmark.substring(kDemoBookmarkPrefix.length);
+    }
     try {
       final result = await _channel.invokeMapMethod<String, dynamic>(
         'startAccessing',
@@ -65,6 +72,7 @@ class VaultFolderService {
   /// using that folder has finished - iOS access is reference-counted
   /// per Apple's documented security-scoped resource pattern.
   Future<void> stopAccessing(String bookmark) async {
+    if (bookmark.startsWith(kDemoBookmarkPrefix)) return;
     await _channel.invokeMethod('stopAccessing', {'bookmark': bookmark});
   }
 
