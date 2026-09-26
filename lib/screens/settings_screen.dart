@@ -25,17 +25,13 @@ import '../theme.dart';
 import '../features/linking/linking_controller.dart';
 import '../widgets/pulsing_glow.dart';
 import '../models/repository.dart' show Repository, SyncMode;
-import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
-import '../widgets/demo_conflict_card.dart';
 import '../services/localsync_folder.dart';
 import '../services/sound_service.dart';
 import '../services/vault_backup.dart' show kLocalSyncFolderName;
 import '../services/vault_folder_service.dart';
-import 'paywall_conflict_picker_screen.dart';
-import 'paywall_keep_both_cleanup_screen.dart';
-import 'paywall_obsidian_screen.dart';
 import 'qr_scan_screen.dart';
+import 'upgrades_screen.dart';
 import 'reminders_screen.dart';
 import 'security_info_screen.dart';
 import '../services/desktop_schedule.dart';
@@ -2686,60 +2682,17 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  // 2026-09-26: every purchase in one findable place (App Review needs
+  // 2026-09-26: every purchase in one findable place (UpgradesScreen) (App Review needs
   // to reach them without a real conflict), alphabetical, plus the
   // sample conflict to try the conflict fixes and Restore purchases.
   Widget _buildUpgradesCard() {
-    final purchases = context.read<PurchaseService>();
-    void open(Widget screen) =>
-        Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('UPGRADES',
-            style: TextStyle(
-                color: _stepColor,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5)),
-        const SizedBox(height: 6),
-        _SettingsTile(
-            icon: Icons.auto_fix_high,
-            label: 'Auto merge & clean up',
-            subtitle: 'Yearly - merges conflicting notes for you',
-            onTap: () =>
-                open(PaywallKeepBothCleanupScreen(purchases: purchases))),
-        _SettingsTile(
-            icon: Icons.auto_stories_rounded,
-            label: 'PKM sync',
-            subtitle: 'One-time - sync your notes app vault too',
-            onTap: () => open(PaywallObsidianScreen(purchases: purchases))),
-        _SettingsTile(
-            icon: Icons.compare_arrows,
-            label: 'Visual picker',
-            subtitle: 'One-time - see both versions, tap to keep',
-            onTap: () =>
-                open(PaywallConflictPickerScreen(purchases: purchases))),
-        _SettingsTile(
-            icon: Icons.star,
-            iconColor: Colors.amber,
-            label: 'Try it: sample conflict',
-            subtitle: 'Practice note - your real files are never touched',
-            onTap: () => openDemoConflict(context)),
-        _SettingsTile(
-            icon: Icons.restore,
-            label: 'Restore purchases',
-            onTap: () async {
-              final info = await purchases.restorePurchases();
-              if (!mounted) return;
-              final n = info?.entitlements.active.length ?? 0;
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(n > 0
-                      ? 'Restored $n purchase${n == 1 ? '' : 's'}'
-                      : 'Nothing to restore on this Apple Account')));
-            }),
-      ],
-    );
+    return _SettingsTile(
+        icon: Icons.workspace_premium,
+        iconColor: Colors.amber,
+        label: 'Upgrades',
+        subtitle: 'All purchases, sample conflict, restore',
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const UpgradesScreen())));
   }
 
   // 2026-08-21: "skins" IAP, build phase - "build, if skins is

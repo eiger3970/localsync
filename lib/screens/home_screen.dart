@@ -35,6 +35,7 @@ import 'pairing_screen.dart';
 import 'reminders_screen.dart';
 import 'security_info_screen.dart';
 import 'settings_screen.dart';
+import 'upgrades_screen.dart';
 import '../services/sound_service.dart';
 
 // 2026-09-18: real bug, found after the SceneDelegate fix still left
@@ -144,6 +145,14 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          // 2026-09-26: Ken - "purchases are the important way in - must
+          // not be deep and buried." One tap to every upgrade.
+          IconButton(
+            tooltip: 'Upgrades',
+            icon: const Icon(Icons.workspace_premium, color: Colors.amber),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const UpgradesScreen())),
+          ),
           // Fixed 2026-08-09: two bare icon buttons (key, phone) with only
           // a long-press tooltip for explanation - on iOS a tap doesn't
           // show the tooltip at all, so neither icon was actually self-
@@ -320,6 +329,14 @@ class HomeScreen extends StatelessWidget {
                       child: _MenuRow(
                         icon: Icons.restore_from_trash_outlined,
                         label: 'Deleted files - restore',
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'upgrades',
+                      child: _MenuRow(
+                        icon: Icons.workspace_premium,
+                        iconColor: Colors.amber,
+                        label: 'Upgrades',
                       ),
                     ),
                     PopupMenuItem(
@@ -698,6 +715,10 @@ class HomeScreen extends StatelessWidget {
     }
     if (v == 'pair') _openPairing(context);
     if (v == 'link') _openLinking(context);
+    if (v == 'upgrades') {
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const UpgradesScreen()));
+    }
     if (v == 'about') {
       // 2026-09-18: real ask, live - "Support floating
       // hearts decrease per higher tiers." The only real,
