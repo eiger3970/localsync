@@ -1633,7 +1633,10 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               ],
             ),
             const SizedBox(height: 12),
-            Text('Local-first $kNoteAppName sync. No cloud. No subscription.',
+            // 2026-09-26: Auto merge is now an optional yearly
+            // subscription, and free users never see "Obsidian" -
+            // was "Local-first $kNoteAppName sync. No cloud. No subscription."
+            Text('Local-first sync. No cloud. No subscription needed.',
                 style: TextStyle(color: kTextMid, fontSize: 14, height: 1.6)),
             const SizedBox(height: 4),
             // 2026-08-23: real feedback, live - specific tool names
