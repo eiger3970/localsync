@@ -1337,6 +1337,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                         .toggleAutoSync(_repo!.id!),
                   ),
                 ),
+              if (_repo != null)
+                _SettingsTile(
+                    icon: Icons.link_off,
+                    iconColor: Colors.redAccent,
+                    label: 'Connection of sync - remove',
+                    labelColor: Colors.redAccent,
+                    subtitle: 'Stops syncing this folder - files stay',
+                    onTap: () => Navigator.pop(context, 'delete')),
               _SettingsTile(
                   svgAsset: 'assets/pairing/pairing_phone_key.svg',
                   label: 'Pair with desktop',
@@ -2611,16 +2619,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ],
               ),
             ],
-            if (!widget.neededForPairing && _repo != null) ...[
-              const SizedBox(height: 28),
-              _SettingsTile(
-                  icon: Icons.link_off,
-                  iconColor: Colors.redAccent,
-                  label: 'Connection of sync - remove',
-                  labelColor: Colors.redAccent,
-                  subtitle: 'Stops syncing this folder - files stay',
-                  onTap: () => Navigator.pop(context, 'delete')),
-            ],
             // 2026-08-30: real device feedback - "Skins needs to be
             // better separated from the 3 steps, which will add
             // confusion to new users setting up pairing." Both cards
@@ -2638,8 +2636,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 28),
               _SettingsTile(
                   icon: Icons.smartphone,
-                  label: 'Device name',
-                  subtitle: 'Used in LocalSync conflicts - not the iPhone name',
+                  label: 'Device name (for app only)',
+                  subtitle: 'Shown in LocalSync conflicts',
                   onTap: () => Navigator.pop(context, 'device_name')),
               const SizedBox(height: 28),
               _buildLocalSyncFolderCard(),
@@ -2933,7 +2931,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             children: [
               Icon(Icons.folder_outlined, color: kTextMid, size: 18),
               const SizedBox(width: 8),
-              Text('LOCALSYNC FOLDER',
+              Text('LOCALSYNC FOLDER (backups)',
                   style: TextStyle(
                       color: kTextMid,
                       fontSize: 11,
@@ -2943,8 +2941,11 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           const SizedBox(height: 10),
           Text(
-            'Where LocalSync keeps its backups inside "${repo.name}". '
-            'Applies to every device synced with this vault.',
+            // 2026-09-26: Ken - say plainly it's the backups, and tell
+            // users to look for the name "LocalSync" (brand exposure).
+            'Your backups live in a folder named LocalSync inside '
+            '"${repo.name}" - look for LocalSync. Set where it goes '
+            'here. Applies to every device synced with this folder.',
             style: TextStyle(color: kStar, fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 12),
