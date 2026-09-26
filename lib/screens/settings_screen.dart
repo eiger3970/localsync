@@ -2616,7 +2616,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               _SettingsTile(
                   icon: Icons.link_off,
                   iconColor: Colors.redAccent,
-                  label: 'Remove this connection',
+                  label: 'Connection of sync - remove',
                   labelColor: Colors.redAccent,
                   subtitle: 'Stops syncing this folder - files stay',
                   onTap: () => Navigator.pop(context, 'delete')),
@@ -2639,7 +2639,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               _SettingsTile(
                   icon: Icons.smartphone,
                   label: 'Device name',
-                  subtitle: 'Shown in sync conflicts',
+                  subtitle: 'Used in LocalSync conflicts - not the iPhone name',
                   onTap: () => Navigator.pop(context, 'device_name')),
               const SizedBox(height: 28),
               _buildLocalSyncFolderCard(),
