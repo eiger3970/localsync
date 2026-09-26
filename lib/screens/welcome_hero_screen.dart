@@ -20,6 +20,7 @@
 // screens first, which is the only routing change; the real pairing
 // flow (LinkingScreen) is untouched.
 
+import '../widgets/brain_hero.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -52,6 +53,13 @@ class WelcomeHeroScreen extends StatefulWidget {
 
 class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
   bool _delivered = false;
+  // 2026-09-26: brain hero - success when the dog lands, distracted on a miss
+  BrainMode _brainMode = BrainMode.idle;
+  int _brainPlay = 0;
+  void _playBrain(BrainMode m) => setState(() {
+        _brainMode = m;
+        _brainPlay++;
+      });
 
   void _choose(BuildContext context, SyncMode mode) {
     context.read<LinkingController>().preferredMode = mode;
@@ -102,39 +110,57 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const _HeadlinePoint(
-                    icon: Icons.insert_drive_file_outlined,
-                    text: 'No more lost files.'),
-                // 2026-09-22: real feedback, live - "cloud image is
-                // right or should be cloud with strike through, or
-                // local backup image?" Icons.backup_outlined reads as a
-                // cloud-upload glyph - a mixed signal on a screen whose
-                // whole pitch is "no cloud" (see the cloud_off caption
-                // line below), even before considering a strike-through
-                // version of it. The real reason this is safe isn't
-                // "backed up somewhere" at all, it's that a synced copy
-                // already exists on both devices - reused the same
-                // phone+laptop pairing icon the "Needs your phone + a
-                // desktop" caption line already uses further down this
-                // screen, scaled up to headline size, so the icon
-                // itself states the actual mechanism instead of
-                // implying a cloud that doesn't exist.
-                const _HeadlinePoint(
-                    iconWidget: _PhoneLaptopIcon(color: wTealDark, scale: 1.2),
-                    text: 'No more backup worries.'),
-                const _HeadlinePoint(
-                    assetIcon: 'assets/logos/git-branches-only.svg',
-                    text: 'No more conflicts.'),
-                // 2026-09-04: real feedback, live, three rounds - "Try
-                // it... is under No more conflicts, maybe move to above
-                // the dashed line" (fixed by widening the gap above so
-                // it read as a caption for the demo, not a fourth
-                // headline bullet); then "this can go under the dashed
-                // line" (moved below the demo entirely); then "too far
-                // low, can the text be added close above the dashed
-                // line?" - below the WHOLE demo (past its own animation)
-                // was further away than intended. Back above it, tight
-                // gap directly against the demo it labels.
+                Row(
+                  children: [
+                    BrainHero(
+                      mode: _brainMode,
+                      playId: _brainPlay,
+                      onDone: () => setState(() => _brainMode = BrainMode.idle),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _HeadlinePoint(
+                              icon: Icons.insert_drive_file_outlined,
+                              text: 'No more lost files.'),
+                          // 2026-09-22: real feedback, live - "cloud image is
+                          // right or should be cloud with strike through, or
+                          // local backup image?" Icons.backup_outlined reads as a
+                          // cloud-upload glyph - a mixed signal on a screen whose
+                          // whole pitch is "no cloud" (see the cloud_off caption
+                          // line below), even before considering a strike-through
+                          // version of it. The real reason this is safe isn't
+                          // "backed up somewhere" at all, it's that a synced copy
+                          // already exists on both devices - reused the same
+                          // phone+laptop pairing icon the "Needs your phone + a
+                          // desktop" caption line already uses further down this
+                          // screen, scaled up to headline size, so the icon
+                          // itself states the actual mechanism instead of
+                          // implying a cloud that doesn't exist.
+                          const _HeadlinePoint(
+                              iconWidget: _PhoneLaptopIcon(
+                                  color: wTealDark, scale: 1.2),
+                              text: 'No more backup worries.'),
+                          const _HeadlinePoint(
+                              assetIcon: 'assets/logos/git-branches-only.svg',
+                              text: 'No more conflicts.'),
+                          // 2026-09-04: real feedback, live, three rounds - "Try
+                          // it... is under No more conflicts, maybe move to above
+                          // the dashed line" (fixed by widening the gap above so
+                          // it read as a caption for the demo, not a fourth
+                          // headline bullet); then "this can go under the dashed
+                          // line" (moved below the demo entirely); then "too far
+                          // low, can the text be added close above the dashed
+                          // line?" - below the WHOLE demo (past its own animation)
+                          // was further away than intended. Back above it, tight
+                          // gap directly against the demo it labels.
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 22),
                 Text('Try it - drag your file across.',
                     textAlign: TextAlign.center,
@@ -144,7 +170,11 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                   height: 172,
                   child: _PhoneToDesktopDemo(
                     delivered: _delivered,
-                    onDelivered: () => setState(() => _delivered = true),
+                    onDelivered: () {
+                      setState(() => _delivered = true);
+                      _playBrain(BrainMode.success);
+                    },
+                    onMissed: () => _playBrain(BrainMode.distracted),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -493,7 +523,10 @@ class _PhoneToDesktopDemo extends StatelessWidget {
   final bool delivered;
   final VoidCallback onDelivered;
   const _PhoneToDesktopDemo(
-      {required this.delivered, required this.onDelivered});
+      {required this.delivered,
+      required this.onDelivered,
+      required this.onMissed});
+  final VoidCallback onMissed;
 
   @override
   Widget build(BuildContext context) {
@@ -573,8 +606,8 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                       top: 48,
                       child: ClipPath(
                         clipper: _TrapClipper(),
-                        child: Container(
-                            width: 78, height: 9, color: wTealDark),
+                        child:
+                            Container(width: 78, height: 9, color: wTealDark),
                       ),
                     ),
                     // upper-left area of the SCREEN box (which starts
@@ -615,6 +648,7 @@ class _PhoneToDesktopDemo extends StatelessWidget {
                   data: true,
                   feedback: Material(color: Colors.transparent, child: dog),
                   childWhenDragging: Opacity(opacity: 0.3, child: dog),
+                  onDraggableCanceled: (_, __) => onMissed(),
                   child: dog,
                 ),
         ),
@@ -730,7 +764,8 @@ class _DogWithFile extends StatelessWidget {
                     offset: const Offset(0, 3)),
               ],
             ),
-            child: CustomPaint(size: const Size(52, 52), painter: _DogFacePainter()),
+            child: CustomPaint(
+                size: const Size(52, 52), painter: _DogFacePainter()),
           ),
           if (!delivered)
             Positioned(
@@ -807,7 +842,8 @@ class _DashedLine extends StatelessWidget {
   const _DashedLine();
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(double.infinity, 2), painter: _DashPainter());
+    return CustomPaint(
+        size: const Size(double.infinity, 2), painter: _DashPainter());
   }
 }
 
@@ -906,7 +942,8 @@ class _PathCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 9, vertical: 3),
                           decoration: BoxDecoration(
-                              color: tagBg, borderRadius: BorderRadius.circular(4)),
+                              color: tagBg,
+                              borderRadius: BorderRadius.circular(4)),
                           child: Text(tag,
                               style: TextStyle(
                                   fontSize: 11,
@@ -938,7 +975,8 @@ class _PathCard extends StatelessWidget {
 class MiniPhoneIcon extends StatelessWidget {
   final Color color;
   final Color screenColor;
-  const MiniPhoneIcon({super.key, required this.color, required this.screenColor});
+  const MiniPhoneIcon(
+      {super.key, required this.color, required this.screenColor});
 
   @override
   Widget build(BuildContext context) {
@@ -1087,7 +1125,8 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
           Positioned(
             left: 0,
             top: 8,
-            child: MiniPhoneIcon(color: widget.color, screenColor: widget.screenColor),
+            child: MiniPhoneIcon(
+                color: widget.color, screenColor: widget.screenColor),
           ),
           Positioned(
             left: 40 + 14,
@@ -1125,8 +1164,9 @@ class _PhoneToDesktopFlowState extends State<PhoneToDesktopFlow>
                 return const SizedBox.shrink(); // gap between trips
               }
               local = Curves.easeInOut.transform(local);
-              final x =
-                  dir > 0 ? xStart + (xEnd - xStart) * local : xEnd + (xStart - xEnd) * local;
+              final x = dir > 0
+                  ? xStart + (xEnd - xStart) * local
+                  : xEnd + (xStart - xEnd) * local;
               // emerges (grows/fades in) leaving one device, shrinks/
               // fades out arriving at the other - reads as "disappears
               // into the device," not a static hover between them

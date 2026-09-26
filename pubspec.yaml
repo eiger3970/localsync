@@ -155,6 +155,8 @@ flutter:
     - assets/pairing/
     - assets/flags/
     - assets/logos/
+    - assets/brain/
+    - assets/brain/idle/
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
