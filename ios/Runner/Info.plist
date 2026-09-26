@@ -352,5 +352,10 @@
 	     would have crashed the app the moment that dialog opened. -->
 	<key>NSMotionUsageDescription</key>
 	<string>LocalSync reads your phone's tilt to sway the SUPPORT dialog's hearts side to side - nothing is recorded or sent anywhere.</string>
+	<!-- 2026-09-26: only standard encryption (HTTPS/SSH via iOS and git).
+	     Declaring it here stops App Store Connect holding every new build
+	     as "Missing Compliance" until answered by hand. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
