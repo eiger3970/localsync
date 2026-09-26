@@ -41,8 +41,8 @@ class _PaywallKeepBothCleanupScreenState
   Future<void> _load() async {
     final offerings = await widget.purchases.getOfferings();
     final package = offerings?.current?.availablePackages
-        .where((p) => p.storeProduct.identifier
-            .contains(kKeepBothCleanupEntitlementId))
+        .where((p) =>
+            p.storeProduct.identifier.contains(kKeepBothCleanupEntitlementId))
         .firstOrNull;
     if (!mounted) return;
     setState(() {
@@ -82,9 +82,9 @@ class _PaywallKeepBothCleanupScreenState
     final info = await widget.purchases.restorePurchases();
     if (!mounted) return;
     setState(() => _busy = false);
-    final restored = info?.entitlements.active
-            .containsKey(kKeepBothCleanupEntitlementId) ??
-        false;
+    final restored =
+        info?.entitlements.active.containsKey(kKeepBothCleanupEntitlementId) ??
+            false;
     if (restored) {
       Navigator.pop(context, true);
     } else {
@@ -128,9 +128,7 @@ class _PaywallKeepBothCleanupScreenState
               Text('Keep both and clean up',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 24,
-                      color: kStar)),
+                      fontWeight: FontWeight.w800, fontSize: 24, color: kStar)),
               const SizedBox(height: 8),
               Text(
                 'Free KEEP BOTH keeps every word, always - it just '
@@ -187,36 +185,42 @@ class _PaywallKeepBothCleanupScreenState
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration:
-                      BoxDecoration(color: kSurface, border: Border.all(color: kBorder)),
+                  decoration: BoxDecoration(
+                      color: kSurface, border: Border.all(color: kBorder)),
                   child: Text('Coming soon',
                       textAlign: TextAlign.center,
-                      style:
-                          TextStyle(color: kTextMid, fontStyle: FontStyle.italic)),
+                      style: TextStyle(
+                          color: kTextMid, fontStyle: FontStyle.italic)),
                 ),
                 // TEMPORARY - same reasoning as
                 // paywall_obsidian_screen.dart's matching button: no
                 // real purchase to make yet, so real device testing of
                 // this feature would otherwise be completely blocked.
                 // Must come out before a real App Store product/launch.
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context, true),
-                  // 2026-09-18: real feedback, live - "Text under
-                  // Coming soon too small." 11px -> 13px.
-                  child: Text('Skip for testing (no product configured yet)',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: kTextDim,
-                          fontSize: 13,
-                          decoration: TextDecoration.underline)),
-                ),
+                // 2026-09-26: store builds (TestFlight/App Store) never show this -
+                // strangers could unlock for free while products fail to load.
+                // Sideloaded dev builds (no STORE_BUILD) keep it for testing.
+                if (!kIsStoreBuild) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context, true),
+                    // 2026-09-18: real feedback, live - "Text under
+                    // Coming soon too small." 11px -> 13px.
+                    child: Text('Skip for testing (no product configured yet)',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: kTextDim,
+                            fontSize: 13,
+                            decoration: TextDecoration.underline)),
+                  ),
+                ],
               ],
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                    style:
+                        const TextStyle(color: Colors.redAccent, fontSize: 12)),
               ],
               const SizedBox(height: 14),
               Row(
