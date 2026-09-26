@@ -26,6 +26,7 @@ import '../services/conflict_repair.dart'
         oneContainsTheOther,
         oneSideSuspiciouslyShort;
 import '../services/conflict_scanner.dart';
+import '../services/demo_conflict.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
 import '../services/ios_app_service.dart';
@@ -35,6 +36,7 @@ import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
 import 'backup_compare_screen.dart';
 import 'merge_picker_screen.dart';
+import 'paywall_conflict_picker_screen.dart';
 import 'paywall_keep_both_cleanup_screen.dart';
 import '../services/localsync_folder.dart';
 
@@ -389,8 +391,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: kSurface,
-        title: Text('Colours?',
-            style: TextStyle(color: kStar, fontSize: 16)),
+        title: Text('Colours?', style: TextStyle(color: kStar, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -529,6 +530,23 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // a count, since a note can now genuinely have more than 2 stacked
   // versions (see conflict_scanner.dart's ConflictEntry.versions).
   Future<void> _confirmAndChoose(String label, String chosen) async {
+    // 2026-09-26: tap-to-keep is the paid Visual picker. Free once on the
+    // demo sample (stage 1, after the free Auto merge try); real
+    // conflicts need the purchase - fixing by hand stays free.
+    final purchases = context.read<PurchaseService>();
+    final demo = DemoConflict.isDemo(widget.repo);
+    final freeTry = demo && await DemoConflict.stage() == 1;
+    final owned =
+        freeTry || await purchases.hasEntitlement(kConflictPickerEntitlementId);
+    if (!mounted) return;
+    if (!owned) {
+      final unlocked = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+            builder: (_) => PaywallConflictPickerScreen(purchases: purchases)),
+      );
+      if (unlocked != true || !mounted) return;
+    }
     final otherCount = widget.entry.versions.length - 1;
     final proceed = await showDialog<bool>(
       context: context,
@@ -704,13 +722,16 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     try {
       if (path != null) {
         backupRelPath = await resolveConflict(path, widget.entry, chosen);
+        if (DemoConflict.isDemo(widget.repo)) await DemoConflict.advancePast(1);
         // 2026-08-20: remember this resolution so a later scan can flag
         // it if it reappears (Obsidian's cache reverting a resolved
         // write) instead of it silently looking like an unremarkable
         // new conflict - see resolved_watchlist.dart.
-        await DatabaseService().addResolvedRecords(
-          recordsFor(widget.entry, DateTime.now()),
-        );
+        if (!DemoConflict.isDemo(widget.repo)) {
+          await DatabaseService().addResolvedRecords(
+            recordsFor(widget.entry, DateTime.now()),
+          );
+        }
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
@@ -774,16 +795,17 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // for anyone who already owns it, never re-charge).
   Future<void> _confirmAndKeepBothCleanedUp() async {
     final purchases = context.read<PurchaseService>();
+    // 2026-09-26: free once on the demo sample (stage 0).
     final alreadyOwned =
-        await purchases.hasEntitlement(kKeepBothCleanupEntitlementId);
+        (DemoConflict.isDemo(widget.repo) && await DemoConflict.stage() == 0) ||
+            await purchases.hasEntitlement(kKeepBothCleanupEntitlementId);
     if (!mounted) return;
 
     if (!alreadyOwned) {
       final unlocked = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
-            builder: (_) =>
-                PaywallKeepBothCleanupScreen(purchases: purchases)),
+            builder: (_) => PaywallKeepBothCleanupScreen(purchases: purchases)),
       );
       if (unlocked != true || !mounted) return;
     }
@@ -845,9 +867,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       if (path != null) {
         backupRelPath = await mergeConflictKeepingBoth(path, widget.entry,
             cleanUp: cleanUp);
-        await DatabaseService().addResolvedRecords(
-          recordsFor(widget.entry, DateTime.now()),
-        );
+        if (DemoConflict.isDemo(widget.repo)) {
+          if (cleanUp) await DemoConflict.advancePast(0);
+        } else {
+          await DatabaseService().addResolvedRecords(
+            recordsFor(widget.entry, DateTime.now()),
+          );
+        }
         // 2026-09-08: real feedback, live - the permanent Undo (Merged
         // conflicts screen) existed but nobody could find it. Re-scans
         // for the marker mergeConflictKeepingBoth just wrote so the
@@ -1050,8 +1076,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // repeat but never showed where in the text - this is passed to
     // that side's own _ConflictPanel so it can highlight both
     // occurrences directly.
-    final duplicateParagraph =
-        duplicateSide != -1 ? findDuplicateParagraph(versions[duplicateSide].body) : null;
+    final duplicateParagraph = duplicateSide != -1
+        ? findDuplicateParagraph(versions[duplicateSide].body)
+        : null;
     // 2026-09-08: real feedback, live - "does that really work?" It
     // didn't, for the case that matters most (two sides with nothing
     // in common - the real Sep 7th shape). mergeHunks collapses to one
@@ -1077,6 +1104,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (DemoConflict.isDemo(widget.repo)) const _DemoBanner(),
                 // 2026-09-14: real feedback, live - "I've said all along
                 // to include all the fucking text", then "disjointed,
                 // messy and confusing... why not have the text in the
@@ -1160,8 +1188,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           // which before the panels are even read.
                           : Text.rich(
                               TextSpan(
-                                style:
-                                    TextStyle(color: kStar, fontSize: 15),
+                                style: TextStyle(color: kStar, fontSize: 15),
                                 children: [
                                   const TextSpan(text: 'Tap to keep '),
                                   TextSpan(
@@ -1223,13 +1250,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.lightbulb_outline, color: Colors.white, size: 14),
+                      Icon(Icons.lightbulb_outline,
+                          color: Colors.white, size: 14),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                             'Unsure? KEEP BOTH never loses data - worst '
                             'case, delete a duplicate line after.',
-                            style: TextStyle(color: Colors.white, fontSize: 12)),
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 12)),
                       ),
                     ],
                   ),
@@ -1259,8 +1288,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   const SizedBox(height: 8),
                   _autoTipRow(
                       kGreen,
-                      allHaveLeadingTime(
-                              versions.map((v) => v.body).toList())
+                      allHaveLeadingTime(versions.map((v) => v.body).toList())
                           ? '"KEEP BOTH" is usually right here\n'
                               '- each side starts with a different '
                               'clock time, these look like two '
@@ -1419,7 +1447,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
-                        icon: Icon(Icons.auto_fix_high, color: kGreen, size: 18),
+                        icon:
+                            Icon(Icons.auto_fix_high, color: kGreen, size: 18),
                         label: Text('KEEP BOTH & CLEAN UP',
                             style: TextStyle(
                                 color: kGreen,
@@ -1695,9 +1724,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               const SizedBox(height: 2),
               Text(text,
                   style: TextStyle(
-                      color: color,
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic)),
+                      color: color, fontSize: 13, fontStyle: FontStyle.italic)),
             ],
           ),
         ),
@@ -1976,7 +2003,8 @@ class _ConflictPanel extends StatelessWidget {
                       : TextStyle(
                           color: kStar,
                           fontSize: 14,
-                          backgroundColor: highlightColor.withValues(alpha: 0.28),
+                          backgroundColor:
+                              highlightColor.withValues(alpha: 0.28),
                         ),
             );
           }).toList(),
@@ -2046,6 +2074,44 @@ class _ConflictPanel extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// 2026-09-26: tells people which free try the sample conflict gives them.
+class _DemoBanner extends StatelessWidget {
+  const _DemoBanner();
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<int>(
+      future: DemoConflict.stage(),
+      builder: (_, snap) {
+        final stage = snap.data;
+        if (stage == null) return const SizedBox.shrink();
+        final text = switch (stage) {
+          0 => 'Sample conflict - your free try: tap KEEP BOTH & CLEAN UP '
+              'and watch Auto merge sort both diaries by time.',
+          1 => 'Sample conflict - your free try: tap the version to keep '
+              '(Visual picker).',
+          _ => 'Sample conflict - free tries used. This is how it works on '
+              'your real notes.',
+        };
+        return Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: kSurface, border: Border.all(color: Colors.amber)),
+          child: Row(
+            children: [
+              Icon(Icons.star, color: Colors.amber, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                  child:
+                      Text(text, style: TextStyle(color: kStar, fontSize: 13))),
+            ],
+          ),
+        );
+      },
     );
   }
 }

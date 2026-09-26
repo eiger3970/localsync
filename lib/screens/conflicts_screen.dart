@@ -21,6 +21,7 @@ import '../services/purchase_service.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/conflict_picker_upsell.dart';
+import '../widgets/demo_conflict_card.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
 import '../main.dart' show rootNavigatorKey;
@@ -527,6 +528,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(color: kTextDim, fontSize: 13),
                           ),
+                          // 2026-09-26: always somewhere to try the
+                          // paid fixes, even with no real conflict.
+                          const SizedBox(height: 24),
+                          const DemoConflictCard(),
                         ],
                       ),
                     ),
@@ -704,6 +709,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     // spec: "a genuine lift/convenience offer... not a
                     // lock screen" - the free manual-pick list below is
                     // fully unaffected either way.
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: DemoConflictCard(),
+                    ),
                     if (entries.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -1089,7 +1098,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   PlaceholderAlignment.middle,
                                               child: Icon(
                                                   Icons.download_rounded,
-                                                  color: kStar, size: 16),
+                                                  color: kStar,
+                                                  size: 16),
                                             ),
                                             const TextSpan(
                                                 text: ' PULL, completing '
@@ -1208,7 +1218,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   // real staleness this
                                                   // lint means to catch.
                                                   // ignore: use_build_context_synchronously
-                                                  ScaffoldMessenger.of(navContext)
+                                                  ScaffoldMessenger.of(
+                                                          navContext)
                                                       .hideCurrentMaterialBanner();
                                                   await Navigator.push(
                                                     // ignore: use_build_context_synchronously
@@ -1242,7 +1253,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // where a resolution just wrote to
                                             // this exact note.
                                             TextSpan(
-                                                text: ' in $lastKnownLocalSyncFolder/Conflict Backups.'),
+                                                text:
+                                                    ' in $lastKnownLocalSyncFolder/Conflict Backups.'),
                                           ],
                                         ),
                                       ),
@@ -1285,8 +1297,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   rootNavigatorKey
                                                       .currentContext;
                                               if (navContext != null) {
-                                                ScaffoldMessenger.of(
-                                                        navContext)
+                                                ScaffoldMessenger.of(navContext)
                                                     .hideCurrentMaterialBanner();
                                               }
                                               _undoKeptBothNow(
@@ -1607,7 +1618,8 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
             ),
             _SafetyPoint(
               icon: Icons.library_add_check,
-              text: 'A fresh copy is saved first, in $lastKnownLocalSyncFolder/Conflict Backups, '
+              text:
+                  'A fresh copy is saved first, in $lastKnownLocalSyncFolder/Conflict Backups, '
                   'before anything is removed',
             ),
             _SafetyPoint(
@@ -2026,7 +2038,9 @@ class _SafetyStep extends StatelessWidget {
         // not static, adds liveliness to the page." _PulsingGlow (below)
         // replaces the fixed BoxShadow with a real, continuously
         // repeating animation.
-        glowing ? _PulsingGlow(color: glowColor, child: iconWidget) : iconWidget,
+        glowing
+            ? _PulsingGlow(color: glowColor, child: iconWidget)
+            : iconWidget,
         const SizedBox(height: 4),
         // 2026-08-18: bumped from the old paragraph's dim 13px/kTextMid
         // to kStar/14px - "too small and dark, make easier to read".
