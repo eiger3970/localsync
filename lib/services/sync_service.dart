@@ -1216,35 +1216,7 @@ Future<SyncResult> _withRepo(
   try {
     // Recover from any stuck merge from a previous crashed run before
     // doing anything else.
-    if (repo.state == git.GitRepositoryState.merge) {
-      if (repo.index.hasConflicts) {
-        String? otherLabel, otherTime;
-        try {
-          final mergeHeadOid =
-              git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
-          final other = labelForCommit(repo, mergeHeadOid);
-          otherLabel = other.label;
-          otherTime = other.time.isEmpty ? null : other.time;
-        } catch (_) {
-          // No MERGE_HEAD to read a label from - repair still runs, just
-          // falls back to a generic label.
-        }
-        repairAllConflictsOnDisk(p.vaultPath,
-            otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
-        // 2026-08-27: real gap found - repairAllConflictsOnDisk (.md
-        // only) was the ONLY conflict handling that ever ran here.
-        // Anything else conflicted (images/PDFs in an existing vault,
-        // or any file at all in a Tier 0 generic-sync repo) fell
-        // straight through to finishMergeCommit below with whatever
-        // libgit2's default merge left on disk - no detection, no
-        // backup, no user visibility. See repairBinaryConflictsOnDisk's
-        // own doc for the fix.
-        repairBinaryConflictsOnDisk(repo, p.vaultPath,
-            otherLabel: otherLabel ?? 'other device');
-      }
-      finishMergeCommit(repo, p.deviceName);
-      repo.stateCleanup();
-    }
+    recoverInterruptedMerge(repo, p.vaultPath, p.deviceName);
     // 2026-09-25: repair a saved broken address first (see lookupOrigin).
     remote = lookupOrigin(repo, p.remoteUrl);
     return op(repo, remote, callbacks);
@@ -1275,6 +1247,51 @@ Future<SyncResult> _withRepo(
 /// resulting tree's oid against HEAD's tree oid instead - a tree-hash
 /// comparison is unambiguous and doesn't depend on the status API at
 /// all, so it can't be wrong the same way.
+/// Finishes a merge a previous run started but never committed (crash,
+/// or a throw between Merge.commit and finishMergeCommit), keeping both
+/// parents. Returns true if there was one.
+///
+/// 2026-09-27: was inline in the day-to-day sync path only. The first-
+/// link path (git_service.dart cloneBareRepo) had no such check: a
+/// failed link left the half-done merge (conflict boxes already written)
+/// on disk, and the retry's commitDirtyTree committed it as an ordinary
+/// one-parent commit - the desktop side was forgotten, the next merge
+/// conflicted again and wrote the SAME box again. Real result: 3 retries,
+/// 3 identical boxes in one journal note. Shared here so both paths
+/// recover the same way.
+bool recoverInterruptedMerge(
+    git.Repository repo, String vaultPath, String deviceName) {
+  if (repo.state != git.GitRepositoryState.merge) return false;
+  if (repo.index.hasConflicts) {
+    String? otherLabel, otherTime;
+    try {
+      final mergeHeadOid =
+          git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target;
+      final other = labelForCommit(repo, mergeHeadOid);
+      otherLabel = other.label;
+      otherTime = other.time.isEmpty ? null : other.time;
+    } catch (_) {
+      // No MERGE_HEAD to read a label from - repair still runs, just
+      // falls back to a generic label.
+    }
+    repairAllConflictsOnDisk(vaultPath,
+        otherLabel: otherLabel ?? 'other device', otherTime: otherTime);
+    // 2026-08-27: real gap found - repairAllConflictsOnDisk (.md
+    // only) was the ONLY conflict handling that ever ran here.
+    // Anything else conflicted (images/PDFs in an existing vault,
+    // or any file at all in a Tier 0 generic-sync repo) fell
+    // straight through to finishMergeCommit below with whatever
+    // libgit2's default merge left on disk - no detection, no
+    // backup, no user visibility. See repairBinaryConflictsOnDisk's
+    // own doc for the fix.
+    repairBinaryConflictsOnDisk(repo, vaultPath,
+        otherLabel: otherLabel ?? 'other device');
+  }
+  finishMergeCommit(repo, deviceName);
+  repo.stateCleanup();
+  return true;
+}
+
 bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
   final parent = git.Commit.lookup(repo: repo, oid: headOid);

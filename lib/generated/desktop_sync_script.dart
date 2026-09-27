@@ -340,7 +340,7 @@ def merge_both(m):
         # the header now names exactly where to go to resolve it.
         theirs_block = (
             f'> [!warning]- SYNC CONFLICT — {label} (review and delete one) '
-            f'- open LocalSync → ⋮ → Conflicts\n'
+            f'- fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
             f'{callout}'
         )
         # 2026-09-07: real feedback, live - if both sides are journal

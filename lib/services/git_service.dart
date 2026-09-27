@@ -10,6 +10,8 @@ import 'sync_service.dart'
         createInitialCommit,
         labelForCommit,
         repairAllConflictsOnDisk,
+        repairBinaryConflictsOnDisk,
+        recoverInterruptedMerge,
         finishMergeCommit,
         backupFilesAboutToChange,
         verifyAndRepairCheckout,
@@ -534,6 +536,11 @@ class GitServiceImpl implements GitService {
         // reads repo.head.target, same 'reference not found' cause) -
         // never even reaches the remote.ls() guard below. Checking first
         // instead of assuming a parent commit always exists.
+        // 2026-09-27: a previous attempt that died mid-merge is finished
+        // first (both parents kept) - see recoverInterruptedMerge. Without
+        // this, the commitDirtyTree below turned its half-done merge into
+        // a plain commit and every retry wrote the same conflict box again.
+        recoverInterruptedMerge(repo, localVaultPath, deviceName);
         try {
           repo.head.target;
           commitDirtyTree(repo, 'Vault contents before linking', deviceName);
@@ -642,6 +649,12 @@ class GitServiceImpl implements GitService {
           unresolvedCount = repairAllConflictsOnDisk(localVaultPath,
               otherLabel: other.label,
               otherTime: other.time.isEmpty ? null : other.time);
+          // 2026-09-27: .md only above - any other conflicted file
+          // (.obsidian/*.json, images) stayed conflicted, so
+          // finishMergeCommit threw and the attempt failed mid-merge.
+          // Same second pass the day-to-day sync already runs.
+          repairBinaryConflictsOnDisk(repo, localVaultPath,
+              otherLabel: other.label);
         }
         finishMergeCommit(repo, deviceName,
             message: 'Merge desktop and phone (linking existing vault)');
