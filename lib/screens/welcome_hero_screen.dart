@@ -28,8 +28,10 @@ import 'package:provider/provider.dart';
 import '../theme.dart' show kGreen;
 import '../models/repository.dart';
 import '../features/linking/linking_controller.dart';
-import 'sync_files_preview_screen.dart';
-import 'sync_obsidian_preview_screen.dart';
+import '../services/purchase_service.dart';
+import '../widgets/shatter_page_route.dart';
+import 'linking_screen.dart';
+import 'paywall_obsidian_screen.dart';
 
 const wBg1 = Color(0xFFF3FBFA);
 const wBg2 = Color(0xFFE1F5F0);
@@ -61,16 +63,29 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
         _brainPlay++;
       });
 
-  void _choose(BuildContext context, SyncMode mode) {
+  // 2026-09-27: Ken - "2nd page is unnecessary right? Users could go from
+  // welcome screen, tap product, then enter FILE SYNC SETUP page?" The
+  // Sync my files / Sync my Obsidian notes preview pages (and their extra
+  // swipe) are skipped: a tap goes straight to setup. Obsidian still
+  // passes the paywall first when not owned - the same check the
+  // preview page ran.
+  Future<void> _choose(BuildContext context, SyncMode mode) async {
     context.read<LinkingController>().preferredMode = mode;
+    if (mode == SyncMode.obsidianVault) {
+      final purchases = context.read<PurchaseService>();
+      final owned = await purchases.hasEntitlement(kPkmSyncEntitlementId);
+      if (!context.mounted) return;
+      if (!owned) {
+        final unlocked = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+              builder: (_) => PaywallObsidianScreen(purchases: purchases)),
+        );
+        if (unlocked != true || !context.mounted) return;
+      }
+    }
     Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => mode == SyncMode.obsidianVault
-            ? const SyncObsidianPreviewScreen()
-            : const SyncFilesPreviewScreen(),
-      ),
-    );
+        context, ShatterPageRoute(builder: (_) => const LinkingScreen()));
   }
 
   @override
