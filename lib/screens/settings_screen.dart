@@ -252,8 +252,15 @@ class _SettingsScreenState extends State<SettingsScreen>
   // 4 of 4 correct." A complete scan fills this bar in place of the note
   // (3 s); doing nothing continues, "Cancel - check details" stays here.
   late final AnimationController _continueCtrl =
-      AnimationController(vsync: this, duration: const Duration(seconds: 3));
+      // 2026-09-27: Ken, live - "way too quick for a human, it needs to
+      // be like 30 seconds" - 30 s, with Continue now to skip the wait.
+      AnimationController(vsync: this, duration: const Duration(seconds: 30));
   bool _continuing = false;
+
+  void _continueNow() {
+    _continueCtrl.value = 1;
+    _continueCtrl.stop(canceled: false);
+  }
 
   void _cancelContinue() {
     _continueCtrl.stop(canceled: true);
@@ -274,6 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           progress: _continueCtrl,
           onBanner: widget.neededForPairing,
           onCancel: _cancelContinue,
+          onContinue: _continueNow,
         ),
       );
     }
@@ -3613,7 +3621,8 @@ class ScanContinuePanel extends StatelessWidget {
       this.vaultPath = '',
       required this.progress,
       required this.onBanner,
-      required this.onCancel});
+      required this.onCancel,
+      required this.onContinue});
   final String user;
   final String ip;
   final String syncFolder;
@@ -3640,6 +3649,7 @@ class ScanContinuePanel extends StatelessWidget {
 
   final bool onBanner;
   final VoidCallback onCancel;
+  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
@@ -3679,18 +3689,35 @@ class ScanContinuePanel extends StatelessWidget {
         const SizedBox(height: 4),
         Row(
           children: [
-            Text('Continuing…', style: TextStyle(color: fg, fontSize: 15)),
-            const Spacer(),
-            TextButton(
-              onPressed: onCancel,
-              child: Text('Cancel - check details',
-                  style: TextStyle(
-                      color: fg,
-                      fontSize: 15,
-                      decoration: TextDecoration.underline,
-                      decorationColor: fg)),
+            Expanded(
+              child: AnimatedBuilder(
+                animation: progress,
+                builder: (_, __) => Text(
+                    'Continuing in ${(30 * (1 - progress.value)).ceil()} s',
+                    style: TextStyle(color: fg, fontSize: 15)),
+              ),
+            ),
+            FilledButton(
+              onPressed: onContinue,
+              style: FilledButton.styleFrom(
+                  backgroundColor: fg,
+                  foregroundColor: onBanner ? kGreen : kVoid),
+              child: const Text('Continue now',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ],
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: onCancel,
+            child: Text('Cancel - check details',
+                style: TextStyle(
+                    color: fg,
+                    fontSize: 15,
+                    decoration: TextDecoration.underline,
+                    decorationColor: fg)),
+          ),
         ),
       ],
     );

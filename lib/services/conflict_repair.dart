@@ -556,6 +556,20 @@ List<StackedVersion> extractStackedVersions(String text) {
   return versions.isEmpty ? [(label: 'yours', body: text.trim())] : versions;
 }
 
+/// 2026-09-27: real incident, live - a first setup that retried linking
+/// three times stacked the SAME desktop version three times in one note
+/// (3 identical 62-line callouts). Identical versions carry no decision,
+/// so they're dropped here - first one wins, compared ignoring
+/// whitespace. Used everywhere a conflict block is (re)built, so a
+/// duplicate can neither be written nor survive a re-read.
+List<StackedVersion> dedupeVersions(List<StackedVersion> versions) {
+  final seen = <String>{};
+  return [
+    for (final v in versions)
+      if (seen.add(normalizeWhitespace(v.body))) v,
+  ];
+}
+
 String repairConflictMarkers(String content,
     {required String otherLabel, String? otherTime}) {
   final isKanban = kanbanFrontmatterPattern.hasMatch(content);
@@ -596,10 +610,12 @@ String repairConflictMarkers(String content,
     // adding siblings, not depth.
     final theirsLabel =
         otherTime != null ? '$otherLabel - $otherTime' : otherLabel;
-    final versions = [
+    final versions = dedupeVersions([
       ...extractStackedVersions(ours),
       (label: theirsLabel, body: theirs),
-    ];
+    ]);
+    // Only one distinct version left - nothing to decide, plain text.
+    if (versions.length == 1) return '${versions.single.body}\n';
     // 2026-09-07: real feedback, live - two versions that are actually
     // unrelated journal entries (this user's real convention: a bare
     // leading HHMM time, e.g. "0715 I left...") used to always show
@@ -710,8 +726,11 @@ final _stackedRunPattern = RegExp(
 
 String consolidateStackedRuns(String content) {
   return content.replaceAllMapped(_stackedRunPattern, (m) {
-    final versions = extractStackedVersions(m.group(0)!);
-    if (versions.length < 2) return m.group(0)!;
+    final found = extractStackedVersions(m.group(0)!);
+    if (found.length < 2) return m.group(0)!;
+    final versions = dedupeVersions(found);
+    // 2026-09-27: every stacked copy was identical - resolved, plain text.
+    if (versions.length == 1) return '${versions.single.body}\n';
     final blocks = <String>[];
     for (var i = 0; i < versions.length; i++) {
       final kind = i == 0 ? '!info' : '!warning';
