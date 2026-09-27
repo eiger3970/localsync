@@ -1,5 +1,6 @@
 // services/repository_provider.dart
 
+import 'file_backup_exclusion.dart';
 import 'desktop_schedule.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -605,6 +606,7 @@ class RepositoryProvider extends ChangeNotifier {
     );
 
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
+    await FileBackupExclusion.keepAwake(true);
 
     try {
       await for (final event in op(service)) {
@@ -743,6 +745,8 @@ class RepositoryProvider extends ChangeNotifier {
       // above - same honest-fallback pattern sync_service.dart's own
       // _diagnose() already uses.
       return SyncFailed(LinkingError.unclassifiedError, debugDetail: e.toString());
+    } finally {
+      await FileBackupExclusion.keepAwake(false);
     }
   }
 

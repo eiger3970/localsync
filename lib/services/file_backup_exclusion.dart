@@ -24,4 +24,12 @@ class FileBackupExclusion {
       // Not fatal - see header comment.
     }
   }
+
+  // 2026-09-27: no auto-lock (plus iOS background grace time) while a
+  // sync runs - AppDelegate.swift keepAwake. Same best-effort contract.
+  static Future<void> keepAwake(bool on) async {
+    try {
+      await _channel.invokeMethod('keepAwake', on);
+    } catch (_) {}
+  }
 }

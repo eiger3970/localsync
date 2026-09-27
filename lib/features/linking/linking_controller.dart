@@ -293,6 +293,7 @@ class LinkingController extends ChangeNotifier {
   // gets what's in the picked folder and returns whether to go ahead.
   // Without it (tests, web stub) behaviour is unchanged.
   String? _lastVaultBackupRelPath;
+
   /// Where the first clone backed up the folder's earlier content
   /// (vault-relative), or null if it was empty - for the success screen.
   String? get lastVaultBackupRelPath => _lastVaultBackupRelPath;
@@ -589,8 +590,7 @@ class LinkingController extends ChangeNotifier {
           deviceName: deviceName,
           // 2026-09-25: this folder's own desktop path, never another
           // synced folder's (see DatabaseService.getDesktopVaultPathFor).
-          desktopVaultPath:
-              await DatabaseService().getDesktopVaultPathFor(bareRepoPath),
+          desktopVaultPath: await _desktopVaultPathFor(bareRepoPath),
         );
         final result = await git.pullFromBareRepo();
         if (result case StepFailure()) {
@@ -747,7 +747,6 @@ class LinkingController extends ChangeNotifier {
           '1 of 2: create a new vault in $kNoteAppName:\n\n'
               '${vaultCreationSteps.join(' → ')}\n\n'
               'Come back here when you\'re done.',
-
         LinkingStep.pickingVaultFolder => _syncMode == SyncMode.genericFolder
             // 2026-08-28: real feedback, live - "it pulled files
             // automatically from somewhere from the desktop... this is
@@ -785,17 +784,43 @@ class LinkingController extends ChangeNotifier {
 
   String get stepLabel => switch (_step) {
         LinkingStep.checkingPairing => 'Checking setup…',
-        LinkingStep.cloning => 'Downloading your notes…',
+        LinkingStep.cloning => 'First sync…',
         LinkingStep.verifySync => 'Verifying…',
         _ => 'Working…',
       };
 
   String get stepSubtitle => switch (_step) {
-        LinkingStep.cloning => 'Connecting via SSH and copying your vault',
+        // 2026-09-27: Ken, live - 10 minutes on the first sync with no
+        // explanation reads as broken. Says it's expected, and nothing
+        // was done wrong.
+        LinkingStep.cloning =>
+          'Copying everything between phone and desktop for the first '
+              'time. A big folder can take several minutes - nothing is '
+              'wrong. Keep LocalSync open.',
         _ => 'iOS is processing - this is not frozen',
       };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  // 2026-09-27: real incident, live - a QR scan on a fresh install saved
+  // the desktop vault path before any sync folder existed, under the
+  // blank key (settings_screen.dart _save, blank DESKTOP SYNC FOLDER).
+  // The link then resolved the real repo from the phone folder's own
+  // existing link, found no vault path for it, and the desktop synced
+  // into a new default folder instead of the real vault. The waiting
+  // path moves to the resolved repo here, once, so it can't carry over
+  // to a later folder. localsync_sync.sh refuses a vault whose origin is
+  // a different repo, so a wrong path never mixes two vaults.
+  Future<String?> _desktopVaultPathFor(String repo) async {
+    final db = DatabaseService();
+    final own = await db.getDesktopVaultPathFor(repo);
+    if (own != null && own.trim().isNotEmpty) return own;
+    final waiting = await db.getDesktopVaultPathFor('');
+    if (waiting == null || waiting.trim().isEmpty) return own;
+    await db.setDesktopVaultPathFor(repo, waiting);
+    await db.setDesktopVaultPathFor('', '');
+    return waiting;
+  }
 
   Future<bool> _keypairExists(String privatePath, String publicPath) async {
     final f1 = await _fileExists(privatePath);
@@ -845,11 +870,14 @@ class VaultFolderCheck {
   final String absolutePath;
   final String folderName;
   final bool isEmpty;
+
   /// Has its own .obsidian - it's a vault.
   final bool isVault;
+
   /// Sub-folders that are vaults - picking their parent (e.g. "Obsidian"
   /// instead of "Obsidian_phone_vault") is the likely wrong-folder case.
   final List<String> childVaults;
+
   /// Where the backup will go inside it, e.g. "LocalSync".
   final String backupFolder;
   const VaultFolderCheck({

@@ -189,6 +189,16 @@ if [[ ! -d "$VAULT" ]]; then
 fi
 
 [[ -d "$VAULT/.git" ]] || die "Not a git repo: $VAULT"
+# 2026-09-27: a vault folder linked to a DIFFERENT bare repo than this
+# run's LOCALSYNC_BARE_REPO would sync that other repo instead, silently
+# (everything below uses the vault's own origin). Seen live: a first
+# setup sent the wrong vault path. Refuse instead - nothing is touched.
+abs_repo() { local p="$1"; [[ "$p" == /* ]] || p="$HOME/$p"; (cd "$p" 2>/dev/null && pwd -P) || echo "$p"; }
+VAULT_ORIGIN=$(git -C "$VAULT" remote get-url origin 2>/dev/null || true)
+if [[ -n "$VAULT_ORIGIN" && "$VAULT_ORIGIN" != *://* && "$VAULT_ORIGIN" != *@*:* ]] &&
+   [[ "$(abs_repo "$VAULT_ORIGIN")" != "$(abs_repo "$BARE_REPO")" ]]; then
+  die "WRONG FOLDER - $VAULT syncs with $VAULT_ORIGIN, not $BARE_REPO. Refusing to sync, nothing changed. Fix the desktop vault path in LocalSync's Settings."
+fi
 command -v python3 >/dev/null || die "python3 not found"
 [[ -f "$REPAIR_PY" ]] || die "repair_conflicts.py missing: $REPAIR_PY"
 
