@@ -67,7 +67,44 @@ List<DiffToken> _diff(String a, String b) {
     result.add(DiffToken(DiffOp.insertOnly, tb[j]));
     j++;
   }
-  return result;
+  return _dropStrayMatches(result);
+}
+
+/// 2026-09-27: user - "a few words aren't highlighted green, like to and
+/// for, what's the reason and meaning?" Two unrelated texts still share
+/// small words ("to", "for", "a") in the same order, and plain LCS
+/// counted each one as shared text - islands of "same" inside text that
+/// is entirely different. A shared run shorter than [minRun] words, with
+/// differences on both sides of it, is now shown as different on both
+/// sides. Real shared sentences (3+ words in a row) stay unhighlighted.
+List<DiffToken> _dropStrayMatches(List<DiffToken> tokens, {int minRun = 3}) {
+  final out = <DiffToken>[];
+  var k = 0;
+  while (k < tokens.length) {
+    if (tokens[k].op != DiffOp.equal) {
+      out.add(tokens[k]);
+      k++;
+      continue;
+    }
+    final start = k;
+    while (k < tokens.length && tokens[k].op == DiffOp.equal) {
+      k++;
+    }
+    final run = tokens.sublist(start, k);
+    final words = run.where((t) => t.text.trim().isNotEmpty).length;
+    final between = start > 0 && k < tokens.length;
+    if (words > 0 && words < minRun && between) {
+      for (final t in run) {
+        out.add(DiffToken(DiffOp.deleteOnly, t.text));
+      }
+      for (final t in run) {
+        out.add(DiffToken(DiffOp.insertOnly, t.text));
+      }
+    } else {
+      out.addAll(run);
+    }
+  }
+  return out;
 }
 
 /// Tokens to render for the "ours" side: equal text plain, deleteOnly
