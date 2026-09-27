@@ -146,6 +146,11 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                           const _HeadlinePoint(
                               assetIcon: 'assets/logos/git-branches-only.svg',
                               text: 'No more conflicts.'),
+                          // 2026-09-27: user - "Need to say no cloud, privacy
+                          // or something too."
+                          const _HeadlinePoint(
+                              icon: Icons.cloud_off,
+                              text: 'No cloud. Private.'),
                           // 2026-09-04: real feedback, live, three rounds - "Try
                           // it... is under No more conflicts, maybe move to above
                           // the dashed line" (fixed by widening the gap above so

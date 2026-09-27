@@ -332,7 +332,7 @@ class HomeScreen extends StatelessWidget {
                       value: 'deleted',
                       child: _MenuRow(
                         icon: Icons.restore_from_trash_outlined,
-                        label: 'Deleted files - restore',
+                        label: 'Restore deleted files',
                       ),
                     ),
                     const PopupMenuItem(
@@ -1853,7 +1853,9 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
                 style: TextStyle(color: kTextMid, fontSize: 13, height: 1.6)),
             GestureDetector(
               onTap: () => launchUrl(
-                  Uri.parse('https://kworld.space/localsync/guide'),
+                  // 2026-09-27: opens on the matching tab.
+                  Uri.parse('https://kworld.space/localsync/guide'
+                      '${context.read<RepositoryProvider>().selectedRepo?.syncMode == SyncMode.obsidianVault ? '?for=obsidian' : ''}'),
                   mode: LaunchMode.externalApplication),
               child: Text('kworld.space/localsync/guide',
                   style: TextStyle(

@@ -1253,13 +1253,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // 'this' mean?" Fair - nothing before it names a
                     // noun for "this" to refer back to. Names the
                     // actual thing (the setup file) instead.
-                    Text('Get the setup file on your desktop',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: kVoid,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17)),
-                    const SizedBox(height: 4),
+                    // 2026-09-27: user - "Few users are going to guess
+                    // kworld.space/localsync and then search to tap the
+                    // logo or DESKTOP SETUP FILE." Headline dropped; one
+                    // route line instead: Desktop -> link -> button name.
                     // 2026-09-04: real feedback, live - "can
                     // kworld.space/localsync be made a live link, as
                     // perhaps the user wants to peruse the website
@@ -1281,19 +1278,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                     // TextDecoration inherits the text color by
                     // default) matches the universal "this is tappable"
                     // convention instead.
-                    GestureDetector(
-                      onTap: () => launchUrl(
-                          Uri.parse('https://kworld.space/localsync'),
-                          mode: LaunchMode.externalApplication),
-                      child: Text('kworld.space/localsync',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Colors.blue.shade900,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w800,
-                              fontSize: 16,
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.blue.shade900)),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('Desktop -> ',
+                            style: TextStyle(
+                                color: kVoid,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16)),
+                        GestureDetector(
+                          onTap: () => launchUrl(
+                              Uri.parse('https://kworld.space/localsync'),
+                              mode: LaunchMode.externalApplication),
+                          child: Text('kworld.space/localsync',
+                              style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.blue.shade900)),
+                        ),
+                        Text(' -> DESKTOP SETUP FILE',
+                            style: TextStyle(
+                                color: kVoid,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16)),
+                      ],
                     ),
                     // 2026-09-25: user - installing on the desktop is "unconventional
                     // for installing a phone app, then doing something in a
@@ -1303,7 +1315,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                     const SizedBox(height: 8),
                     GestureDetector(
                       onTap: () => launchUrl(
-                          Uri.parse('https://kworld.space/localsync/guide'),
+                          // 2026-09-27: opens on the matching tab (My files
+                          // or Obsidian notes) - users missed the buttons.
+                          Uri.parse('https://kworld.space/localsync/guide'
+                              '${_isFreeFolder ? '' : '?for=obsidian'}'),
                           mode: LaunchMode.externalApplication),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
