@@ -141,12 +141,22 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     }
     final repo = provider.selectedRepo;
     if (repo?.id == null) return;
+    // 2026-09-27: real feedback, live - "I unlocked the phone to check
+    // and localsync looked finished, but then started auto syncing
+    // again, taking forever." Unlocking is a resume; a sync that just
+    // finished gets nothing new from an immediate second one (the
+    // desktop only moves every 5 min). A manual swipe still always runs.
+    final last = repo!.lastSync;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 2)) {
+      return;
+    }
     _syncing = true;
     try {
       // Push first - carries forward any real local edit before
       // anything else gets a chance to touch it - then pull, same
       // order a manual "catch up both ways" session would use.
-      await provider.pushRepository(repo!.id!);
+      await provider.pushRepository(repo.id!);
       if (!mounted) return;
       await provider.pullRepository(repo.id!);
     } catch (_) {
