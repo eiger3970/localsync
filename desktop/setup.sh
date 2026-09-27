@@ -300,17 +300,37 @@ echo "Desktop IP address (enter this into LocalSync's Settings) - only"
 echo "needed if the phone's auto-discovery can't find this desktop on"
 echo "its own, and can change if you switch between USB cable and Wi-Fi"
 echo "Hotspot:"
-if [[ "$OS" == debian ]]; then
-  IP_RESULT=$(ip -4 addr show 2>/dev/null | awk '$0 ~ /^[0-9]+: (eth1|usb0):/{f=1;next} /^[0-9]+:/{f=0} f && /inet /{split($2,a,"/"); print a[1]}')
-  if [[ -z "$IP_RESULT" ]]; then
-    echo "  No eth1 or usb0 connection found - connect the phone's USB"
-    echo "  cable or turn on its Wi-Fi Hotspot, then re-run this script"
-  else
-    echo "  ${GREEN}$IP_RESULT${RESET}"
-  fi
+# 2026-09-27: Ken, live - "This fix needs to be for all users and their
+# varying hardware." Interface names differ per machine (wlan0, wlp3s0,
+# enp0s31f6, enx..., en0 on a Mac), so none are hard-coded. Order:
+#   1. an iPhone Hotspot / iPhone USB address - always 172.20.10.x,
+#      whatever the interface is called
+#   2. the address this computer uses to reach the internet - with the
+#      phone's Hotspot (iPhone or Android) that route goes through the
+#      phone; on home Wi-Fi it's the address the phone sees there too
+#   3. any other real network address (never Docker, VM, VPN or
+#      loopback)
+# The phone's satellite search still double-checks whatever this finds.
+IP_RESULT=""
+if [[ "$OS" == macos ]]; then
+  IP_ALL=$(ifconfig 2>/dev/null | awk '/^[a-z]/{ifc=$1} /inet / && ifc !~ /^(lo|utun|bridge|vmnet|awdl|llw)/ {print $2}')
+  DEF_IF=$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')
+  DEF_IP=""
+  [[ -n "$DEF_IF" ]] && DEF_IP=$(ipconfig getifaddr "$DEF_IF" 2>/dev/null || true)
 else
-  echo "  Not auto-detected on macOS yet - use LocalSync's Settings ->"
-  echo "  2. IP ADDRESS - DESKTOP -> (i) -> Manual setup on your phone"
+  IP_ALL=$(ip -4 -o addr show 2>/dev/null | awk '$2 !~ /^(lo|docker|br-|veth|virbr|vnet|tun|tap|wg|tailscale|zt|vmnet|vboxnet|lxc|cni|flannel|podman)/ {split($4,a,"/"); print a[1]}')
+  DEF_IP=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)
+  # A default route through Docker/VPN isn't reachable from the phone.
+  if [[ -n "$DEF_IP" ]] && ! grep -qxF "$DEF_IP" <<<"$IP_ALL"; then DEF_IP=""; fi
+fi
+IP_RESULT=$(grep -m1 '^172\.20\.10\.' <<<"$IP_ALL" || true)
+[[ -z "$IP_RESULT" ]] && IP_RESULT="$DEF_IP"
+[[ -z "$IP_RESULT" ]] && IP_RESULT=$(grep -m1 . <<<"$IP_ALL" || true)
+if [[ -z "$IP_RESULT" ]]; then
+  echo "  No connection found - connect the phone's USB cable or"
+  echo "  join its Wi-Fi Hotspot, then install again"
+else
+  echo "  ${GREEN}$IP_RESULT${RESET}"
 fi
 echo
 
@@ -527,27 +547,19 @@ if [[ "${#MATCH_PATHS[@]}" -gt 1 && "$IDENTITY_COUNT" -eq 1 ]]; then
   # window, was pure duplication - nothing lost by only asking once,
   # in the window, where it doesn't block anything from appearing.
 elif [[ "${#MATCH_PATHS[@]}" -gt 1 ]]; then
-  # Genuinely ambiguous - this is the one case the full listing earns
-  # its place, since the person actually has to read it to decide.
-  echo "Found ${#MATCH_PATHS[@]} real candidates, most recently used"
-  echo "first - which one is actually yours? Picking the wrong one here"
-  echo "risks your data, so this asks instead of guessing:"
-  echo
-  for pos in "${!SORTED_IDX[@]}"; do
-    i="${SORTED_IDX[$pos]}"
-    echo "  $((pos + 1))) ${MATCH_LABELS[$i]}"
-  done
-  echo
-  read -rp "Enter the number of the correct one: " CHOICE
-  if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [[ "$CHOICE" -ge 1 ]] && [[ "$CHOICE" -le "${#MATCH_PATHS[@]}" ]]; then
-    CHOSEN_INDEX="${SORTED_IDX[$((CHOICE - 1))]}"
-    BARE_REPO_PATH="${MATCH_PATHS[$CHOSEN_INDEX]}"
-    echo "Using: ${GREEN}$BARE_REPO_PATH${RESET}"
-  else
-    echo "Not a valid choice - not guessing. Run this again and enter"
-    echo "one of the numbers above."
-    exit 1
-  fi
+  # 2026-09-27: Ken, live - "Why is terminal asking for a number? Users
+  # do not need any interaction, just load the qr code." This used to
+  # stop here with "Enter the number of the correct one:" - inside a
+  # .deb postinst that meant apt sat at 60% holding the dpkg lock, and
+  # closing the window left the package half-configured. The desktop
+  # can't tell which folder belongs to which phone folder; the phone can
+  # (linking_controller.dart: a blank DESKTOP SYNC FOLDER uses the
+  # phone folder's own existing link, otherwise makes a fresh named
+  # one). So: no question, no guess - the QR leaves this field blank and
+  # the phone decides. Nothing is created, moved or deleted here.
+  BARE_REPO_PATH=""
+  echo "Found ${#MATCH_PATHS[@]} existing sync folders on this desktop - the phone"
+  echo "picks the right one itself when you scan the QR code."
 elif [[ -n "$BEST_SYNC_FOLDER" ]]; then
   BARE_REPO_PATH="$BEST_SYNC_FOLDER"
   echo "Found your existing setup (last used $BEST_SYNC_DATE) - using it"
@@ -571,7 +583,9 @@ fi
 # bare repo that then showed up as a decoy candidate in every future scan
 # on this machine, forever. Only creates now, as a genuine last resort,
 # once BARE_REPO_PATH holds its real, final, scan-informed value.
-if [[ -d "$BARE_REPO_PATH" ]]; then
+if [[ -z "$BARE_REPO_PATH" ]]; then
+  : # several candidates - the phone picks or creates its own (see above)
+elif [[ -d "$BARE_REPO_PATH" ]]; then
   echo "Bare repo already exists at ${GREEN}$BARE_REPO_PATH${RESET} - skipping"
 else
   echo "Creating the bare repo at ${GREEN}$BARE_REPO_PATH${RESET}"
@@ -848,7 +862,7 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 <div class="values">
 <div class="chip"><b>1. Desktop username</b><span>${LOCALSYNC_USER:-$(whoami)}</span></div>
 <div class="chip"><b>2. Desktop IP address</b><span>${IP_RESULT:-not found}</span></div>
-<div class="chip"><b>3. Desktop sync folder</b><span>${BARE_REPO_PATH}</span></div>
+<div class="chip"><b>3. Desktop sync folder</b><span>${BARE_REPO_PATH:-(leave blank - the phone picks)}</span></div>
 <div class="chip"><b>4. Desktop vault path</b><span>${BEST_VAULT_PATH:-(leave blank)}</span></div>
 </div>
 </details>

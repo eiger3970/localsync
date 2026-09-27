@@ -200,11 +200,94 @@ class _SettingsScreenState extends State<SettingsScreen>
   // steps 1-4 already active, matching how a returning user actually
   // encounters this screen - real values already sitting in every
   // field, nothing to "unlock."
-  bool get _stepsActive =>
-      !widget.neededForPairing ||
-      (_userCtrl.text.trim().isNotEmpty &&
-          _ipCtrl.text.trim().isNotEmpty &&
-          _pathCtrl.text.trim().isNotEmpty);
+  // 2026-09-27: blank DESKTOP SYNC FOLDER is valid (the phone picks or
+  // creates one - linking_controller.dart), so only 1 and 2 gate this.
+  bool get _stepsActive => !widget.neededForPairing || _canSave;
+
+  // 2026-09-27: Ken, live - "I scanned, but can't see if all fields are
+  // completed... Save button is inactive until all 4 are correct, then
+  // activates and/or glows... a clear green tick... a note smoothly
+  // transitions in below the qr camera: 4 of 4 successful, proceed to
+  // Save." 1 and 2 must be real values; 3 and 4 are ready when blank
+  // too (blank means automatic), so they always count.
+  bool get _userOk => _userCtrl.text.trim().isNotEmpty;
+  bool get _ipOk {
+    final m = _ipPattern.firstMatch(_ipCtrl.text.trim().split('/').first);
+    return m != null &&
+        [1, 2, 3, 4].every((g) => int.parse(m.group(g)!) <= 255);
+  }
+
+  bool get _canSave => _userOk && _ipOk;
+  int get _stepTotal => _isFreeFolder ? 3 : 4;
+  int get _stepsReady => (_userOk ? 1 : 0) + (_ipOk ? 1 : 0) + _stepTotal - 2;
+  bool get _showReadyNote =>
+      _scanFilled ||
+      (widget.neededForPairing &&
+          (_userCtrl.text.trim().isNotEmpty || _ipCtrl.text.trim().isNotEmpty));
+
+  Widget _stepHeader(String text, bool ok) => Row(
+        children: [
+          Flexible(
+            child: Text(text,
+                style: TextStyle(
+                    color: _stepColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.5)),
+          ),
+          const SizedBox(width: 8),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, anim) =>
+                ScaleTransition(scale: anim, child: child),
+            child: ok
+                ? Icon(Icons.check_circle,
+                    key: const ValueKey('ok'), color: kGreen, size: 16)
+                : const SizedBox(key: ValueKey('no'), width: 16, height: 16),
+          ),
+        ],
+      );
+
+  Widget _readyNote() {
+    final ready = _canSave;
+    final missing = [
+      if (!_userOk) '1. DESKTOP USERNAME',
+      if (!_ipOk) '2. DESKTOP IP ADDRESS',
+    ];
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      alignment: Alignment.topLeft,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: !_showReadyNote
+            ? const SizedBox(key: ValueKey('none'), width: double.infinity)
+            : Padding(
+                key: ValueKey('note$ready${missing.join()}'),
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(ready ? Icons.check_circle : Icons.error_outline,
+                        color: ready ? kGreen : Colors.amber, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ready
+                            ? '$_stepsReady of $_stepTotal ready - tap Save'
+                            : '$_stepsReady of $_stepTotal ready - missing: '
+                                '${missing.join(', ')}',
+                        style: TextStyle(
+                            color: ready ? kGreen : Colors.amber,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
 
   Color get _stepColor => _stepsActive ? kGreen : kTextDim;
 
@@ -237,6 +320,13 @@ class _SettingsScreenState extends State<SettingsScreen>
         }
       });
       _scanFilled = true;
+      // 2026-09-27: real feedback, live - phone on Wi-Fi Hotspot, QR
+      // came without an IP (older desktop setup only checked the USB
+      // cable), the save below then showed "Not a valid IP address"
+      // until the satellite was tapped by hand. A scan with no IP now
+      // runs that same satellite search first, so the save gets it.
+      if (_ipCtrl.text.trim().isEmpty) await _findDesktop(silent: true);
+      if (!mounted) return;
       // 2026-09-24: real error, live, first setup - "GIT_ERROR_NET:
       // Invalid url: malformed hostname." The scan only FILLED the
       // fields; leaving Settings by the back arrow instead of Save threw
@@ -902,6 +992,9 @@ class _SettingsScreenState extends State<SettingsScreen>
     setState(() => _discovering = false);
     if (ip != null) {
       _ipCtrl.text = ip;
+      // 2026-09-27: a found address replaces whatever red "Not a valid
+      // IP address" an earlier save left under the field.
+      setState(() => _ipError = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: kSurface,
@@ -1027,10 +1120,12 @@ class _SettingsScreenState extends State<SettingsScreen>
             // Glows once a QR scan (or, during first setup, typing) has
             // filled the required fields - Save is the next step then.
             child: PulsingGlow(
-              active: _scanFilled || (widget.neededForPairing && _stepsActive),
+              active: _canSave && (_scanFilled || widget.neededForPairing),
               cornerRadius: 24,
+              // 2026-09-27: greyed out until 1 and 2 are valid - the note
+              // under the QR button says which one is missing.
               child: ElevatedButton(
-                onPressed: _save,
+                onPressed: _canSave ? _save : null,
                 child: const Text('Save'),
               ),
             ),
@@ -1373,12 +1468,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               const SizedBox(height: 20),
             ],
-            Text('1. DESKTOP USERNAME',
-                style: TextStyle(
-                    color: _stepColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            _readyNote(),
+            _stepHeader('1. DESKTOP USERNAME', _userOk),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1441,12 +1532,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // preference, not a bug fix. Renamed to match the "DESKTOP
             // ..." prefix every other step here already uses (was the
             // only one starting with the field name instead).
-            Text('2. DESKTOP IP ADDRESS',
-                style: TextStyle(
-                    color: _stepColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+            _stepHeader('2. DESKTOP IP ADDRESS', _ipOk),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1964,15 +2050,11 @@ class _SettingsScreenState extends State<SettingsScreen>
             // existing 28+divider+28 above was the mismatch - "3." below
             // uses that same 28+divider+28 with nothing extra added.
             // Removed to match.
-            Text(
+            _stepHeader(
                 _isFreeFolder
                     ? '3. DESKTOP SYNC FOLDER'
                     : '3. DESKTOP SYNC FOLDER (git bare repo path)',
-                style: TextStyle(
-                    color: _stepColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.5)),
+                true),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2405,12 +2487,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // space-only gap.
             if (!_isFreeFolder) ...[
               const SizedBox(height: 40),
-              Text('4. DESKTOP VAULT PATH (optional)',
-                  style: TextStyle(
-                      color: _stepColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.5)),
+              _stepHeader('4. DESKTOP VAULT PATH (optional)', true),
               const SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

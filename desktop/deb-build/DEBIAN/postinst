@@ -25,7 +25,7 @@ set -uo pipefail
 # here, in LocalSync-Setup-Mac.command, in the website's
 # local_sync.tsx, and in docs/desktop-setup.md together whenever
 # setup.sh's content changes, or this check fails for everyone.
-EXPECTED_SHA256="d8090cc47fae2bf800a00e232dad306305b57803540838c808a7a956636df770"
+EXPECTED_SHA256="a861f27b35fa12d869d05ebba5252d74cccfb7742e616b9807c91dea868d813f"
 ACTUAL_SHA256="$(sha256sum /usr/share/localsync/setup.sh | cut -d' ' -f1)"
 if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
   echo "localsync-desktop-setup: checksum mismatch on the bundled setup.sh - refusing to run it." >&2
@@ -114,7 +114,10 @@ RESULT_FILE="$RESULT_DIR/LocalSync_setup_delete_once_installed.txt"
 # still sees real color, and the saved file stays plain, readable text
 # either way.
 RAW_LOG="$(mktemp)"
-HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh 2>&1 | tee "$RAW_LOG"
+# 2026-09-27: </dev/null - an install never waits on the keyboard. A
+# prompt here once held apt's lock at 60% until the window was closed,
+# leaving the package half-configured.
+HOME="$REAL_HOME" LOCALSYNC_USER="$REAL_USER" bash /usr/share/localsync/setup.sh </dev/null 2>&1 | tee "$RAW_LOG"
 {
   echo
   echo "(This is also saved to $RESULT_FILE, in case this window is"
