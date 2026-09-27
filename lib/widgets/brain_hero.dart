@@ -67,12 +67,26 @@ class _BrainHeroState extends State<BrainHero>
   void didUpdateWidget(BrainHero old) {
     super.didUpdateWidget(old);
     if (widget.mode != BrainMode.idle && widget.playId != old.playId) {
-      // Each loop is 72 frames at 24 fps = 3 s, then back to idle.
+      // Each loop is 72 frames at 24 fps = 3 s. 2026-09-27: then HOLDS
+      // its last frame (was: back to idle straight away) - the result
+      // stays on screen until the user's next tap, drag or swipe.
       final id = widget.playId;
+      _holding = false;
       Future.delayed(const Duration(milliseconds: 3000), () {
-        if (mounted && widget.playId == id) widget.onDone();
+        if (mounted && widget.playId == id) setState(() => _holding = true);
       });
     }
+  }
+
+  bool _holding = false;
+
+  // Any touch on the brain after a result ends the hold and goes back to
+  // turning; the touch itself is not also a pause/turn.
+  bool _releaseHold() {
+    if (!_holding || widget.mode == BrainMode.idle) return false;
+    _holding = false;
+    widget.onDone();
+    return true;
   }
 
   @override
@@ -86,14 +100,30 @@ class _BrainHeroState extends State<BrainHero>
     final Widget image = switch (widget.mode) {
       BrainMode.idle => Image.asset(_frame(_f.floor()),
           gaplessPlayback: true, fit: BoxFit.contain),
-      BrainMode.success => Image.asset('assets/brain/success.webp',
-          key: ValueKey('s${widget.playId}'), fit: BoxFit.contain),
-      BrainMode.distracted => Image.asset('assets/brain/distracted.webp',
-          key: ValueKey('d${widget.playId}'), fit: BoxFit.contain),
+      BrainMode.success => Image.asset(
+          _holding
+              ? 'assets/brain/success_end.webp'
+              : 'assets/brain/success.webp',
+          key: ValueKey('s${widget.playId}$_holding'),
+          gaplessPlayback: true,
+          fit: BoxFit.contain),
+      BrainMode.distracted => Image.asset(
+          _holding
+              ? 'assets/brain/distracted_end.webp'
+              : 'assets/brain/distracted.webp',
+          key: ValueKey('d${widget.playId}$_holding'),
+          gaplessPlayback: true,
+          fit: BoxFit.contain),
     };
     return GestureDetector(
-      onTap: () => setState(() => _paused = !_paused),
-      onHorizontalDragStart: (_) => _dragging = true,
+      onTap: () {
+        if (_releaseHold()) return;
+        setState(() => _paused = !_paused);
+      },
+      onHorizontalDragStart: (_) {
+        _releaseHold();
+        _dragging = true;
+      },
       onHorizontalDragUpdate: (d) =>
           setState(() => _f = (_f + d.delta.dx / 4) % _frames),
       onHorizontalDragEnd: (_) => _dragging = false,
