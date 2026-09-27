@@ -27,9 +27,10 @@ void main() {
               syncFolder:
                   '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
               vaultPath: '/home/rapi5/Documents/Obsidian_vault',
-              progress: const AlwaysStoppedAnimation(0.5),
+              progress: const AlwaysStoppedAnimation(0.3),
               onBanner: true,
               onCancel: () {},
+              onContinue: () {},
             ),
           ),
         ),

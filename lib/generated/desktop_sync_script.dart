@@ -50,7 +50,12 @@ LOG="${LOCALSYNC_LOG:-$HOME/.localsync_sync.log}"
 LOCK="/tmp/localsync_sync_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1).lock"
 # Reuses the user's own proven repair script directly rather than a
 # forked copy - override if this repo is checked out somewhere else.
-REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/Documents/Scripts/repair_conflicts.py}"
+# 2026-09-27: real launch blocker - the app only ever copies THIS script
+# to the desktop, but it needed ~/Documents/Scripts/repair_conflicts.py,
+# which existed only on the developer's own Pi. Every other desktop
+# would stop at "repair_conflicts.py missing". The repair script now
+# lives inside this one (below) and is written out fresh on each run.
+REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/.local/share/localsync/repair_conflicts.py}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 die() { log "FATAL: $*"; exit 1; }
@@ -200,6 +205,185 @@ if [[ -n "$VAULT_ORIGIN" && "$VAULT_ORIGIN" != *://* && "$VAULT_ORIGIN" != *@*:*
   die "WRONG FOLDER - $VAULT syncs with $VAULT_ORIGIN, not $BARE_REPO. Refusing to sync, nothing changed. Fix the desktop vault path in LocalSync's Settings."
 fi
 command -v python3 >/dev/null || die "python3 not found"
+if [[ -z "${LOCALSYNC_REPAIR_PY:-}" ]]; then
+  mkdir -p "$(dirname "$REPAIR_PY")"
+  cat > "$REPAIR_PY.tmp" <<'LOCALSYNC_PY'
+import sys, os, re
+
+path = sys.argv[1]
+other_label = os.environ.get('SYNCO_OTHER_LABEL', 'other device').strip() or 'other device'
+other_time  = os.environ.get('SYNCO_OTHER_TIME', '').strip()
+
+try:
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        content = f.read()
+except OSError as e:
+    print(f"ERROR: cannot read {path}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+is_kanban = bool(re.search(r'^kanban-plugin:', content, re.MULTILINE))
+
+full_pattern = re.compile(
+    r'^<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n?',
+    re.MULTILINE | re.DOTALL,
+)
+partial_pattern = re.compile(r'^<<<<<<< [^\n]*\n', re.MULTILINE)
+
+count = [0]
+deduped = [0]
+auto_appended = [0]
+
+def normalize(text):
+    return re.sub(r'\s+', ' ', text).strip()
+
+JOURNAL_TIME_RE = re.compile(r'^(\d{4})\b')
+
+def _split_paragraphs(text):
+    return [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+
+def chronologically_ordered_if_journal(ours, theirs_remaining):
+    # 2026-09-07: real feedback, live - two unrelated journal entries
+    # (each a paragraph starting with a bare HHMM time, this user's real
+    # journal convention - "2105 salad...", "0715 I left...") landing on
+    # opposite sides of an auto-merge used to just concatenate ours-then-
+    # theirs regardless of what time of day either actually happened, so
+    # an earlier entry could land stacked below a later one. When every
+    # paragraph on both sides matches that exact HHMM shape, re-sort the
+    # combined paragraphs chronologically instead of using arrival order.
+    # Anything that doesn't match - Kanban cards, to-dos, ordinary prose
+    # without a leading time - returns None and leaves the caller's
+    # original ours-then-theirs order untouched. Only ever reorders whole
+    # paragraphs; never drops, splits, or duplicates one. Mirrors
+    # conflict_repair.dart's chronologicallyOrderedIfJournal() exactly -
+    # keep both in sync if either changes.
+    paras = _split_paragraphs(ours) + _split_paragraphs(theirs_remaining)
+    if not paras or not all(JOURNAL_TIME_RE.match(p) for p in paras):
+        return None
+    paras.sort(key=lambda p: int(JOURNAL_TIME_RE.match(p).group(1)))
+    return "\n\n".join(paras)
+
+def dedupe_and_check_append(ours, theirs):
+    ours_lines = ours.splitlines()
+    theirs_lines = theirs.splitlines()
+    overlap = 0
+    max_check = min(len(ours_lines), len(theirs_lines))
+    for i in range(1, max_check + 1):
+        if ours_lines[-i:] == theirs_lines[:i]:
+            overlap = i
+    remaining = theirs_lines[overlap:]
+    if not remaining:
+        return ours, True
+
+    # 2026-09-07: real gap found - the Dart port (conflict_repair.dart's
+    # dedupeAndCheckAppend) added this exact guard on 2026-08-17 after a
+    # real device bug: two sibling edits to the same line (both sides
+    # rewrote line 1 to different text) have overlap == 0 by definition,
+    # yet "theirs isn't a duplicate substring of ours" trivially passes
+    # for any two different strings - so every genuine same-line
+    # conflict silently auto-merged with no warning instead of ever
+    # reaching manual review. This script never got that fix, meaning
+    # the unattended desktop cron (which runs this file, no one
+    # watching) could still silently combine a real same-line collision
+    # right now. Requiring overlap > 0 means theirs must genuinely be
+    # "ours plus more" (a continuation) - not just "text that happens to
+    # differ". Keep this in sync with the Dart port if either changes.
+    if overlap == 0:
+        return None, False
+
+    ours_set = set(l.strip() for l in ours_lines if l.strip())
+    remaining_nonblank = [l for l in remaining if l.strip()]
+    if remaining_nonblank and all(l.strip() not in ours_set for l in remaining_nonblank):
+        theirs_remaining = "\n".join(remaining).strip()
+        ordered = chronologically_ordered_if_journal(ours, theirs_remaining)
+        merged = ordered if ordered is not None else ours + "\n\n" + theirs_remaining
+        return merged, True
+    return None, False
+
+def merge_both(m):
+    count[0] += 1
+    ours   = m.group(1).strip()
+    theirs = m.group(2).strip()
+
+    if normalize(ours) == normalize(theirs):
+        deduped[0] += 1
+        return f'{ours}\n'
+
+    # 2026-09-27: real incident - a retried first link stacked the same
+    # version 3x in one note. If theirs' text is already in ours (as
+    # plain text or inside an earlier SYNC CONFLICT callout), nothing is
+    # lost by keeping ours - never add another copy. Mirrors
+    # conflict_repair.dart's dedupeVersions.
+    ours_unquoted = normalize(re.sub(r'(?m)^(> ?)+', '', ours))
+    if normalize(theirs) and normalize(theirs) in ours_unquoted:
+        deduped[0] += 1
+        return f'{ours}\n'
+
+    merged, ok = dedupe_and_check_append(ours, theirs)
+    if ok:
+        auto_appended[0] += 1
+        return f'{merged}\n'
+
+    if is_kanban:
+        other_lines = '\n'.join(
+            f'%% CONFLICT-OTHER ({other_label}): {line} %%' for line in theirs.splitlines()
+        )
+        return f'{ours}\n{other_lines}\n'
+    else:
+        label = other_label
+        if other_time:
+            label = f'{other_label} — {other_time}'
+        callout = ''.join(f'> {line}\n' for line in theirs.splitlines())
+        # 2026-09-07: real feedback, live - "too verbose... just
+        # succinctly say Conflict... tapping it links to LocalSync
+        # Conflicts." Matches conflict_repair.dart's own same-day fix:
+        # collapsed by default (+ -> -) instead of always-expanded, and
+        # the header now names exactly where to go to resolve it.
+        theirs_block = (
+            f'> [!warning]- SYNC CONFLICT — {label} (review and delete one) '
+            f'- open LocalSync → ⋮ → Conflicts\n'
+            f'{callout}'
+        )
+        # 2026-09-07: real feedback, live - if both sides are journal
+        # entries with a leading HHMM time (this user's real convention),
+        # show the earlier one first instead of always ours-first - see
+        # chronologically_ordered_if_journal's own comment above. Still
+        # two separate callouts for manual review, never silently
+        # combined - only the display order changes, and only when both
+        # sides genuinely have a leading time to compare.
+        ours_m = JOURNAL_TIME_RE.match(ours)
+        theirs_m = JOURNAL_TIME_RE.match(theirs)
+        if ours_m and theirs_m and int(theirs_m.group(1)) < int(ours_m.group(1)):
+            return f'{theirs_block}\n{ours}\n\n'
+        return (
+            f'{ours}\n\n'
+            f'{theirs_block}\n'
+        )
+
+fixed = full_pattern.sub(merge_both, content)
+
+partial_count = len(partial_pattern.findall(fixed))
+if partial_count:
+    fixed = partial_pattern.sub('', fixed)
+    count[0] += partial_count
+    print(f"Stripped {partial_count} partial conflict marker(s): {path}")
+
+if count[0] == 0:
+    print(f"No conflict markers: {path}")
+    sys.exit(0)
+
+try:
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(fixed)
+except OSError as e:
+    print(f"ERROR: cannot write {path}: {e}", file=sys.stderr)
+    sys.exit(1)
+
+reviewed = count[0] - deduped[0] - auto_appended[0]
+print(f"Repaired {count[0]} conflict(s) — {deduped[0]} identical (auto), {auto_appended[0]} appended (auto), {reviewed} flagged for review: {path}")
+sys.exit(2)
+LOCALSYNC_PY
+  mv -f "$REPAIR_PY.tmp" "$REPAIR_PY"
+fi
 [[ -f "$REPAIR_PY" ]] || die "repair_conflicts.py missing: $REPAIR_PY"
 
 cd "$VAULT" || die "Cannot cd to $VAULT"

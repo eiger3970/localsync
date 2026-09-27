@@ -25,7 +25,8 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'conflict_repair.dart' show journalOrderedEntries, repositionedReplace;
+import 'conflict_repair.dart'
+    show consolidateStackedRuns, journalOrderedEntries, repositionedReplace;
 import 'database_service.dart';
 import 'localsync_folder.dart';
 import 'vault_backup.dart';
@@ -155,7 +156,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
         relPath.startsWith('LocalSync Conflict Backups/')) {
       continue;
     }
-    final String content;
+    String content;
     try {
       content = await entity.readAsString();
     } catch (_) {
@@ -166,6 +167,24 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
       continue;
     }
     final isKanban = _kanbanFrontmatterPattern.hasMatch(content);
+    // 2026-09-27: user - "I want the app algorithm to fix this... treated
+    // like an enduser experience." Self-healing: identical stacked
+    // versions (see dedupeVersions) are removed in place, and a block
+    // left with one version turns back into plain text. Only ever drops
+    // a byte-for-byte (whitespace-insensitive) copy of text that stays
+    // in the note; the next sync carries the cleaned note to the desktop.
+    if (!isKanban && content.contains('SYNC CONFLICT')) {
+      final healed = consolidateStackedRuns(content);
+      if (healed != content) {
+        try {
+          await entity.writeAsString(healed);
+          content = healed;
+        } catch (_) {
+          // Read-only or gone - leave it, the scan still reports it.
+        }
+      }
+      if (!content.contains('SYNC CONFLICT')) continue;
+    }
 
     if (isKanban) {
       for (final m in _kanbanPairedPattern.allMatches(content)) {
@@ -240,8 +259,7 @@ Future<String> _backupConflictBeforeResolving(
   String vaultPath,
   ConflictEntry entry,
 ) async {
-  final backupDir =
-      Directory(conflictBackupsDir(vaultPath));
+  final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFileName = '$baseName - ${backupTimestamp()}.md';
@@ -597,8 +615,7 @@ Future<void> mergeReferenceKeepingBoth(
   ReferenceEntry entry,
 ) async {
   if (entry.keptMarkerStart == null || entry.keptContent == null) return;
-  final backupDir =
-      Directory(conflictBackupsDir(vaultPath));
+  final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =
@@ -626,8 +643,7 @@ Future<void> deleteReferenceCallout(
   String vaultPath,
   ReferenceEntry entry,
 ) async {
-  final backupDir =
-      Directory(conflictBackupsDir(vaultPath));
+  final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
   final backupFile =

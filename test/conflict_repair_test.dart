@@ -461,4 +461,36 @@ void main() {
       expect(journalOrderedEntries([sideA, sideB]), [sideA, sideB]);
     });
   });
+
+  // 2026-09-27: a retried first link stacked the same desktop version 3x.
+  group('duplicate versions', () {
+    String box(String kind, String label, String body) =>
+        '> [$kind]- SYNC CONFLICT - $label (review and delete one) - open LocalSync → ⋮ → Conflicts\n'
+        '${body.split('\n').map((l) => '> $l\n').join()}';
+    test('identical stacked copies collapse to one', () {
+      final d = box('!warning', 'desktop - 202609271720', 'Line A\nLine B');
+      final input = 'Top\n\n${box('!info', 'yours', 'Mine')}\n$d\n$d\n$d\nEnd\n';
+      final out = consolidateStackedRuns(input);
+      expect('SYNC CONFLICT'.allMatches(out).length, 2);
+      expect(out, contains('> Mine'));
+      expect(out, contains('> Line A'));
+      expect(out.startsWith('Top\n'), isTrue);
+      expect(out, contains('End'));
+      expect(consolidateStackedRuns(out), out);
+    });
+    test('all copies identical resolves to plain text', () {
+      final input = '${box('!info', 'yours', 'Same text')}\n'
+          '${box('!warning', 'desktop', 'Same   text')}\n';
+      final out = consolidateStackedRuns(input);
+      expect(out, isNot(contains('SYNC CONFLICT')));
+      expect(out, contains('Same text'));
+    });
+    test('a new conflict never re-adds a version already stacked', () {
+      final ours = box('!info', 'yours', 'Mine') + '\n' +
+          box('!warning', 'desktop', 'Theirs');
+      final input = '<<<<<<< HEAD\n$ours=======\nTheirs\n>>>>>>> other\n';
+      final out = repairConflictMarkers(input, otherLabel: 'desktop');
+      expect('SYNC CONFLICT'.allMatches(out).length, 2);
+    });
+  });
 }

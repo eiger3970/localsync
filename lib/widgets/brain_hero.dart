@@ -32,7 +32,7 @@ class BrainHero extends StatefulWidget {
 class _BrainHeroState extends State<BrainHero>
     with SingleTickerProviderStateMixin {
   static const _frames = 72;
-  static const _fps = 24.0;
+  static const _fps = 18.0; // 2026-09-27: was 24 - "slow default turning a little"
   static String _frame(int i) =>
       'assets/brain/idle/${(i % _frames + 1).toString().padLeft(4, '0')}.webp';
 
