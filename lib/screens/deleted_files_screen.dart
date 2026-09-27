@@ -68,7 +68,7 @@ class _DeletedFilesScreenState extends State<DeletedFilesScreen> {
         title: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(Icons.restore_from_trash_outlined, color: kTextMid, size: 20),
           const SizedBox(width: 8),
-          Text('Deleted files', style: TextStyle(color: kStar, fontSize: 17)),
+          Text('Restore deleted files', style: TextStyle(color: kStar, fontSize: 17)),
         ]),
       ),
       body: _error != null
