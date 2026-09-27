@@ -281,8 +281,32 @@ class FileUtilsChannel: NSObject {
       switch call.method {
       case "excludeFromBackup":
         self.excludeFromBackup(call: call, result: result)
+      case "keepAwake":
+        self.keepAwake(on: (call.arguments as? Bool) ?? false)
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  // 2026-09-27: user, live - "phone lock stops a sync, meaning a long
+  // sync never completes, as a user doesn't wait for long syncs and lets
+  // the phone lock." While a sync runs: no auto-lock, and if the user
+  // locks anyway, iOS's background grace time lets it try to finish.
+  private var syncBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+
+  private func keepAwake(on: Bool) {
+    DispatchQueue.main.async {
+      UIApplication.shared.isIdleTimerDisabled = on
+      if on, self.syncBackgroundTask == .invalid {
+        self.syncBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "LocalSync sync") {
+          UIApplication.shared.endBackgroundTask(self.syncBackgroundTask)
+          self.syncBackgroundTask = .invalid
+        }
+      } else if !on, self.syncBackgroundTask != .invalid {
+        UIApplication.shared.endBackgroundTask(self.syncBackgroundTask)
+        self.syncBackgroundTask = .invalid
       }
     }
   }

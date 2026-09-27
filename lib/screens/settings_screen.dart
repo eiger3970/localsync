@@ -248,7 +248,35 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       );
 
+  // 2026-09-27: user - "Progress bar also in yellow box which happens if
+  // 4 of 4 correct." A complete scan fills this bar in place of the note
+  // (3 s); doing nothing continues, "Cancel - check details" stays here.
+  late final AnimationController _continueCtrl =
+      AnimationController(vsync: this, duration: const Duration(seconds: 3));
+  bool _continuing = false;
+
+  void _cancelContinue() {
+    _continueCtrl.stop(canceled: true);
+    setState(() => _continuing = false);
+  }
+
   Widget _readyNote() {
+    if (_continuing) {
+      return Padding(
+        padding: widget.neededForPairing
+            ? const EdgeInsets.only(top: 16)
+            : const EdgeInsets.only(bottom: 20),
+        child: ScanContinuePanel(
+          user: _userCtrl.text.trim(),
+          ip: _ipCtrl.text.trim(),
+          syncFolder: _pathCtrl.text.trim(),
+          vaultPath: _isFreeFolder ? '' : _vaultPathCtrl.text.trim(),
+          progress: _continueCtrl,
+          onBanner: widget.neededForPairing,
+          onCancel: _cancelContinue,
+        ),
+      );
+    }
     final ready = _canSave;
     final missing = [
       if (!_userOk) '1. DESKTOP USERNAME',
@@ -263,12 +291,17 @@ class _SettingsScreenState extends State<SettingsScreen>
             ? const SizedBox(key: ValueKey('none'), width: double.infinity)
             : Padding(
                 key: ValueKey('note$ready${missing.join()}'),
-                padding: const EdgeInsets.only(bottom: 20),
+                padding: widget.neededForPairing
+                    ? const EdgeInsets.only(top: 16)
+                    : const EdgeInsets.only(bottom: 20),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(ready ? Icons.check_circle : Icons.error_outline,
-                        color: ready ? kGreen : Colors.amber, size: 20),
+                        color: widget.neededForPairing
+                            ? kVoid
+                            : (ready ? kGreen : Colors.amber),
+                        size: 22),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -277,8 +310,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                             : '$_stepsReady of $_stepTotal ready - missing: '
                                 '${missing.join(', ')}',
                         style: TextStyle(
-                            color: ready ? kGreen : Colors.amber,
-                            fontSize: 14,
+                            color: widget.neededForPairing
+                                ? kVoid
+                                : (ready ? kGreen : Colors.amber),
+                            fontSize: 16,
                             fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -333,18 +368,47 @@ class _SettingsScreenState extends State<SettingsScreen>
       // them away, and setup went on with an empty desktop address. A
       // scan is a deliberate, complete set of values from the desktop's
       // own setup - saved immediately, staying on this screen.
+      // 2026-09-27: user, live - "The user simply needs to see what the
+      // next action is... All these user actions should be minimised
+      // and automated where possible." A complete scan saves AND closes
+      // (no Save tap); the next screen shows what was filled in, so the
+      // values are still visible without a confirm step. Pairing next
+      // is the real check - it stops with a plain error if the desktop
+      // can't be reached. Incomplete: stays here, the note under the
+      // scanner says what's missing.
+      final messenger = ScaffoldMessenger.of(context);
+      // 2026-09-27 follow-up: user - "Or just show a now loading
+      // progress, with a cancel option for user to view if any details
+      // are incorrect?" The scanned values and a 3-second bar show in the
+      // yellow box; doing nothing continues, Cancel stays here to check.
+      final summary =
+          'Desktop ${_userCtrl.text.trim()} at ${_ipCtrl.text.trim()} - saved';
       await _save(closeAfter: false);
-      if (!mounted) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: kSurface,
-            content: Text('Filled in and saved from the desktop setup QR code',
-                style: TextStyle(color: kStar, fontSize: 14)),
-            duration: const Duration(seconds: 3),
-          ),
-        );
+      if (!_canSave || !mounted) return;
+      setState(() => _continuing = true);
+      try {
+        await _continueCtrl.forward(from: 0).orCancel;
+      } on TickerCanceled {
+        return;
       }
+      if (!mounted || !_continuing) return;
+      Navigator.pop(context);
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: kSurface,
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: kGreen, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child:
+                    Text(summary, style: TextStyle(color: kStar, fontSize: 16)),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
       return;
     }
     controller.text = result;
@@ -918,6 +982,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     _lsFolderCtrl.dispose();
     _sparkleCtrl1.dispose();
     _sparkleCtrl2.dispose();
+    _continueCtrl.dispose();
     super.dispose();
   }
 
@@ -1387,6 +1452,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ),
                       ],
                     ),
+                    _readyNote(),
                   ],
                 ),
               ),
@@ -1468,7 +1534,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               const SizedBox(height: 20),
             ],
-            _readyNote(),
+            if (!widget.neededForPairing) _readyNote(),
             _stepHeader('1. DESKTOP USERNAME', _userOk),
             const SizedBox(height: 6),
             Row(
@@ -3531,6 +3597,102 @@ class _SettingsTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// 2026-09-27: shown in the yellow box (first setup) or under the QR button
+// after a complete QR scan - what was scanned, a bar filling over the
+// controller's duration, and a way to stop and check the fields.
+class ScanContinuePanel extends StatelessWidget {
+  const ScanContinuePanel(
+      {super.key,
+      required this.user,
+      required this.ip,
+      this.syncFolder = '',
+      this.vaultPath = '',
+      required this.progress,
+      required this.onBanner,
+      required this.onCancel});
+  final String user;
+  final String ip;
+  final String syncFolder;
+  final String vaultPath;
+  final Animation<double> progress;
+
+  // Last path segment only ("Md_files_bare", not the full path) - the
+  // full paths stay in the fields, one Cancel away.
+  static String _short(String path) {
+    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '';
+    return parts.last.replaceFirst(RegExp(r'\.git$'), '');
+  }
+
+  String get _folderLine {
+    final sync = _short(syncFolder);
+    final vault = _short(vaultPath);
+    if (sync.isEmpty && vault.isEmpty) return 'Folders: Automatic';
+    return [
+      'Sync folder: ${sync.isEmpty ? 'Automatic' : sync}',
+      if (vault.isNotEmpty) 'Vault: $vault',
+    ].join('\n');
+  }
+
+  final bool onBanner;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = onBanner ? kVoid : kGreen;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.check_circle, color: fg, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Desktop found: $user at $ip',
+                  style: TextStyle(
+                      color: fg, fontSize: 16, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 30, top: 4),
+          child: Text(_folderLine, style: TextStyle(color: fg, fontSize: 15)),
+        ),
+        const SizedBox(height: 12),
+        AnimatedBuilder(
+          animation: progress,
+          builder: (_, __) => ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress.value,
+              minHeight: 8,
+              color: fg,
+              backgroundColor: fg.withValues(alpha: 0.2),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text('Continuing…', style: TextStyle(color: fg, fontSize: 15)),
+            const Spacer(),
+            TextButton(
+              onPressed: onCancel,
+              child: Text('Cancel - check details',
+                  style: TextStyle(
+                      color: fg,
+                      fontSize: 15,
+                      decoration: TextDecoration.underline,
+                      decorationColor: fg)),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
