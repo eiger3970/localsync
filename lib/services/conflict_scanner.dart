@@ -771,7 +771,7 @@ String _rebuildConflictBlock(List<ConflictVersion> versions) {
             : versions[i].who);
     final quoted = versions[i].body.split('\n').map((l) => '> $l').join('\n');
     blocks.add('> [$kind]- SYNC CONFLICT - $label (review and delete one) - '
-        'open LocalSync → ⋮ → Conflicts\n$quoted');
+        'fix on your phone: LocalSync -> ⋮ -> Conflicts\n$quoted');
   }
   return '${blocks.join('\n')}\n';
 }

@@ -649,7 +649,7 @@ String repairConflictMarkers(String content,
       // where to go to actually resolve it, since collapsed content
       // has no other visible call to action.
       blocks.add('> [$kind]- SYNC CONFLICT - ${versions[i].label} '
-          '(review and delete one) - open LocalSync → ⋮ → Conflicts\n$callout');
+          '(review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n$callout');
     }
     return '${blocks.join('\n')}\n';
   }
@@ -746,7 +746,7 @@ String consolidateStackedRuns(String content) {
       // where to go to actually resolve it, since collapsed content
       // has no other visible call to action.
       blocks.add('> [$kind]- SYNC CONFLICT - ${versions[i].label} '
-          '(review and delete one) - open LocalSync → ⋮ → Conflicts\n$callout');
+          '(review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n$callout');
     }
     return '${blocks.join('\n')}\n';
   });

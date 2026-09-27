@@ -589,7 +589,7 @@ void main() {
         '> Hub.lausanne@adecco.ch Marco.\n'
         '\n'
         '> [!warning]- SYNC CONFLICT - desktop obsidian - 202609140910 '
-        '(review and delete one) - open LocalSync → ⋮ → Conflicts\n'
+        '(review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
         '> Phone have less functions thank a desktop.\n'
         '\n',
       );

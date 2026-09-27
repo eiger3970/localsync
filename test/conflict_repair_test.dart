@@ -25,7 +25,7 @@ void main() {
 
       expect(out, contains('[!info]- SYNC CONFLICT - yours'));
       expect(out, contains('[!warning]- SYNC CONFLICT - Desktop - 202608181200'));
-      expect(out, contains('open LocalSync'));
+      expect(out, contains('fix on your phone'));
       // Exactly one quote level - never '> >'.
       expect(out.contains('> >'), isFalse);
       expect(out, contains('> line A'));
@@ -465,7 +465,7 @@ void main() {
   // 2026-09-27: a retried first link stacked the same desktop version 3x.
   group('duplicate versions', () {
     String box(String kind, String label, String body) =>
-        '> [$kind]- SYNC CONFLICT - $label (review and delete one) - open LocalSync → ⋮ → Conflicts\n'
+        '> [$kind]- SYNC CONFLICT - $label (review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
         '${body.split('\n').map((l) => '> $l\n').join()}';
     test('identical stacked copies collapse to one', () {
       final d = box('!warning', 'desktop - 202609271720', 'Line A\nLine B');

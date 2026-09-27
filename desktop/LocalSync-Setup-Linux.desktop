@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=LocalSync Desktop Setup
+Comment=Install LocalSync (git, SSH, bare repo, auto-discovery)
+Exec=bash -c "curl -fsSL https://raw.githubusercontent.com/eiger3970/localsync/main/desktop/setup.sh -o /tmp/localsync-setup.sh && echo \"e000125e856608c66bd220cc96a28154c671f61ee9693cb8c93f94ac38e2f846  /tmp/localsync-setup.sh\" | sha256sum -c - && bash /tmp/localsync-setup.sh; echo; read -p 'Press Enter to close this window...'"
+Icon=utilities-terminal
+Terminal=true
+Categories=Utility;
