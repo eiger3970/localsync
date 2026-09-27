@@ -3693,11 +3693,14 @@ class ScanContinuePanel extends StatelessWidget {
           animation: progress,
           builder: (_, __) => ClipRRect(
             borderRadius: BorderRadius.circular(4),
+            // 2026-09-27: Ken - "I don't like the black progress bar,
+            // needs to be a happy colour." Green on a light track, also on
+            // the yellow box (text stays dark for contrast).
             child: LinearProgressIndicator(
               value: progress.value,
               minHeight: 8,
-              color: fg,
-              backgroundColor: fg.withValues(alpha: 0.2),
+              color: onBanner ? Colors.green.shade700 : kGreen,
+              backgroundColor: Colors.white.withValues(alpha: 0.6),
             ),
           ),
         ),
