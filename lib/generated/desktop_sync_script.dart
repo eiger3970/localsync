@@ -610,6 +610,29 @@ REMOTE=$(git rev-parse "origin/$BRANCH")
 # on every run - the phone's file never arrived. No common base now means
 # "merge both sides", nothing dropped.
 BASE=$(git merge-base HEAD "origin/$BRANCH" 2>/dev/null || true)
+
+# ── Safety copy before risky incoming changes ─────────────────────────────────
+# 2026-09-28: user - "1 device should never override the other's data ...
+# ensure safety is built in so this NEVER happens." Whatever the phone
+# sends, the desktop keeps a full copy of the vault first when:
+#   - a phone is LINKING (new phone, reinstalled apps, empty phone), or
+#   - the incoming changes would delete 20+ files in one go.
+# Copies go OUTSIDE the vault (same folder as the first-sync backup), so
+# they never sync to the phone. Sync then carries on - nothing is blocked,
+# nothing can be lost.
+safety_reason=""
+if git log --format=%s "HEAD..origin/$BRANCH" 2>/dev/null | grep -q -E "Vault contents before linking|linking existing vault"; then
+  safety_reason="a phone is linking"
+elif [[ -n "$BASE" ]]; then
+  deleted=$(git diff --name-only --diff-filter=D "$BASE" "origin/$BRANCH" 2>/dev/null | wc -l)
+  (( deleted >= 20 )) && safety_reason="the phone deletes $deleted files"
+fi
+if [[ -n "$safety_reason" ]]; then
+  safety_dest="$BACKUP_ROOT/$(basename "$VAULT") before sync $(date '+%Y%m%d%H%M')"
+  mkdir -p "$safety_dest" || die "Cannot create safety copy folder: $safety_dest - nothing synced"
+  cp -a "$VAULT/." "$safety_dest/" || die "Safety copy failed - nothing synced: $VAULT -> $safety_dest"
+  log "Safety copy ($safety_reason) -> $safety_dest"
+fi
 MERGE_EXTRA=()
 if [[ -z "$BASE" ]]; then
   log "⚡ Desktop and phone started separately - joining both histories"

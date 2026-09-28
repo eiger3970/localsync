@@ -653,8 +653,11 @@ class GitServiceImpl implements GitService {
           // (.obsidian/*.json, images) stayed conflicted, so
           // finishMergeCommit threw and the attempt failed mid-merge.
           // Same second pass the day-to-day sync already runs.
+          // 2026-09-28: linking - the desktop's established files win,
+          // the phone's fresh defaults go to Conflict Backups. One device
+          // never overrides the other's real data.
           repairBinaryConflictsOnDisk(repo, localVaultPath,
-              otherLabel: other.label);
+              otherLabel: other.label, keepTheirs: true);
         }
         finishMergeCommit(repo, deviceName,
             message: 'Merge desktop and phone (linking existing vault)');
