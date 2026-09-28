@@ -45,6 +45,7 @@ class _BrainHeroState extends State<BrainHero>
   static const _pitches = 9;
   static const _level = 4; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
+  static const _idleSpeed = _yaws / _turnSecs; // views per second
   static const _pitchSign = 1.0; // flip if dragging down tilts the wrong way
   static String _frame(String set, int yaw, int pitch) {
     final i = pitch * _yaws + (yaw % _yaws) + 1;
@@ -67,6 +68,13 @@ class _BrainHeroState extends State<BrainHero>
   double _pitch = _level * 1.0; // 0.._pitches-1
   bool _paused = false;
   bool _dragging = false;
+  // 2026-09-28: user - "User drags and lets go, that sets the speed,
+  // direction and motion of the brain, rather than always returning to
+  // the horizontal spin." The flick sets these; the brain keeps turning
+  // that way, slowing to the idle speed (never stopping), and stays at
+  // the tilt it was left at. Up/down bounces off the top/bottom views.
+  double _yawSpeed = _idleSpeed; // views per second, sign = direction
+  double _pitchSpeed = 0;
 
   @override
   void initState() {
@@ -76,9 +84,22 @@ class _BrainHeroState extends State<BrainHero>
       _last = t;
       if (_turning && !_paused && !_dragging) {
         setState(() {
-          _yaw = (_yaw + dt * _yaws / _turnSecs) % _yaws;
-          // after a tilt, ease back to level while turning
-          _pitch += (_level - _pitch) * (dt * 0.8).clamp(0.0, 1.0);
+          _yaw = (_yaw + dt * _yawSpeed) % _yaws;
+          _pitch += dt * _pitchSpeed;
+          if (_pitch <= 0 || _pitch >= _pitches - 1) {
+            _pitch = _pitch.clamp(0.0, _pitches - 1.0);
+            _pitchSpeed = -_pitchSpeed;
+          }
+          // Friction: a fast flick slows down to idle speed, keeping
+          // its direction; tilting slowly comes to rest where it is.
+          final k = (dt * 0.6).clamp(0.0, 1.0);
+          final floor = _idleSpeed * (_yawSpeed < 0 ? -1 : 1);
+          if (_yawSpeed.abs() > _idleSpeed) {
+            _yawSpeed += (floor - _yawSpeed) * k;
+          } else {
+            _yawSpeed = floor;
+          }
+          _pitchSpeed -= _pitchSpeed * k;
         });
       }
     })
@@ -119,6 +140,8 @@ class _BrainHeroState extends State<BrainHero>
             _holding = true;
             _yaw = 0; // the loops end facing front, as the grid's yaw 0 does
             _pitch = _level * 1.0;
+            _yawSpeed = _idleSpeed;
+            _pitchSpeed = 0;
           });
         }
       });
@@ -171,7 +194,21 @@ class _BrainHeroState extends State<BrainHero>
         _pitch = (_pitch + _pitchSign * d.delta.dy / 18)
             .clamp(0.0, _pitches - 1.0);
       }),
-      onPanEnd: (_) => _dragging = false,
+      onPanEnd: (d) {
+        final v = d.velocity.pixelsPerSecond;
+        final lastDir = _yawSpeed < 0 ? -1.0 : 1.0;
+        _yawSpeed = v.dx / 12;
+        _pitchSpeed = _pitchSign * v.dy / 18;
+        // A slow let-go (no flick) keeps the direction just dragged.
+        if (_yawSpeed.abs() < _idleSpeed && v.dx.abs() > 1) {
+          _yawSpeed = _idleSpeed * v.dx.sign;
+        } else if (v.dx.abs() <= 1) {
+          _yawSpeed = _idleSpeed * lastDir;
+        }
+        _yawSpeed = _yawSpeed.clamp(-_yaws * 3.0, _yaws * 3.0);
+        _pitchSpeed = _pitchSpeed.clamp(-_pitches * 3.0, _pitches * 3.0);
+        _dragging = false;
+      },
       child: Container(
         width: widget.size,
         height: widget.size,
