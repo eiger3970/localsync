@@ -41,7 +41,9 @@ class _BrainHeroState extends State<BrainHero>
   // (15 deg) x 9 up/down (-90..+90 deg, 22.5 deg), frame =
   // pitch * 24 + yaw + 1 (render_brain.py BRAIN_GRID=24x9). Neighbouring
   // views are cross-faded so 15 deg steps still turn smoothly.
-  static const _yaws = 24;
+  // 2026-09-28: Ken - "Moving brain is jittery, add more quality." 48
+  // around (7.5 deg) instead of 24 - half the jump between views.
+  static const _yaws = 48;
   static const _pitches = 9;
   static const _level = 4; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
@@ -124,6 +126,11 @@ class _BrainHeroState extends State<BrainHero>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _precache('idle');
+    // 2026-09-28: Ken - "Brain success paused before success graphics
+    // began." Both result animations are decoded up front, so a sync
+    // result starts playing at once instead of freezing first.
+    precacheImage(const AssetImage('assets/brain/success.webp'), context);
+    precacheImage(const AssetImage('assets/brain/distracted.webp'), context);
   }
 
   @override
