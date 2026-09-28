@@ -156,7 +156,9 @@ flutter:
     - assets/flags/
     - assets/logos/
     - assets/brain/
-    - assets/brain/idle/
+    - assets/brain/grid_idle/
+    - assets/brain/grid_success_hold/
+    - assets/brain/grid_distracted_hold/
 
 flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
