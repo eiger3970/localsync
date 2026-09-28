@@ -267,8 +267,6 @@ Future<String> _backupConflictBeforeResolving(
   final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
-  final backupFileName = '$baseName - ${backupTimestamp()}.md';
-  final backupFile = File('${backupDir.path}/$backupFileName');
   final sections = entry.versions.asMap().entries.map((e) {
     final v = e.value;
     final heading = e.key == 0
@@ -276,11 +274,13 @@ Future<String> _backupConflictBeforeResolving(
         : (v.when != null ? '${v.who} - ${v.when}' : v.who);
     return '## $heading\n\n${v.body}\n';
   }).join('\n');
-  await backupFile.writeAsString(
-    '# Conflict backup\n\n'
-    'Original file: ${entry.filePath}\n\n'
-    '$sections',
-  );
+  // 2026-09-28: an identical backup already there is reused, not copied.
+  final backupFileName = saveBackupUnlessIdentical(
+      backupDir,
+      '$baseName - ${backupTimestamp()}.md',
+      utf8.encode('# Conflict backup\n\n'
+          'Original file: ${entry.filePath}\n\n'
+          '$sections'));
   return '${conflictBackupsRelPath(vaultPath)}/$backupFileName';
 }
 
@@ -623,14 +623,13 @@ Future<void> mergeReferenceKeepingBoth(
   final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
-  final backupFile =
-      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
-  await backupFile.writeAsString(
-    '# Reference content, merged by user\n\n'
-    'Original file: ${entry.filePath}\n\n'
-    '## Kept\n\n${entry.keptContent}\n\n'
-    '## Merged in (from: ${entry.label})\n\n${entry.body}\n',
-  );
+  saveBackupUnlessIdentical(
+      backupDir,
+      '$baseName - ${backupTimestamp()}.md',
+      utf8.encode('# Reference content, merged by user\n\n'
+          'Original file: ${entry.filePath}\n\n'
+          '## Kept\n\n${entry.keptContent}\n\n'
+          '## Merged in (from: ${entry.label})\n\n${entry.body}\n'));
 
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
@@ -651,14 +650,13 @@ Future<void> deleteReferenceCallout(
   final backupDir = Directory(conflictBackupsDir(vaultPath));
   await backupDir.create(recursive: true);
   final baseName = entry.filePath.split('/').last.replaceAll('.md', '');
-  final backupFile =
-      File('${backupDir.path}/$baseName - ${backupTimestamp()}.md');
-  await backupFile.writeAsString(
-    '# Reference content, removed by user\n\n'
-    'Original file: ${entry.filePath}\n'
-    'From: ${entry.label}\n\n'
-    '${entry.body}\n',
-  );
+  saveBackupUnlessIdentical(
+      backupDir,
+      '$baseName - ${backupTimestamp()}.md',
+      utf8.encode('# Reference content, removed by user\n\n'
+          'Original file: ${entry.filePath}\n'
+          'From: ${entry.label}\n\n'
+          '${entry.body}\n'));
 
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
