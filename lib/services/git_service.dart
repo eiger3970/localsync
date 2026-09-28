@@ -507,6 +507,14 @@ class GitServiceImpl implements GitService {
                 : 'Cloned bare repo');
       }
 
+      // 2026-09-28: Ken - "just make a backup ... to ensure no data loss in
+      // any confusion." Every link now starts with a full copy of this
+      // phone's folder, not only a first-ever link - so whatever the other
+      // side holds (empty, older, different), nothing on this phone can be
+      // lost. The desktop makes its own full copy before it takes in a
+      // link (localsync_sync.sh).
+      final relinkBackup = await backupVaultIfNotEmpty(localVaultPath);
+      if (relinkBackup != null) lastBackupRelPath = relinkBackup;
       final repo = Repository.open(localVaultPath);
       try {
         // 2026-08-26: real feedback, live - a real, already-used vault
