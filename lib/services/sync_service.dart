@@ -1835,10 +1835,19 @@ int repairAllConflictsOnDisk(String path,
 /// and no user visibility at all. Picking either side as a real,
 /// visible choice (like the markdown Conflicts screen offers) is real,
 /// buildable follow-up work - this closes the actual safety hole first.
+///
+/// 2026-09-28: Ken - "1 device should never override the other's data."
+/// [keepTheirs] is set when a phone LINKS to an existing desktop vault:
+/// the phone side is a freshly made, empty vault whose .obsidian files are
+/// blank defaults, so keeping "ours" overwrote the desktop's real plugins,
+/// themes and layout on every new-phone/reinstall link. When linking, the
+/// established desktop copy is kept and the phone's fresh file is the one
+/// saved to Conflict Backups. Day-to-day syncs are unchanged.
 int repairBinaryConflictsOnDisk(
   git.Repository repo,
   String vaultPath, {
   String otherLabel = 'other device',
+  bool keepTheirs = false,
 }) {
   var resolvedCount = 0;
   final conflicts = repo.index.conflicts;
@@ -1846,7 +1855,8 @@ int repairBinaryConflictsOnDisk(
     if (path.endsWith('.md')) continue; // handled by repairAllConflictsOnDisk
     final entry = conflicts[path]!;
     try {
-      _resolveBinaryConflict(repo, vaultPath, path, entry, otherLabel);
+      _resolveBinaryConflict(repo, vaultPath, path, entry, otherLabel,
+          keepTheirs: keepTheirs);
       resolvedCount++;
     } catch (_) {
       // Leaves this one path as a real, still-unresolved index conflict
@@ -1863,8 +1873,9 @@ void _resolveBinaryConflict(
   String vaultPath,
   String relPath,
   git.ConflictEntry entry,
-  String otherLabel,
-) {
+  String otherLabel, {
+  bool keepTheirs = false,
+}) {
   final backupDir =
       Directory(conflictBackupsDir(vaultPath));
   backupDir.createSync(recursive: true);
@@ -1903,8 +1914,8 @@ void _resolveBinaryConflict(
       vaultPath,
       BinaryConflictLogEntry(
         path: relPath,
-        keptBackupName: keptBackupName,
-        otherBackupName: otherBackupName,
+        keptBackupName: keepTheirs ? otherBackupName : keptBackupName,
+        otherBackupName: keepTheirs ? keptBackupName : otherBackupName,
         otherLabel: otherLabel,
         when: ts,
       ),
@@ -1914,7 +1925,7 @@ void _resolveBinaryConflict(
   // Keep "ours" as the resolved content when it exists; if only
   // "theirs" exists (e.g. they added a file we never touched), that's
   // the only real content to keep - never leave the file missing.
-  final kept = ours ?? theirs;
+  final kept = keepTheirs ? (theirs ?? ours) : (ours ?? theirs);
   if (kept == null) return; // both sides deleted it - nothing to keep
   final blob = git.Blob.lookup(repo: repo, oid: kept.oid);
   File('$vaultPath/$relPath').writeAsBytesSync(blob.contentBytes);
