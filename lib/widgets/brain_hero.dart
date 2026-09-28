@@ -45,7 +45,10 @@ class _BrainHeroState extends State<BrainHero>
   static const _pitches = 9;
   static const _level = 4; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
-  static const _idleSpeed = _yaws / _turnSecs; // views per second
+  static const _yawStep = 360.0 / _yaws; // degrees between views
+  static const _pitchStep = 180.0 / (_pitches - 1);
+  static const _idleDeg = 360.0 / _turnSecs; // idle turning, degrees/s
+  static const _degPerPx = 1.25; // drag: degrees turned per pixel
   static const _pitchSign = 1.0; // flip if dragging down tilts the wrong way
   static String _frame(String set, int yaw, int pitch) {
     final i = pitch * _yaws + (yaw % _yaws) + 1;
@@ -73,8 +76,13 @@ class _BrainHeroState extends State<BrainHero>
   // the horizontal spin." The flick sets these; the brain keeps turning
   // that way, slowing to the idle speed (never stopping), and stays at
   // the tilt it was left at. Up/down bounces off the top/bottom views.
-  double _yawSpeed = _idleSpeed; // views per second, sign = direction
-  double _pitchSpeed = 0;
+  // Turning velocity in degrees/s: dx = around, dy = up/down. Its
+  // direction is always the user's last movement - sideways, up/down or
+  // diagonal - and it never slows below idle speed.
+  Offset _vel = const Offset(_idleDeg, 0);
+  // Recent drag direction - a mouse usually stops before the button is
+  // let go, so the release speed alone often reads 0.
+  Offset _dragVec = Offset.zero;
 
   @override
   void initState() {
@@ -84,22 +92,19 @@ class _BrainHeroState extends State<BrainHero>
       _last = t;
       if (_turning && !_paused && !_dragging) {
         setState(() {
-          _yaw = (_yaw + dt * _yawSpeed) % _yaws;
-          _pitch += dt * _pitchSpeed;
+          _yaw = (_yaw + dt * _vel.dx / _yawStep) % _yaws;
+          _pitch += dt * _vel.dy / _pitchStep;
+          // Up/down bounces off the top and bottom views.
           if (_pitch <= 0 || _pitch >= _pitches - 1) {
             _pitch = _pitch.clamp(0.0, _pitches - 1.0);
-            _pitchSpeed = -_pitchSpeed;
+            _vel = Offset(_vel.dx, -_vel.dy);
           }
-          // Friction: a fast flick slows down to idle speed, keeping
-          // its direction; tilting slowly comes to rest where it is.
+          // Friction: a fast flick slows down to idle speed, same
+          // direction; never below idle, never back to a sideways spin.
+          final m = _vel.distance;
           final k = (dt * 0.6).clamp(0.0, 1.0);
-          final floor = _idleSpeed * (_yawSpeed < 0 ? -1 : 1);
-          if (_yawSpeed.abs() > _idleSpeed) {
-            _yawSpeed += (floor - _yawSpeed) * k;
-          } else {
-            _yawSpeed = floor;
-          }
-          _pitchSpeed -= _pitchSpeed * k;
+          final next = m > _idleDeg ? m + (_idleDeg - m) * k : _idleDeg;
+          _vel = m > 0 ? _vel * (next / m) : const Offset(_idleDeg, 0);
         });
       }
     })
@@ -140,8 +145,7 @@ class _BrainHeroState extends State<BrainHero>
             _holding = true;
             _yaw = 0; // the loops end facing front, as the grid's yaw 0 does
             _pitch = _level * 1.0;
-            _yawSpeed = _idleSpeed;
-            _pitchSpeed = 0;
+            _vel = const Offset(_idleDeg, 0);
           });
         }
       });
@@ -190,23 +194,25 @@ class _BrainHeroState extends State<BrainHero>
       // Any direction: sideways turns, up/down tilts, diagonal does both.
       onPanStart: (_) => _dragging = true,
       onPanUpdate: (d) => setState(() {
-        _yaw = (_yaw + d.delta.dx / 12) % _yaws;
-        _pitch = (_pitch + _pitchSign * d.delta.dy / 18)
+        final px = Offset(d.delta.dx, _pitchSign * d.delta.dy);
+        if (px.distance > 0.5) _dragVec = _dragVec * 0.6 + px * 0.4;
+        _yaw = (_yaw + px.dx * _degPerPx / _yawStep) % _yaws;
+        _pitch = (_pitch + px.dy * _degPerPx / _pitchStep)
             .clamp(0.0, _pitches - 1.0);
       }),
       onPanEnd: (d) {
         final v = d.velocity.pixelsPerSecond;
-        final lastDir = _yawSpeed < 0 ? -1.0 : 1.0;
-        _yawSpeed = v.dx / 12;
-        _pitchSpeed = _pitchSign * v.dy / 18;
-        // A slow let-go (no flick) keeps the direction just dragged.
-        if (_yawSpeed.abs() < _idleSpeed && v.dx.abs() > 1) {
-          _yawSpeed = _idleSpeed * v.dx.sign;
-        } else if (v.dx.abs() <= 1) {
-          _yawSpeed = _idleSpeed * lastDir;
+        final flick = Offset(v.dx, _pitchSign * v.dy) * _degPerPx;
+        if (flick.distance > _idleDeg) {
+          // A real flick: its own speed and direction, capped.
+          _vel = flick.distance > _idleDeg * 6
+              ? flick * (_idleDeg * 6 / flick.distance)
+              : flick;
+        } else if (_dragVec.distance > 0) {
+          // Slow let-go: idle speed, in the direction last dragged.
+          _vel = _dragVec * (_idleDeg / _dragVec.distance);
         }
-        _yawSpeed = _yawSpeed.clamp(-_yaws * 3.0, _yaws * 3.0);
-        _pitchSpeed = _pitchSpeed.clamp(-_pitches * 3.0, _pitches * 3.0);
+        _dragVec = Offset.zero;
         _dragging = false;
       },
       child: Container(
