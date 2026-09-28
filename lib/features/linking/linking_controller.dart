@@ -547,6 +547,21 @@ class LinkingController extends ChangeNotifier {
       final existing = await _existingRepoPathFor(bookmark);
       if (existing != null) bareRepoPath = existing;
     }
+    // 2026-09-28: still blank (fresh phone, QR left it blank) - use the
+    // repo the desktop vault already syncs with, never a new empty one.
+    if (bareRepoPath.trim().isEmpty && !kIsWeb && _privateKeyPath != null) {
+      final desktopVault = await DatabaseService().getDesktopVaultPathFor('');
+      if (desktopVault != null && desktopVault.trim().isNotEmpty) {
+        final origin = await desktopVaultOrigin(
+          host: desktopIp,
+          port: sshPort,
+          user: desktopUser,
+          privateKeyPath: _privateKeyPath!,
+          vaultPath: desktopVault.trim(),
+        );
+        if (origin != null) bareRepoPath = origin;
+      }
+    }
     if (bareRepoPath.trim().isEmpty) {
       final segments = path.split('/').where((s) => s.isNotEmpty).toList();
       final folderName = segments.isNotEmpty ? segments.last : 'vault';
