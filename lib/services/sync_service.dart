@@ -882,12 +882,14 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
                       conflictBackupsDir(p.vaultPath));
                   backupDir.createSync(recursive: true);
                   final ts = backupTimestamp();
-                  File('${backupDir.path}/'
-                          '${_conflictBackupName(path, "before auto-merge, phone version", ts)}')
-                      .writeAsStringSync(neutralizeReminderTags(oursBlob.content));
-                  File('${backupDir.path}/'
-                          '${_conflictBackupName(path, "before auto-merge, desktop version", ts)}')
-                      .writeAsStringSync(neutralizeReminderTags(theirsBlob.content));
+                  saveBackupUnlessIdentical(
+                      backupDir,
+                      _conflictBackupName(path, 'before auto-merge, phone version', ts),
+                      utf8.encode(neutralizeReminderTags(oursBlob.content)));
+                  saveBackupUnlessIdentical(
+                      backupDir,
+                      _conflictBackupName(path, 'before auto-merge, desktop version', ts),
+                      utf8.encode(neutralizeReminderTags(theirsBlob.content)));
                   File('${p.vaultPath}/$path').writeAsStringSync(merged);
                   autoMergedPaths.add(path);
                   continue;
@@ -940,14 +942,12 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           final entryOid = _lookupPathOid(repo, remoteTree, path);
           if (entryOid == null) continue;
           final blob = git.Blob.lookup(repo: repo, oid: entryOid);
-          final backupName = _conflictBackupName(path, 'desktop version', ts);
-          final backupFile = File('${backupDir.path}/$backupName');
-          if (blob.isBinary) {
-            backupFile.writeAsBytesSync(blob.contentBytes);
-          } else {
-            backupFile.writeAsStringSync(neutralizeReminderTags(blob.content));
-          }
-          savedNames.add(backupName);
+          savedNames.add(saveBackupUnlessIdentical(
+              backupDir,
+              _conflictBackupName(path, 'desktop version', ts),
+              blob.isBinary
+                  ? blob.contentBytes
+                  : utf8.encode(neutralizeReminderTags(blob.content))));
         } catch (_) {
           // Leave this one path unreported rather than guess at content.
         }
@@ -1624,6 +1624,11 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
     // failure to compute what it's about to discard.
     return const [];
   }
+  // 2026-09-28: never back up LocalSync's own backups - seen live as
+  // "Board daily stuff - before pull reset - ... - before pull reset -
+  // ..." (a backup of a backup of a backup).
+  final ownFolders = localSyncFolders(vaultPath);
+  atRisk.removeWhere((path) => isInLocalSyncFolder(path, ownFolders));
   if (atRisk.isEmpty) return const [];
   final backupDir =
       Directory(conflictBackupsDir(vaultPath));
@@ -1635,14 +1640,12 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
       final oid = _lookupPathOid(repo, fromTree, path);
       if (oid == null) continue;
       final blob = git.Blob.lookup(repo: repo, oid: oid);
-      final backupName = _conflictBackupName(path, label, ts);
-      final backupFile = File('${backupDir.path}/$backupName');
-      if (blob.isBinary) {
-        backupFile.writeAsBytesSync(blob.contentBytes);
-      } else {
-        backupFile.writeAsStringSync(neutralizeReminderTags(blob.content));
-      }
-      savedNames.add(backupName);
+      savedNames.add(saveBackupUnlessIdentical(
+          backupDir,
+          _conflictBackupName(path, label, ts),
+          blob.isBinary
+              ? blob.contentBytes
+              : utf8.encode(neutralizeReminderTags(blob.content))));
     } catch (_) {
       // Leave this one path unreported rather than let it block the
       // others or the reset itself.
@@ -1882,15 +1885,13 @@ void _resolveBinaryConflict(
 
   if (ours != null) {
     final blob = git.Blob.lookup(repo: repo, oid: ours.oid);
-    keptBackupName = '$stem - yours - $ts$ext';
-    File('${backupDir.path}/$keptBackupName')
-        .writeAsBytesSync(blob.contentBytes);
+    keptBackupName = saveBackupUnlessIdentical(
+        backupDir, '$stem - yours - $ts$ext', blob.contentBytes);
   }
   if (theirs != null) {
     final blob = git.Blob.lookup(repo: repo, oid: theirs.oid);
-    otherBackupName = '$stem - $otherLabel - $ts$ext';
-    File('${backupDir.path}/$otherBackupName')
-        .writeAsBytesSync(blob.contentBytes);
+    otherBackupName = saveBackupUnlessIdentical(
+        backupDir, '$stem - $otherLabel - $ts$ext', blob.contentBytes);
   }
 
   // Logged so the Conflicts screen can offer a real choice later - see

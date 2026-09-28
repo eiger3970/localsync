@@ -101,6 +101,42 @@ List<String> localSyncFolders(String vaultPath) {
 bool isInLocalSyncFolder(String relPath, List<String> folders) =>
     folders.any((f) => relPath == f || relPath.startsWith('$f/'));
 
+/// 2026-09-28: real vault - Conflict Backups held 422 notes, 130 of them
+/// byte-identical copies of an earlier backup of the same note (268 of
+/// "LocalSync" alone), all synced to the phone. Writes [bytes] as [name]
+/// in [dir] unless a backup of the same note ([name] starting "<stem> - ",
+/// same extension) already holds exactly these bytes - then nothing is
+/// written and that existing backup's name is returned instead, so the
+/// caller still points the user at a real, identical copy. Never deletes.
+String saveBackupUnlessIdentical(Directory dir, String name, List<int> bytes) {
+  final sep = name.indexOf(' - ');
+  final dot = name.lastIndexOf('.');
+  if (sep > 0) {
+    final prefix = name.substring(0, sep + 3);
+    final ext = dot > sep ? name.substring(dot) : '';
+    try {
+      for (final f in dir.listSync().whereType<File>()) {
+        final n = f.uri.pathSegments.last;
+        if (!n.startsWith(prefix) || !n.endsWith(ext)) continue;
+        if (f.lengthSync() != bytes.length) continue;
+        final existing = f.readAsBytesSync();
+        var same = true;
+        for (var i = 0; i < bytes.length; i++) {
+          if (existing[i] != bytes[i]) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return n;
+      }
+    } catch (_) {
+      // Can't compare - fall through and write, never skip a backup blind.
+    }
+  }
+  File('${dir.path}/$name').writeAsBytesSync(bytes);
+  return name;
+}
+
 /// Saves [folder] as [vaultPath]'s LocalSync folder. Returns the
 /// cleaned value written, or null if [folder] was rejected (nothing is
 /// written then). Writing the default removes nothing - it just writes
