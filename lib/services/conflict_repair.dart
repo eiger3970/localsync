@@ -751,3 +751,80 @@ String consolidateStackedRuns(String content) {
     return '${blocks.join('\n')}\n';
   });
 }
+
+/// 2026-09-28: real incident, live - Sep 28th journal. KEEP BOTH on a
+/// note that already carried the same entries OUTSIDE the conflict box
+/// (1030 at the top of the note AND inside the desktop box; 1128 twice
+/// after an auto-merge) wrote a note with both repeats and 1030 above
+/// 0958. KEEP BOTH & CLEAN UP only ever looked inside the conflict box,
+/// so it couldn't fix either. This cleans the WHOLE note instead:
+///
+/// - an entry = a paragraph starting with a bare HHMM time, plus the
+///   untimed paragraphs under it (a note, a pasted list) up to the next
+///   timed one; text before the first timed entry stays at the top
+/// - an exact repeat of an earlier paragraph (ignoring whitespace) is
+///   dropped - the first copy stays, so no text is ever lost
+/// - entries are sorted by time; same time keeps its original order
+///
+/// Never reorders a note with headings, code fences or a leftover
+/// SYNC CONFLICT box - there it only drops repeats. Frontmatter stays
+/// on top untouched.
+String cleanUpJournalNote(String content) {
+  var front = '';
+  var body = content;
+  final fm = RegExp(r'^---\n.*?\n---\n', dotAll: true).firstMatch(content);
+  if (fm != null) {
+    front = fm.group(0)!;
+    body = content.substring(fm.end);
+  }
+  final seen = <String>{};
+  final paras = <String>[];
+  // Not _splitParagraphs: its trim() would strip a list item's leading
+  // tab when it starts a paragraph.
+  for (final p in body
+      .split(RegExp(r'\n[ \t]*\n'))
+      .map((p) => p.replaceFirst(RegExp(r'^\n+'), '').trimRight())
+      .where((p) => p.trim().isNotEmpty)) {
+    final key = normalizeWhitespace(p.replaceAll(RegExp(r'^(> ?)+', multiLine: true), ''));
+    // Short lines ("---", "OK") legitimately repeat - only real text counts.
+    if (key.length >= 12 && !seen.add(key)) continue;
+    paras.add(p);
+  }
+  final canSort = !paras.any((p) =>
+      p.startsWith('#') ||
+      p.contains('```') ||
+      calloutHeaderPattern.hasMatch(
+          p.replaceAll(RegExp(r'^(> ?)+', multiLine: true), '')));
+  final top = <String>[];
+  final entries = <List<String>>[];
+  for (final p in paras) {
+    if (_journalTimePattern.hasMatch(p)) {
+      entries.add([p]);
+    } else if (entries.isEmpty) {
+      top.add(p);
+    } else {
+      entries.last.add(p);
+    }
+  }
+  if (canSort && entries.length >= 2) {
+    int timeOf(List<String> e) =>
+        int.parse(_journalTimePattern.firstMatch(e.first)!.group(1)!);
+    final indexed = entries.indexed.toList()
+      ..sort((a, b) {
+        final c = timeOf(a.$2).compareTo(timeOf(b.$2));
+        return c != 0 ? c : a.$1.compareTo(b.$1);
+      });
+    entries
+      ..clear()
+      ..addAll(indexed.map((e) => e.$2));
+  }
+  final out = [...top, ...entries.expand((e) => e)].join('\n\n');
+  return out.isEmpty ? front : '$front$out\n';
+}
+
+/// 2026-09-28: true when KEEP BOTH alone would leave this note with a
+/// repeated paragraph or entries out of time order - the conflict
+/// screen then recommends KEEP BOTH & CLEAN UP instead.
+bool cleanUpWouldChange(String content) =>
+    normalizeWhitespace(cleanUpJournalNote(content)) !=
+    normalizeWhitespace(content);

@@ -493,4 +493,44 @@ void main() {
       expect('SYNC CONFLICT'.allMatches(out).length, 2);
     });
   });
+
+  // 2026-09-28: real Sep 28th journal shape (made-up text) - entries
+  // repeated outside the conflict box and 1030 sitting above 0958.
+  group('cleanUpJournalNote', () {
+    test('drops repeats, sorts entries, keeps untimed text with its entry',
+        () {
+      const note = '1030 police visit today.\n\n'
+          'Note under 1030.\n\n'
+          '0958 vape shop entry.\n'
+          'Second line of 0958.\n\n'
+          '1030 police visit today.\n\n'
+          '1128 contacts slow to load.\n\n\n\n'
+          '1128 contacts slow to load.\n';
+      expect(
+          cleanUpJournalNote(note),
+          '0958 vape shop entry.\nSecond line of 0958.\n\n'
+          '1030 police visit today.\n\nNote under 1030.\n\n'
+          '1128 contacts slow to load.\n');
+    });
+
+    test('text before the first time stays on top, list tabs kept', () {
+      const note = 'Pasted advice.\n\n\t1.\tFirst point\n\n'
+          '1100 later.\n\n0900 earlier.\n';
+      expect(cleanUpJournalNote(note),
+          'Pasted advice.\n\n\t1.\tFirst point\n\n0900 earlier.\n\n1100 later.\n');
+    });
+
+    test('never reorders a note with headings - only drops repeats', () {
+      const note = '# Tonight\n\n1100 later entry.\n\n0900 earlier entry.\n\n'
+          '1100 later entry.\n';
+      expect(cleanUpJournalNote(note),
+          '# Tonight\n\n1100 later entry.\n\n0900 earlier entry.\n');
+    });
+
+    test('short repeated lines are left alone', () {
+      const note = '0900 a entry here.\n\n---\n\n1000 b entry here.\n\n---\n';
+      expect(cleanUpJournalNote(note), note);
+      expect(cleanUpWouldChange(note), isFalse);
+    });
+  });
 }
