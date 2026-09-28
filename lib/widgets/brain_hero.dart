@@ -150,7 +150,9 @@ class _BrainHeroState extends State<BrainHero>
         if (mounted && widget.playId == id) {
           setState(() {
             _holding = true;
-            _yaw = 0; // the loops end facing front, as the grid's yaw 0 does
+            // Success ends facing front (grid yaw 0); the error loop turns
+            // half a turn, so its hold starts half way round - no jump.
+            _yaw = widget.mode == BrainMode.distracted ? _yaws / 2 : 0;
             _pitch = _level * 1.0;
             _vel = const Offset(_idleDeg, 0);
           });
