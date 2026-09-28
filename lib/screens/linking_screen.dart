@@ -2977,8 +2977,9 @@ class _BurstPainter extends CustomPainter {
 
 // 2026-09-28: user - notes on only one device: say what will happen in
 // plain words, promise nothing is deleted (both sides are fully copied
-// first), and advise a copy of their own - no app should be the only
-// safety net. Continue links; Cancel stops with nothing changed.
+// first). user: linking IS the fix for "only one copy" - so the screen
+// encourages it, and suggests a third copy of their own. Continue links;
+// Cancel stops with nothing changed.
 class _ConfirmLinkView extends StatelessWidget {
   final LinkingController ctrl;
   const _ConfirmLinkView({required this.ctrl});
@@ -3001,8 +3002,9 @@ class _ConfirmLinkView extends StatelessWidget {
           const SizedBox(height: 16),
           Text('${from[0].toUpperCase()}${from.substring(1)} has $n notes. '
               '${to[0].toUpperCase()}${to.substring(1)} has none.\n\n'
-              'Linking copies them to $to. Nothing is deleted - both sides '
-              'are fully copied first.',
+              'Linking copies them to $to, so they\'ll be on both - '
+              'a second copy. Nothing is deleted: both sides are fully '
+              'copied first.',
               style: TextStyle(color: kStar, fontSize: 15, height: 1.5)),
           const SizedBox(height: 16),
           Row(
@@ -3012,9 +3014,8 @@ class _ConfirmLinkView extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                    'These notes exist in one place only. Keep your own copy '
-                    'too (a USB stick or another drive) - no app should be '
-                    'your only backup.',
+                    'Good move - one copy is easy to lose. For extra safety, '
+                    'keep a third copy on a USB stick or another drive.',
                     style: TextStyle(color: kTextDim, fontSize: 13, height: 1.5)),
               ),
             ],
