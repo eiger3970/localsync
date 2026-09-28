@@ -1,3 +1,4 @@
+import 'dart:async';
 // features/linking/linking_controller.dart
 //
 // Drives the vault setup sequence.
@@ -168,6 +169,7 @@ class LinkingController extends ChangeNotifier {
         LinkingStep.checkingPairing => 0.10,
         LinkingStep.awaitingVaultCreation => 0.30,
         LinkingStep.pickingVaultFolder => 0.55,
+        LinkingStep.confirmingLink => 0.70,
         LinkingStep.cloning => 0.80,
         LinkingStep.verifySync => 0.95,
         LinkingStep.complete => 1.0,
@@ -175,6 +177,18 @@ class LinkingController extends ChangeNotifier {
       };
 
   // ── Public API ─────────────────────────────────────────────────────────────
+
+  // 2026-09-28: notes found on only one side before linking - the user
+  // is asked first (confirmingLink). Null when nothing is being asked.
+  ({int phone, int desktop})? _linkCounts;
+  ({int phone, int desktop})? get linkCounts => _linkCounts;
+  Completer<bool>? _linkAnswer;
+
+  /// The user's answer on the confirmingLink screen.
+  void answerLink(bool go) {
+    final c = _linkAnswer;
+    if (c != null && !c.isCompleted) c.complete(go);
+  }
 
   Future<void> startLinking() async {
     assert(_step == LinkingStep.idle || _step == LinkingStep.failed);
@@ -592,6 +606,26 @@ class LinkingController extends ChangeNotifier {
           // synced folder's (see DatabaseService.getDesktopVaultPathFor).
           desktopVaultPath: await _desktopVaultPathFor(bareRepoPath),
         );
+        // 2026-09-28: notes on only one side -> ask before linking. Both
+        // sides still make a full copy first either way.
+        final counts = await git.countNotesBothSides();
+        if (counts != null && (counts.phone == 0) != (counts.desktop == 0)) {
+          _linkCounts = counts;
+          _linkAnswer = Completer<bool>();
+          _step = LinkingStep.confirmingLink;
+          notifyListeners();
+          final go = await _linkAnswer!.future;
+          _linkAnswer = null;
+          _linkCounts = null;
+          if (!go) {
+            _step = LinkingStep.idle;
+            _isRunning = false;
+            notifyListeners();
+            return;
+          }
+          _step = LinkingStep.cloning;
+          notifyListeners();
+        }
         final result = await git.pullFromBareRepo();
         if (result case StepFailure()) {
           return _fail(result);

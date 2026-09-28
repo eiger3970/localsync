@@ -284,6 +284,7 @@ class LinkingScreen extends StatelessWidget {
                     LinkingStep.idle => _IdleView(ctrl: ctrl),
                     LinkingStep.complete => _CompleteView(ctrl: ctrl),
                     LinkingStep.failed => _FailedView(ctrl: ctrl),
+                    LinkingStep.confirmingLink => _ConfirmLinkView(ctrl: ctrl),
                     _ when ctrl.currentInstruction != null =>
                       _ParkedView(ctrl: ctrl),
                     _ => _RunningView(ctrl: ctrl),
@@ -2973,6 +2974,77 @@ class _BurstPainter extends CustomPainter {
 }
 
 // ── Failed ─────────────────────────────────────────────────────────────────────
+
+// 2026-09-28: Ken - notes on only one device: say what will happen in
+// plain words, promise nothing is deleted (both sides are fully copied
+// first), and advise a copy of their own - no app should be the only
+// safety net. Continue links; Cancel stops with nothing changed.
+class _ConfirmLinkView extends StatelessWidget {
+  final LinkingController ctrl;
+  const _ConfirmLinkView({required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = ctrl.linkCounts;
+    if (c == null) return const SizedBox.shrink();
+    final onPhone = c.phone > 0;
+    final n = onPhone ? c.phone : c.desktop;
+    final from = onPhone ? 'this phone' : 'your desktop';
+    final to = onPhone ? 'your desktop' : 'this phone';
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Your notes are only on ${onPhone ? 'this phone' : 'your desktop'}',
+              style: TextStyle(color: kStar, fontSize: 20, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          Text('${from[0].toUpperCase()}${from.substring(1)} has $n notes. '
+              '${to[0].toUpperCase()}${to.substring(1)} has none.\n\n'
+              'Linking copies them to $to. Nothing is deleted - both sides '
+              'are fully copied first.',
+              style: TextStyle(color: kStar, fontSize: 15, height: 1.5)),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.shield_outlined, color: kGreen, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                    'These notes exist in one place only. Keep your own copy '
+                    'too (a USB stick or another drive) - no app should be '
+                    'your only backup.',
+                    style: TextStyle(color: kTextDim, fontSize: 13, height: 1.5)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: kGreen,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: () => ctrl.answerLink(true),
+              child: const Text('CONTINUE',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => ctrl.answerLink(false),
+              child: Text('CANCEL', style: TextStyle(color: kStar)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _FailedView extends StatefulWidget {
   final LinkingController ctrl;
