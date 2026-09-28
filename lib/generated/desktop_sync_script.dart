@@ -237,6 +237,10 @@ def normalize(text):
     return re.sub(r'\s+', ' ', text).strip()
 
 JOURNAL_TIME_RE = re.compile(r'^(\d{4})\b')
+# Mirrors conflict_repair.dart's calloutHeaderPattern (either dash).
+CALLOUT_HEADER_RE = re.compile(
+    r'^\[!(?:info|warning)\][+-] SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)[^\n]*$',
+    re.M)
 
 def _split_paragraphs(text):
     return [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
@@ -332,17 +336,50 @@ def merge_both(m):
         label = other_label
         if other_time:
             label = f'{other_label} — {other_time}'
-        callout = ''.join(f'> {line}\n' for line in theirs.splitlines())
+        # 2026-09-28: real Sep 28th journal - theirs already held the
+        # phone's own unresolved SYNC CONFLICT boxes, and this wrapped
+        # them whole inside a new box ("> > [!info]-"), which the phone
+        # then merged a second time. Flatten instead, same as the app's
+        # extractStackedVersions: every stacked version becomes its own
+        # top-level box, and any version already in ours is skipped.
+        theirs_unq = re.sub(r'(?m)^(> ?)+', '', theirs)
+        heads = list(CALLOUT_HEADER_RE.finditer(theirs_unq))
+        pieces = []
+        if heads:
+            pre = theirs_unq[:heads[0].start()].strip()
+            if pre:
+                pieces.append((label, pre))
+            for i, h in enumerate(heads):
+                end = heads[i + 1].start() if i + 1 < len(heads) else len(theirs_unq)
+                body = theirs_unq[h.end():end].strip()
+                if body:
+                    # "yours" was the phone's own side - name it here.
+                    lab = h.group(1)
+                    pieces.append((label if lab == 'yours' else lab, body))
+        else:
+            pieces.append((label, theirs))
+        seen = set()
+        kept = []
+        for lab, body in pieces:
+            key = normalize(body)
+            if key and key not in ours_unquoted and key not in seen:
+                seen.add(key)
+                kept.append((lab, body))
+        if not kept:
+            deduped[0] += 1
+            return f'{ours}\n'
         # 2026-09-07: real feedback, live - "too verbose... just
         # succinctly say Conflict... tapping it links to LocalSync
         # Conflicts." Matches conflict_repair.dart's own same-day fix:
         # collapsed by default (+ -> -) instead of always-expanded, and
         # the header now names exactly where to go to resolve it.
-        theirs_block = (
-            f'> [!warning]- SYNC CONFLICT — {label} (review and delete one) '
+        theirs_block = '\n'.join(
+            f'> [!warning]- SYNC CONFLICT — {lab} (review and delete one) '
             f'- fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
-            f'{callout}'
+            + ''.join(f'> {line}\n' for line in body.splitlines())
+            for lab, body in kept
         )
+        theirs = kept[0][1] if len(kept) == 1 else theirs
         # 2026-09-07: real feedback, live - if both sides are journal
         # entries with a leading HHMM time (this user's real convention),
         # show the earlier one first instead of always ours-first - see

@@ -745,4 +745,34 @@ void main() {
       expect(applyResolution(content, entry, untimedBody), expected);
     });
   });
+
+  // 2026-09-28: real Sep 28th journal - the desktop box only held text
+  // already at the top of the note, so KEEP BOTH wrote it twice.
+  group('applyKeepBoth - side already in the note', () {
+    test('a side already outside the box is not written again; CLEAN UP '
+        'sorts the whole note', () async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Sep 28th, 2026.md');
+      await file.writeAsString(
+        '1030 police visit today.\n'
+        '\n'
+        '> [!info]- SYNC CONFLICT - yours (review and delete one)\n'
+        '> 0958 vape shop entry.\n'
+        '\n'
+        '> [!warning]- SYNC CONFLICT - desktop obsidian - 202609281103 (review and delete one)\n'
+        '> 1030 police visit today.\n',
+      );
+      final entry = (await scanForConflicts(dir.path)).single;
+      final content = await file.readAsString();
+
+      final plain = applyKeepBoth(content, entry).content;
+      expect('1030 police visit'.allMatches(plain), hasLength(1));
+      expect(plain, contains('0958 vape shop entry.'));
+      expect(plain, isNot(contains('SYNC CONFLICT')));
+
+      final cleaned = applyKeepBoth(content, entry, cleanUp: true).content;
+      expect(cleaned, '0958 vape shop entry.\n\n1030 police visit today.\n');
+    });
+  });
 }

@@ -21,8 +21,11 @@ import '../services/purchase_service.dart';
 import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
+        cleanUpJournalNote,
+        cleanUpWouldChange,
         findDuplicateParagraph,
         hasDuplicateParagraph,
+        normalizeWhitespace,
         oneContainsTheOther,
         oneSideSuspiciouslyShort;
 import '../services/conflict_scanner.dart';
@@ -105,6 +108,9 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   // same file-changed-since-scan risk resolveConflict already guards
   // against for the part that actually gets written).
   String? _precedingContext;
+  // 2026-09-28: whole note, read with the context above - lets the tip
+  // check what plain KEEP BOTH would leave behind (repeats, time order).
+  String? _noteContent;
   bool _contextLoadFailed = false;
   // 2026-09-14: real feedback, live - "the text for 0953 isn't on same
   // levels. Vimdiff would add auto spacing there so that the duplicate
@@ -212,7 +218,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         return;
       }
       final preceding = content.substring(0, entry.matchStart).trimRight();
-      if (mounted) setState(() => _precedingContext = preceding);
+      if (mounted) {
+        setState(() {
+          _precedingContext = preceding;
+          _noteContent = content;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _contextLoadFailed = true);
     } finally {
@@ -878,10 +889,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final path = await vaultFolder.startAccessing(widget.repo.vaultBookmark);
     String? backupRelPath;
     KeptBothEntry? keptBoth;
+    MergeUndo? mergeUndo;
     try {
       if (path != null) {
-        backupRelPath = await mergeConflictKeepingBoth(path, widget.entry,
+        final kept = await mergeConflictKeepingBoth(path, widget.entry,
             cleanUp: cleanUp);
+        backupRelPath = kept.backupRelPath;
+        mergeUndo = kept.undo;
         if (DemoConflict.isDemo(widget.repo)) {
           if (cleanUp) await DemoConflict.advancePast(0);
         } else {
@@ -912,7 +926,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           vaultName: path?.split('/').last,
           backupRelPath: backupRelPath,
           keptBoth: keptBoth,
-          mergeUndo: null,
+          mergeUndo: mergeUndo,
         ),
       );
     }
@@ -1058,7 +1072,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // (never says which one to keep, only that Keep Both is usually
     // right) - this widens WHEN the hint shows, not what it claims.
     final anyHasLeadingTime = versions.any((v) => allHaveLeadingTime([v.body]));
-    final looksLikeSeparateEntries = !oneSideTooShort && anyHasLeadingTime;
+    // 2026-09-28: real Sep 28th journal - KEEP BOTH (the tip's advice)
+    // left 1030 and 1128 twice and 1030 above 0958; the note already
+    // held copies outside the conflict box. When plain KEEP BOTH would
+    // leave that, the tip names KEEP BOTH & CLEAN UP instead.
+    final note = _noteContent;
+    final keptBothNote = note != null && widget.entry.matchEnd <= note.length
+        ? applyKeepBoth(note, widget.entry).content
+        : null;
+    final cleanUpHelps =
+        !oneSideTooShort && keptBothNote != null && cleanUpWouldChange(keptBothNote);
+    final keepBothLeavesRepeats = cleanUpHelps &&
+        normalizeWhitespace(cleanUpJournalNote(keptBothNote)).length <
+            normalizeWhitespace(keptBothNote).length;
+    final looksLikeSeparateEntries =
+        !oneSideTooShort && !cleanUpHelps && anyHasLeadingTime;
     // 2026-09-08: real feedback, live - "that's a useful hint... more
     // of this." Second deterministic signal: one side's text fully
     // contains the other's, meaning nothing is actually lost by
@@ -1299,6 +1327,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       ),
                     ],
                   ),
+                ],
+                if (cleanUpHelps) ...[
+                  const SizedBox(height: 8),
+                  _autoTipRow(
+                      kGreen,
+                      keepBothLeavesRepeats
+                          ? '"KEEP BOTH & CLEAN UP" is best here\n'
+                              '- this note already has some of this text '
+                              'outside the conflict, so KEEP BOTH alone '
+                              'leaves repeats. CLEAN UP keeps one copy of '
+                              'each and puts the times in order.'
+                          : '"KEEP BOTH & CLEAN UP" is best here\n'
+                              '- KEEP BOTH alone leaves the times out of '
+                              'order. CLEAN UP puts every entry in time '
+                              'order.'),
                 ],
                 if (looksLikeSeparateEntries) ...[
                   const SizedBox(height: 8),

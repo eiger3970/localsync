@@ -817,6 +817,16 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         final localCommit = git.Commit.lookup(repo: repo, oid: localOid);
         final parentOid = localCommit.parents.first;
         diag += ' parentOid=$parentOid';
+        // 2026-09-28: real Sep 28th journal - local was the merge commit
+        // that had just brought remote in (remote = its 2nd parent). The
+        // check below diffed against the FIRST parent only, so every
+        // desktop change the merge had already applied looked "missed",
+        // got merged in a second time, and the 1128 entry came out twice.
+        // A merge that already has remote as a parent has missed nothing.
+        if (localCommit.parents.contains(remoteOid)) {
+          debugPrint('LocalSync pull: remote already merged - $diag');
+          return const SyncNoChanges();
+        }
         final locallyChanged = _diffFileCounts(repo, parentOid, localOid);
         final remoteTree = git.Commit.lookup(repo: repo, oid: remoteOid).tree;
         final parentTree = git.Commit.lookup(repo: repo, oid: parentOid).tree;
@@ -847,6 +857,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           // before.
           if (parentEntryOid != null) {
             final localEntryOid = _lookupPathOid(repo, localTree, path);
+            // Both sides already hold the same text - nothing to merge.
+            if (localEntryOid == remoteEntryOid) continue;
             if (localEntryOid != null) {
               final baseBlob = git.Blob.lookup(repo: repo, oid: parentEntryOid);
               final oursBlob = git.Blob.lookup(repo: repo, oid: localEntryOid);

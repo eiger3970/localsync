@@ -26,7 +26,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'conflict_repair.dart'
-    show consolidateStackedRuns, journalOrderedEntries, repositionedReplace;
+    show
+        cleanUpJournalNote,
+        consolidateStackedRuns,
+        journalOrderedEntries,
+        normalizeWhitespace,
+        repositionedReplace;
 import 'database_service.dart';
 import 'localsync_folder.dart';
 import 'vault_backup.dart';
@@ -802,7 +807,18 @@ class KeepBothResult {
 // make, confirmed when asked.
 KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
     {bool cleanUp = false}) {
-  final rawBodies = entry.versions.map((v) => v.body).toList();
+  // 2026-09-28: real Sep 28th journal - the desktop box held "1030 ...",
+  // already sitting as plain text at the top of the note, so KEEP BOTH
+  // wrote it twice. A side whose whole text is already elsewhere in the
+  // note adds nothing - dropping it loses nothing.
+  final unquote = RegExp(r'^(> ?)+', multiLine: true);
+  final outside = normalizeWhitespace(
+      '${content.substring(0, entry.matchStart)}\n${content.substring(entry.matchEnd)}'
+          .replaceAll(unquote, ''));
+  final rawBodies = entry.versions
+      .map((v) => v.body)
+      .where((b) => !outside.contains(normalizeWhitespace(b)))
+      .toList();
   final bodies = cleanUp ? journalOrderedEntries(rawBodies) : rawBodies;
   final merged = bodies.join('\n\n');
   // 2026-09-15: no wrapper marker written any more (see the comment
@@ -814,7 +830,9 @@ KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
   final updated = repositionedReplace(
       content, entry.matchStart, entry.matchEnd, merged,
       timeCheckText: merged);
-  return KeepBothResult(updated, merged);
+  // 2026-09-28: CLEAN UP now covers the whole note (repeats and time
+  // order outside the box too) - see cleanUpJournalNote.
+  return KeepBothResult(cleanUp ? cleanUpJournalNote(updated) : updated, merged);
 }
 
 class KeptBothEntry {
@@ -1033,7 +1051,10 @@ Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
   return true;
 }
 
-Future<String> mergeConflictKeepingBoth(
+/// 2026-09-28: [undo] is set for KEEP BOTH & CLEAN UP only - it can
+/// move and drop text anywhere in the note, so its undo is the whole
+/// note before/after (same as MERGE TEXT), not a KeptBothRecord.
+Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   String vaultPath,
   ConflictEntry entry, {
   bool cleanUp = false,
@@ -1041,10 +1062,19 @@ Future<String> mergeConflictKeepingBoth(
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
-  if (entry.matchEnd > content.length)
-    return backupRelPath; // file changed since scan
+  if (entry.matchEnd > content.length) {
+    return (backupRelPath: backupRelPath, undo: null); // file changed since scan
+  }
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   await VaultFolderService().coordinatedWrite(filePath, result.content);
+  if (cleanUp) {
+    return (
+      backupRelPath: backupRelPath,
+      undo: MergeUndo(entry.filePath, content, result.content),
+    );
+  }
+  // Every side was already in the note - nothing written to relocate.
+  if (result.mergedText.isEmpty) return (backupRelPath: backupRelPath, undo: null);
   await _saveKeptBothRecord(KeptBothRecord(
     id: '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}',
     filePath: entry.filePath,
@@ -1052,5 +1082,5 @@ Future<String> mergeConflictKeepingBoth(
     mergedText: result.mergedText,
     resolvedAt: DateTime.now(),
   ));
-  return backupRelPath;
+  return (backupRelPath: backupRelPath, undo: null);
 }
