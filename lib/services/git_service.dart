@@ -268,6 +268,56 @@ class GitServiceImpl implements GitService {
   // non-destructive: `rev-parse --git-dir` only fails (and `git init
   // --bare` only runs) when nothing valid exists there yet - a bare repo
   // that already exists, with real history, is never touched.
+  /// 2026-09-28: user - "if data is only on 1 device and not the other,
+  /// auto check, then maybe check with the user." Counts notes (.md,
+  /// outside LocalSync's own folders) on this phone's folder and on the
+  /// desktop - the larger of what the desktop folder and the shared repo
+  /// hold, so a desktop that hasn't synced yet still counts. Returns null
+  /// when the desktop can't be asked (linking then goes ahead as before,
+  /// still with full copies on both sides first).
+  Future<({int phone, int desktop})?> countNotesBothSides() async {
+    var phone = 0;
+    try {
+      final skip = localSyncFolders(localVaultPath);
+      await for (final e in Directory(localVaultPath)
+          .list(recursive: true, followLinks: false)) {
+        if (e is! File || !e.path.endsWith('.md')) continue;
+        final rel = e.path.substring(localVaultPath.length + 1);
+        if (rel.split('/').any((seg) => seg.startsWith('.'))) continue;
+        if (isInLocalSyncFolder(rel, skip)) continue;
+        phone++;
+      }
+    } catch (_) {
+      return null;
+    }
+    try {
+      final socket = await SSHSocket.connect(sshHost, sshPort,
+          timeout: const Duration(seconds: 15));
+      final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+      final client = SSHClient(
+        socket,
+        username: sshUser,
+        identities: SSHKeyPair.fromPem(
+            privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+      );
+      try {
+        final repo = bareRepoPath.replaceAll("'", r"'\''");
+        final dir = (desktopVaultPath ?? '').replaceAll("'", r"'\''");
+        final command = "a=\$(git --git-dir='$repo' ls-tree -r --name-only HEAD 2>/dev/null | grep -v '^LocalSync/' | grep -c '\\.md\$'); "
+            "b=0; [ -n '$dir' ] && [ -d '$dir' ] && b=\$(find '$dir' -name '*.md' -not -path '*/.*' -not -path '*/LocalSync/*' 2>/dev/null | wc -l); "
+            "[ \"\$a\" -gt \"\$b\" ] && echo \$a || echo \$b";
+        final res = await client.runWithResult(command);
+        final desktop = int.tryParse(String.fromCharCodes(res.stdout).trim());
+        if (desktop == null) return null;
+        return (phone: phone, desktop: desktop);
+      } finally {
+        client.close();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _ensureBareRepoExists() async {
     final socket = await SSHSocket.connect(sshHost, sshPort,
         timeout: const Duration(seconds: 15));

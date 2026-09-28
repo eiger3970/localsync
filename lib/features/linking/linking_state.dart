@@ -35,6 +35,12 @@ enum LinkingStep {
   /// created, obtaining a security-scoped bookmark.
   pickingVaultFolder,
 
+  /// 2026-09-28: user - "if data is only on 1 device and not the other,
+  /// auto check, then check with the user." Parked: the notes were found
+  /// on only one side (phone or desktop), so the user confirms before
+  /// anything is linked - see LinkingController.answerLink.
+  confirmingLink,
+
   /// Real git2dart clone (technically init+fetch+reset, not a plain
   /// clone - the target folder is never empty, Obsidian already put a
   /// .obsidian/ dir there) of the bare repo into the picked vault
