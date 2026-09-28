@@ -806,3 +806,40 @@ class GitServiceImpl implements GitService {
     }
   }
 }
+
+/// 2026-09-28: real case, live - a fresh phone scanned a QR code whose
+/// DESKTOP SYNC FOLDER was blank (the desktop had 12 sync folders, so
+/// setup lets the phone decide), and the phone had no link of its own
+/// yet - so linking would have made a brand-new empty repo, and the
+/// desktop's 3,263 notes would never have come through. The desktop vault
+/// path IS known (from the QR), and that vault already knows its own repo:
+/// asks the desktop for the vault's origin. Only a repo on the desktop
+/// itself counts (a local path) - never a URL. Null when it can't tell.
+Future<String?> desktopVaultOrigin({
+  required String host,
+  required int port,
+  required String user,
+  required String privateKeyPath,
+  required String vaultPath,
+}) async {
+  try {
+    final socket =
+        await SSHSocket.connect(host, port, timeout: const Duration(seconds: 15));
+    final pem = await File(privateKeyPath).readAsString();
+    final client = SSHClient(socket,
+        username: user, identities: SSHKeyPair.fromPem(pem, null));
+    try {
+      final v = vaultPath.replaceAll("'", r"'\''");
+      final res = await client.runWithResult("cd '$v' 2>/dev/null && "
+          'u=\$(git remote get-url origin 2>/dev/null) && case "\$u" in '
+          '*://*|*@*:*) ;; /*) echo "\$u" ;; *) (cd "\$u" 2>/dev/null && pwd -P) ;; esac');
+      final url = String.fromCharCodes(res.stdout).trim();
+      return url.startsWith('/') ? url : null;
+    } finally {
+      client.close();
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
