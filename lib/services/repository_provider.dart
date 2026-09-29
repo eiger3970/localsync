@@ -14,6 +14,7 @@ import 'conflict_scanner.dart';
 import 'demo_conflict.dart';
 import 'database_service.dart';
 import 'device_name.dart';
+import 'discovery_service.dart';
 import 'sync_service.dart';
 import 'sound_service.dart';
 import 'ssh_key_paths.dart';
@@ -440,8 +441,33 @@ class RepositoryProvider extends ChangeNotifier {
   // early. The desktop script already has to tolerate being invoked
   // concurrently (cron fires it every 5 minutes regardless of whether
   // a prior run finished), so no extra client-side locking added here.
+  // 2026-09-29: user, live - phone on Hotspot Wi-Fi, then the USB cable
+  // plugged in: the desktop's Wi-Fi address stopped answering ("No route
+  // to host") while its cable address worked. "Networking ... always has
+  // problems that cause trouble for beginners, so this app needs to be
+  // perfect for ease and auto setup." Before each sync, check the saved
+  // address answers; if not, find the desktop on the local network and
+  // move every folder synced with that desktop to the working address.
+  Future<void> _ensureReachableHost(int id) async {
+    if (kIsWeb) return;
+    final idx = _repos.indexWhere((r) => r.id == id);
+    if (idx == -1) return;
+    final old = _repos[idx].remoteHost;
+    final found = await DiscoveryService().reachableDesktopIp(
+        currentIp: old, username: _repos[idx].remoteUser);
+    if (found == null || found == old.trim()) return;
+    for (var i = 0; i < _repos.length; i++) {
+      if (_repos[i].remoteHost != old) continue;
+      _repos[i] = _repos[i].copyWith(remoteHost: found);
+      await _db.updateRepository(_repos[i]);
+    }
+    await _db.setDesktopIp(found);
+    notifyListeners();
+  }
+
   Future<SyncResult> applyDesktopScheduleNow(
       int id, DesktopSchedule schedule) async {
+    await _ensureReachableHost(id);
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
         StateError('applyDesktopScheduleNow: no repo with id $id'));
     return applyDesktopSchedule(
@@ -457,6 +483,7 @@ class RepositoryProvider extends ChangeNotifier {
   }
 
   Future<SyncResult?> triggerDesktopSyncNow(int id) async {
+    await _ensureReachableHost(id);
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
         StateError('triggerDesktopSyncNow: no repo with id $id'));
     final result = await runDesktopSyncScriptNow(
@@ -591,6 +618,7 @@ class RepositoryProvider extends ChangeNotifier {
     int id,
     Stream<SyncEvent> Function(SyncService) op,
   ) async {
+    await _ensureReachableHost(id);
     final idx = _repos.indexWhere((r) => r.id == id);
     if (idx == -1) return null;
 

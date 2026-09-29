@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
+import '../widgets/shine_progress_bar.dart';
 import '../widgets/pulsing_glow.dart';
 import '../models/repository.dart' show Repository, SyncMode;
 import '../services/repository_provider.dart';
@@ -3691,17 +3692,14 @@ class ScanContinuePanel extends StatelessWidget {
         const SizedBox(height: 12),
         AnimatedBuilder(
           animation: progress,
-          builder: (_, __) => ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            // 2026-09-27: user - "I don't like the black progress bar,
-            // needs to be a happy colour." Green on a light track, also on
-            // the yellow box (text stays dark for contrast).
-            child: LinearProgressIndicator(
-              value: progress.value,
-              minHeight: 8,
-              color: onBanner ? Colors.green.shade700 : kGreen,
-              backgroundColor: Colors.white.withValues(alpha: 0.6),
-            ),
+          // 2026-09-27: user - "I don't like the black progress bar,
+          // needs to be a happy colour." Green on a light track, also on
+          // the yellow box (text stays dark for contrast). 2026-09-29: with
+          // a white shine sweeping through, so it never looks frozen.
+          builder: (_, __) => ShineProgressBar(
+            value: progress.value,
+            color: onBanner ? Colors.green.shade700 : kGreen,
+            backgroundColor: Colors.white.withValues(alpha: 0.6),
           ),
         ),
         const SizedBox(height: 4),
