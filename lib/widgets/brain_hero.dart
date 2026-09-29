@@ -9,9 +9,14 @@
 //               more, brighter connections (no growing - 2026-09-27)
 //   distracted  plays once when the drag misses: the frontal lobe fades
 //               (fewer connections, not gone or shrunk - 2026-09-27)
-// Success/distracted are animated WebP loops, then HOLD their result
-// until the next swipe. Idle and both held results are grids of still
-// views (see _BrainHeroState), turnable in any direction.
+// Idle, success and distracted are each a grid of still views (see
+// _BrainHeroState), turnable in any direction. 2026-09-29: Ken - "the
+// brain in all states of standard, error or success, to continue in
+// whatever the last momentum is set by the user." Success/distracted no
+// longer play a fixed pre-rendered clip (always a sideways turn, then a
+// jump to front/back); the brain cross-fades into the result at the
+// angle it's already at and keeps turning the way it was going. Only a
+// tap stops it.
 // Render: ~/Documents/Blender/brain_render/render_grid.sh.
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -57,15 +62,17 @@ class _BrainHeroState extends State<BrainHero>
     return 'assets/brain/grid_$set/${i.toString().padLeft(4, '0')}.webp';
   }
 
-  // Which turntable is showing: idle, or the held result.
-  String? get _holdSet => !_holding
-      ? null
-      : widget.mode == BrainMode.success
-          ? 'success_hold'
-          : widget.mode == BrainMode.distracted
-              ? 'distracted_hold'
-              : null;
-  bool get _turning => widget.mode == BrainMode.idle || _holdSet != null;
+  static String _setFor(BrainMode m) => switch (m) {
+        BrainMode.idle => 'idle',
+        BrainMode.success => 'success_hold',
+        BrainMode.distracted => 'distracted_hold',
+      };
+  static const _fadeSecs = 1.2; // idle -> result cross-fade
+
+  // Turntable showing, and the one fading in over it (null = no fade).
+  String _set = 'idle';
+  String? _nextSet;
+  double _fade = 0; // 0.._fadeSecs
 
   late final Ticker _ticker;
   Duration _last = Duration.zero;
@@ -92,7 +99,17 @@ class _BrainHeroState extends State<BrainHero>
     _ticker = createTicker((t) {
       final dt = (t - _last).inMicroseconds / 1e6;
       _last = t;
-      if (_turning && !_paused && !_dragging) {
+      if (_nextSet != null) {
+        setState(() {
+          _fade += dt;
+          if (_fade >= _fadeSecs) {
+            _set = _nextSet!;
+            _nextSet = null;
+            _fade = 0;
+          }
+        });
+      }
+      if (!_paused && !_dragging) {
         setState(() {
           _yaw = (_yaw + dt * _vel.dx / _yawStep) % _yaws;
           _pitch += dt * _vel.dy / _pitchStep;
@@ -109,59 +126,57 @@ class _BrainHeroState extends State<BrainHero>
           _vel = m > 0 ? _vel * (next / m) : const Offset(_idleDeg, 0);
         });
       }
+      _preloadRows();
     })
       ..start();
   }
 
-  // Level row only (24 views, ~12 MB decoded). All 216 would be ~110 MB
-  // per set - iOS already killed LocalSync once for memory (2026-09-25).
-  // Tilted views load on first use; gaplessPlayback holds the last one.
-  void _precache(String set) {
+  // One row of 48 views is ~25 MB decoded; all 432 would be ~224 MB per
+  // set - iOS already killed LocalSync once for memory (2026-09-25).
+  // 2026-09-29: Ken - "Brain has a little jitter." Only the level row was
+  // ever preloaded, so a tilted brain decoded each view on first use - and
+  // the 100 MB image cache couldn't hold them, so it kept re-decoding.
+  // Now the (at most two) rows the brain is between are preloaded as it
+  // tilts, for the set showing and the one fading in.
+  final _loadedRows = <String>{};
+  void _precacheRow(String set, int pitch) {
+    if (!_loadedRows.add('$set/$pitch')) return;
+    if (_loadedRows.length > 6) _loadedRows.remove(_loadedRows.first);
     for (var y = 0; y < _yaws; y++) {
-      precacheImage(AssetImage(_frame(set, y, _level)), context);
+      precacheImage(AssetImage(_frame(set, y, pitch)), context);
+    }
+  }
+
+  void _preloadRows() {
+    if (!mounted) return;
+    final p0 = _pitch.floor().clamp(0, _pitches - 1);
+    final p1 = (p0 + 1).clamp(0, _pitches - 1);
+    for (final set in [_set, if (_nextSet != null) _nextSet!]) {
+      _precacheRow(set, p0);
+      if (_pitch - p0 > 0.01) _precacheRow(set, p1);
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _precache('idle');
-    // 2026-09-28: Ken - "Brain success paused before success graphics
-    // began." Both result animations are decoded up front, so a sync
-    // result starts playing at once instead of freezing first.
-    precacheImage(const AssetImage('assets/brain/success.webp'), context);
-    precacheImage(const AssetImage('assets/brain/distracted.webp'), context);
+    _precacheRow('idle', _level);
   }
 
   @override
   void didUpdateWidget(BrainHero old) {
     super.didUpdateWidget(old);
-    if (widget.mode != BrainMode.idle && widget.playId != old.playId) {
-      // Each loop is 72 frames at 24 fps = 3 s. 2026-09-27: then HOLDS
-      // the result (was: back to idle straight away) - "error or success
-      // still needs to rotate 360 degrees" - as its own turntable, until
-      // the next swipe replays (new playId).
-      final id = widget.playId;
-      _holding = false;
-      final set =
-          widget.mode == BrainMode.success ? 'success_hold' : 'distracted_hold';
-      _precache(set);
-      Future.delayed(const Duration(milliseconds: 3000), () {
-        if (mounted && widget.playId == id) {
-          setState(() {
-            _holding = true;
-            // Success ends facing front (grid yaw 0); the error loop turns
-            // half a turn, so its hold starts half way round - no jump.
-            _yaw = widget.mode == BrainMode.distracted ? _yaws / 2 : 0;
-            _pitch = _level * 1.0;
-            _vel = const Offset(_idleDeg, 0);
-          });
-        }
-      });
+    if (widget.mode != old.mode || widget.playId != old.playId) {
+      // Same result again (a second miss): fade in from idle so it still
+      // shows. Angle and momentum are left exactly as they are.
+      final target = _setFor(widget.mode);
+      final showing = _nextSet ?? _set;
+      _set = showing == target && target != 'idle' ? 'idle' : showing;
+      _nextSet = target == _set ? null : target;
+      _fade = 0;
+      _preloadRows();
     }
   }
-
-  bool _holding = false;
 
   @override
   void dispose() {
@@ -190,15 +205,16 @@ class _BrainHeroState extends State<BrainHero>
 
   @override
   Widget build(BuildContext context) {
-    final Widget image = switch (widget.mode) {
-      _ when _turning => _gridView(_holdSet ?? 'idle'),
-      BrainMode.success => Image.asset('assets/brain/success.webp',
-          key: ValueKey('s${widget.playId}'), fit: BoxFit.contain),
-      BrainMode.distracted => Image.asset('assets/brain/distracted.webp',
-          key: ValueKey('d${widget.playId}'), fit: BoxFit.contain),
-      BrainMode.idle => const SizedBox.shrink(), // covered by _turning
-    };
+    final Widget image = _nextSet == null
+        ? _gridView(_set)
+        : Stack(fit: StackFit.expand, children: [
+            _gridView(_set),
+            Opacity(
+                opacity: (_fade / _fadeSecs).clamp(0.0, 1.0),
+                child: _gridView(_nextSet!)),
+          ]);
     return GestureDetector(
+      // Tap is the only way to stop it (and to start it again).
       onTap: () => setState(() => _paused = !_paused),
       // Any direction: sideways turns, up/down tilts, diagonal does both.
       onPanStart: (_) => _dragging = true,
@@ -223,6 +239,7 @@ class _BrainHeroState extends State<BrainHero>
         }
         _dragVec = Offset.zero;
         _dragging = false;
+        _paused = false; // a flick means "turn", even if tapped still
       },
       child: Container(
         width: widget.size,
