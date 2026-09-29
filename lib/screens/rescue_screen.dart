@@ -6,10 +6,12 @@
 // users know it's live and active." The word on the button is live text
 // (not part of the picture) so it can be translated with the app.
 // Tap: pays (skipped once owned), then runRescue does everything by itself.
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
@@ -28,10 +30,17 @@ class RescueScreen extends StatefulWidget {
 }
 
 class _RescueScreenState extends State<RescueScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _glow = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 2800))
     ..repeat(reverse: true);
+  // 2026-09-29: Ken - the shine "can have a blurry face or body silhouette
+  // that when the phone moves, the reflection would move like a real
+  // camera." The shine slides with the phone's tilt, like a reflection.
+  StreamSubscription<AccelerometerEvent>? _tiltSub;
+  Offset _tilt = Offset.zero; // -1..1, smoothed
+  late final AnimationController _files = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1400));
   _Stage _stage = _Stage.ready;
   bool _owned = false;
   Package? _package;
@@ -44,10 +53,21 @@ class _RescueScreenState extends State<RescueScreen>
   void initState() {
     super.initState();
     _load();
+    try {
+      _tiltSub = accelerometerEventStream(
+              samplingPeriod: SensorInterval.uiInterval)
+          .listen((e) {
+        final target = Offset((-e.x / 6).clamp(-1.0, 1.0),
+            ((e.y - 6) / 6).clamp(-1.0, 1.0));
+        if (mounted) setState(() => _tilt = _tilt * 0.85 + target * 0.15);
+      }, onError: (_) {});
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    _tiltSub?.cancel();
+    _files.dispose();
     _glow.dispose();
     super.dispose();
   }
@@ -70,7 +90,18 @@ class _RescueScreenState extends State<RescueScreen>
   Future<void> _smash() async {
     if (_stage != _Stage.ready) return;
     final purchases = context.read<PurchaseService>();
-    setState(() => _error = null);
+    final provider = context.read<RepositoryProvider>();
+    // 2026-09-29: Ken - "I tap is instant, set off the fire brigade, make
+    // it crystal clear ... first the user needs an immediate confirmation
+    // with the visuals, then do whatever background stuff." The screen
+    // changes on the tap itself, then the work starts.
+    setState(() {
+      _error = null;
+      _stage = _owned ? _Stage.rescuing : _Stage.paying;
+      _step = _owned ? 'Starting the rescue' : '';
+    });
+    _files.repeat();
+    await WidgetsBinding.instance.endOfFrame;
     if (!_owned) {
       final package = _package;
       // Sideloaded test builds (no STORE_BUILD) have no real product to buy -
@@ -79,8 +110,12 @@ class _RescueScreenState extends State<RescueScreen>
       if (package == null && !kIsStoreBuild) {
         _owned = true;
       } else if (package == null) {
-        setState(() => _error =
-            'Rescue can\'t be bought right now - check your internet, then try again.');
+        _files.stop();
+        setState(() {
+          _stage = _Stage.ready;
+          _error =
+              'Rescue can\'t be bought right now - check your internet, then try again.';
+        });
         return;
       }
     }
@@ -96,6 +131,7 @@ class _RescueScreenState extends State<RescueScreen>
       }
       if (!mounted) return;
       if (!_owned) {
+        _files.stop();
         setState(() {
           _stage = _Stage.ready;
           _error = 'Payment did not go through - nothing was charged. Try again.';
@@ -103,10 +139,15 @@ class _RescueScreenState extends State<RescueScreen>
         return;
       }
     }
-    setState(() => _stage = _Stage.rescuing);
-    final result = await runRescue(context.read<RepositoryProvider>(),
+    setState(() {
+      _stage = _Stage.rescuing;
+      _step = 'Starting the rescue';
+    });
+    if (!mounted) return;
+    final result = await runRescue(provider,
         onStep: (s) => mounted ? setState(() => _step = s) : null);
     if (!mounted) return;
+    _files.stop();
     setState(() {
       _result = result;
       _stage = _Stage.done;
@@ -185,10 +226,11 @@ class _RescueScreenState extends State<RescueScreen>
                 child: AnimatedBuilder(
                   animation: _glow,
                   builder: (_, __) => SizedBox(
-                    width: 250,
-                    height: 250,
+                    width: 280,
+                    height: 280,
                     child: CustomPaint(
-                      painter: RedButtonPainter(glow: _glow.value),
+                      painter: RedButtonPainter(
+                          glow: busy ? 1 : _glow.value, tilt: _tilt),
                       child: Center(
                         child: busy
                             ? const SizedBox(
@@ -215,6 +257,13 @@ class _RescueScreenState extends State<RescueScreen>
                 ),
               ),
             ),
+            if (_stage == _Stage.rescuing)
+              SizedBox(
+                  height: 70,
+                  child: AnimatedBuilder(
+                      animation: _files,
+                      builder: (_, __) =>
+                          CustomPaint(painter: _FilesHomePainter(_files.value)))),
             const SizedBox(height: 4),
             Text(
               switch (_stage) {
@@ -287,7 +336,8 @@ class _RescueScreenState extends State<RescueScreen>
 /// Glossy red crystal button with a slow red glow, no rim.
 class RedButtonPainter extends CustomPainter {
   final double glow; // 0..1, slow pulse
-  RedButtonPainter({required this.glow});
+  final Offset tilt; // -1..1, phone tilt - moves the reflection
+  RedButtonPainter({required this.glow, this.tilt = Offset.zero});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -295,14 +345,15 @@ class RedButtonPainter extends CustomPainter {
     final r = size.width * 0.368;
     // Glow: starts at the button's edge and fades out - a soft halo, not
     // a ring. Brightens and widens slowly with [glow].
-    final glowR = size.width / 2 * (0.92 + 0.08 * glow);
+    // 2026-09-29: Ken - "a larger glow would make a live button".
+    final glowR = size.width / 2 * (0.95 + 0.05 * glow);
     canvas.drawCircle(
         c,
         glowR,
         Paint()
           ..shader = RadialGradient(colors: [
-            _red.withValues(alpha: 0.30 + 0.40 * glow),
-            _red.withValues(alpha: 0.10 + 0.15 * glow),
+            _red.withValues(alpha: 0.45 + 0.50 * glow),
+            _red.withValues(alpha: 0.18 + 0.27 * glow),
             _red.withValues(alpha: 0),
           ], stops: [r / glowR * 0.98, (r / glowR + 1) / 2, 1]).createShader(
               Rect.fromCircle(center: c, radius: glowR)));
@@ -354,8 +405,12 @@ class RedButtonPainter extends CustomPainter {
     }
     canvas.restore();
     // Shine
+    // Reflection: moves opposite the tilt, like a real glossy surface, with
+    // a soft darker shape in it (the viewer's head and shoulders).
+    final sc = Offset(c.dx - r * 0.18 - tilt.dx * r * 0.22,
+        c.dy - r * 0.56 - tilt.dy * r * 0.12);
     final shine = Rect.fromCenter(
-        center: Offset(c.dx - r * 0.18, c.dy - r * 0.56),
+        center: sc,
         width: r * 1.13,
         height: r * 0.57);
     canvas.drawOval(
@@ -369,10 +424,69 @@ class RedButtonPainter extends CustomPainter {
               Colors.white.withValues(alpha: 0),
             ],
           ).createShader(shine));
+    final blur = Paint()
+      ..color = const Color(0xFFB0001A).withValues(alpha: 0.28)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    canvas.drawCircle(sc + Offset(0, -r * 0.04), r * 0.09, blur); // head
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: sc + Offset(0, r * 0.16), width: r * 0.42, height: r * 0.2),
+        blur); // shoulders
     canvas.drawCircle(Offset(c.dx + r * 0.47, c.dy + r * 0.41), r * 0.065,
         Paint()..color = Colors.white.withValues(alpha: 0.35));
   }
 
   @override
-  bool shouldRepaint(RedButtonPainter old) => old.glow != glow;
+  bool shouldRepaint(RedButtonPainter old) =>
+      old.glow != glow || old.tilt != tilt;
+}
+
+/// 2026-09-29: Ken - "show an svg image of files being rescued." Three
+/// notes fly in an arc from the left into a folder on the right, looping,
+/// while Rescue works.
+class _FilesHomePainter extends CustomPainter {
+  final double t; // 0..1 loop
+  _FilesHomePainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final folder = Offset(size.width / 2 + 70, size.height / 2 + 6);
+    final start = Offset(size.width / 2 - 90, size.height / 2 + 8);
+    final line = Paint()
+      ..color = const Color(0xFFB9B5D3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final fill = Paint()..color = const Color(0xFF0D0B1A);
+    // Folder
+    final fr = Rect.fromCenter(center: folder, width: 44, height: 32);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(fr, const Radius.circular(4)),
+        Paint()..color = _red.withValues(alpha: 0.9));
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(fr.left, fr.top - 5, 18, 8), const Radius.circular(2)),
+        Paint()..color = _red.withValues(alpha: 0.9));
+    for (var i = 0; i < 3; i++) {
+      final p = (t + i / 3) % 1.0;
+      final x = start.dx + (folder.dx - start.dx) * p;
+      final y = start.dy - math.sin(p * math.pi) * 34 + (folder.dy - start.dy) * p;
+      final scale = 1 - 0.35 * p;
+      final opacity = p < 0.85 ? 1.0 : (1 - (p - 0.85) / 0.15);
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.scale(scale);
+      final note = RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset.zero, width: 20, height: 26),
+          const Radius.circular(3));
+      canvas.drawRRect(note, fill..color = fill.color.withValues(alpha: opacity));
+      canvas.drawRRect(note, line..color = line.color.withValues(alpha: opacity));
+      for (final dy in [-6.0, 0.0, 6.0]) {
+        canvas.drawLine(Offset(-5, dy), Offset(5, dy), line);
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FilesHomePainter old) => old.t != t;
 }

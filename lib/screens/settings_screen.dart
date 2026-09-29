@@ -1556,6 +1556,31 @@ class _SettingsScreenState extends State<SettingsScreen>
                       style: TextStyle(color: kGreen, fontSize: 13)),
                 ),
               ),
+              // 2026-09-29: Ken - "This button needs the website link too."
+              // Where the QR comes from, one tap away.
+              const SizedBox(height: 6),
+              Center(
+                child: GestureDetector(
+                  onTap: () => launchUrl(
+                      Uri.parse('https://kworld.space/localsync#desktop-setup'),
+                      mode: LaunchMode.externalApplication),
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                          text: 'QR code: ',
+                          style: TextStyle(
+                              color: kStar, fontWeight: FontWeight.w600)),
+                      const TextSpan(text: 'from the desktop setup file - '),
+                      TextSpan(
+                          text: 'kworld.space/localsync',
+                          style: TextStyle(
+                              color: kGreen,
+                              decoration: TextDecoration.underline)),
+                    ]),
+                    style: TextStyle(color: kTextMid, fontSize: 13),
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
             ],
             if (!widget.neededForPairing) _readyNote(),

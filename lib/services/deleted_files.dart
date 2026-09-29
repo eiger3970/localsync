@@ -10,8 +10,8 @@
 // works offline. A restored file is a normal new file: the next Push
 // sends it to the desktop.
 import 'dart:io';
+import 'localsync_folder.dart';
 import 'package:git2dart/git2dart.dart' as git;
-import 'vault_backup.dart' show kLocalSyncFolderName;
 
 class DeletedFile {
   final String path; // relative to the synced folder
@@ -30,6 +30,7 @@ List<DeletedFile> listDeletedFiles(String folderPath, {int maxCommits = 1000}) {
     walker.sorting({git.GitSort.time});
     walker.pushHead();
     final found = <String, DeletedFile>{};
+    final lsfs = localSyncFolders(folderPath);
     for (final commit in walker.walk(limit: maxCommits)) {
       final parents = commit.parents;
       if (parents.isEmpty) continue;
@@ -39,7 +40,10 @@ List<DeletedFile> listDeletedFiles(String folderPath, {int maxCommits = 1000}) {
       for (final d in diff.deltas) {
         if (d.status != git.GitDelta.deleted) continue;
         final path = d.oldFile.path;
-        if (path.startsWith('$kLocalSyncFolderName/') ||
+        // 2026-09-29: every LocalSync folder, at any depth (e.g.
+        // Projects/LocalSync) - was only the top-level one, so Rescue put
+        // back 271 deliberately removed backup copies.
+        if (isInLocalSyncFolder(path, lsfs) ||
             path.split('/').any((s) => s.startsWith('.'))) {
           continue;
         }
@@ -81,6 +85,66 @@ String restoreDeletedFile(String folderPath, DeletedFile file) {
     out.parent.createSync(recursive: true);
     out.writeAsBytesSync(blob.contentBytes);
     return target.substring(folderPath.length + 1);
+  } finally {
+    repo.free();
+  }
+}
+
+/// 2026-09-29: Rescue - notes missing from the folder right now that were
+/// never synced as deleted (e.g. the phone's notes just vanished). Outside
+/// LocalSync folders and dot-folders only.
+List<DeletedFile> listMissingNow(String folderPath) {
+  final repo = git.Repository.open(folderPath);
+  try {
+    final lsfs = localSyncFolders(folderPath);
+    final diff = git.Diff.indexToWorkdir(repo: repo, index: repo.index);
+    return [
+      for (final d in diff.deltas)
+        if (d.status == git.GitDelta.deleted &&
+            !isInLocalSyncFolder(d.oldFile.path, lsfs) &&
+            !d.oldFile.path.split('/').any((s) => s.startsWith('.')))
+          DeletedFile(d.oldFile.path, DateTime.now(), d.oldFile.oid.sha,
+              'not synced yet'),
+    ];
+  } finally {
+    repo.free();
+  }
+}
+
+/// 2026-09-29: Rescue - the most recent single sync (commit) since [since]
+/// that removed [threshold]+ notes at once, and which of those are still
+/// missing. Empty if there was no such big disappearance.
+List<DeletedFile> listLastMassDeletion(String folderPath,
+    {required DateTime since, int threshold = 20, int maxCommits = 1000}) {
+  final repo = git.Repository.open(folderPath);
+  try {
+    final lsfs = localSyncFolders(folderPath);
+    final walker = git.RevWalk(repo);
+    walker.sorting({git.GitSort.time});
+    walker.pushHead();
+    for (final commit in walker.walk(limit: maxCommits)) {
+      final at = DateTime.fromMillisecondsSinceEpoch(commit.time * 1000);
+      if (at.isBefore(since)) break;
+      final parents = commit.parents;
+      if (parents.isEmpty) continue;
+      final parent = git.Commit.lookup(repo: repo, oid: parents.first);
+      final diff = git.Diff.treeToTree(
+          repo: repo, oldTree: parent.tree, newTree: commit.tree);
+      final removed = [
+        for (final d in diff.deltas)
+          if (d.status == git.GitDelta.deleted &&
+              !isInLocalSyncFolder(d.oldFile.path, lsfs) &&
+              !d.oldFile.path.split('/').any((s) => s.startsWith('.')))
+            DeletedFile(d.oldFile.path, at, d.oldFile.oid.sha,
+                commit.author.name),
+      ];
+      if (removed.length >= threshold) {
+        return removed
+            .where((f) => !File('$folderPath/${f.path}').existsSync())
+            .toList();
+      }
+    }
+    return const [];
   } finally {
     repo.free();
   }
