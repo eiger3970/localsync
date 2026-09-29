@@ -744,7 +744,34 @@ class LinkingController extends ChangeNotifier {
   // re-verification that fresh creation still works without it.
   // 2026-09-24: "@app " tags - each step's app shown as a badge, see
   // widgets/app_badge.dart ("needs context for humans").
-  List<String> get vaultCreationSteps => [
+  // 2026-09-29: Ken, live, new phone - "this needs a full 1.1 steps, as a
+  // new phone needs to create an Obsidian folder, one of the keys to
+  // unlocking this product." A fresh Obsidian opens straight on its
+  // Create-a-vault screen - no sidebar, no vault button, no Manage vaults -
+  // so the list below didn't match and no vault got made. Asked at the top
+  // of 1.x; new-on-this-phone is the default. It keeps the reopen +
+  // force-close-again cycle the notes above found necessary for a fresh
+  // empty vault.
+  bool obsidianIsNew = true;
+  void setObsidianIsNew(bool v) {
+    obsidianIsNew = v;
+    notifyListeners();
+  }
+
+  List<String> get vaultCreationSteps => obsidianIsNew
+      ? [
+          '@localsync swipe up to open $kNoteAppName',
+          '@obsidian first screen: tap Create new vault',
+          '@obsidian Vault name: <Enter name...>',
+          '@obsidian Store in iCloud: off',
+          '@obsidian tap Create',
+          '@obsidian new vault opens',
+          '@obsidian New tab',
+          '@phone force close $kNoteAppName (swipe up from the bottom, flick it away)',
+          '@phone reopen $kNoteAppName - if asked, tap Trust author',
+          '@phone force close $kNoteAppName again',
+        ]
+      : [
         '@localsync swipe up to open $kNoteAppName',
         '@obsidian swipe from left to right',
         '@obsidian tap vault (bottom left)',
