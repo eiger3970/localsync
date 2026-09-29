@@ -7,6 +7,7 @@
 // The price button stays below the cards, visible on every card.
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../screens/rescue_screen.dart' show RedButtonPainter;
 
 class PaywallCards extends StatefulWidget {
   final Color accent;
@@ -34,7 +35,7 @@ class _PaywallCardsState extends State<PaywallCards> {
 
   @override
   Widget build(BuildContext context) {
-    final cards = [_notes(), _conflicts(), _backups()];
+    final cards = [_notes(), _conflicts(), _backups(), _rescue()];
     return Column(
       children: [
         Expanded(
@@ -323,6 +324,41 @@ class _PaywallCardsState extends State<PaywallCards> {
               'security-first, cutting-edge sync. Not a weekend app, not a data company.'),
           _fact('Lost notes', 'brought back, even ones removed by mistake'),
           _fact('Versions', 'every sync saved on your desktop'),
+        ],
+      );
+
+  // ── Card 4: Rescue ──────────────────────────────────────────────────
+  // 2026-09-29: user - "Rescue is a big feature, users will value that."
+  // A separate emergency product, shown here so people know it exists
+  // before they ever need it. No second buy button: it's bought from
+  // LocalSync -> ⋮ -> Rescue, only if ever needed.
+  Widget _rescue() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _heading('Rescue', 'one tap if things go wrong',
+              'Notes lost or messed up? One red button puts them back.'),
+          Center(
+            child: SizedBox(
+              width: 130,
+              height: 130,
+              child: CustomPaint(
+                painter: RedButtonPainter(glow: 0.6),
+                child: const Center(
+                  child: Text('RESCUE',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _fact('Available', 'any time: LocalSync -> ⋮ -> Rescue'),
+          _fact('Conflicts', 'every one kept and cleaned up'),
+          _fact('Lost notes', 'all brought back, even ones removed by mistake'),
+          _fact('Price', 'separate, one payment, only if you ever need it'),
         ],
       );
 }
