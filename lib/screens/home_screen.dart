@@ -1,6 +1,7 @@
 // screens/home_screen.dart
 
 import 'rescue_screen.dart';
+import '../services/rescue_service.dart' show kRescueEnabled;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -330,6 +331,7 @@ class HomeScreen extends StatelessWidget {
                     // real/pseudonym example - names never go in app UI text.
                     // 2026-09-29: Ken - Rescue Package, "Yes re rescue in
                     // Kebab menu". Red, alphabetical (before Restore).
+                    if (kRescueEnabled)
                     const PopupMenuItem(
                       value: 'rescue',
                       child: _MenuRow(

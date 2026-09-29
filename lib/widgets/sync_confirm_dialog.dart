@@ -26,6 +26,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/sync_service.dart';
 import '../screens/rescue_screen.dart';
+import '../services/rescue_service.dart' show kRescueEnabled;
 
 Future<bool?> showSyncConfirmDialog(
   BuildContext context,
@@ -116,7 +117,7 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
               // 2026-09-29: Ken - Rescue trouble alert: 20+ notes about to
               // disappear at once is where a beginner loses everything.
               // Not syncing + Rescue is one tap from here.
-              if (widget.result.removedFiles.length >= 20) ...[
+              if (kRescueEnabled && widget.result.removedFiles.length >= 20) ...[
                 const SizedBox(height: 10),
                 Material(
                   color: const Color(0xFFFF2D3D).withValues(alpha: 0.12),

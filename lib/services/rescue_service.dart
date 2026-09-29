@@ -22,6 +22,14 @@ import 'repository_provider.dart';
 
 const kRescueLookBack = Duration(days: 30);
 
+// 2026-09-29: OFF - first real use put back 271 deliberately deleted
+// LocalSync backup copies (Projects/LocalSync/Conflict Backups - the
+// LocalSync folder wasn't at the vault root) and flooded Obsidian with
+// duplicate reminders; undone with git revert 4355fadc. Menu item, price
+// card and trouble alert all stay hidden until Rescue is rebuilt: never
+// inside any LocalSync folder, only the one big disappearance, then sync.
+const kRescueEnabled = false;
+
 class RescueResult {
   int notesBack = 0;
   int conflictsFixed = 0;
