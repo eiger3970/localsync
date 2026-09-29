@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../screens/rescue_screen.dart' show RedButtonPainter;
+import '../services/rescue_service.dart' show kRescueEnabled;
 
 class PaywallCards extends StatefulWidget {
   final Color accent;
@@ -37,7 +38,7 @@ class _PaywallCardsState extends State<PaywallCards> {
     super.initState();
     _auto = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!_pages.hasClients) return;
-      final next = (_page + 1) % 4;
+      final next = (_page + 1) % (kRescueEnabled ? 4 : 3);
       _pages.animateToPage(next,
           duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
     });
@@ -57,7 +58,7 @@ class _PaywallCardsState extends State<PaywallCards> {
 
   @override
   Widget build(BuildContext context) {
-    final cards = [_notes(), _conflicts(), _backups(), _rescue()];
+    final cards = [_notes(), _conflicts(), _backups(), if (kRescueEnabled) _rescue()];
     return Column(
       children: [
         Expanded(
