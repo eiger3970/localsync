@@ -18,6 +18,7 @@
 // angle it's already at and keeps turning the way it was going. Only a
 // tap stops it.
 // Render: ~/Documents/Blender/brain_render/render_grid.sh.
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -76,6 +77,11 @@ class _BrainHeroState extends State<BrainHero>
 
   late final Ticker _ticker;
   Duration _last = Duration.zero;
+  // 2026-09-29: user - "Brain needs more success activity ... a pulsating
+  // glow." Picked option D of the previews: white light breathing
+  // inside the circle, around the brain, every 1.6 s while success shows.
+  double _pulseT = 0; // seconds
+  static const _pulseSecs = 1.6;
   double _yaw = 0; // 0.._yaws
   double _pitch = _level * 1.0; // 0.._pitches-1
   bool _paused = false;
@@ -99,6 +105,9 @@ class _BrainHeroState extends State<BrainHero>
     _ticker = createTicker((t) {
       final dt = (t - _last).inMicroseconds / 1e6;
       _last = t;
+      if (widget.mode == BrainMode.success) {
+        setState(() => _pulseT = (_pulseT + dt) % _pulseSecs);
+      }
       if (_nextSet != null) {
         setState(() {
           _fade += dt;
@@ -203,6 +212,34 @@ class _BrainHeroState extends State<BrainHero>
         children: [row0, Opacity(opacity: fp, child: row1)]);
   }
 
+  // Soft white light inside the circle, behind the brain: 0.35 -> 1
+  // opacity and 0.9 -> 1.08 size, and back, every [_pulseSecs]. White
+  // outside the circle would vanish on the light welcome screen.
+  Widget _successGlow() {
+    final k = 0.5 - 0.5 * math.cos(2 * math.pi * _pulseT / _pulseSecs);
+    return IgnorePointer(
+      child: Opacity(
+        opacity: 0.35 + 0.65 * k,
+        child: Transform.scale(
+          scale: 0.9 + 0.18 * k,
+          child: const DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  Color(0xBFFFFFFF),
+                  Color(0x40FFFFFF),
+                  Color(0x00FFFFFF),
+                ],
+                stops: [0.2, 0.45, 0.68],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Widget image = _nextSet == null
@@ -244,12 +281,15 @@ class _BrainHeroState extends State<BrainHero>
       child: Container(
         width: widget.size,
         height: widget.size,
+        clipBehavior: Clip.antiAlias,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           gradient:
               RadialGradient(colors: [Color(0xFF1A1640), Color(0xFF03020A)]),
         ),
-        child: image,
+        child: widget.mode == BrainMode.success
+            ? Stack(fit: StackFit.expand, children: [_successGlow(), image])
+            : image,
       ),
     );
   }
