@@ -1,6 +1,7 @@
 // screens/home_screen.dart
 
 import 'rescue_screen.dart';
+import 'backups_screen.dart';
 import '../services/rescue_service.dart' show kRescueEnabled;
 import 'dart:async';
 import 'dart:math' as math;
@@ -293,6 +294,16 @@ class HomeScreen extends StatelessWidget {
                     // gets tapped most once set up is done - a stated
                     // reason to deviate from alphabetical, not an
                     // arbitrary one (see house naming rule).
+                    // 2026-09-29: user - Backups: sizes + one-tap Clean up.
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'backups',
+                        child: _MenuRow(
+                          icon: Icons.history,
+                          label: 'Backups',
+                          subtitle: 'Sizes and Clean up',
+                        ),
+                      ),
                     if (hasRepo)
                       const PopupMenuItem(
                         value: 'commit',
@@ -724,6 +735,13 @@ class HomeScreen extends StatelessWidget {
   // controller instead of a second, disconnected copy.
   void _onMenuAction(
       BuildContext context, RepositoryProvider provider, String v) {
+    if (v == 'backups' && provider.selectedRepo != null) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => BackupsScreen(repo: provider.selectedRepo!)));
+      return;
+    }
     if (v == 'rescue') {
       Navigator.push(
           context, MaterialPageRoute(builder: (_) => const RescueScreen()));
