@@ -2986,6 +2986,26 @@ class _CompleteViewState extends State<_CompleteView>
                 '@phone switch back to the LocalSync app',
               ],
             ),
+            // 2026-09-29: user - "Indexing vault ... completes and a user
+            // thinks it's finished. Then upon a new session it reappears
+            // ... leads the user to suspect something is wrong." Obsidian's
+            // own index, not LocalSync - said up front so it isn't blamed.
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: kTextMid, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                      '$kNoteAppName may show "Indexing vault..." again the '
+                      'next few times you open it. That\'s normal with many '
+                      'notes - it settles by itself.',
+                      style: TextStyle(
+                          color: kTextMid, fontSize: 14, height: 1.4)),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
           ],
           Center(
