@@ -2043,15 +2043,21 @@ class _ParkedViewState extends State<_ParkedView> {
   // sync with the actual list once before (found stale mid-session,
   // 2026-08-20) - if vaultCreationSteps changes length again, re-check
   // this against it directly rather than trusting the comment alone.
-  static const _criticalIndices = [10]; // 1.11
+  // 2026-09-29: two lists now (new Obsidian / already has vaults) - the
+  // critical steps are every force close, found by text, not a fixed index.
+  List<int> get _criticalIndices => [
+        for (final (i, s) in widget.ctrl.vaultCreationSteps.indexed)
+          if (s.contains('force close')) i
+      ];
 
   String? _validateVaultCreationDone() {
     final checked = _vaultCreationChecked;
     if (checked == null) return null;
-    final allCriticalDone =
-        _criticalIndices.every((i) => i < checked.length && checked[i]);
-    if (allCriticalDone) return null;
-    return 'Complete and tick 1.11';
+    final missing = _criticalIndices
+        .where((i) => !(i < checked.length && checked[i]))
+        .toList();
+    if (missing.isEmpty) return null;
+    return 'Complete and tick ${missing.map((i) => '1.${i + 1}').join(' and ')}';
   }
 
   @override
@@ -2135,9 +2141,39 @@ class _ParkedViewState extends State<_ParkedView> {
                 // positionally into the 6-step list instead of
                 // resetting. A groupNumber-keyed instance per step
                 // forces a fresh State (and fresh _checked) each time.
+                // 2026-09-29: which Obsidian - the steps differ.
+                if (ctrl.step == LinkingStep.awaitingVaultCreation)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('$kNoteAppName on this phone:',
+                            style: TextStyle(color: kTextMid, fontSize: 15)),
+                        const SizedBox(height: 6),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(
+                                value: true,
+                                label: Text('New, no vaults'),
+                                icon: Icon(Icons.fiber_new_outlined)),
+                            ButtonSegment(
+                                value: false,
+                                label: Text('Has vaults'),
+                                icon: Icon(Icons.folder_copy_outlined)),
+                          ],
+                          selected: {ctrl.obsidianIsNew},
+                          onSelectionChanged: (v) {
+                            setState(() => _vaultCreationChecked = null);
+                            ctrl.setObsidianIsNew(v.first);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 if (ctrl.step == LinkingStep.awaitingVaultCreation)
                   StepChecklist(
-                    key: const ValueKey(1),
+                    key: ValueKey('1-${ctrl.obsidianIsNew}'),
                     groupNumber: 1,
                     steps: ctrl.vaultCreationSteps,
                     // 2026-08-19: was also wired to fire on 1.11
