@@ -2030,6 +2030,12 @@ class _ParkedViewState extends State<_ParkedView> {
   // confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
+  // 2026-09-29: back to the 1.x vault steps, ticks cleared.
+  void _showVaultSteps() {
+    setState(() => _vaultCreationChecked = null);
+    widget.ctrl.showVaultCreationSteps();
+  }
+
   // 2026-08-20: re-verified against the current vaultCreationSteps list
   // (linking_controller.dart) after 1.12/1.13 were removed - "force
   // close Obsidian" is now index 10 (1-indexed 1.11), the sole critical
@@ -2168,10 +2174,20 @@ class _ParkedViewState extends State<_ParkedView> {
                     swipeActions: {
                       0: () => ctrl.pickVaultFolder(
                           confirm: (c) => confirmVaultFolder(context, c,
-                              onOpenObsidian: ctrl.openObsidianNow)),
+                              onOpenObsidian: ctrl.openObsidianNow,
+                              onShowSteps: _showVaultSteps)),
                     },
                     resilientSwipeIndices: const {0},
                   ),
+                  // 2026-09-29: user - skipped the 1.x Obsidian steps and
+                  // there was no way back to them from here.
+                  if (ctrl.syncMode != SyncMode.genericFolder)
+                    TextButton.icon(
+                      onPressed: _showVaultSteps,
+                      icon: Icon(Icons.undo, color: kGreen, size: 18),
+                      label: Text('Show the $kNoteAppName steps again',
+                          style: TextStyle(color: kGreen, fontSize: 15)),
+                    ),
                 ]
                 else
                   Container(
@@ -3644,7 +3660,8 @@ class _PrimaryButton extends StatelessWidget {
 // The "where" reminder after success is BackupReminderCard.
 @visibleForTesting
 Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
-    {Future<void> Function()? onOpenObsidian}) async {
+    {Future<void> Function()? onOpenObsidian,
+    VoidCallback? onShowSteps}) async {
   // 2026-09-24: "eyes are bleeding from overwhelming text... add svg
   // imagery and be less verbose." Each case is a picture of the folders
   // (FolderRouteView) plus one short line, not a paragraph.
@@ -3687,6 +3704,16 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
                   onPressed: () => Navigator.pop(c),
                   child: Text('PICK AGAIN', style: TextStyle(color: kTextDim)),
                 )),
+        if (onShowSteps != null)
+          Builder(
+              builder: (c) => TextButton(
+                    onPressed: () {
+                      Navigator.pop(c);
+                      onShowSteps();
+                    },
+                    child: Text('SHOW STEPS',
+                        style: TextStyle(color: kGreen)),
+                  )),
         if (onOpenObsidian != null)
           Builder(
               builder: (c) => TextButton(
