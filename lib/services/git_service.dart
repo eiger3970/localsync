@@ -247,10 +247,13 @@ class GitServiceImpl implements GitService {
     if (msg.contains('not found') || msg.contains('no such file')) {
       return LinkingError.bareRepoNotFound;
     }
-    if (msg.contains('connection refused') ||
-        msg.contains('no route to host') ||
+    if (msg.contains('no route to host') ||
         msg.contains('timed out') ||
-        msg.contains('network is unreachable')) {
+        msg.contains('network is unreachable') ||
+        msg.contains('host is down')) {
+      return LinkingError.desktopUnreachable;
+    }
+    if (msg.contains('connection refused')) {
       return LinkingError.connectionRefused;
     }
     return LinkingError.unclassifiedError;
@@ -759,7 +762,8 @@ class GitServiceImpl implements GitService {
       // anything else, which is the actual common case for a push
       // specifically (rejected because the remote moved ahead).
       final diagnosed = _diagnose(e);
-      final error = diagnosed == LinkingError.connectionRefused
+      final error = diagnosed == LinkingError.connectionRefused ||
+              diagnosed == LinkingError.desktopUnreachable
           ? LinkingError.cannotFastForward
           : diagnosed;
       return StepFailure(error, debugDetail: e.toString());

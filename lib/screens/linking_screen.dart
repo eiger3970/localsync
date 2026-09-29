@@ -495,7 +495,7 @@ class _IdleViewState extends State<_IdleView>
     _pairingCtrl = PairingController(
       desktopUser: widget.ctrl.desktopUser,
       desktopIp: widget.ctrl.desktopIp,
-    );
+    )..onDesktopIpChanged = _saveFoundDesktopIp;
     // 2026-09-18: real bug, live - "DESKTOP PASSWORD shield doesn't show
     // security features." The panel's own display condition used to be
     // `_showPasswordInfo && _passwordCtrl.text.isEmpty` directly - meant
@@ -879,6 +879,13 @@ class _IdleViewState extends State<_IdleView>
   // then continues straight into vault linking on success - one drag,
   // two real actions, no intermediate screen. On failure, shows the
   // error inline on this same screen instead of navigating away.
+  // 2026-09-29: pairing found the desktop on another address - keep it
+  // for linking and every later sync, no Settings visit needed.
+  void _saveFoundDesktopIp(String ip) {
+    widget.ctrl.updateDesktopIp(ip);
+    unawaited(DatabaseService().setDesktopIp(ip));
+  }
+
   Future<void> _pairThenLink() async {
     setState(() {
       _pairing = true;

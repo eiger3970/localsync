@@ -94,6 +94,12 @@ enum LinkingError {
   /// Working Copy can't reach desktop Pi via SSH.
   connectionRefused,
 
+  /// 2026-09-29: no network path to the desktop at all (No route to host,
+  /// timed out, network unreachable) - and LocalSync's own search of the
+  /// local network found it nowhere either. Split from connectionRefused,
+  /// whose password advice can never fix this.
+  desktopUnreachable,
+
   /// SSH key not in desktop ~/.ssh/authorized_keys.
   sshAuthFailed,
 
@@ -238,6 +244,9 @@ extension LinkingErrorDetails on LinkingError {
         // request, same underlying meaning.
         LinkingError.connectionRefused =>
           'Connection to desktop cannot complete.',
+        LinkingError.desktopUnreachable =>
+          'Your phone cannot reach your desktop. LocalSync searched your '
+              'network for it automatically and did not find it.',
         LinkingError.sshAuthFailed =>
           'SSH key rejected. Your phone key is not authorised on the desktop.',
         LinkingError.bareRepoNotFound =>
@@ -337,6 +346,11 @@ extension LinkingErrorDetails on LinkingError {
               '`sudo apt install -y openssh-server && '
               'sudo systemctl enable --now ssh`\n'
               '5. On desktop: `ip addr show` - verify IP matches what is set in this app',
+        LinkingError.desktopUnreachable =>
+          '1. Connect phone and desktop - USB cable, or Phone -> Settings -> '
+              'Personal Hotspot -> Allow Others to Join ON and join it on the desktop\n'
+              '2. Wake the desktop - it must be on, not asleep\n'
+              '3. Tap TRY AGAIN - LocalSync finds the desktop\'s address itself',
         LinkingError.sshAuthFailed =>
           'Tap PAIR NOW below and enter your desktop login password once - '
               'this installs your phone\'s key in ~/.ssh/authorized_keys on the desktop.\n'

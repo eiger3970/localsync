@@ -324,6 +324,14 @@ else
   if [[ -n "$DEF_IP" ]] && ! grep -qxF "$DEF_IP" <<<"$IP_ALL"; then DEF_IP=""; fi
 fi
 IP_RESULT=$(grep -m1 '^172\.20\.10\.' <<<"$IP_ALL" || true)
+# 2026-09-29: user, live - cable AND Hotspot Wi-Fi both connected gives two
+# 172.20.10.x addresses; the first listed (Wi-Fi, .3) was unreachable from
+# the phone ("No route to host") while the cable's (.2) worked. Use the
+# one this computer itself routes to the phone through.
+if [[ "$OS" != macos && -n "$IP_RESULT" ]]; then
+  PHONE_SRC=$(ip -4 route get 172.20.10.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)
+  grep -qxF "$PHONE_SRC" <<<"$IP_ALL" && IP_RESULT="$PHONE_SRC"
+fi
 [[ -z "$IP_RESULT" ]] && IP_RESULT="$DEF_IP"
 [[ -z "$IP_RESULT" ]] && IP_RESULT=$(grep -m1 . <<<"$IP_ALL" || true)
 if [[ -z "$IP_RESULT" ]]; then
