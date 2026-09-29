@@ -124,15 +124,18 @@ class _PaywallCardsState extends State<PaywallCards> {
   // tip" - sync is SSH (encrypted) on any network; the tip links to the
   // help page's Wi-Fi, securing entry.
   Widget _notes() {
-    Widget arrow(IconData icon) => Row(mainAxisSize: MainAxisSize.min, children: [
-          for (var i = 0; i < 4; i++)
-            Container(
-                width: 8,
-                height: 2.5,
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                color: widget.accent),
-          Icon(icon, color: widget.accent, size: 18),
-        ]);
+    // 2026-09-29: Ken - "why 2 lines left and right, rather than 1 line
+    // with arrows on each end?" One dashed line, an arrowhead at each end.
+    final arrow = Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.arrow_back_ios_new_rounded, color: widget.accent, size: 16),
+      for (var i = 0; i < 5; i++)
+        Container(
+            width: 8,
+            height: 2.5,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            color: widget.accent),
+      Icon(Icons.arrow_forward_ios_rounded, color: widget.accent, size: 16),
+    ]);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -149,11 +152,8 @@ class _PaywallCardsState extends State<PaywallCards> {
                 children: [
                   Icon(Icons.cloud_off_rounded,
                       size: 26, color: Colors.redAccent),
-                  const SizedBox(height: 6),
-                  arrow(Icons.arrow_forward_rounded),
-                  const SizedBox(height: 6),
-                  Transform.flip(
-                      flipX: true, child: arrow(Icons.arrow_forward_rounded)),
+                  const SizedBox(height: 8),
+                  arrow,
                 ],
               ),
               Icon(Icons.desktop_windows_rounded,
