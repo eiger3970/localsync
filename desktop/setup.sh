@@ -841,7 +841,19 @@ body{margin:0;min-height:100vh;background:#0a0e0a;color:#d7e6cd;font-family:-app
 .alt-num{color:#6fff8f;font-weight:700}
 .archive-note{font-size:11.5px;color:#7c9070;margin:10px 0 12px;line-height:1.5;padding-top:10px;border-top:1px solid #263420}
 .archive-link{color:#6fff8f;word-break:break-all;text-decoration:underline}
+.full{position:fixed;top:14px;right:14px;background:#6fff8f;color:#0a0e0a;border:0;border-radius:20px;padding:9px 16px;font-size:14px;font-weight:700;cursor:pointer}
 </style></head><body><div class="page">
+<!-- 2026-09-29: user - the browser opens at about 90%, leaving the terminal
+     showing behind it, a distraction for someone new to the terminal.
+     No script can maximise another program's window on Wayland (labwc)
+     or in Firefox, and a page can only go full screen after a click - so
+     one tap here, Esc to leave. Hidden once full screen or unsupported. -->
+<button class="full" id="full" hidden onclick="document.documentElement.requestFullscreen()">Full screen</button>
+<script>
+var f=document.getElementById('full');
+function upd(){f.hidden=!document.fullscreenEnabled||!!document.fullscreenElement}
+document.addEventListener('fullscreenchange',upd);upd();
+</script>
 <div class="brand"><img src="data:image/svg+xml;base64,${LOCALSYNC_LOGO_B64}" alt="LocalSync"></div>
 <!-- 2026-09-04: real feedback, live - "a visual showing a phone
      scanning the desktop screen, to hint to the user what they're
