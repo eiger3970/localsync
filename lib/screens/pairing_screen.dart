@@ -86,13 +86,17 @@ class _PairingScreenState extends State<PairingScreen> {
   bool get _passwordsMatch =>
       _passwordCtrl.text.isNotEmpty && _passwordCtrl.text == _confirmCtrl.text;
 
+  // 2026-09-29: pairing found the desktop on another address - save it.
+  void _saveFoundDesktopIp(String ip) =>
+      unawaited(DatabaseService().setDesktopIp(ip));
+
   @override
   void initState() {
     super.initState();
     _ctrl = PairingController(
       desktopUser: widget.desktopUser,
       desktopIp: widget.desktopIp,
-    );
+    )..onDesktopIpChanged = _saveFoundDesktopIp;
     _ctrl.addListener(_onChange);
     _passwordCtrl.addListener(_onChange);
     _confirmCtrl.addListener(_onChange);
@@ -678,7 +682,8 @@ class _PairingScreenState extends State<PairingScreen> {
     _ctrl.removeListener(_onChange);
     _ctrl.dispose();
     setState(() {
-      _ctrl = PairingController(desktopUser: widget.desktopUser, desktopIp: ip);
+      _ctrl = PairingController(desktopUser: widget.desktopUser, desktopIp: ip)
+        ..onDesktopIpChanged = _saveFoundDesktopIp;
       _ctrl.addListener(_onChange);
     });
     ScaffoldMessenger.of(context).showSnackBar(

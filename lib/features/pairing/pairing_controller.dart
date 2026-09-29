@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:dartssh2/dartssh2.dart';
 import '../linking/linking_state.dart';
+import '../../services/discovery_service.dart';
 import '../../services/keypair_service.dart';
 
 class PairingController extends ChangeNotifier {
@@ -36,6 +37,10 @@ class PairingController extends ChangeNotifier {
     required this.desktopIp,
     this.sshPort = 22,
   });
+
+  /// Called when the desktop was found on a different address than
+  /// [desktopIp] - the caller saves it (see _connectWithRetry).
+  void Function(String ip)? onDesktopIpChanged;
 
   bool _isRunning = false;
   StepResult? _result;
@@ -255,6 +260,16 @@ class PairingController extends ChangeNotifier {
       } on SocketException {
         if (attempt >= delays.length) rethrow;
         await Future.delayed(delays[attempt]);
+        // 2026-09-29: Ken, live - "No route to host" on 172.20.10.3 while
+        // the desktop was reachable on .2 (USB cable); retyping the
+        // password couldn't fix that. Look for the desktop on the local
+        // network before the next attempt and switch to where it is.
+        final found = await DiscoveryService()
+            .reachableDesktopIp(currentIp: desktopIp, username: desktopUser);
+        if (found != null && found != desktopIp) {
+          desktopIp = found;
+          onDesktopIpChanged?.call(found);
+        }
       }
     }
   }
@@ -286,9 +301,13 @@ class PairingController extends ChangeNotifier {
         lower.contains('password')) {
       return LinkingError.pairingPasswordRejected;
     }
-    if (msg.contains('Connection refused') ||
-        msg.contains('No route to host') ||
-        msg.contains('timed out')) {
+    if (msg.contains('No route to host') ||
+        msg.contains('timed out') ||
+        msg.contains('Network is unreachable') ||
+        msg.contains('Host is down')) {
+      return LinkingError.desktopUnreachable;
+    }
+    if (msg.contains('Connection refused')) {
       return LinkingError.connectionRefused;
     }
     return LinkingError.unclassifiedError;

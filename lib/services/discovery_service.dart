@@ -16,6 +16,8 @@
 // desktop discoverable; this only finds a desktop that's actually
 // broadcasting.
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:multicast_dns/multicast_dns.dart';
@@ -172,7 +174,79 @@ class DiscoveryService {
     // open candidate is still worth returning unverified; see the
     // header comment for why that's safe here.
     if (open.length == 1) return open.first;
+    // 2026-09-29: Ken, live - a desktop on both the phone's USB cable
+    // and its Hotspot Wi-Fi answers on two addresses (172.20.10.2 and
+    // .3), which used to count as "can't tell which". Same SSH host key
+    // on every open address = one machine, so any of them is right.
+    if (open.length > 1) {
+      open.sort();
+      final keys = await Future.wait(
+          open.map((ip) => _hostKeyOf(ip, authTimeout)));
+      if (keys.every((k) => k != null && k == keys.first)) return open.first;
+    }
     return null;
+  }
+
+  /// 2026-09-29: Ken, live - "SocketException: Connection failed (OS
+  /// Error: No route to host) address = 172.20.10.3" on setup, with the
+  /// desktop reachable the whole time on 172.20.10.2 (USB cable). The
+  /// user had to change the IP by hand; "I prefer minimum user
+  /// interaction". Returns [currentIp] if the desktop answers there,
+  /// otherwise searches the local network for it, or null if it's
+  /// genuinely not reachable (no cable, no Hotspot, desktop asleep).
+  Future<String?> reachableDesktopIp({
+    required String currentIp,
+    required String username,
+  }) async {
+    final ip = currentIp.trim();
+    if (ip.isNotEmpty && await _port22Open(ip, const Duration(seconds: 2))) {
+      return ip;
+    }
+    final found = await scanAndVerifyDesktop(username: username);
+    if (found != null) return found;
+    // mDNS last - it can name an address the phone can't reach (the
+    // original .3 problem), so its answer is only used if it answers.
+    final named = await Future.any([
+      findDesktopIp(),
+      Future.delayed(const Duration(seconds: 5), () => null),
+    ]);
+    if (named != null && await _port22Open(named, const Duration(seconds: 2))) {
+      return named;
+    }
+    return null;
+  }
+
+  Future<bool> _port22Open(String ip, Duration timeout) async {
+    try {
+      final socket = await Socket.connect(ip, 22, timeout: timeout);
+      socket.destroy();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The desktop's SSH host key fingerprint at [ip], or null. Stops right
+  /// after the key exchange - no login is attempted.
+  Future<String?> _hostKeyOf(String ip, Duration timeout) async {
+    SSHSocket? socket;
+    try {
+      socket = await SSHSocket.connect(ip, 22, timeout: timeout);
+      final seen = Completer<String?>();
+      final client = SSHClient(socket, username: 'localsync',
+          onVerifyHostKey: (type, fingerprint) {
+        if (!seen.isCompleted) seen.complete('$type ${utf8.decode(fingerprint)}');
+        return false;
+      });
+      client.authenticated.ignore();
+      client.done.ignore();
+      final key = await seen.future.timeout(timeout, onTimeout: () => null);
+      client.close();
+      return key;
+    } catch (_) {
+      socket?.close();
+      return null;
+    }
   }
 
   Future<String?> _startAndLookup(MDnsClient client) async {

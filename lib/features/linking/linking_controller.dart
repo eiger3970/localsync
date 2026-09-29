@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../services/database_service.dart';
+import '../../services/discovery_service.dart';
 import '../../services/device_name.dart';
 import '../../services/git_service.dart';
 import '../../services/ios_app_service.dart';
@@ -546,6 +547,18 @@ class LinkingController extends ChangeNotifier {
     if (bareRepoPath.trim().isEmpty && !kIsWeb) {
       final existing = await _existingRepoPathFor(bookmark);
       if (existing != null) bareRepoPath = existing;
+    }
+    // 2026-09-29: Ken, live - setup stopped on "No route to host" at
+    // 172.20.10.3 while the desktop answered on .2 (USB cable). Check the
+    // saved address answers before any SSH step below; if not, find the
+    // desktop on the local network and keep the address that works.
+    if (!kIsWeb && desktopIp.trim().isNotEmpty) {
+      final found = await DiscoveryService()
+          .reachableDesktopIp(currentIp: desktopIp, username: desktopUser);
+      if (found != null && found != desktopIp.trim()) {
+        desktopIp = found;
+        await DatabaseService().setDesktopIp(found);
+      }
     }
     // 2026-09-28: still blank (fresh phone, QR left it blank) - use the
     // repo the desktop vault already syncs with, never a new empty one.
