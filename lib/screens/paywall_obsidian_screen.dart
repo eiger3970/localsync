@@ -20,6 +20,7 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../services/purchase_service.dart';
+import '../widgets/paywall_cards.dart';
 import 'welcome_hero_screen.dart' show wInk, wInkDim, wCream;
 
 const _pBg1 = Color(0xFFF3FBFA);
@@ -125,37 +126,14 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
                     icon: Icon(Icons.close, color: wInkDim),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Center(
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: const BoxDecoration(
-                        color: _pVioletBg, shape: BoxShape.circle),
-                    child: Icon(Icons.auto_stories_rounded,
-                        color: _pVioletDark, size: 44),
-                  ),
+                // 2026-09-29: Ken - 3 swipeable picture cards (Notes,
+                // Conflicts, Backups) instead of an icon + 4 bullets; the
+                // price button below stays visible on every card.
+                Expanded(
+                  child: PaywallCards(
+                      accent: _pVioletDark, ink: wInk, inkDim: wInkDim),
                 ),
-                const SizedBox(height: 16),
-                // 2026-09-18: real ask, live - "update text with your
-                // Title Case" (said about the sibling Keep Both &
-                // Clean Up screen, same pattern here) - Sentence case
-                // per house naming rule, "Obsidian" stays capitalized
-                // as the real product name.
-                Text('Unlock Obsidian sync',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 24,
-                        color: wInk)),
-                const SizedBox(height: 20),
-                const _Bullet(text: 'Full Obsidian vault sync'),
-                const _Bullet(
-                    text: 'Visual conflict picker - see both, tap to choose'),
-                const _Bullet(
-                    text: 'Real conflict protection - never lose a note'),
-                const _Bullet(text: 'Pay once. No subscription, ever.'),
-                const Spacer(),
+                const SizedBox(height: 12),
                 if (_busy)
                   const Center(
                       child: Padding(
@@ -257,32 +235,6 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Bullet extends StatelessWidget {
-  final String text;
-  const _Bullet({required this.text});
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            decoration:
-                const BoxDecoration(color: _pVioletBg, shape: BoxShape.circle),
-            child: Icon(Icons.check, color: _pVioletDark, size: 14),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(text, style: TextStyle(fontSize: 14, color: wInk)),
-          ),
-        ],
       ),
     );
   }
