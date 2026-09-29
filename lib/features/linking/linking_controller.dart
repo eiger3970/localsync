@@ -483,6 +483,14 @@ class LinkingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 2026-09-29: Ken - a user who skipped Obsidian's vault steps (1.x)
+  /// lands on 2.1 "There is no vault folder" with no way back to them.
+  /// Goes back to the from-scratch vault checklist.
+  void showVaultCreationSteps() {
+    _step = LinkingStep.awaitingVaultCreation;
+    notifyListeners();
+  }
+
   Future<void> _awaitVaultCreation() async {
     if (!kIsWeb) {
       final installed = await _iosApps.isObsidianInstalled();
