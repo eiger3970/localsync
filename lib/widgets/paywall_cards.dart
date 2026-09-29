@@ -5,6 +5,7 @@
 // Order by what sells most: Notes, Conflicts, Backups. Each card: main noun
 // first in the heading, facts alphabetical, noun first ("Cloud: none").
 // The price button stays below the cards, visible on every card.
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../screens/rescue_screen.dart' show RedButtonPainter;
@@ -26,9 +27,30 @@ class PaywallCards extends StatefulWidget {
 class _PaywallCardsState extends State<PaywallCards> {
   final _pages = PageController();
   int _page = 0;
+  // 2026-09-29: user - "Cards might need an auto scroll to increase
+  // marketing exposure. Currently looks like a flat page." Next card every
+  // 4 s, back to the first after the last; the first touch stops it.
+  Timer? _auto;
+
+  @override
+  void initState() {
+    super.initState();
+    _auto = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!_pages.hasClients) return;
+      final next = (_page + 1) % 4;
+      _pages.animateToPage(next,
+          duration: const Duration(milliseconds: 600), curve: Curves.easeInOut);
+    });
+  }
+
+  void _stopAuto() {
+    _auto?.cancel();
+    _auto = null;
+  }
 
   @override
   void dispose() {
+    _auto?.cancel();
     _pages.dispose();
     super.dispose();
   }
@@ -39,15 +61,18 @@ class _PaywallCardsState extends State<PaywallCards> {
     return Column(
       children: [
         Expanded(
-          child: PageView(
-            controller: _pages,
-            onPageChanged: (i) => setState(() => _page = i),
-            children: [
-              for (final c in cards)
-                SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: c),
-            ],
+          child: Listener(
+            onPointerDown: (_) => _stopAuto(),
+            child: PageView(
+              controller: _pages,
+              onPageChanged: (i) => setState(() => _page = i),
+              children: [
+                for (final c in cards)
+                  SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: c),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -76,10 +101,11 @@ class _PaywallCardsState extends State<PaywallCards> {
   Widget _heading(String noun, String rest, String sub) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(TextSpan(children: [
-            TextSpan(text: noun, style: TextStyle(color: widget.accent)),
-            TextSpan(text: ': $rest', style: TextStyle(color: widget.ink)),
-          ]),
+          Text.rich(
+              TextSpan(children: [
+                TextSpan(text: noun, style: TextStyle(color: widget.accent)),
+                TextSpan(text: ': $rest', style: TextStyle(color: widget.ink)),
+              ]),
               style:
                   const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
@@ -156,8 +182,7 @@ class _PaywallCardsState extends State<PaywallCards> {
                   arrow,
                 ],
               ),
-              Icon(Icons.desktop_windows_rounded,
-                  size: 64, color: widget.ink),
+              Icon(Icons.desktop_windows_rounded, size: 64, color: widget.ink),
             ],
           ),
         ),
@@ -192,8 +217,8 @@ class _PaywallCardsState extends State<PaywallCards> {
         width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 1),
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-            color: bg, borderRadius: BorderRadius.circular(3)),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(3)),
         child: Text(t,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -224,7 +249,8 @@ class _PaywallCardsState extends State<PaywallCards> {
         ),
       );
 
-  Widget _key(Color c, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
+  Widget _key(Color c, String t) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
         Container(
             width: 10,
             height: 10,
