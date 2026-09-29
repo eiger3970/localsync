@@ -540,7 +540,7 @@ class RepositoryProvider extends ChangeNotifier {
   /// 2026-09-25: runs [fn] on the selected folder's real path, inside the
   /// same one-at-a-time lock as push/pull (so a restore never overlaps a
   /// sync on the same .git) and with iOS folder access opened and closed.
-  Future<T?> withRepoFolder<T>(Repository repo, T Function(String path) fn) async {
+  Future<T?> withRepoFolder<T>(Repository repo, FutureOr<T> Function(String path) fn) async {
     final prior = _inFlight;
     final done = Completer<void>();
     _inFlight = done.future;
@@ -550,7 +550,7 @@ class RepositoryProvider extends ChangeNotifier {
       final path = kIsWeb ? repo.localPath : await folders.startAccessing(repo.vaultBookmark);
       if (path == null) return null;
       try {
-        return fn(path);
+        return await fn(path);
       } finally {
         if (!kIsWeb) await folders.stopAccessing(repo.vaultBookmark);
       }
