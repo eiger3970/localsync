@@ -785,11 +785,15 @@ class LinkingController extends ChangeNotifier {
         '@obsidian tap vault (bottom left)',
         '@obsidian tap Manage vaults...',
         '@obsidian tap Create new vault',
-        '@obsidian Vault name: <Enter name...>',
+        // 2026-09-29: Ken's own edits, verbatim - "1.6 Vault name:
+        // <Enter name...> needs to have an example, like Obsidian_vault",
+        // "1.9 new vault opens New tab (add New tab, as this matches the
+        // eye looking for confirmation of a new vault)", "1.10 delete this
+        // step. New tab isn't needed."
+        '@obsidian Vault name: <Enter name...> e.g. Obsidian_vault',
         '@obsidian Store in iCloud: off by default',
         '@obsidian tap Create',
-        '@obsidian new vault opens',
-        '@obsidian New tab',
+        '@obsidian new vault opens New tab',
         '@phone force close $kNoteAppName (swipe up from the bottom, flick it away)',
       ];
 
