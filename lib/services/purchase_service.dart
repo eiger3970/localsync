@@ -96,6 +96,12 @@ const kKeepBothUndoEntitlementId = 'keep_both_undo';
 // blocker as every other entitlement in this file - registered now so
 // wiring a real purchase check in later is a one-line change.
 const kKeepBothCleanupEntitlementId = 'keep_both_cleanup';
+// 2026-09-29: user - Rescue Package, a separate emergency product: "one
+// payment, one button, one tap". Entitlement rescue_package; its App Store
+// product is rescue_localsync (rescue_package and rescue were taken on the
+// team). US$149.99, non-consumable.
+const kRescueEntitlementId = 'rescue_package';
+const kRescueProductId = 'rescue_localsync';
 
 // 2026-09-08: Tier 4 (docs/product-tiers.md) - AI Conflict Support.
 // Not built - captured as an idea only. IMPORTANT if this ever gets

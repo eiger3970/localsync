@@ -1,5 +1,6 @@
 // screens/home_screen.dart
 
+import 'rescue_screen.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -327,6 +328,17 @@ class HomeScreen extends StatelessWidget {
                     // made a change, not just when (see sync_service.dart's
                     // _signatureFor). Placeholder in the explainer, not a
                     // real/pseudonym example - names never go in app UI text.
+                    // 2026-09-29: user - Rescue Package, "Yes re rescue in
+                    // Kebab menu". Red, alphabetical (before Restore).
+                    const PopupMenuItem(
+                      value: 'rescue',
+                      child: _MenuRow(
+                        icon: Icons.emergency_outlined,
+                        iconColor: Color(0xFFFF2D3D),
+                        label: 'Rescue',
+                        subtitle: 'Notes lost or messed up? One tap',
+                      ),
+                    ),
                     // 2026-09-25: restore files deleted on either device.
                     const PopupMenuItem(
                       value: 'deleted',
@@ -710,6 +722,11 @@ class HomeScreen extends StatelessWidget {
   // controller instead of a second, disconnected copy.
   void _onMenuAction(
       BuildContext context, RepositoryProvider provider, String v) {
+    if (v == 'rescue') {
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const RescueScreen()));
+      return;
+    }
     if (v == 'deleted' && provider.selectedRepo != null) {
       Navigator.push(
           context,

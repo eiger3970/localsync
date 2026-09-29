@@ -25,6 +25,7 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/sync_service.dart';
+import '../screens/rescue_screen.dart';
 
 Future<bool?> showSyncConfirmDialog(
   BuildContext context,
@@ -112,6 +113,40 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
                       )
                     : const SizedBox(width: double.infinity),
               ),
+              // 2026-09-29: user - Rescue trouble alert: 20+ notes about to
+              // disappear at once is where a beginner loses everything.
+              // Not syncing + Rescue is one tap from here.
+              if (widget.result.removedFiles.length >= 20) ...[
+                const SizedBox(height: 10),
+                Material(
+                  color: const Color(0xFFFF2D3D).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      final nav = Navigator.of(context);
+                      nav.pop(false);
+                      nav.push(MaterialPageRoute(
+                          builder: (_) => const RescueScreen()));
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(children: [
+                        const Icon(Icons.emergency_outlined,
+                            color: Color(0xFFFF2D3D), size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                              '${widget.result.removedFiles.length} notes would disappear. '
+                              'Not you? Tap for Rescue - nothing is synced.',
+                              style: TextStyle(
+                                  color: kStar, fontSize: 13.5, height: 1.35)),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               // 2026-08-18: AlertDialog's default actions row (OverflowBar)
               // can wrap to vertical when three icon+label buttons don't
