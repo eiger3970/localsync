@@ -897,6 +897,20 @@ fi
 # already called LocalSync on the desktop.
 SYNC_HOME="$HOME/Documents/LocalSync"
 mkdir -p "$SYNC_HOME"
+# 2026-09-29: Ken - "LocalSync needs an SSOT, so perhaps all roads lead to
+# the kworld.space/localsync help." One small page inside the folder the
+# desktop shortcut opens: double-click -> the help page in the browser
+# (moving this folder, the shortcut, permissions - all answered there).
+# Outside every synced folder, so it never reaches the phone.
+HELP_LINK="$SYNC_HOME/LocalSync help.html"
+if [[ ! -e "$HELP_LINK" ]]; then
+  cat > "$HELP_LINK" <<'HTML'
+<!doctype html><meta charset="utf-8"><title>LocalSync help</title>
+<meta http-equiv="refresh" content="0; url=https://kworld.space/localsync/help">
+<a href="https://kworld.space/localsync/help">LocalSync help: kworld.space/localsync/help</a>
+HTML
+  [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]] && chown "$LOCALSYNC_USER" "$HELP_LINK" 2>/dev/null || true
+fi
 DESKTOP_DIR=""
 if [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]] && command -v xdg-user-dir >/dev/null 2>&1; then
   DESKTOP_DIR="$(sudo -u "$LOCALSYNC_USER" xdg-user-dir DESKTOP 2>/dev/null || true)"
