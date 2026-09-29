@@ -86,6 +86,7 @@ Future<String?> backupVaultIfNotEmpty(String vaultPath) async {
   final skipPaths = {
     for (final f in localSyncFolders(vaultPath)) '$vaultPath/$f',
   };
+  removeNestedGitCopies(vaultPath);
   await _copyDirectoryContents(
       dir, Directory('$vaultPath/${localSyncFolder(vaultPath)}/$backupName'),
       skipPaths: skipPaths);
@@ -157,12 +158,34 @@ Future<void> _copyDirectoryContents(
         ? entity.path.substring(0, entity.path.length - 1)
         : entity.path;
     if (skipPaths.contains(entityPath)) continue;
+    // 2026-09-29: real error, live, second setup on the same phone -
+    // "GIT_ERROR_INDEX: invalid path: 'LocalSync/Backup 202609291652'".
+    // The old vault still had its .git, the backup copied it, and git
+    // refuses a repository nested inside the vault. Never copy .git.
+    if (name == '.git') continue;
     final destPath = '${dest.path}/$name';
     if (entity is Directory) {
       await _copyDirectoryContents(entity, Directory(destPath),
           skipPaths: skipPaths);
     } else if (entity is File) {
       await entity.copy(destPath);
+    }
+  }
+}
+
+/// 2026-09-29: backups made before the .git skip above can hold a copied
+/// .git folder (a repository nested inside the vault), which stops every
+/// sync with GIT_ERROR_INDEX "invalid path". Removes any .git found inside
+/// a LocalSync folder - they are only ever copies; the vault's own .git
+/// sits at its root and is never touched.
+void removeNestedGitCopies(String vaultPath) {
+  for (final lsf in localSyncFolders(vaultPath)) {
+    final dir = Directory('$vaultPath/$lsf');
+    if (!dir.existsSync()) continue;
+    for (final e in dir.listSync(recursive: true, followLinks: false)) {
+      if (e is Directory && e.path.split('/').last == '.git' && e.existsSync()) {
+        e.deleteSync(recursive: true);
+      }
     }
   }
 }

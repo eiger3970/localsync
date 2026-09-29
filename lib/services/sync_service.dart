@@ -1655,6 +1655,11 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
 }
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
+  // 2026-09-29: a copied .git inside a LocalSync backup (made before
+  // backups skipped it) makes addAll fail "invalid path" on every sync.
+  removeNestedGitCopies(repo.workdir.endsWith('/')
+      ? repo.workdir.substring(0, repo.workdir.length - 1)
+      : repo.workdir);
   final index = repo.index;
   index.addAll(['*']);
   index.write();
