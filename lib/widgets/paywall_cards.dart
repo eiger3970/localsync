@@ -316,10 +316,12 @@ class _PaywallCardsState extends State<PaywallCards> {
               ],
             ),
           ),
+          // 2026-09-29: Ken - "as a noob, what exactly is a deletion?"
+          // Plain words: notes that are gone, even ones removed by mistake.
           _fact('Copies', 'full copy on both sides before the first sync'),
-          _fact('Deleted files', 'restore any time'),
           _fact('Engineering',
               'security-first, cutting-edge sync. Not a weekend app, not a data company.'),
+          _fact('Lost notes', 'brought back, even ones removed by mistake'),
           _fact('Versions', 'every sync saved on your desktop'),
         ],
       );
