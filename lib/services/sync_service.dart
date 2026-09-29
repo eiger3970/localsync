@@ -1974,10 +1974,14 @@ void _resolveBinaryConflict(
 // "mergeConflict" was never correct even before this fix.
 LinkingError _diagnose(Object e) {
   final msg = e.toString();
+  if (msg.contains('No route to host') ||
+      msg.contains('timed out') ||
+      msg.contains('Network is unreachable') ||
+      msg.contains('Host is down')) {
+    return LinkingError.desktopUnreachable;
+  }
   if (msg.contains('Connection refused') ||
-      msg.contains('No route to host') ||
-      msg.contains('failed to connect') ||
-      msg.contains('timed out')) {
+      msg.contains('failed to connect')) {
     return LinkingError.connectionRefused;
   }
   if (msg.contains('authentication') ||
