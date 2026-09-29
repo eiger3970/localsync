@@ -73,11 +73,19 @@ class _RescueScreenState extends State<RescueScreen>
     setState(() => _error = null);
     if (!_owned) {
       final package = _package;
-      if (package == null) {
+      // Sideloaded test builds (no STORE_BUILD) have no real product to buy -
+      // same "skip for testing" rule as the other price screens. Store builds
+      // never get here without paying.
+      if (package == null && !kIsStoreBuild) {
+        _owned = true;
+      } else if (package == null) {
         setState(() => _error =
             'Rescue can\'t be bought right now - check your internet, then try again.');
         return;
       }
+    }
+    if (!_owned) {
+      final package = _package!;
       setState(() => _stage = _Stage.paying);
       try {
         final info = await purchases.purchasePackage(package);
@@ -215,6 +223,8 @@ class _RescueScreenState extends State<RescueScreen>
                 _Stage.done => _summary(),
                 _Stage.ready => _owned
                     ? 'Owned - tap any time, LocalSync does the rest'
+                    : _package == null && !kIsStoreBuild
+                    ? 'Test build - no payment, LocalSync does the rest'
                     : '${_price ?? ''}${_price == null ? '' : ' - '}LocalSync does the rest',
               },
               textAlign: TextAlign.center,
