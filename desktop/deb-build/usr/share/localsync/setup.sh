@@ -324,6 +324,14 @@ else
   if [[ -n "$DEF_IP" ]] && ! grep -qxF "$DEF_IP" <<<"$IP_ALL"; then DEF_IP=""; fi
 fi
 IP_RESULT=$(grep -m1 '^172\.20\.10\.' <<<"$IP_ALL" || true)
+# 2026-09-29: user, live - cable AND Hotspot Wi-Fi both connected gives two
+# 172.20.10.x addresses; the first listed (Wi-Fi, .3) was unreachable from
+# the phone ("No route to host") while the cable's (.2) worked. Use the
+# one this computer itself routes to the phone through.
+if [[ "$OS" != macos && -n "$IP_RESULT" ]]; then
+  PHONE_SRC=$(ip -4 route get 172.20.10.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1)
+  grep -qxF "$PHONE_SRC" <<<"$IP_ALL" && IP_RESULT="$PHONE_SRC"
+fi
 [[ -z "$IP_RESULT" ]] && IP_RESULT="$DEF_IP"
 [[ -z "$IP_RESULT" ]] && IP_RESULT=$(grep -m1 . <<<"$IP_ALL" || true)
 if [[ -z "$IP_RESULT" ]]; then
@@ -889,6 +897,20 @@ fi
 # already called LocalSync on the desktop.
 SYNC_HOME="$HOME/Documents/LocalSync"
 mkdir -p "$SYNC_HOME"
+# 2026-09-29: user - "LocalSync needs an SSOT, so perhaps all roads lead to
+# the kworld.space/localsync help." One small page inside the folder the
+# desktop shortcut opens: double-click -> the help page in the browser
+# (moving this folder, the shortcut, permissions - all answered there).
+# Outside every synced folder, so it never reaches the phone.
+HELP_LINK="$SYNC_HOME/LocalSync help.html"
+if [[ ! -e "$HELP_LINK" ]]; then
+  cat > "$HELP_LINK" <<'HTML'
+<!doctype html><meta charset="utf-8"><title>LocalSync help</title>
+<meta http-equiv="refresh" content="0; url=https://kworld.space/localsync/help">
+<a href="https://kworld.space/localsync/help">LocalSync help: kworld.space/localsync/help</a>
+HTML
+  [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]] && chown "$LOCALSYNC_USER" "$HELP_LINK" 2>/dev/null || true
+fi
 DESKTOP_DIR=""
 if [[ -n "${LOCALSYNC_USER:-}" && "$EUID" -eq 0 ]] && command -v xdg-user-dir >/dev/null 2>&1; then
   DESKTOP_DIR="$(sudo -u "$LOCALSYNC_USER" xdg-user-dir DESKTOP 2>/dev/null || true)"
