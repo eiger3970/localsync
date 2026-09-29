@@ -2981,7 +2981,8 @@ class _CompleteViewState extends State<_CompleteView>
                 '@localsync swipe up to open $kNoteAppName',
                 '@obsidian tap Trust author and enable plugins',
                 '@obsidian wait for Indexing vault... to finish',
-                '@obsidian tap X to skip Community plugins (set up later)',
+                // 2026-09-29: the user's wording, verbatim.
+                '@obsidian Community plugins, tap X to set up later',
                 '@phone switch back to the LocalSync app',
               ],
             ),
