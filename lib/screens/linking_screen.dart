@@ -2163,6 +2163,18 @@ class _ParkedViewState extends State<_ParkedView> {
                                 icon: Icon(Icons.folder_copy_outlined)),
                           ],
                           selected: {ctrl.obsidianIsNew},
+                          style: ButtonStyle(
+                            foregroundColor: WidgetStateProperty.resolveWith(
+                                (st) => st.contains(WidgetState.selected)
+                                    ? kVoid
+                                    : kStar),
+                            backgroundColor: WidgetStateProperty.resolveWith(
+                                (st) => st.contains(WidgetState.selected)
+                                    ? kGreen
+                                    : kSurface),
+                            side: WidgetStatePropertyAll(
+                                BorderSide(color: kBorder)),
+                          ),
                           onSelectionChanged: (v) {
                             setState(() => _vaultCreationChecked = null);
                             ctrl.setObsidianIsNew(v.first);

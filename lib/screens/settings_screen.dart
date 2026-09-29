@@ -3653,14 +3653,14 @@ class ScanContinuePanel extends StatelessWidget {
     return parts.last.replaceFirst(RegExp(r'\.git$'), '');
   }
 
-  String get _folderLine {
+  List<(String, String)> get _rows {
     final sync = _short(syncFolder);
     final vault = _short(vaultPath);
-    if (sync.isEmpty && vault.isEmpty) return 'Folders: Automatic';
     return [
-      'Sync folder: ${sync.isEmpty ? 'Automatic' : sync}',
-      if (vault.isNotEmpty) 'Vault: $vault',
-    ].join('\n');
+      ('Desktop', '$user at $ip'),
+      ('Sync folder', sync.isEmpty ? 'Automatic' : sync),
+      ('Vault', vault.isEmpty ? 'Automatic' : vault),
+    ];
   }
 
   final bool onBanner;
@@ -3673,21 +3673,49 @@ class ScanContinuePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 2026-09-29: Ken - "In the stress of 30 seconds ... the user and I
+        // are lost on what to be looking for. Make these 3 lines clear
+        // with PARC ... same spacing apart ... the info after the colon
+        // vertically aligned under the same column." Heading, then one
+        // table: labels in one column, values in the next, equal rows.
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.check_circle, color: fg, size: 22),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text('Desktop found: $user at $ip',
-                  style: TextStyle(
-                      color: fg, fontSize: 16, fontWeight: FontWeight.w600)),
-            ),
+            Text('Desktop found',
+                style: TextStyle(
+                    color: fg, fontSize: 17, fontWeight: FontWeight.w700)),
           ],
         ),
+        const SizedBox(height: 8),
         Padding(
-          padding: const EdgeInsets.only(left: 30, top: 4),
-          child: Text(_folderLine, style: TextStyle(color: fg, fontSize: 15)),
+          padding: const EdgeInsets.only(left: 30),
+          child: Table(
+            columnWidths: const {
+              0: IntrinsicColumnWidth(),
+              1: FlexColumnWidth(),
+            },
+            defaultVerticalAlignment: TableCellVerticalAlignment.top,
+            children: [
+              for (final (label, value) in _rows)
+                TableRow(children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 14, bottom: 6),
+                    child: Text(label,
+                        style: TextStyle(
+                            color: fg.withValues(alpha: 0.75), fontSize: 15)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(value,
+                        style: TextStyle(
+                            color: fg,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         AnimatedBuilder(

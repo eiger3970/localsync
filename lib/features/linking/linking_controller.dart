@@ -759,16 +759,24 @@ class LinkingController extends ChangeNotifier {
   }
 
   List<String> get vaultCreationSteps => obsidianIsNew
+      // 2026-09-29: Ken - "You've changed so many of these critical steps
+      // ... I had the precise steps before." 1.2-1.5 verbatim from his
+      // message that day ("1.2 Create a vault ... 1.3 Continue without
+      // sync ... 1.4 Vault name: <Enter name...> add an example, like
+      // Obsidian_vault ... Tap Create a vault"); the rest verbatim from his
+      // recipe,
+      // "11 Create Obsidian Vault on Phone" (iPhone 11, iOS 26.1) - see
+      // [[project_synclocal_vault_recipe]] - then the "Failed to resolve
+      // path" close/reopen/close cycle, same order as the list below.
       ? [
           '@localsync swipe up to open $kNoteAppName',
-          '@obsidian first screen: tap Create new vault',
-          '@obsidian Vault name: <Enter name...>',
-          '@obsidian Store in iCloud: off',
-          '@obsidian tap Create',
-          '@obsidian new vault opens',
+          '@obsidian tap Create a vault',
+          '@obsidian tap Continue without sync',
+          '@obsidian Vault name: <Enter name...> e.g. Obsidian_vault',
+          '@obsidian tap Create a vault',
           '@obsidian New tab',
           '@phone force close $kNoteAppName (swipe up from the bottom, flick it away)',
-          '@phone reopen $kNoteAppName - if asked, tap Trust author',
+          '@phone reopen $kNoteAppName (indexes files, Trust author prompt)',
           '@phone force close $kNoteAppName again',
         ]
       : [
