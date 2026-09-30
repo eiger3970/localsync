@@ -658,6 +658,15 @@ class HomeScreen extends StatelessWidget {
                 // 2026-09-25: the widget's bottom-right desktop icon -
                 // same as ⋮ -> Desktop sync.
                 _triggerDesktopSyncNow(context, provider, repo.id!);
+              } else if (const {
+                'action_conflicts': 'conflicts',
+                'action_restore': 'deleted',
+                'action_backups': 'backups',
+              }[pendingQuickAction]
+                  case final menu?) {
+                // 2026-09-30: localsync://conflicts|restore|backups from
+                // the help page - same as picking it in the ⋮ menu.
+                _onMenuAction(context, provider, menu);
               }
             });
           }

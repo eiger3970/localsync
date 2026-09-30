@@ -28,7 +28,11 @@
 // push/pull gets a chance to run at all.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/repository.dart';
+import '../services/localsync_cleanup.dart';
 import '../services/repository_provider.dart';
+import '../theme.dart';
 import '../services/widget_action.dart';
 
 class AutoSyncOnResume extends StatefulWidget {
@@ -159,11 +163,65 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
       await provider.pushRepository(repo.id!, background: true);
       if (!mounted) return;
       await provider.pullRepository(repo.id!, background: true);
+      if (mounted) await _offerToFreeSpace(provider, repo);
     } catch (_) {
       // Best-effort only - a real failure here is left for the user's
       // own next manual sync to surface properly, not narrated here.
     } finally {
       _syncing = false;
+    }
+  }
+
+  // 2026-09-30: user - instead of "delete it once your notes look right" (a
+  // job users must remember), ask once, a week after the phone was linked,
+  // with the size: one tap frees it. Asked once per copy, never again.
+  Future<void> _offerToFreeSpace(RepositoryProvider provider, Repository repo) async {
+    final prefs = await SharedPreferences.getInstance();
+    final folders =
+        await provider.withRepoFolder(repo, (path) => listBackupFolders(path));
+    if (folders == null || !mounted) return;
+    final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+    for (final f in folders.where((f) => f.phoneOnly)) {
+      final key = 'offered_free_${repo.id}_${f.name}';
+      final date = fullBackupDate(f.name);
+      if (date == null || date.isAfter(weekAgo) || prefs.getBool(key) == true) {
+        continue;
+      }
+      await prefs.setBool(key, true);
+      if (!mounted) return;
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
+          'Sep', 'Oct', 'Nov', 'Dec'];
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          backgroundColor: kSurface,
+          title: Row(children: [
+            Icon(Icons.delete_outline, color: kStar, size: 22),
+            const SizedBox(width: 8),
+            Text('Free ${formatBytes(f.bytes)}?',
+                style: TextStyle(color: kStar, fontSize: 17)),
+          ]),
+          content: Text(
+              'Copy made when this phone was linked, '
+              '${date.day} ${months[date.month - 1]}. Not needed once your '
+              'notes look right.',
+              style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text('KEEP', style: TextStyle(color: kTextDim))),
+            TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text('DELETE',
+                    style: TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.w700))),
+          ],
+        ),
+      );
+      if (ok == true) {
+        await provider.withRepoFolder(repo, (path) => deleteFullBackup(path, f));
+      }
+      return; // one question per app open
     }
   }
 

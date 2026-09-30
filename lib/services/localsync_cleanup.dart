@@ -88,6 +88,15 @@ int deleteFullBackup(String vaultPath, BackupFolder f) {
   return f.bytes;
 }
 
+/// The date inside a full copy's name ("Backup 202609291652" ->
+/// 2026-09-29 16:52), or null.
+DateTime? fullBackupDate(String name) {
+  final m = RegExp(r'Backup (\d{4})(\d{2})(\d{2})(\d{2})(\d{2})').firstMatch(name);
+  if (m == null) return null;
+  final n = [for (var i = 1; i <= 5; i++) int.parse(m.group(i)!)];
+  return DateTime(n[0], n[1], n[2], n[3], n[4]);
+}
+
 String formatBytes(int b) {
   if (b < 1024) return '$b B';
   if (b < 1024 * 1024) return '${(b / 1024).round()} KB';

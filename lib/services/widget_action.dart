@@ -21,7 +21,10 @@ const _channel = MethodChannel('localsync/widget_action');
 Future<String?> takePendingWidgetAction() async {
   try {
     final action = await _channel.invokeMethod<String>('getPendingAction');
-    if (action == 'push' || action == 'pull' || action == 'desktop') {
+    // 2026-09-30: conflicts, restore and backups - one-tap "Open ..." links
+    // on kworld.space/localsync/help and the guide (user: "minimum actions").
+    if (const {'push', 'pull', 'desktop', 'conflicts', 'restore', 'backups'}
+        .contains(action)) {
       return 'action_$action';
     }
   } catch (_) {}
