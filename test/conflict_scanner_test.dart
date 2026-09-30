@@ -532,7 +532,7 @@ void main() {
       expect(merged, contains('Next entry.'));
 
       // Nothing lost - a backup of both sides exists.
-      final backupDir = Directory('${dir.path}/LocalSync/Conflict Backups');
+      final backupDir = Directory('${dir.path}/.localsync_backups/Conflict Backups');
       expect(await backupDir.exists(), isTrue);
       final backups = await backupDir.list().toList();
       expect(backups, hasLength(1));

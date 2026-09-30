@@ -11,14 +11,14 @@ void main() {
 
   setUp(() {
     vault = Directory.systemTemp.createTempSync('binary_conflict_log_test_');
-    Directory('${vault.path}/$kLocalSyncFolderName/Conflict Backups')
+    Directory('${vault.path}/$kFullBackupsFolder/Conflict Backups')
         .createSync(recursive: true);
   });
 
   tearDown(() => vault.deleteSync(recursive: true));
 
   BinaryConflictLogEntry _sample({String path = 'photo.jpg'}) {
-    final backupDir = '${vault.path}/$kLocalSyncFolderName/Conflict Backups';
+    final backupDir = '${vault.path}/$kFullBackupsFolder/Conflict Backups';
     File('$backupDir/photo - yours - 202608271200.jpg')
         .writeAsBytesSync([1, 2, 3]);
     File('$backupDir/photo - desktop - 202608271200.jpg')
@@ -66,7 +66,7 @@ void main() {
       // Original "ours" is still recoverable - swap never deletes the
       // backup it displaced, same convention as the markdown Undo.
       expect(
-          File('${vault.path}/$kLocalSyncFolderName/Conflict Backups/'
+          File('${vault.path}/$kFullBackupsFolder/Conflict Backups/'
                   'photo - yours - 202608271200.jpg')
               .existsSync(),
           isTrue);
@@ -85,7 +85,7 @@ void main() {
     });
 
     test('a corrupt log file is treated as empty, not a crash', () {
-      File('${vault.path}/$kLocalSyncFolderName/Conflict Backups/binary_conflicts.json')
+      File('${vault.path}/$kFullBackupsFolder/Conflict Backups/binary_conflicts.json')
           .writeAsStringSync('{not valid json');
       expect(scanBinaryConflictLog(vault.path), isEmpty);
     });

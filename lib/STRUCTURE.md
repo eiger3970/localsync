@@ -36,6 +36,26 @@ lib/
 
 ## Key design decisions
 
+### Rule: never write copies of notes where Obsidian or the sync can see them (2026-09-30)
+
+Every backup LocalSync makes (full copies, conflict copies, anything
+else) goes in the vault's hidden `.localsync_backups/`
+(`kFullBackupsFolder`, `vault_backup.dart`) on the phone and in the desktop
+script (`hide_backups`). Obsidian never indexes dot folders; the sync never
+stages it (`.git/info/exclude` plus `index.removeDirectory` / `git rm
+--cached`). Each device keeps its own copies. Users reach them through
+LocalSync -> Menu -> Backups and the compare screen, never through Obsidian
+or the Files app.
+
+Why: copies in the visible, synced `LocalSync/` folder were treated as real
+notes by Obsidian and its plugins, one root cause behind several bugs:
+13 duplicate reminder popups (2026-09-17), Rescue putting back 271 copies
+(2026-09-29), `GIT_ERROR_INDEX invalid path` from a copied `.git`
+(2026-09-29), and two full vault copies making both Obsidians index every
+note three times (2026-09-30: desktop 100% CPU, phone stuck on "Indexing
+vault"). Only `repo-name.txt` (and the `.localsync_folder` setting) may
+live in visible LocalSync folders.
+
 ### State machine (not async chain)
 The linking sequence parks at steps 4 and 6 waiting for user actions in
 external apps. A linear async chain would need artificial delays or polling.

@@ -19,8 +19,12 @@ class BackupFolder {
   const BackupFolder(this.relPath, this.files, this.bytes, {this.keep = false});
   String get name => relPath.split('/').last;
   /// 2026-09-30: a full copy in kFullBackupsFolder - never synced, so this
-  /// phone holds the only copy. Always kept.
-  bool get phoneOnly => relPath.startsWith('$kFullBackupsFolder/');
+  /// phone holds the only copy. Always kept. (Conflict Backups there can
+  /// still be cleaned - both sides of every conflict stay in the sync
+  /// history, and they're pruned after 30 days anyway.)
+  bool get phoneOnly =>
+      relPath.startsWith('$kFullBackupsFolder/') &&
+      RegExp(r'^(Vault )?Backup \d{12}').hasMatch(name);
 }
 
 /// Every folder directly inside a LocalSync folder, alphabetical.
@@ -53,7 +57,8 @@ List<BackupFolder> listBackupFolders(String vaultPath) {
   return [
     for (final f in found)
       BackupFolder(f.rel, f.files, f.bytes,
-          keep: f.rel == newest || f.rel.startsWith('$kFullBackupsFolder/')),
+          keep: f.rel == newest ||
+              BackupFolder(f.rel, 0, 0).phoneOnly),
   ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 }
 

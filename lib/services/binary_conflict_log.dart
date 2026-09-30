@@ -68,6 +68,7 @@ void appendBinaryConflictLogEntry(String vaultPath, BinaryConflictLogEntry entry
   final file = _logFile(vaultPath);
   final existing = _readAll(file);
   existing.add(entry);
+  file.parent.createSync(recursive: true);
   file.writeAsStringSync(jsonEncode(existing.map((e) => e.toJson()).toList()));
 }
 

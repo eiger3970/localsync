@@ -322,7 +322,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     if (!done && navContext != null) {
       ScaffoldMessenger.of(navContext).showSnackBar(const SnackBar(
           content: Text('Not undone - the note changed since the merge. '
-              'The backup is in LocalSync/Conflict Backups.')));
+              'The backup is in $kBackupsPlace.')));
     }
     if (mounted) {
       setState(() => _future = _scan());
@@ -1000,7 +1000,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // what to look for once Obsidian opens.
                                   final backupRelPath = result?.backupRelPath;
                                   final backupFileName = backupRelPath == null
-                                      ? '$lastKnownLocalSyncFolder/Conflict Backups'
+                                      ? kBackupsPlace
                                       : backupRelPath.split('/').last;
                                   // 2026-08-19: "why is the button link needed?
                                   // ... make 'backed up' a link" - first pass
@@ -1292,7 +1292,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // this exact note.
                                             TextSpan(
                                                 text:
-                                                    ' in $lastKnownLocalSyncFolder/Conflict Backups.'),
+                                                    ' in $kBackupsPlace.'),
                                           ],
                                         ),
                                       ),
@@ -1674,7 +1674,7 @@ class _ReferenceCalloutTileState extends State<ReferenceCalloutTile> {
             _SafetyPoint(
               icon: Icons.library_add_check,
               text:
-                  'A fresh copy is saved first, in $lastKnownLocalSyncFolder/Conflict Backups, '
+                  'A fresh copy is saved first, in $kBackupsPlace, '
                   'before anything is removed',
             ),
             _SafetyPoint(

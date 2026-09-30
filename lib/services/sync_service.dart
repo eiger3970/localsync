@@ -927,7 +927,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         return SyncOk(
             'Downloaded latest notes and automatically combined non-'
             'overlapping desktop changes to ${autoMergedPaths.join(", ")} '
-            '(both original versions saved to $lastKnownLocalSyncFolder/Conflict Backups '
+            '(both original versions saved to $kBackupsPlace '
             'first, in case anything needs a second look).');
       }
 
@@ -960,7 +960,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
           'Pull stopped: ${divergedPaths.join(", ")} has different real '
           'content on the desktop that couldn\'t be safely combined '
           'automatically$autoMergedNote. Saved the desktop\'s version to '
-          '$lastKnownLocalSyncFolder/Conflict Backups (${savedNames.join(", ")}) - please '
+          '$kBackupsPlace (${savedNames.join(", ")}) - please '
           'combine both by hand before syncing further.');
     }
 
@@ -1013,7 +1013,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       final backupNote = result.backedUp.isEmpty
           ? ''
           : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-              'that version was saved to $lastKnownLocalSyncFolder/Conflict Backups before '
+              'that version was saved to $kBackupsPlace before '
               'this push replaced it, just in case.';
       final repairNote = result.repaired.isEmpty
           ? ''
@@ -1084,7 +1084,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     final backupNote = result.backedUp.isEmpty
         ? ''
         : ' Desktop had changed ${result.backedUp.join(", ")} too - '
-            'that version was saved to $lastKnownLocalSyncFolder/Conflict Backups before '
+            'that version was saved to $kBackupsPlace before '
             'this push replaced it, just in case.';
     final repairNote = result.repaired.isEmpty
         ? ''
@@ -1669,11 +1669,11 @@ git.Tree _stageAndWriteTree(git.Repository repo) {
   // 2026-09-29: a copied .git inside a LocalSync backup (made before
   // backups skipped it) makes addAll fail "invalid path" on every sync.
   removeNestedGitCopies(vaultPath);
-  // 2026-09-30: full copies never sync - see kFullBackupsFolder. Older
-  // ones in LocalSync/ move to the hidden folder first, so this commit
-  // removes them from the other devices.
+  // 2026-09-30: backups never sync - see kFullBackupsFolder. Older ones
+  // in LocalSync/ move to the hidden folder first, so this commit removes
+  // them from the other devices.
   excludeFullBackupsFromSync(vaultPath);
-  moveFullBackupsToHiddenFolder(vaultPath);
+  moveBackupsToHiddenFolder(vaultPath);
   final index = repo.index;
   index.addAll(['*']);
   // Belt and braces with info/exclude: never stage a full copy.
