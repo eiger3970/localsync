@@ -44,6 +44,25 @@ String backupTimestamp() {
 // Build paths with localSyncFolder(vaultPath), not this constant.
 const kLocalSyncFolderName = 'LocalSync';
 
+/// 2026-09-30: real incident - two full "Backup <date>" copies (made by two
+/// phone links on 2026-09-29) sat in LocalSync/, synced to the desktop, and
+/// both Obsidians indexed every note three times: desktop Obsidian at 100%
+/// CPU, phone stuck on "Indexing vault". Full copies now go in this hidden
+/// folder at the vault's top level:
+///  - Obsidian never indexes a folder whose name starts with a dot;
+///  - the sync never sends it (excludeFullBackupsFromSync), so each device
+///    keeps its own copy and the other side never sees it;
+///  - still inside the vault, the only folder the security-scoped bookmark
+///    lets the app write to (see backupVaultIfNotEmpty), and it survives
+///    deleting the app and iLoader reinstalls - the app's own storage
+///    doesn't (sync_service.dart, "Fixed 2026-08-09").
+/// Reached from LocalSync -> ⋮ -> Backups (the Files app hides dot folders).
+const kFullBackupsFolder = '.localsync_backups';
+
+/// A full-copy folder name: "Backup <date>", or "Vault Backup <date>"
+/// from before 2026-09-25.
+final _fullBackupName = RegExp(r'^(Vault )?Backup \d{12}$');
+
 /// If [vaultPath] already has any content, copies the whole thing to a
 /// timestamped folder before the caller does anything destructive to
 /// it. Returns the backup's vault-relative path (e.g. "LocalSync/Vault
@@ -87,10 +106,63 @@ Future<String?> backupVaultIfNotEmpty(String vaultPath) async {
     for (final f in localSyncFolders(vaultPath)) '$vaultPath/$f',
   };
   removeNestedGitCopies(vaultPath);
+  excludeFullBackupsFromSync(vaultPath);
   await _copyDirectoryContents(
-      dir, Directory('$vaultPath/${localSyncFolder(vaultPath)}/$backupName'),
+      dir, Directory('$vaultPath/$kFullBackupsFolder/$backupName'),
       skipPaths: skipPaths);
-  return '${localSyncFolder(vaultPath)}/$backupName';
+  return '$kFullBackupsFolder/$backupName';
+}
+
+/// Adds kFullBackupsFolder to the vault repo's own .git/info/exclude, so
+/// staging never picks it up. Local to this device (info/exclude is never
+/// synced), and leaves the user's own .gitignore alone. No .git yet (a
+/// brand-new link backs up before Repository.init) - nothing to do; the
+/// next staging call writes it. Never throws.
+void excludeFullBackupsFromSync(String vaultPath) {
+  try {
+    if (!Directory('$vaultPath/.git').existsSync()) return;
+    final file = File('$vaultPath/.git/info/exclude');
+    const line = '/$kFullBackupsFolder/';
+    final existing = file.existsSync() ? file.readAsStringSync() : '';
+    if (existing.split('\n').any((l) => l.trim() == line)) return;
+    file.parent.createSync(recursive: true);
+    final sep = existing.isEmpty || existing.endsWith('\n') ? '' : '\n';
+    file.writeAsStringSync('$existing$sep$line\n');
+  } catch (_) {
+    // Best-effort - staging also drops the folder from the index directly.
+  }
+}
+
+/// Moves every full copy ("Backup <date>", "Vault Backup <date>") still
+/// sitting in a LocalSync folder into kFullBackupsFolder - vaults backed up
+/// before 2026-09-30. A move inside the same vault, nothing copied or
+/// deleted; the next sync removes them from the other devices, whose own
+/// copies are the same synced files. Returns how many were moved.
+int moveFullBackupsToHiddenFolder(String vaultPath) {
+  var moved = 0;
+  for (final lsf in localSyncFolders(vaultPath)) {
+    if (lsf == kFullBackupsFolder) continue;
+    final dir = Directory('$vaultPath/$lsf');
+    if (!dir.existsSync()) continue;
+    for (final e in dir.listSync()) {
+      if (e is! Directory) continue;
+      final name = e.path.split('/').last;
+      if (!_fullBackupName.hasMatch(name)) continue;
+      try {
+        final destRoot = Directory('$vaultPath/$kFullBackupsFolder')
+          ..createSync(recursive: true);
+        var dest = '${destRoot.path}/$name';
+        for (var n = 2; Directory(dest).existsSync(); n++) {
+          dest = '${destRoot.path}/$name ($n)';
+        }
+        e.renameSync(dest);
+        moved++;
+      } catch (_) {
+        // Left where it is - still a backup, just still visible.
+      }
+    }
+  }
+  return moved;
 }
 
 /// 2026-09-06: real feedback - "will they fill up a user's phone

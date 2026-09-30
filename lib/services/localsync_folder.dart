@@ -25,7 +25,7 @@
 
 import 'dart:io';
 
-import 'vault_backup.dart' show kLocalSyncFolderName;
+import 'vault_backup.dart' show kFullBackupsFolder, kLocalSyncFolderName;
 
 /// Hidden file at the vault's top level holding the folder's
 /// vault-relative path, e.g. "Projects/LocalSync".
@@ -89,12 +89,12 @@ String conflictBackupsDir(String vaultPath) =>
 /// configured one plus the default, since backups written before the
 /// setting changed stay where they are (never moved automatically -
 /// they're the user's safety copies). Scanners and verifiers skip all
-/// of them.
+/// of them. 2026-09-30: plus the hidden full-copy folder, last.
 List<String> localSyncFolders(String vaultPath) {
   final configured = localSyncFolder(vaultPath);
   return configured == kLocalSyncFolderName
-      ? [kLocalSyncFolderName]
-      : [configured, kLocalSyncFolderName];
+      ? [kLocalSyncFolderName, kFullBackupsFolder]
+      : [configured, kLocalSyncFolderName, kFullBackupsFolder];
 }
 
 /// True if [relPath] (vault-relative) sits inside any LocalSync folder.

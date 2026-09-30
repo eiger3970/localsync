@@ -723,7 +723,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // check exists for.
       if (!p.confirmed) {
         final counts = _diffFileCounts(repo, localOid, remoteOid);
-        if (_isLargeDeletion(counts)) {
+        if (_isLargeDeletion(counts, p.vaultPath)) {
           return SyncNeedsConfirmation(
             addedFiles: counts.added,
             removedFiles: counts.removed,
@@ -1064,7 +1064,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     if (!p.confirmed) {
       final newLocalOid = repo.head.target;
       final counts = _diffFileCounts(repo, remoteOid, newLocalOid);
-      if (_isLargeDeletion(counts)) {
+      if (_isLargeDeletion(counts, p.vaultPath)) {
         return SyncNeedsConfirmation(
           addedFiles: counts.added,
           removedFiles: counts.removed,
@@ -1541,13 +1541,21 @@ List<String> verifyWorkingTreeMatchesHead(
 /// guards against is bulk/accidental emptying (a whole folder or vault
 /// gone missing), not the ordinary one-note-deleted case, so this only
 /// trips on a handful or more of files disappearing at once.
+// 2026-09-30: LocalSync's own backup copies don't count - removing them
+// (Clean up, or the full copies moving to kFullBackupsFolder) is never
+// the user's notes going missing, and asked the user to confirm 6,885
+// removed backup files.
 bool _isLargeDeletion(
         ({
           List<String> added,
           List<String> removed,
           List<String> modified
-        }) counts) =>
-    counts.removed.length >= 3;
+        }) counts,
+        String vaultPath) {
+  final own = localSyncFolders(vaultPath);
+  return counts.removed.where((f) => !isInLocalSyncFolder(f, own)).length >=
+      3;
+}
 
 /// 2026-09-17: real bug, live - a user hit 13 duplicate popups for the
 /// same single overdue task. Root cause: Obsidian's reminder plugin
@@ -1655,13 +1663,21 @@ List<String> backupFilesAboutToChange(git.Repository repo, String vaultPath,
 }
 
 git.Tree _stageAndWriteTree(git.Repository repo) {
+  final vaultPath = repo.workdir.endsWith('/')
+      ? repo.workdir.substring(0, repo.workdir.length - 1)
+      : repo.workdir;
   // 2026-09-29: a copied .git inside a LocalSync backup (made before
   // backups skipped it) makes addAll fail "invalid path" on every sync.
-  removeNestedGitCopies(repo.workdir.endsWith('/')
-      ? repo.workdir.substring(0, repo.workdir.length - 1)
-      : repo.workdir);
+  removeNestedGitCopies(vaultPath);
+  // 2026-09-30: full copies never sync - see kFullBackupsFolder. Older
+  // ones in LocalSync/ move to the hidden folder first, so this commit
+  // removes them from the other devices.
+  excludeFullBackupsFromSync(vaultPath);
+  moveFullBackupsToHiddenFolder(vaultPath);
   final index = repo.index;
   index.addAll(['*']);
+  // Belt and braces with info/exclude: never stage a full copy.
+  index.removeDirectory(kFullBackupsFolder);
   index.write();
   final treeOid = index.writeTree(repo);
   return git.Tree.lookup(repo: repo, oid: treeOid);

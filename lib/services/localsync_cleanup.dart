@@ -9,6 +9,7 @@
 // history (Restore deleted files).
 import 'dart:io';
 import 'localsync_folder.dart';
+import 'vault_backup.dart' show kFullBackupsFolder;
 
 class BackupFolder {
   final String relPath; // vault-relative, e.g. LocalSync/Conflict Backups
@@ -17,6 +18,9 @@ class BackupFolder {
   final bool keep; // the newest "Backup <date>" - never cleaned up
   const BackupFolder(this.relPath, this.files, this.bytes, {this.keep = false});
   String get name => relPath.split('/').last;
+  /// 2026-09-30: a full copy in kFullBackupsFolder - never synced, so this
+  /// phone holds the only copy. Always kept.
+  bool get phoneOnly => relPath.startsWith('$kFullBackupsFolder/');
 }
 
 /// Every folder directly inside a LocalSync folder, alphabetical.
@@ -44,11 +48,12 @@ List<BackupFolder> listBackupFolders(String vaultPath) {
       .where((f) => RegExp(r'^Backup \d{12}$').hasMatch(f.rel.split('/').last))
       .map((f) => f.rel)
       .toList()
-    ..sort();
+    ..sort((a, b) => a.split('/').last.compareTo(b.split('/').last));
   final newest = backups.isEmpty ? null : backups.last;
   return [
     for (final f in found)
-      BackupFolder(f.rel, f.files, f.bytes, keep: f.rel == newest),
+      BackupFolder(f.rel, f.files, f.bytes,
+          keep: f.rel == newest || f.rel.startsWith('$kFullBackupsFolder/')),
   ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 }
 

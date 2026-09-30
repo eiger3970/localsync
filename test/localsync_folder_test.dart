@@ -33,7 +33,7 @@ void main() {
   group('localSyncFolder', () {
     test('defaults when no file exists', () {
       expect(localSyncFolder(vault.path), kLocalSyncFolderName);
-      expect(localSyncFolders(vault.path), [kLocalSyncFolderName]);
+      expect(localSyncFolders(vault.path), [kLocalSyncFolderName, kFullBackupsFolder]);
     });
 
     test('reads the configured folder and keeps the default as legacy', () {
@@ -41,7 +41,7 @@ void main() {
           .writeAsStringSync('Projects/LocalSync\n');
       expect(localSyncFolder(vault.path), 'Projects/LocalSync');
       expect(localSyncFolders(vault.path),
-          ['Projects/LocalSync', kLocalSyncFolderName]);
+          ['Projects/LocalSync', kLocalSyncFolderName, kFullBackupsFolder]);
       expect(conflictBackupsDir(vault.path),
           '${vault.path}/Projects/LocalSync/Conflict Backups');
       expect(lastKnownLocalSyncFolder, 'Projects/LocalSync');
@@ -90,10 +90,11 @@ void main() {
     File('${vault.path}/Projects/plan.md').writeAsStringSync('real note');
     File('${vault.path}/note.md').writeAsStringSync('top note');
 
+    // 2026-09-30: full copies go in the hidden kFullBackupsFolder now.
     expect(await backupVaultIfNotEmpty(vault.path),
-        startsWith('Projects/LocalSync/Backup '));
+        startsWith('$kFullBackupsFolder/Backup '));
 
-    final backups = Directory('${vault.path}/Projects/LocalSync')
+    final backups = Directory('${vault.path}/$kFullBackupsFolder')
         .listSync()
         .whereType<Directory>()
         .where((d) => d.path.contains('/Backup '))

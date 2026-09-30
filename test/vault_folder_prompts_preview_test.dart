@@ -84,7 +84,7 @@ void main() {
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: BackupReminderCard(
-              backupRelPath: 'LocalSync/Vault Backup 202609241415',
+              backupRelPath: '.localsync_backups/Backup 202609241415',
               vaultPath: '/private/var/mobile/Containers/Data/Application/A/Documents/Obsidian_phone_vault',
               onOpenObsidian: () async {}),
         ),
