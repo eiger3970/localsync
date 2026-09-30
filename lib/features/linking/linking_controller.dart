@@ -312,6 +312,8 @@ class LinkingController extends ChangeNotifier {
   /// Where the first clone backed up the folder's earlier content
   /// (vault-relative), or null if it was empty - for the success screen.
   String? get lastVaultBackupRelPath => _lastVaultBackupRelPath;
+  @visibleForTesting
+  set debugLastVaultBackupRelPath(String? v) => _lastVaultBackupRelPath = v;
 
   Future<void> pickVaultFolder(
       {Future<bool> Function(VaultFolderCheck check)? confirm}) async {

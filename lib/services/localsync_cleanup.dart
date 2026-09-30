@@ -76,6 +76,18 @@ int cleanUpBackupFolders(String vaultPath, List<BackupFolder> folders) {
   return freed;
 }
 
+/// 2026-09-30: Ken - "users who need to maximise storage need an easy
+/// option to delete this doubling of size." One full copy, on purpose
+/// (the Backups screen confirms first - it's this phone's only copy).
+/// Only ever inside kFullBackupsFolder. Returns bytes freed.
+int deleteFullBackup(String vaultPath, BackupFolder f) {
+  if (!f.phoneOnly) return 0;
+  final dir = Directory('$vaultPath/${f.relPath}');
+  if (!dir.existsSync()) return 0;
+  dir.deleteSync(recursive: true);
+  return f.bytes;
+}
+
 String formatBytes(int b) {
   if (b < 1024) return '$b B';
   if (b < 1024 * 1024) return '${(b / 1024).round()} KB';

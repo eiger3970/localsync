@@ -103,6 +103,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   // all details are filled in the screen, is it possible to glow the
   // Save button, so the new user knows where the next action should be?"
   bool _scanFilled = false;
+  // 2026-09-30: Ken - the yellow box repeated fields 1-4 ("isn't this a
+  // repeat of the information below?"). The box now only says Desktop
+  // found; each field the QR filled says so itself.
+  final Set<int> _fromQr = {};
   String? _userError;
   String? _ipError;
   String? _pathError;
@@ -226,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       (widget.neededForPairing &&
           (_userCtrl.text.trim().isNotEmpty || _ipCtrl.text.trim().isNotEmpty));
 
-  Widget _stepHeader(String text, bool ok) => Row(
+  Widget _stepHeader(String text, bool ok, {int? field}) => Row(
         children: [
           Flexible(
             child: Text(text,
@@ -246,8 +250,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                     key: const ValueKey('ok'), color: kGreen, size: 16)
                 : const SizedBox(key: ValueKey('no'), width: 16, height: 16),
           ),
+          if (field != null && _fromQr.contains(field)) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.qr_code_2, color: kGreen, size: 15),
+            const SizedBox(width: 3),
+            Text('FROM QR',
+                style: TextStyle(
+                    color: kGreen,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2)),
+          ],
         ],
       );
+
+  /// Preview tests only: the state right after a complete QR scan.
+  @visibleForTesting
+  void debugShowScanned(List<String> values) {
+    setState(() {
+      final fields = [_userCtrl, _ipCtrl, _pathCtrl, _vaultPathCtrl];
+      for (var i = 0; i < values.length; i++) {
+        fields[i].text = values[i];
+        if (values[i].isNotEmpty) _fromQr.add(i);
+      }
+      _scanFilled = true;
+      _continuing = true;
+      _continueCtrl.value = 0.3;
+    });
+  }
 
   // 2026-09-27: Ken - "Progress bar also in yellow box which happens if
   // 4 of 4 correct." A complete scan fills this bar in place of the note
@@ -257,10 +287,15 @@ class _SettingsScreenState extends State<SettingsScreen>
       // be like 30 seconds" - 30 s, with Continue now to skip the wait.
       AnimationController(vsync: this, duration: const Duration(seconds: 30));
   bool _continuing = false;
+  // 2026-09-30: real bug, live - "tapped Continue now, the bar filled, but
+  // the screen just sits there." Setting value stops the controller as
+  // CANCELED, so the wait below took the Cancel path. This flag tells the
+  // two apart.
+  bool _continueNowTapped = false;
 
   void _continueNow() {
+    _continueNowTapped = true;
     _continueCtrl.value = 1;
-    _continueCtrl.stop(canceled: false);
   }
 
   void _cancelContinue() {
@@ -275,10 +310,6 @@ class _SettingsScreenState extends State<SettingsScreen>
             ? const EdgeInsets.only(top: 16)
             : const EdgeInsets.only(bottom: 20),
         child: ScanContinuePanel(
-          user: _userCtrl.text.trim(),
-          ip: _ipCtrl.text.trim(),
-          syncFolder: _pathCtrl.text.trim(),
-          vaultPath: _isFreeFolder ? '' : _vaultPathCtrl.text.trim(),
           progress: _continueCtrl,
           onBanner: widget.neededForPairing,
           onCancel: _cancelContinue,
@@ -358,9 +389,13 @@ class _SettingsScreenState extends State<SettingsScreen>
       // screen's build() to actually re-run to notice.
       setState(() {
         final fields = [_userCtrl, _ipCtrl, _pathCtrl, _vaultPathCtrl];
+        _fromQr.clear();
         for (var i = 0; i < fields.length && i + 1 < lines.length; i++) {
           final value = lines[i + 1].trim();
-          if (value.isNotEmpty) fields[i].text = value;
+          if (value.isNotEmpty) {
+            fields[i].text = value;
+            _fromQr.add(i);
+          }
         }
       });
       _scanFilled = true;
@@ -395,10 +430,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       await _save(closeAfter: false);
       if (!_canSave || !mounted) return;
       setState(() => _continuing = true);
+      _continueNowTapped = false;
       try {
         await _continueCtrl.forward(from: 0).orCancel;
       } on TickerCanceled {
-        return;
+        if (!_continueNowTapped) return; // Cancel - check details
       }
       if (!mounted || !_continuing) return;
       Navigator.pop(context);
@@ -1584,7 +1620,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 20),
             ],
             if (!widget.neededForPairing) _readyNote(),
-            _stepHeader('1. DESKTOP USERNAME', _userOk),
+            _stepHeader('1. DESKTOP USERNAME', _userOk, field: 0),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1647,7 +1683,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // preference, not a bug fix. Renamed to match the "DESKTOP
             // ..." prefix every other step here already uses (was the
             // only one starting with the field name instead).
-            _stepHeader('2. DESKTOP IP ADDRESS', _ipOk),
+            _stepHeader('2. DESKTOP IP ADDRESS', _ipOk, field: 1),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2169,7 +2205,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                 _isFreeFolder
                     ? '3. DESKTOP SYNC FOLDER'
                     : '3. DESKTOP SYNC FOLDER (git bare repo path)',
-                true),
+                true,
+                field: 2),
             const SizedBox(height: 6),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2602,7 +2639,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             // space-only gap.
             if (!_isFreeFolder) ...[
               const SizedBox(height: 40),
-              _stepHeader('4. DESKTOP VAULT PATH (optional)', true),
+              _stepHeader('4. DESKTOP VAULT PATH (optional)', true, field: 3),
               const SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3656,37 +3693,11 @@ class _SettingsTile extends StatelessWidget {
 class ScanContinuePanel extends StatelessWidget {
   const ScanContinuePanel(
       {super.key,
-      required this.user,
-      required this.ip,
-      this.syncFolder = '',
-      this.vaultPath = '',
       required this.progress,
       required this.onBanner,
       required this.onCancel,
       required this.onContinue});
-  final String user;
-  final String ip;
-  final String syncFolder;
-  final String vaultPath;
   final Animation<double> progress;
-
-  // Last path segment only ("Md_files_bare", not the full path) - the
-  // full paths stay in the fields, one Cancel away.
-  static String _short(String path) {
-    final parts = path.split('/').where((p) => p.isNotEmpty).toList();
-    if (parts.isEmpty) return '';
-    return parts.last.replaceFirst(RegExp(r'\.git$'), '');
-  }
-
-  List<(String, String)> get _rows {
-    final sync = _short(syncFolder);
-    final vault = _short(vaultPath);
-    return [
-      ('Desktop', '$user at $ip'),
-      ('Sync folder', sync.isEmpty ? 'Automatic' : sync),
-      ('Vault', vault.isEmpty ? 'Automatic' : vault),
-    ];
-  }
 
   final bool onBanner;
   final VoidCallback onCancel;
@@ -3698,11 +3709,10 @@ class ScanContinuePanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 2026-09-29: Ken - "In the stress of 30 seconds ... the user and I
-        // are lost on what to be looking for. Make these 3 lines clear
-        // with PARC ... same spacing apart ... the info after the colon
-        // vertically aligned under the same column." Heading, then one
-        // table: labels in one column, values in the next, equal rows.
+        // 2026-09-30: Ken - the Desktop / Sync folder / Vault lines
+        // repeated fields 1-4 right below ("isn't this a repeat?"). The
+        // heading says the scan worked; the fields say what it filled
+        // (FROM QR tags, _stepHeader).
         Row(
           children: [
             Icon(Icons.check_circle, color: fg, size: 22),
@@ -3711,36 +3721,6 @@ class ScanContinuePanel extends StatelessWidget {
                 style: TextStyle(
                     color: fg, fontSize: 17, fontWeight: FontWeight.w700)),
           ],
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 30),
-          child: Table(
-            columnWidths: const {
-              0: IntrinsicColumnWidth(),
-              1: FlexColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.top,
-            children: [
-              for (final (label, value) in _rows)
-                TableRow(children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 14, bottom: 6),
-                    child: Text(label,
-                        style: TextStyle(
-                            color: fg.withValues(alpha: 0.75), fontSize: 15)),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(value,
-                        style: TextStyle(
-                            color: fg,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ]),
-            ],
-          ),
         ),
         const SizedBox(height: 12),
         AnimatedBuilder(

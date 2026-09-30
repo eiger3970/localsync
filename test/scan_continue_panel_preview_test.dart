@@ -22,11 +22,6 @@ void main() {
                 color: const Color(0xFFFFC107),
                 borderRadius: BorderRadius.circular(12)),
             child: ScanContinuePanel(
-              user: 'rapi5',
-              ip: '172.20.10.2',
-              syncFolder:
-                  '/home/rapi5/Documents/Git/pi5-obsidian/Git_bare_repo/Md_files_bare.git',
-              vaultPath: '/home/rapi5/Documents/Obsidian_vault',
               progress: const AlwaysStoppedAnimation(0.3),
               onBanner: true,
               onCancel: () {},
