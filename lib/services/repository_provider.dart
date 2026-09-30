@@ -369,7 +369,7 @@ class RepositoryProvider extends ChangeNotifier {
     // launch behavior is "bring in whatever's new", i.e. a pull, never
     // a push of local changes the user hasn't reviewed yet.
     for (final repo in _repos.where((r) => r.autoSync)) {
-      final result = await pullRepository(repo.id!);
+      final result = await pullRepository(repo.id!, background: true);
       if (result case SyncOkWithConflicts()) {
         _pendingConflictRepoId = repo.id;
         notifyListeners();
@@ -420,16 +420,39 @@ class RepositoryProvider extends ChangeNotifier {
   final Map<int, bool> _lastActionWasPush = {};
   bool lastActionWasPush(int id) => _lastActionWasPush[id] ?? false;
 
-  Future<SyncResult?> pullRepository(int id, {bool confirmed = false}) {
+  // 2026-09-30: real bug, live - "Desktop sync complete" and its sound,
+  // then a swipe got "Sync running - wait to finish". The silent sync that
+  // runs when the app opens held the lock, and Desktop sync didn't take it
+  // at all. Now: [background] syncs (app open, launch) never refuse a
+  // swipe - it waits its turn behind them; only the user's own syncs make
+  // isUserSyncBusy true. Desktop sync takes the same lock (below).
+  int _userOps = 0;
+  bool get isUserSyncBusy => _userOps > 0;
+
+  Future<T> _asUser<T>(bool background, Future<T> Function() op) async {
+    if (background) return op();
+    _userOps++;
+    try {
+      return await op();
+    } finally {
+      _userOps--;
+    }
+  }
+
+  Future<SyncResult?> pullRepository(int id,
+      {bool confirmed = false, bool background = false}) {
     _lastActionWasPush[id] = false;
-    return _run(id, (service) => service.pull(confirmed: confirmed));
+    return _asUser(background,
+        () => _run(id, (service) => service.pull(confirmed: confirmed)));
   }
 
   Future<SyncResult?> pushRepository(int id,
-      {String? commitMessage, bool confirmed = false}) {
+      {String? commitMessage, bool confirmed = false, bool background = false}) {
     _lastActionWasPush[id] = true;
-    return _run(id, (service) =>
-        service.push(commitMessage: commitMessage, confirmed: confirmed));
+    return _asUser(
+        background,
+        () => _run(id, (service) =>
+            service.push(commitMessage: commitMessage, confirmed: confirmed)));
   }
 
   // 2026-09-17: real gap found, live - "run it sooner yourself if you
@@ -482,7 +505,26 @@ class RepositoryProvider extends ChangeNotifier {
     );
   }
 
-  Future<SyncResult?> triggerDesktopSyncNow(int id) async {
+  Future<SyncResult?> triggerDesktopSyncNow(int id) =>
+      _asUser(false, () => _desktopSyncLocked(id));
+
+  // Same lock as push/pull: waits for any sync still running (e.g. the
+  // silent one on app open), so "Desktop sync complete" means everything
+  // is finished and the next swipe runs straight away.
+  Future<SyncResult?> _desktopSyncLocked(int id) async {
+    final prior = _inFlight;
+    final completer = Completer<void>();
+    _inFlight = completer.future;
+    if (prior != null) await prior.catchError((_) {});
+    try {
+      return await _desktopSyncNow(id);
+    } finally {
+      completer.complete();
+      if (identical(_inFlight, completer.future)) _inFlight = null;
+    }
+  }
+
+  Future<SyncResult?> _desktopSyncNow(int id) async {
     await _ensureReachableHost(id);
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
         StateError('triggerDesktopSyncNow: no repo with id $id'));
