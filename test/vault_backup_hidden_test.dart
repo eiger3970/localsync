@@ -78,4 +78,10 @@ void main() {
     expect(File('$v/$kFullBackupsFolder/Backup 202609291652/a.md').existsSync(), isTrue);
     expect(Directory('$v/$kFullBackupsFolder/Conflict Backups').existsSync(), isFalse);
   });
+
+  test('full copy date comes from its name', () {
+    expect(fullBackupDate('Backup 202609291652'), DateTime(2026, 9, 29, 16, 52));
+    expect(fullBackupDate('Backup 202609291652 (2)'), DateTime(2026, 9, 29, 16, 52));
+    expect(fullBackupDate('Conflict Backups'), isNull);
+  });
 }
