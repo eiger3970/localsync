@@ -76,6 +76,50 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
+  // 2026-09-30: user - "users who need to maximise storage need an easy
+  // option to delete this doubling of size." A full copy is as big as all
+  // the notes, and the phone's only copy - so one tap, then a confirm.
+  Future<void> _deleteFull(BackupFolder f) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Row(children: [
+          Icon(Icons.delete_outline, color: kStar, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text('Delete ${f.name}?',
+                  style: TextStyle(color: kStar, fontSize: 17))),
+        ]),
+        content: Text(
+            'Frees ${formatBytes(f.bytes)}.\n'
+            '- Copy: your notes as they were before a phone link\n'
+            '- Desktop: has no copy of it\n'
+            '- Safe to delete: once your notes look right',
+            style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text('CANCEL', style: TextStyle(color: kTextDim))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text('DELETE',
+                  style: TextStyle(
+                      color: Colors.redAccent, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await context
+          .read<RepositoryProvider>()
+          .withRepoFolder(widget.repo, (path) => deleteFullBackup(path, f));
+      await _load();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
   // 2026-09-30: Conflict Backups are hidden from Obsidian now - tap the
   // row to open them in the compare list.
   Widget _row(BackupFolder f) => f.name == 'Conflict Backups'
@@ -111,7 +155,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   if (f.keep)
                     TextSpan(
                         text: f.phoneOnly
-                            ? ' · THIS PHONE ONLY, KEPT'
+                            ? ' · THIS PHONE ONLY'
                             : ' · NEWEST, KEPT',
                         style: TextStyle(
                             color: kGreen, fontWeight: FontWeight.w700)),
@@ -123,6 +167,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
               style: TextStyle(
                   color: kStar, fontSize: 14, fontWeight: FontWeight.w700)),
           if (open) Icon(Icons.chevron_right, color: kTextMid, size: 22),
+          if (f.phoneOnly)
+            IconButton(
+              onPressed: _busy ? null : () => _deleteFull(f),
+              icon: const Icon(Icons.delete_outline),
+              color: kTextMid,
+              tooltip: 'Delete',
+            ),
         ]),
       );
 
@@ -230,8 +281,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                          'Full copies are always kept. Conflict copies are '
-                          'removed by themselves after 30 days anyway.',
+                          'Full copies: delete one by one with its bin icon. '
+                          'Conflict copies are removed by themselves after 30 days.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: kTextDim, fontSize: 12.5)),
                     ],

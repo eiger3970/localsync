@@ -41,7 +41,6 @@ import 'settings_screen.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/folder_route_view.dart';
 import '../services/files_app_path.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
 // black screen" / "I swiped right [LOCALSYNC HOME] and blackscreen".
@@ -2626,6 +2625,11 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
 // screen (not deferred to the DONE tap, so it happens even if the user
 // backgrounds the app before tapping DONE), guarded against duplicates
 // for re-runs of setup against the same desktop repo.
+/// Preview tests only: the final "Your notes have arrived!" screen.
+@visibleForTesting
+Widget completeViewForPreview(LinkingController ctrl) =>
+    _CompleteView(ctrl: ctrl);
+
 class _CompleteView extends StatefulWidget {
   final LinkingController ctrl;
   const _CompleteView({required this.ctrl});
@@ -2890,51 +2894,10 @@ class _CompleteViewState extends State<_CompleteView>
           if (widget.ctrl.lastVaultBackupRelPath != null) ...[
             const SizedBox(height: 14),
             BackupReminderCard(
-              backupRelPath: widget.ctrl.lastVaultBackupRelPath!,
-              vaultPath: widget.ctrl.pickedVaultPath,
-              onOpenObsidian: widget.ctrl.openObsidianNow,
-            ),
+                backupRelPath: widget.ctrl.lastVaultBackupRelPath!),
           ],
-          const SizedBox(height: 14),
-          // Fixed 2026-08-09: this used to say "Your phone vault is
-          // linked to your desktop" - overclaiming. Localsync can only
-          // verify that files were downloaded onto the phone (checked
-          // in _verifySync()); it has no way to confirm Obsidian was
-          // ever actually pointed at that folder - no cross-app
-          // introspection on iOS. Real device feedback: a user reached
-          // this screen without ever having opened the folder as a
-          // vault in Obsidian ("Localsync" never appeared in Obsidian's
-          // own vault list), and the old wording had already told them
-          // they were fully linked. Now honest about what's actually
-          // still required, with a direct way to do it from here.
-          // Rewritten 2026-08-09 alongside the vault-folder-picker
-          // rework: the old copy told the user to go select the vault
-          // in Obsidian "if you haven't already" - stale as of this
-          // rewrite, since selecting the vault folder is now a
-          // precondition of reaching this screen at all (it happens
-          // before the clone, not after). This screen is reached only
-          // once Localsync already has real access to that same folder
-          // Obsidian is showing.
-          Text(
-            // 2026-08-14: was hardcoded to a literal "Localsync" vault
-            // name - stale now that step 1's instructions never tell
-            // the user to type that specific name (see
-            // vaultCreationSteps). Uses the actual picked folder's
-            // name, same value OPEN OBSIDIAN below now deep-links to.
-            // 2026-08-28: branched on syncMode - a Tier 0 user may have
-            // no $kNoteAppName installed at all (see
-            // startLinkingGenericFolder's doc comment), so "vault in
-            // Obsidian" was an actively wrong claim for that flow, not
-            // just unpolished copy.
-            widget.ctrl.syncMode == SyncMode.genericFolder
-                ? 'Your files have been synced into\n'
-                    '"${widget.ctrl.pickedVaultPath?.split('/').last ?? 'folder'}".'
-                : 'Your notes have been downloaded into\n'
-                    '"${widget.ctrl.pickedVaultPath?.split('/').last ?? kContainerName}" '
-                    'vault in $kNoteAppName.',
-            style: TextStyle(color: kTextMid, fontSize: 15, height: 1.7),
-            textAlign: TextAlign.center,
-          ),
+          // 2026-09-30: "Your notes have been downloaded into <vault>" gone
+          // - the heading above already says it (user: "verbose").
           const SizedBox(height: 16),
           // 2026-08-28: the whole "Finish up in Obsidian" section below
           // (trust-plugins prompt, indexing wait, community-plugins
@@ -2980,32 +2943,14 @@ class _CompleteViewState extends State<_CompleteView>
               steps: const [
                 '@localsync swipe up to open $kNoteAppName',
                 '@obsidian tap Trust author and enable plugins',
-                '@obsidian wait for Indexing vault... to finish',
                 // 2026-09-29: the user's wording, verbatim.
                 '@obsidian Community plugins, tap X to set up later',
                 '@phone switch back to the LocalSync app',
               ],
             ),
-            // 2026-09-29: user - "Indexing vault ... completes and a user
-            // thinks it's finished. Then upon a new session it reappears
-            // ... leads the user to suspect something is wrong." Obsidian's
-            // own index, not LocalSync - said up front so it isn't blamed.
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, color: kTextMid, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                      '$kNoteAppName may show "Indexing vault..." again the '
-                      'next few times you open it. That\'s normal with many '
-                      'notes - it settles by itself.',
-                      style: TextStyle(
-                          color: kTextMid, fontSize: 14, height: 1.4)),
-                ),
-              ],
-            ),
+            // 2026-09-30: the "Indexing vault may show again" note is gone -
+            // a normal start is a few minutes, and the repeats were
+            // LocalSync's own backup copies (fixed, kFullBackupsFolder).
             const SizedBox(height: 16),
           ],
           Center(
@@ -3850,103 +3795,23 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
 /// earlier files.
 @visibleForTesting
 class BackupReminderCard extends StatelessWidget {
+  // 2026-09-30: user - "The final install screen is verbose." Was a card
+  // with a 5-line folder route, a desktop-copy paragraph and OPEN IN
+  // OBSIDIAN (the swipe below already opens it). One line now - where to
+  // find the copy, always in the hidden .localsync_backups.
   final String backupRelPath;
-  // The linked vault as the picker returned it - drawn as a folder
-  // route, and SHOW IN FILES's target.
-  final String? vaultPath;
-  // LinkingController.openObsidianNow - opens the just-linked vault.
-  final Future<void> Function() onOpenObsidian;
-  const BackupReminderCard(
-      {super.key,
-      required this.backupRelPath,
-      required this.vaultPath,
-      required this.onOpenObsidian});
+  const BackupReminderCard({super.key, required this.backupRelPath});
 
   @override
-  Widget build(BuildContext context) {
-    final route = vaultPath == null ? <String>[] : filesAppRoute(vaultPath!);
-    final backupParts =
-        backupRelPath.split('/').where((p) => p.isNotEmpty).toList();
-    final hidden = backupParts.first.startsWith('.');
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: kSurface,
-          border: Border.all(color: kGreen.withValues(alpha: 0.5))),
-      child: Column(
+  Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('YOUR EARLIER FILES ARE SAFE',
-              style: TextStyle(
-                  color: kGreen,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2)),
-          const SizedBox(height: 10),
-          // 2026-09-30: full copies live in the vault's hidden
-          // .localsync_backups folder - not in the Files app, never synced.
-          FolderRouteView(hidden
-              ? fullBackupCrumbs(backupParts.last)
-              : [
-                  const Crumb('Phone home screen', CrumbKind.home),
-                  const Crumb('Files', CrumbKind.filesApp),
-                  ...crumbsFromRoute(route, vaultIndex: route.length - 1),
-                  for (var i = 0; i < backupParts.length; i++)
-                    Crumb(
-                        backupParts[i],
-                        i == backupParts.length - 1
-                            ? CrumbKind.backup
-                            : CrumbKind.folder),
-                ]),
-          const SizedBox(height: 10),
-          Text(
-              hidden
-                  ? 'On this phone only, never synced.'
-                  : 'Delete it once your notes look right.',
-              style: TextStyle(color: kTextMid, fontSize: 13)),
-          // 2026-09-25: user - desktop backup "absolutely, but inform user
-          // it actions and the location" / "might be polite". The desktop
-          // script copies its folder once before its first sync
-          // (desktop/localsync_sync.sh, "Backup before the first sync").
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.computer, color: kTextMid, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                    'Your desktop keeps a copy too, before its first sync: '
-                    'Documents -> LocalSync Backups',
-                    style: TextStyle(color: kTextMid, fontSize: 13)),
-              ),
-            ],
-          ),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 4,
-            children: [
-              if (vaultPath != null && !hidden)
-                TextButton(
-                  onPressed: () => launchUrl(
-                      filesAppUri('$vaultPath/$backupRelPath'),
-                      mode: LaunchMode.externalApplication),
-                  child: Text('SHOW IN FILES',
-                      style: TextStyle(
-                          color: kGreen, fontWeight: FontWeight.w700)),
-                ),
-              TextButton(
-                onPressed: onOpenObsidian,
-                child: Text('OPEN IN OBSIDIAN',
-                    style:
-                        TextStyle(color: kGreen, fontWeight: FontWeight.w700)),
-              ),
-            ],
+          Icon(Icons.shield_outlined, color: kGreen, size: 18),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text('Earlier files kept: LocalSync -> Menu -> Backups',
+                style: TextStyle(color: kTextMid, fontSize: 14)),
           ),
         ],
-      ),
-    );
-  }
+      );
 }
