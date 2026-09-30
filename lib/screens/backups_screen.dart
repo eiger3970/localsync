@@ -1,9 +1,11 @@
 // screens/backups_screen.dart
 //
 // 2026-09-29: Ken - Backups: every LocalSync safety-copy folder with its
-// file count and size, one Clean up button that keeps the newest Backup,
-// then a sync straight away ("A sync needs to run after a fix") so the
-// desktop is cleaned too. Approved from the HTML preview the same day.
+// file count and size. Approved from the HTML preview the same day.
+// 2026-09-30: Ken - "This means nothing to me. What backups? The whole
+// vault, the what? Why are these backed up? Have a delete all option."
+// Rows now say what each copy is and why it exists, in plain words; each
+// row has a bin, and one Delete all clears the lot.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/repository.dart';
@@ -14,7 +16,10 @@ import '../theme.dart';
 
 class BackupsScreen extends StatefulWidget {
   final Repository repo;
-  const BackupsScreen({super.key, required this.repo});
+  // Preview tests only: skip reading the folder.
+  @visibleForTesting
+  final List<BackupFolder>? previewFolders;
+  const BackupsScreen({super.key, required this.repo, this.previewFolders});
 
   @override
   State<BackupsScreen> createState() => _BackupsScreenState();
@@ -24,13 +29,18 @@ class _BackupsScreenState extends State<BackupsScreen> {
   List<BackupFolder>? _folders;
   String? _error;
   bool _busy = false;
-  String _step = '';
-  int? _freed;
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul',
+      'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.previewFolders != null) {
+      _folders = widget.previewFolders;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -44,31 +54,68 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  int get _cleanable => (_folders ?? [])
-      .where((f) => !f.keep)
-      .fold(0, (sum, f) => sum + f.bytes);
+  String get _things =>
+      widget.repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes';
 
-  Future<void> _cleanUp() async {
+  // What the copy is, and why LocalSync made it.
+  (String, String) _describe(BackupFolder f) {
+    final date = fullBackupDate(f.name);
+    if (date != null) {
+      return (
+        'Copy of all your $_things, ${date.day} ${_months[date.month - 1]}',
+        'Made when this phone was linked, in case the link went wrong'
+      );
+    }
+    if (f.name == 'Conflict Backups') {
+      return ('Old versions of $_things', 'Saved before each conflict fix');
+    }
+    final before = RegExp(r'^Conflict Backups before (.+)$').firstMatch(f.name);
+    if (before != null) {
+      return ('Older versions of $_things', 'Conflict fixes before ${before.group(1)}');
+    }
+    return (f.name, 'LocalSync safety copy');
+  }
+
+  Future<bool> _confirm(String title, int bytes) async =>
+      await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          backgroundColor: kSurface,
+          title: Text(title, style: TextStyle(color: kStar, fontSize: 17)),
+          content: Text(
+              'Frees ${formatBytes(bytes)}. Your $_things are not touched.',
+              style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(c, false),
+                child: Text('CANCEL', style: TextStyle(color: kTextDim))),
+            TextButton(
+                onPressed: () => Navigator.pop(c, true),
+                child: Text('DELETE',
+                    style: TextStyle(
+                        color: Colors.redAccent, fontWeight: FontWeight.w700))),
+          ],
+        ),
+      ) ==
+      true;
+
+  Future<void> _delete(List<BackupFolder> folders, String title) async {
+    final bytes = folders.fold(0, (sum, f) => sum + f.bytes);
+    if (!await _confirm(title, bytes) || !mounted) return;
     final provider = context.read<RepositoryProvider>();
-    final folders = _folders ?? [];
-    setState(() {
-      _busy = true;
-      _step = 'Cleaning up';
-    });
+    setState(() => _busy = true);
     try {
-      final freed = await provider.withRepoFolder(
-          widget.repo, (path) => cleanUpBackupFolders(path, folders));
-      if (!mounted) return;
-      setState(() => _step = 'Sending to your desktop');
+      await provider.withRepoFolder(
+          widget.repo, (path) => deleteBackupFolders(path, folders));
+      // Backups from before 2026-09-30 could still be in the synced
+      // LocalSync folder - send the removal so the desktop drops them too.
+      final synced = folders.any((f) => !f.relPath.startsWith('.'));
       final id = widget.repo.id;
-      if (id != null) {
-        // confirmed: these removals are the point, not an accident.
+      if (synced && id != null) {
         await provider.pushRepository(id,
-            commitMessage: 'Clean up LocalSync backups', confirmed: true);
-        await provider.triggerDesktopSyncNow(id);
+            commitMessage: 'Delete LocalSync backups', confirmed: true);
       }
       await _load();
-      if (mounted) setState(() => _freed = freed ?? 0);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     } finally {
@@ -76,113 +123,50 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  // 2026-09-30: Ken - "users who need to maximise storage need an easy
-  // option to delete this doubling of size." A full copy is as big as all
-  // the notes, and the phone's only copy - so one tap, then a confirm.
-  Future<void> _deleteFull(BackupFolder f) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Row(children: [
-          Icon(Icons.delete_outline, color: kStar, size: 22),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Text('Delete ${f.name}?',
-                  style: TextStyle(color: kStar, fontSize: 17))),
-        ]),
-        content: Text(
-            'Frees ${formatBytes(f.bytes)}.\n'
-            '- Copy: your notes as they were before a phone link\n'
-            '- Desktop: has no copy of it\n'
-            '- Safe to delete: once your notes look right',
-            style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text('CANCEL', style: TextStyle(color: kTextDim))),
-          TextButton(
-              onPressed: () => Navigator.pop(c, true),
-              child: Text('DELETE',
+  Widget _row(BackupFolder f) {
+    final (title, why) = _describe(f);
+    final opens = f.name == 'Conflict Backups';
+    final body = Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
+      child: Row(children: [
+        Icon(Icons.folder_outlined, color: kTextMid, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
                   style: TextStyle(
-                      color: Colors.redAccent, fontWeight: FontWeight.w700))),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await context
-          .read<RepositoryProvider>()
-          .withRepoFolder(widget.repo, (path) => deleteFullBackup(path, f));
-      await _load();
-    } catch (e) {
-      if (mounted) setState(() => _error = '$e');
-    }
-  }
-
-  // 2026-09-30: Conflict Backups are hidden from Obsidian now - tap the
-  // row to open them in the compare list.
-  Widget _row(BackupFolder f) => f.name == 'Conflict Backups'
-      ? InkWell(
-          onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => BackupCompareListScreen(repo: widget.repo))),
-          child: _rowBody(f, open: true))
-      : _rowBody(f);
-
-  Widget _rowBody(BackupFolder f, {bool open = false}) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        decoration:
-            BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
-        child: Row(children: [
-          Icon(Icons.folder_outlined,
-              color: f.keep ? kGreen : kTextMid, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(f.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: kStar,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600)),
-                Text.rich(TextSpan(children: [
-                  TextSpan(text: '${f.files} file${f.files == 1 ? '' : 's'}'),
-                  if (f.keep)
-                    TextSpan(
-                        text: f.phoneOnly
-                            ? ' · THIS PHONE ONLY'
-                            : ' · NEWEST, KEPT',
-                        style: TextStyle(
-                            color: kGreen, fontWeight: FontWeight.w700)),
-                ]), style: TextStyle(color: kTextDim, fontSize: 12.5)),
-              ],
-            ),
+                      color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
+              Text('$why · ${formatBytes(f.bytes)}',
+                  style: TextStyle(color: kTextDim, fontSize: 12.5)),
+            ],
           ),
-          Text(formatBytes(f.bytes),
-              style: TextStyle(
-                  color: kStar, fontSize: 14, fontWeight: FontWeight.w700)),
-          if (open) Icon(Icons.chevron_right, color: kTextMid, size: 22),
-          if (f.phoneOnly)
-            IconButton(
-              onPressed: _busy ? null : () => _deleteFull(f),
-              icon: const Icon(Icons.delete_outline),
-              color: kTextMid,
-              tooltip: 'Delete',
-            ),
-        ]),
-      );
+        ),
+        if (opens) Icon(Icons.chevron_right, color: kTextMid, size: 22),
+        IconButton(
+          onPressed: _busy ? null : () => _delete([f], 'Delete this copy?'),
+          icon: const Icon(Icons.delete_outline),
+          color: kTextMid,
+          tooltip: 'Delete',
+        ),
+      ]),
+    );
+    if (!opens) return body;
+    // Conflict Backups are hidden from Obsidian - open them in the compare list.
+    return InkWell(
+        onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => BackupCompareListScreen(repo: widget.repo))),
+        child: body);
+  }
 
   @override
   Widget build(BuildContext context) {
     final folders = _folders;
-    final shown = _freed == null
-        ? (folders ?? [])
-        : (folders ?? []).where((f) => f.keep).toList();
+    final total = (folders ?? []).fold(0, (sum, f) => sum + f.bytes);
     return Scaffold(
       backgroundColor: kVoid,
       appBar: AppBar(
@@ -204,56 +188,28 @@ class _BackupsScreenState extends State<BackupsScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
                   children: [
-                    if (_freed != null) ...[
-                      const SizedBox(height: 16),
-                      Icon(Icons.check_circle_outline, color: kGreen, size: 64),
-                      const SizedBox(height: 8),
-                      Text('${formatBytes(_freed!)} freed',
-                          textAlign: TextAlign.center,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Text(
+                          'Your backup is your desktop - it keeps every version of your $_things. '
+                          'These are one-off copies from linking and conflict fixes, safe to delete.',
                           style: TextStyle(
-                              color: kGreen,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text(
-                          'Full copies kept, on this phone only.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: kTextMid, fontSize: 14, height: 1.45)),
-                      const SizedBox(height: 14),
-                    ] else
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Text(
-                            'Safety copies of ${widget.repo.name}, kept out '
-                            'of Obsidian. Your own notes are never in here.',
-                            style: TextStyle(
-                                color: kTextMid, fontSize: 13.5, height: 1.4)),
-                      ),
-                    if (shown.isEmpty)
+                              color: kTextMid, fontSize: 14, height: 1.4)),
+                    ),
+                    if (folders.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Text('No backups yet.',
+                        child: Text('No backups.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: kTextMid)),
                       ),
-                    for (final f in shown) _row(f),
-                    if (_freed == null && _cleanable > 0) ...[
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(0, 12, 0, 16),
-                        decoration: BoxDecoration(
-                            border: Border(top: BorderSide(color: kBorder))),
-                        child: Row(children: [
-                          Expanded(
-                              child: Text('Clean up frees',
-                                  style: TextStyle(color: kTextMid))),
-                          Text(formatBytes(_cleanable),
-                              style: TextStyle(
-                                  color: kStar, fontWeight: FontWeight.w700)),
-                        ]),
-                      ),
+                    for (final f in folders) _row(f),
+                    if (folders.isNotEmpty) ...[
+                      const SizedBox(height: 16),
                       FilledButton(
-                        onPressed: _busy ? null : _cleanUp,
+                        onPressed: _busy
+                            ? null
+                            : () => _delete(folders, 'Delete all backups?'),
                         style: FilledButton.styleFrom(
                             backgroundColor: kGreen,
                             foregroundColor: kVoid,
@@ -261,30 +217,15 @@ class _BackupsScreenState extends State<BackupsScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14))),
                         child: _busy
-                            ? Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2.5, color: kVoid)),
-                                  const SizedBox(width: 10),
-                                  Text('$_step...',
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800)),
-                                ])
-                            : Text('Clean up - free ${formatBytes(_cleanable)}',
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2.5, color: kVoid))
+                            : Text('Delete all - free ${formatBytes(total)}',
                                 style: const TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.w800)),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                          'Full copies: delete one by one with its bin icon. '
-                          'Conflict copies are removed by themselves after 30 days.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: kTextDim, fontSize: 12.5)),
                     ],
                   ],
                 ),
