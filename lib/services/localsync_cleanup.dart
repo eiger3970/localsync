@@ -88,6 +88,22 @@ int deleteFullBackup(String vaultPath, BackupFolder f) {
   return f.bytes;
 }
 
+/// 2026-09-30: user - "Have a delete all option." Removes one backup
+/// folder, or every one in [folders] - only ever inside a LocalSync folder
+/// or the hidden backup folder, never the user's notes. Returns bytes freed.
+int deleteBackupFolders(String vaultPath, List<BackupFolder> folders) {
+  var freed = 0;
+  final lsfs = localSyncFolders(vaultPath);
+  for (final f in folders) {
+    if (!isInLocalSyncFolder(f.relPath, lsfs)) continue;
+    final dir = Directory('$vaultPath/${f.relPath}');
+    if (!dir.existsSync()) continue;
+    dir.deleteSync(recursive: true);
+    freed += f.bytes;
+  }
+  return freed;
+}
+
 /// The date inside a full copy's name ("Backup 202609291652" ->
 /// 2026-09-29 16:52), or null.
 DateTime? fullBackupDate(String name) {
