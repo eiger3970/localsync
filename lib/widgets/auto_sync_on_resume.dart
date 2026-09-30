@@ -156,9 +156,9 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
       // Push first - carries forward any real local edit before
       // anything else gets a chance to touch it - then pull, same
       // order a manual "catch up both ways" session would use.
-      await provider.pushRepository(repo.id!);
+      await provider.pushRepository(repo.id!, background: true);
       if (!mounted) return;
-      await provider.pullRepository(repo.id!);
+      await provider.pullRepository(repo.id!, background: true);
     } catch (_) {
       // Best-effort only - a real failure here is left for the user's
       // own next manual sync to surface properly, not narrated here.

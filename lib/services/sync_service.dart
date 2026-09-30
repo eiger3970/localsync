@@ -298,8 +298,7 @@ Future<SyncResult> runDesktopSyncScriptNow({
     // was sent, not that the script actually finished running - this
     // return only happens after runRes above already came back with
     // exit code 0, so "complete" is the accurate claim.
-    return const SyncOk('Desktop sync complete - ran just now instead of '
-        'waiting.');
+    return const SyncOk('Desktop sync complete');
   } catch (e) {
     return SyncFailed(LinkingError.connectionRefused, debugDetail: '$e');
   } finally {

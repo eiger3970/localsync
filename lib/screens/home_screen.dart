@@ -1086,7 +1086,9 @@ class _SyncGestureZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.read<RepositoryProvider>();
-    bool isBusy() => provider.isSyncing;
+    // 2026-09-30: only the user's own syncs refuse a swipe - a background
+    // one (app open) just makes the swipe wait its turn.
+    bool isBusy() => provider.isUserSyncBusy;
     return Column(
       children: [
         Expanded(
@@ -1275,7 +1277,9 @@ Future<void> _triggerDesktopSyncNow(
     SnackBar(
       backgroundColor: kSurface,
       content: const _PulsingSyncStatus(label: 'Desktop syncing...'),
-      duration: const Duration(seconds: 30),
+      // 2026-09-30: can now wait for a sync already running first - stays
+      // up until the result replaces it.
+      duration: const Duration(minutes: 3),
     ),
   );
   final result = await provider.triggerDesktopSyncNow(repoId);
