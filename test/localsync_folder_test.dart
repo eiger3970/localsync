@@ -43,7 +43,7 @@ void main() {
       expect(localSyncFolders(vault.path),
           ['Projects/LocalSync', kLocalSyncFolderName, kFullBackupsFolder]);
       expect(conflictBackupsDir(vault.path),
-          '${vault.path}/Projects/LocalSync/Conflict Backups');
+          '${vault.path}/$kFullBackupsFolder/Conflict Backups');
       expect(lastKnownLocalSyncFolder, 'Projects/LocalSync');
     });
 

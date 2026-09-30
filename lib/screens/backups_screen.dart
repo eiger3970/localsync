@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/repository.dart';
 import '../services/localsync_cleanup.dart';
+import 'backup_compare_screen.dart';
 import '../services/repository_provider.dart';
 import '../theme.dart';
 
@@ -75,7 +76,18 @@ class _BackupsScreenState extends State<BackupsScreen> {
     }
   }
 
-  Widget _row(BackupFolder f) => Container(
+  // 2026-09-30: Conflict Backups are hidden from Obsidian now - tap the
+  // row to open them in the compare list.
+  Widget _row(BackupFolder f) => f.name == 'Conflict Backups'
+      ? InkWell(
+          onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => BackupCompareListScreen(repo: widget.repo))),
+          child: _rowBody(f, open: true))
+      : _rowBody(f);
+
+  Widget _rowBody(BackupFolder f, {bool open = false}) => Container(
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration:
             BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
@@ -110,6 +122,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
           Text(formatBytes(f.bytes),
               style: TextStyle(
                   color: kStar, fontSize: 14, fontWeight: FontWeight.w700)),
+          if (open) Icon(Icons.chevron_right, color: kTextMid, size: 22),
         ]),
       );
 
@@ -152,7 +165,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                               fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text(
-                          'Newest Backup kept.\nSent to your desktop - its copies are cleaned too.',
+                          'Full copies kept, on this phone only.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: kTextMid, fontSize: 14, height: 1.45)),
@@ -161,8 +174,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(bottom: 14),
                         child: Text(
-                            'Safety copies in ${widget.repo.name} -> LocalSync. '
-                            'Your own notes are never in here.',
+                            'Safety copies of ${widget.repo.name}, kept out '
+                            'of Obsidian. Your own notes are never in here.',
                             style: TextStyle(
                                 color: kTextMid, fontSize: 13.5, height: 1.4)),
                       ),
@@ -217,8 +230,8 @@ class _BackupsScreenState extends State<BackupsScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                          'Your desktop keeps every version. Anything cleaned up '
-                          'can come back: ⋮ -> Restore deleted files.',
+                          'Full copies are always kept. Conflict copies are '
+                          'removed by themselves after 30 days anyway.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: kTextDim, fontSize: 12.5)),
                     ],

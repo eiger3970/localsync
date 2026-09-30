@@ -77,9 +77,18 @@ String localSyncFolder(String vaultPath) {
   return folder;
 }
 
-/// "<folder>/Conflict Backups" for [vaultPath], vault-relative.
+/// 2026-09-30: Conflict Backups moved into the hidden kFullBackupsFolder,
+/// like full copies - copies of notes in a visible, synced folder were
+/// indexed by Obsidian and its plugins as real notes (duplicate reminder
+/// popups 2026-09-17, Rescue putting back 271 copies 2026-09-29, the
+/// vault indexed three times 2026-09-30). [vaultPath] kept so callers
+/// don't change.
 String conflictBackupsRelPath(String vaultPath) =>
-    '${localSyncFolder(vaultPath)}/Conflict Backups';
+    '$kFullBackupsFolder/Conflict Backups';
+
+/// Where users find every backup, for UI text - the hidden folder isn't
+/// shown by Obsidian or the Files app.
+const kBackupsPlace = 'LocalSync -> Menu -> Backups';
 
 /// Absolute path of [vaultPath]'s Conflict Backups folder.
 String conflictBackupsDir(String vaultPath) =>

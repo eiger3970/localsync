@@ -133,13 +133,27 @@ void excludeFullBackupsFromSync(String vaultPath) {
   }
 }
 
-/// Moves every full copy ("Backup <date>", "Vault Backup <date>") still
-/// sitting in a LocalSync folder into kFullBackupsFolder - vaults backed up
-/// before 2026-09-30. A move inside the same vault, nothing copied or
-/// deleted; the next sync removes them from the other devices, whose own
-/// copies are the same synced files. Returns how many were moved.
-int moveFullBackupsToHiddenFolder(String vaultPath) {
+/// Moves LocalSync's backups still sitting in a visible LocalSync folder
+/// into kFullBackupsFolder - vaults backed up before 2026-09-30: full
+/// copies ("Backup <date>", "Vault Backup <date>"), "Conflict Backups"
+/// (merged file by file into the hidden one) and "Conflict Backups before
+/// <date>". Moves inside the same vault, nothing deleted; the next sync
+/// removes them from the other devices, where the desktop script moves its
+/// own the same way. Returns how many folders were moved or merged.
+int moveBackupsToHiddenFolder(String vaultPath) {
   var moved = 0;
+  final destRoot = '$vaultPath/$kFullBackupsFolder';
+  String freeName(String dir, String name) {
+    var dest = '$dir/$name';
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '';
+    for (var n = 2; FileSystemEntity.typeSync(dest) != FileSystemEntityType.notFound; n++) {
+      dest = '$dir/$stem ($n)$ext';
+    }
+    return dest;
+  }
+
   for (final lsf in localSyncFolders(vaultPath)) {
     if (lsf == kFullBackupsFolder) continue;
     final dir = Directory('$vaultPath/$lsf');
@@ -147,16 +161,21 @@ int moveFullBackupsToHiddenFolder(String vaultPath) {
     for (final e in dir.listSync()) {
       if (e is! Directory) continue;
       final name = e.path.split('/').last;
-      if (!_fullBackupName.hasMatch(name)) continue;
       try {
-        final destRoot = Directory('$vaultPath/$kFullBackupsFolder')
-          ..createSync(recursive: true);
-        var dest = '${destRoot.path}/$name';
-        for (var n = 2; Directory(dest).existsSync(); n++) {
-          dest = '${destRoot.path}/$name ($n)';
+        if (name == 'Conflict Backups') {
+          final dest = Directory('$destRoot/Conflict Backups')
+            ..createSync(recursive: true);
+          for (final f in e.listSync()) {
+            f.renameSync(freeName(dest.path, f.path.split('/').last));
+          }
+          e.deleteSync(); // empty now - non-recursive, fails if not
+          moved++;
+        } else if (_fullBackupName.hasMatch(name) ||
+            name.startsWith('Conflict Backups before ')) {
+          Directory(destRoot).createSync(recursive: true);
+          e.renameSync(freeName(destRoot, name));
+          moved++;
         }
-        e.renameSync(dest);
-        moved++;
       } catch (_) {
         // Left where it is - still a backup, just still visible.
       }

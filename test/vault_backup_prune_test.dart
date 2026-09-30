@@ -12,7 +12,7 @@ void main() {
 
   setUp(() async {
     tmp = await Directory.systemTemp.createTemp('localsync_prune_test');
-    await Directory('${tmp.path}/$kLocalSyncFolderName/Conflict Backups')
+    await Directory('${tmp.path}/$kFullBackupsFolder/Conflict Backups')
         .create(recursive: true);
   });
 
@@ -27,7 +27,7 @@ void main() {
 
   Future<void> _write(String name) async {
     await File(
-            '${tmp.path}/$kLocalSyncFolderName/Conflict Backups/$name')
+            '${tmp.path}/$kFullBackupsFolder/Conflict Backups/$name')
         .writeAsString('content');
   }
 
@@ -40,7 +40,7 @@ void main() {
     await pruneOldConflictBackups(tmp.path);
 
     final remaining = await Directory(
-            '${tmp.path}/$kLocalSyncFolderName/Conflict Backups')
+            '${tmp.path}/$kFullBackupsFolder/Conflict Backups')
         .list()
         .map((e) => e.uri.pathSegments.last)
         .toList();
@@ -54,7 +54,7 @@ void main() {
     await pruneOldConflictBackups(tmp.path);
 
     final remaining = await Directory(
-            '${tmp.path}/$kLocalSyncFolderName/Conflict Backups')
+            '${tmp.path}/$kFullBackupsFolder/Conflict Backups')
         .list()
         .toList();
     expect(remaining, hasLength(1));

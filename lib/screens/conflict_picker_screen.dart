@@ -32,7 +32,6 @@ import '../services/conflict_scanner.dart';
 import '../services/demo_conflict.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
-import '../services/ios_app_service.dart';
 import '../services/line_diff.dart' show mergeHunks;
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
@@ -81,6 +80,15 @@ class ConflictPickerScreen extends StatefulWidget {
 
 class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   bool _resolving = false;
+
+  // 2026-09-30: this note's backups, in LocalSync's own compare list -
+  // they sit in the vault's hidden .localsync_backups, which Obsidian
+  // doesn't show.
+  void _openBackupList() => Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => BackupCompareListScreen(
+              repo: widget.repo, noteFilePath: widget.entry.filePath)));
   // 2026-08-18: "I'm unclear where I am and what 'Your version' is" -
   // generic label forced the user to work it out by elimination
   // (reading the OTHER side's real device name, then inferring "the
@@ -266,9 +274,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         icon: Icons.library_add_check,
         color: kGreen,
         text: 'Backs up all text first, in ',
-        linkText: '$lastKnownLocalSyncFolder/Conflict Backups',
-        onLinkTap: () =>
-            IosAppServiceImpl().openObsidian(vaultName: widget.repo.name),
+        linkText: kBackupsPlace,
+        onLinkTap: _openBackupList,
       ),
       // 2026-09-16: real feedback, live - "keeping both is a
       // concatenate dump." Rewritten to say plainly what this free
@@ -643,9 +650,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 icon: Icons.library_add_check,
                 color: kGreen,
                 text: 'All text backed up first, in ',
-                linkText: '$lastKnownLocalSyncFolder/Conflict Backups',
-                onLinkTap: () => IosAppServiceImpl()
-                    .openObsidian(vaultName: widget.repo.name),
+                linkText: kBackupsPlace,
+                // 2026-09-30: backups are hidden from Obsidian now - open
+                // them in LocalSync's own compare list instead.
+                onLinkTap: _openBackupList,
               ),
               // 2026-09-14: real feedback, live - "it doesn't make sense
               // holistically, with the other Keep this version points."
@@ -1196,7 +1204,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               'versions stacked up - they were never '
                               'fully resolved before another change '
                               'arrived. Tap the one to keep; the rest '
-                              'are still saved to "$lastKnownLocalSyncFolder/Conflict Backups".',
+                              'are still saved to "$kBackupsPlace".',
                               style: TextStyle(color: kStar, fontSize: 15))
                           // 2026-09-14: real feedback, live, two
                           // rounds - first "I don't need to tap, as

@@ -131,6 +131,9 @@ localsync_folder() {
   echo "${out:-LocalSync}"
 }
 
+# Hidden, never-synced backup folder - see hide_backups below.
+HIDDEN_BACKUPS=".localsync_backups"
+
 # repo-name.txt lives in the LocalSync folder; a vault linked before the
 # folder setting existed still has it in the default LocalSync/, which
 # is read as a fallback (never moved or recreated - one name per vault).
@@ -423,6 +426,8 @@ cd "$VAULT" || die "Cannot cd to $VAULT"
 log "=== localsync_sync start ==="
 verify_repo_identity
 ensure_repo_name
+# Never stage the hidden backup folder (local to this desktop, not synced).
+grep -qxF "/$HIDDEN_BACKUPS/" .git/info/exclude 2>/dev/null || { mkdir -p .git/info && echo "/$HIDDEN_BACKUPS/" >> .git/info/exclude; }
 
 # ── Repair markdown/Kanban conflict markers ───────────────────────────────────
 repair_md_conflicts() {
@@ -438,7 +443,7 @@ repair_md_conflicts() {
     else
       log "  ERROR: repair failed for $file (exit $rc) — markers left for manual fix"
     fi
-  done < <(grep -rlZ --include="*.md" --exclude-dir=.git "^<<<<<<< " . 2>/dev/null || true)
+  done < <(grep -rlZ --include="*.md" --exclude-dir=.git --exclude-dir="$HIDDEN_BACKUPS" "^<<<<<<< " . 2>/dev/null || true)
 
   if [[ "$repaired" = "1" ]]; then
     git add -- '*.md'
@@ -463,7 +468,7 @@ repair_md_conflicts() {
 # callout, so this is the whole-file equivalent of the markdown repair
 # above, not an afterthought.
 repair_binary_conflicts() {
-  local backup_dir="$VAULT/$(localsync_folder)/Conflict Backups"
+  local backup_dir="$VAULT/$HIDDEN_BACKUPS/Conflict Backups"
   local resolved=0
   while IFS= read -r -d '' path; do
     [[ "$path" == *.md ]] && continue
@@ -553,8 +558,51 @@ fi
 
 repair_conflicts
 
+# ── Keep backups out of the sync ──────────────────────────────────────────────
+# 2026-09-30: copies of notes in a visible, synced LocalSync folder were
+# indexed by Obsidian and its plugins as real notes - duplicate reminder
+# popups, Rescue putting back 271 copies, the vault indexed three times.
+# Backups now live in the vault's hidden .localsync_backups (Obsidian never
+# indexes dot folders) and never sync; each device keeps its own. Mirrors
+# lib/services/vault_backup.dart's moveBackupsToHiddenFolder. Moves only,
+# nothing deleted.
+hide_backups() {
+  local lsf="$VAULT/$(localsync_folder)" dest="$VAULT/$HIDDEN_BACKUPS" d f name target n
+  for lsf in "$lsf" "$VAULT/LocalSync"; do
+    [[ -d "$lsf" ]] || continue
+    for d in "$lsf"/*/; do
+      [[ -d "$d" ]] || continue
+      d="${d%/}"; name="$(basename "$d")"
+      if [[ "$name" == "Conflict Backups" ]]; then
+        mkdir -p "$dest/Conflict Backups"
+        for f in "$d"/* "$d"/.[!.]*; do
+          [[ -e "$f" ]] || continue
+          name="$(basename "$f")"; target="$dest/Conflict Backups/$name"; n=2
+          while [[ -e "$target" ]]; do
+            if [[ "$name" == *.* && "$name" != .* ]]; then
+              target="$dest/Conflict Backups/${name%.*} ($n).${name##*.}"
+            else
+              target="$dest/Conflict Backups/$name ($n)"
+            fi
+            n=$((n+1))
+          done
+          mv -n "$f" "$target"
+        done
+        rmdir "$d" 2>/dev/null || true
+      elif [[ "$name" =~ ^(Vault\ )?Backup\ [0-9]{12}$ || "$name" == "Conflict Backups before "* ]]; then
+        mkdir -p "$dest"
+        target="$dest/$name"; n=2
+        while [[ -e "$target" ]]; do target="$dest/$name ($n)"; n=$((n+1)); done
+        mv -n "$d" "$target"
+      fi
+    done
+  done
+}
+hide_backups
+
 # ── Commit local desktop changes ──────────────────────────────────────────────
 git add .
+git rm -r -q --cached --ignore-unmatch -- "$HIDDEN_BACKUPS" >/dev/null
 if git diff --cached --quiet; then
   log "No desktop changes to commit"
 else
