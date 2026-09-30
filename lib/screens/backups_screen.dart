@@ -163,6 +163,17 @@ class _BackupsScreenState extends State<BackupsScreen> {
         child: body);
   }
 
+  Widget _introLine(IconData icon, Color color, String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(text,
+                  style: TextStyle(color: kTextMid, fontSize: 14, height: 1.4))),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) {
     final folders = _folders;
@@ -188,14 +199,13 @@ class _BackupsScreenState extends State<BackupsScreen> {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: Text(
-                          'Your backup is your desktop - it keeps every version of your $_things. '
-                          'These are one-off copies from linking and conflict fixes, safe to delete.',
-                          style: TextStyle(
-                              color: kTextMid, fontSize: 14, height: 1.4)),
-                    ),
+                    // 2026-09-30: Ken - a picture on each line: the desktop
+                    // is the real backup, the rows below are one-off copies.
+                    _introLine(Icons.computer, kGreen,
+                        'Your backup is your desktop - it keeps every version of your $_things.'),
+                    _introLine(Icons.folder_copy_outlined, kTextMid,
+                        'These are one-off copies from linking and conflict fixes, safe to delete.'),
+                    const SizedBox(height: 8),
                     if (folders.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20),
