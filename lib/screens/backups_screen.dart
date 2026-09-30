@@ -98,7 +98,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   TextSpan(text: '${f.files} file${f.files == 1 ? '' : 's'}'),
                   if (f.keep)
                     TextSpan(
-                        text: ' · NEWEST, KEPT',
+                        text: f.phoneOnly
+                            ? ' · THIS PHONE ONLY, KEPT'
+                            : ' · NEWEST, KEPT',
                         style: TextStyle(
                             color: kGreen, fontWeight: FontWeight.w700)),
                 ]), style: TextStyle(color: kTextDim, fontSize: 12.5)),

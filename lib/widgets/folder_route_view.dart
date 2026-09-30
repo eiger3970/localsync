@@ -13,7 +13,11 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 
-enum CrumbKind { home, filesApp, device, cloud, folder, vault, backup, wrong }
+enum CrumbKind {
+  home, filesApp, device, cloud, folder, vault, backup, wrong,
+  // 2026-09-30: routes inside LocalSync itself (Backups screen).
+  app, menu, screen
+}
 
 class Crumb {
   final String label;
@@ -37,6 +41,18 @@ List<Crumb> crumbsFromRoute(List<String> route, {int? vaultIndex}) => [
                     : CrumbKind.folder),
     ];
 
+/// 2026-09-30: where a full copy is found - it sits in the vault's hidden
+/// .localsync_backups folder (vault_backup.dart, kFullBackupsFolder), which
+/// the Files app doesn't show, so the route goes through LocalSync's own
+/// Backups screen.
+List<Crumb> fullBackupCrumbs(String backupName) => [
+      const Crumb('Phone home screen', CrumbKind.home),
+      const Crumb('LocalSync', CrumbKind.app),
+      const Crumb('Menu', CrumbKind.menu),
+      const Crumb('Backups', CrumbKind.screen),
+      Crumb(backupName, CrumbKind.backup),
+    ];
+
 class FolderRouteView extends StatelessWidget {
   final List<Crumb> crumbs;
   const FolderRouteView(this.crumbs, {super.key});
@@ -52,6 +68,9 @@ class FolderRouteView extends StatelessWidget {
         CrumbKind.vault => (Icons.folder_special_outlined, kGreen),
         CrumbKind.backup => (Icons.shield_outlined, kGreen),
         CrumbKind.wrong => (Icons.folder_off_outlined, Colors.redAccent),
+        CrumbKind.app => (Icons.sync, kGreen),
+        CrumbKind.menu => (Icons.more_vert, kTextMid),
+        CrumbKind.screen => (Icons.history, kTextMid),
       };
 
   @override

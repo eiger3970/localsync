@@ -3827,13 +3827,7 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
       backgroundColor: kSurface,
       title: Text('Backed up first',
           style: TextStyle(color: kStar, fontSize: 16)),
-      content: body('Nothing is deleted.', [
-        const Crumb('Phone home screen', CrumbKind.home),
-        const Crumb('Files', CrumbKind.filesApp),
-        ...crumbsFromRoute(route, vaultIndex: route.length - 1),
-        Crumb(check.backupFolder, CrumbKind.folder),
-        const Crumb('Backup <date>', CrumbKind.backup),
-      ]),
+      content: body('Nothing is deleted.', fullBackupCrumbs('Backup <date>')),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(dialogCtx, false),
@@ -3873,6 +3867,7 @@ class BackupReminderCard extends StatelessWidget {
     final route = vaultPath == null ? <String>[] : filesAppRoute(vaultPath!);
     final backupParts =
         backupRelPath.split('/').where((p) => p.isNotEmpty).toList();
+    final hidden = backupParts.first.startsWith('.');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -3890,16 +3885,26 @@ class BackupReminderCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2)),
           const SizedBox(height: 10),
-          FolderRouteView([
-            const Crumb('Phone home screen', CrumbKind.home),
-            const Crumb('Files', CrumbKind.filesApp),
-            ...crumbsFromRoute(route, vaultIndex: route.length - 1),
-            for (var i = 0; i < backupParts.length; i++)
-              Crumb(backupParts[i],
-                  i == backupParts.length - 1 ? CrumbKind.backup : CrumbKind.folder),
-          ]),
+          // 2026-09-30: full copies live in the vault's hidden
+          // .localsync_backups folder - not in the Files app, never synced.
+          FolderRouteView(hidden
+              ? fullBackupCrumbs(backupParts.last)
+              : [
+                  const Crumb('Phone home screen', CrumbKind.home),
+                  const Crumb('Files', CrumbKind.filesApp),
+                  ...crumbsFromRoute(route, vaultIndex: route.length - 1),
+                  for (var i = 0; i < backupParts.length; i++)
+                    Crumb(
+                        backupParts[i],
+                        i == backupParts.length - 1
+                            ? CrumbKind.backup
+                            : CrumbKind.folder),
+                ]),
           const SizedBox(height: 10),
-          Text('Delete it once your notes look right.',
+          Text(
+              hidden
+                  ? 'On this phone only, never synced.'
+                  : 'Delete it once your notes look right.',
               style: TextStyle(color: kTextMid, fontSize: 13)),
           // 2026-09-25: user - desktop backup "absolutely, but inform user
           // it actions and the location" / "might be polite". The desktop
@@ -3923,7 +3928,7 @@ class BackupReminderCard extends StatelessWidget {
             alignment: WrapAlignment.end,
             spacing: 4,
             children: [
-              if (vaultPath != null)
+              if (vaultPath != null && !hidden)
                 TextButton(
                   onPressed: () => launchUrl(
                       filesAppUri('$vaultPath/$backupRelPath'),
