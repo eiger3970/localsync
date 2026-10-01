@@ -304,7 +304,18 @@ class _HeartsPainter extends CustomPainter {
       final localT = (t * h.speed + h.startOffset) % 1.0;
       final y = size.height * (1 - localT);
       final sway = sin(localT * 2 * pi + h.driftPhase) * h.drift;
-      final baseX = (_restWidth * (h.x + sway)).clamp(0.0, size.width);
+      // 2026-10-01: user - "About hearts float along the left edge, how and
+      // why? ... Perhaps begin nearer to middle. Then user experiences
+      // left and right tilt rather than only right tilt." The rest band
+      // was the first 140px from the LEFT of a box nearly as wide as the
+      // dialog, so a left tilt hit the wall after ~35-105px while a right
+      // tilt had the whole width. The band is now centred in the box and
+      // a third of its width, so tilt has equal room both ways and each
+      // heart starts at its own random spot across the middle.
+      final restW = max(_restWidth, size.width / 3);
+      final restLeft = (size.width - restW) / 2;
+      final baseX =
+          (restLeft + restW * (h.x + sway)).clamp(0.0, size.width);
       // Round 9: each heart's own accumulated drift (see the state's
       // _drift) - it only moves sideways while the phone is tilted, and
       // holds its place when the phone comes back upright.
