@@ -1083,7 +1083,24 @@ class _SyncGestureZone extends StatelessWidget {
       SnackBar(
         backgroundColor: kSurface,
         content: Center(
-          child: Text('Sync running - wait for it to finish',
+          child: Text('Already queued - it starts when the sync finishes',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: kStar, fontSize: 16)),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // 2026-10-01: a swipe during a running sync is queued, not refused -
+  // it starts by itself the moment that sync finishes.
+  void _showQueued(BuildContext context, String action) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text('$action queued - starts as soon as the sync finishes',
               textAlign: TextAlign.center,
               style: TextStyle(color: kStar, fontSize: 16)),
         ),
@@ -1095,9 +1112,15 @@ class _SyncGestureZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.read<RepositoryProvider>();
-    // 2026-09-30: only the user's own syncs refuse a swipe - a background
-    // one (app open) just makes the swipe wait its turn.
-    bool isBusy() => provider.isUserSyncBusy;
+    // 2026-09-30: only the user's own syncs count - a background one (app
+    // open) just makes the swipe wait its turn.
+    // 2026-10-01: a user sync running no longer refuses a swipe either -
+    // the swipe queues behind it. Only refused when one is already queued.
+    bool isBusy() => provider.userSyncQueueFull;
+    Future<void> queued(String action, Future<void> Function() run) async {
+      if (provider.isUserSyncBusy) _showQueued(context, action);
+      await run();
+    }
     return Column(
       children: [
         Expanded(
@@ -1113,7 +1136,7 @@ class _SyncGestureZone extends StatelessWidget {
             // 90 -> 117 -> 152 -> 198 for push, catching up).
             gifHeight: 257,
             alignTop: true,
-            onConfirm: onPull,
+            onConfirm: () => queued('Pull', onPull),
             // 2026-09-17: real ask, live - "Push pull flow, maybe on
             // home screen when pushing or pulling?" Adds a real Flutter
             // particle animation (drifting south-west, matching the
@@ -1143,7 +1166,7 @@ class _SyncGestureZone extends StatelessWidget {
             caption: 'PUSH',
             swipeDown: false,
             gifHeight: 198,
-            onConfirm: onPush,
+            onConfirm: () => queued('Push', onPush),
             animationBuilder: (key, height) => FlowBehindGif(
               key: key,
               assetPath: 'assets/gifs/git_push.gif',

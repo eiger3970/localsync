@@ -428,6 +428,13 @@ class RepositoryProvider extends ChangeNotifier {
   // isUserSyncBusy true. Desktop sync takes the same lock (below).
   int _userOps = 0;
   bool get isUserSyncBusy => _userOps > 0;
+  // 2026-10-01: Ken - "End of night, syncing desktop in a rush, then pull
+  // down, but error: Sync not finished... Can the pull be 'saved' and then
+  // as soon as the desktop sync is finished, the pull activates." The lock
+  // in _run already chains callers safely, so a swipe during a running
+  // sync now queues behind it. One queued swipe at a time: a running sync
+  // plus one waiting is full, so repeated swipes can't stack up.
+  bool get userSyncQueueFull => _userOps >= 2;
 
   Future<T> _asUser<T>(bool background, Future<T> Function() op) async {
     if (background) return op();
