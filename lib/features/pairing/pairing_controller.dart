@@ -201,8 +201,14 @@ class PairingController extends ChangeNotifier {
           }
         }
 
+        // 2026-10-02: the desktop had 580 lines in authorized_keys - a
+        // re-pair appended the same key again every time. Only append
+        // when the key's base64 part isn't there yet.
+        final keyBody = publicKeyLine.split(' ')[1];
         final command = 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
-            "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys && "
+            'touch ~/.ssh/authorized_keys && '
+            "{ grep -qF '$keyBody' ~/.ssh/authorized_keys || "
+            "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys; } && "
             'chmod 600 ~/.ssh/authorized_keys';
         final res = await client.runWithResult(command);
 

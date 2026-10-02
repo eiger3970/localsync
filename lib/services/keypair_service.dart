@@ -30,7 +30,7 @@ class KeypairService {
       // regardless of which branch below is taken.
       await FileBackupExclusion.exclude(privatePath);
       await FileBackupExclusion.exclude(publicPath);
-      return publicFile.readAsString();
+      return _oneLine(await publicFile.readAsString());
     }
 
     final keyPair      = await Ed25519().newKeyPair();
@@ -38,7 +38,7 @@ class KeypairService {
     final publicKey    = await keyPair.extractPublicKey();
     final publicBytes  = publicKey.bytes;
 
-    final publicLine = '${encodeEd25519Public(publicBytes)} localsync';
+    final publicLine = _oneLine('${encodeEd25519Public(publicBytes)} localsync');
     final privateText = encodeEd25519Private(
       privateBytes: privateBytes,
       publicBytes: publicBytes,
@@ -68,4 +68,11 @@ class KeypairService {
 
     return publicLine;
   }
+
+  /// 2026-10-02: encodeEd25519Public() ends with '\n', so the
+  /// " localsync" comment landed on its own line in the desktop's
+  /// authorized_keys (2 lines per pairing). Collapse to one clean line;
+  /// also repairs .pub files already written on phones that way.
+  static String _oneLine(String line) =>
+      line.split(RegExp(r'\s+')).where((p) => p.isNotEmpty).join(' ');
 }
