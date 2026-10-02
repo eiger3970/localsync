@@ -1,0 +1,300 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+
+<radialGradient id="bg" cx="36%" cy="26%" r="90%">
+  <stop offset="0%" stop-color="#2c3c6b"/>
+  <stop offset="40%" stop-color="#16203f"/>
+  <stop offset="100%" stop-color="#03050c"/>
+</radialGradient>
+
+<radialGradient id="corridorGlow" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.18"/>
+  <stop offset="60%" stop-color="#2447a8" stop-opacity="0.09"/>
+  <stop offset="100%" stop-color="#2447a8" stop-opacity="0"/>
+</radialGradient>
+
+<radialGradient id="planetBody" cx="62%" cy="28%" r="75%">
+  <stop offset="0%" stop-color="#3fae9c"/>
+  <stop offset="35%" stop-color="#1c6b6a"/>
+  <stop offset="70%" stop-color="#0d3547"/>
+  <stop offset="100%" stop-color="#061224"/>
+</radialGradient>
+
+<radialGradient id="atmosphereGlow" cx="62%" cy="28%" r="75%">
+  <stop offset="85%" stop-color="#5eead4" stop-opacity="0"/>
+  <stop offset="97%" stop-color="#5eead4" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#5eead4" stop-opacity="0"/>
+</radialGradient>
+
+<radialGradient id="milkyway" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#9db4ff" stop-opacity="0.16"/>
+  <stop offset="55%" stop-color="#6d7fc9" stop-opacity="0.07"/>
+  <stop offset="100%" stop-color="#6d7fc9" stop-opacity="0"/>
+</radialGradient>
+
+<linearGradient id="bodyLight" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#eef2f7"/>
+  <stop offset="55%" stop-color="#c7cfdb"/>
+  <stop offset="100%" stop-color="#9aa4b5"/>
+</linearGradient>
+
+<linearGradient id="bodyEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#f7f9fc"/>
+  <stop offset="100%" stop-color="#7d879a"/>
+</linearGradient>
+
+<linearGradient id="bodySide" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#606a7d"/>
+  <stop offset="100%" stop-color="#2b3242"/>
+</linearGradient>
+
+<linearGradient id="keyDeck" x1="0%" y1="0%" x2="0%" y2="100%">
+  <stop offset="0%" stop-color="#e7ebf1"/>
+  <stop offset="100%" stop-color="#8f99ab"/>
+</linearGradient>
+
+<linearGradient id="glassShine" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="30%" stop-color="#ffffff" stop-opacity="0"/>
+  <stop offset="48%" stop-color="#ffffff" stop-opacity="0.12"/>
+  <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+</linearGradient>
+
+<linearGradient id="screen" x1="0%" y1="0%" x2="0%" y2="100%">
+  <stop offset="0%" stop-color="#16233d"/>
+  <stop offset="100%" stop-color="#0a1120"/>
+</linearGradient>
+
+<linearGradient id="beam" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#5eead4"/>
+  <stop offset="100%" stop-color="#22d3b8"/>
+</linearGradient>
+
+<radialGradient id="beamGlow" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+</radialGradient>
+
+<radialGradient id="topGloss" cx="50%" cy="8%" r="60%">
+  <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+  <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+</radialGradient>
+
+<filter id="softBlur" x="-60%" y="-60%" width="220%" height="220%">
+  <feGaussianBlur stdDeviation="14"/>
+</filter>
+
+<filter id="wideBlur" x="-100%" y="-100%" width="300%" height="300%">
+  <feGaussianBlur stdDeviation="28"/>
+</filter>
+
+<filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
+  <feGaussianBlur in="SourceAlpha" stdDeviation="20" result="blur"/>
+  <feOffset in="blur" dx="0" dy="18" result="offsetBlur"/>
+  <feComponentTransfer in="offsetBlur" result="shadow">
+    <feFuncA type="linear" slope="0.45"/>
+  </feComponentTransfer>
+  <feMerge>
+    <feMergeNode in="shadow"/>
+    <feMergeNode in="SourceGraphic"/>
+  </feMerge>
+</filter>
+
+<clipPath id="laptopClip"><rect x="-172" y="-122" width="344" height="196" rx="10"/></clipPath>
+<clipPath id="phoneClip"><rect x="-78" y="-154" width="156" height="288" rx="20"/></clipPath>
+<clipPath id="deckClip"><rect x="-190" y="100" width="380" height="72"/></clipPath>
+
+<g id="logoSL">
+  <circle cx="0" cy="0" r="15" fill="#0a1120" stroke="url(#badgeGrad)" stroke-width="1.4"/>
+  <g fill="none" stroke="url(#badgeGrad)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="-6,-6 -1.5,0 -6,6" opacity="0.35"/>
+    <polyline points="-2,-6 2.5,0 -2,6" opacity="0.65"/>
+    <polyline points="2,-6 6.5,0 2,6" opacity="1.0"/>
+  </g>
+</g>
+
+<radialGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop offset="0%" stop-color="#9ffbe9"/>
+  <stop offset="55%" stop-color="#2dd4bf"/>
+  <stop offset="100%" stop-color="#0e8f80"/>
+</radialGradient>
+
+<radialGradient id="badgeGlow" cx="50%" cy="50%" r="50%">
+  <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.5"/>
+  <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+</radialGradient>
+
+<filter id="badgeBlur" x="-80%" y="-80%" width="260%" height="260%">
+  <feGaussianBlur stdDeviation="10"/>
+</filter>
+
+</defs>
+
+<rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+
+<!-- LocalSync brand badge, top-left corner -->
+<g transform="translate(150,150) scale(4.05)">
+  <circle cx="0" cy="0" r="66" fill="url(#badgeGlow)" filter="url(#badgeBlur)"/>
+  <circle cx="0" cy="0" r="56" fill="#0a1120" stroke="url(#badgeGrad)" stroke-width="3"/>
+  <g fill="none" stroke="url(#badgeGrad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="-24,-24 -6,0 -24,24" opacity="0.35"/>
+    <polyline points="-8,-24 10,0 -8,24" opacity="0.65"/>
+    <polyline points="8,-24 26,0 8,24" opacity="1.0"/>
+  </g>
+</g>
+
+<!-- soft atmospheric glow along the sync corridor -->
+<ellipse cx="475" cy="520" rx="430" ry="330" fill="url(#corridorGlow)" transform="rotate(-40 475 520)"/>
+
+<!-- Southern Cross (Crux) with its two pointer stars, Alpha and Beta Centauri -->
+<g fill="#eaf6ff">
+  <circle cx="860" cy="635" r="3.6" opacity="0.75"/>
+  <circle cx="880" cy="875" r="4.0" opacity="0.8"/>
+  <circle cx="791.6" cy="704.2" r="3.3" opacity="0.68"/>
+  <circle cx="941.6" cy="689.2" r="3.1" opacity="0.65"/>
+  <circle cx="916.6" cy="764.2" r="2.0" opacity="0.5"/>
+  <circle cx="660" cy="745" r="2.9" opacity="0.6"/>
+  <circle cx="570" cy="770" r="3.1" opacity="0.62"/>
+</g>
+
+<g>
+<circle cx="512.6" cy="182.9" r="3.2" fill="#cdf7ee" opacity="0.5"/>
+<circle cx="433.3" cy="216.9" r="2.5" fill="#cdf7ee" opacity="0.46"/>
+<circle cx="150.0" cy="480.0" r="2.3" fill="#cdf7ee" opacity="0.44"/>
+<circle cx="610.0" cy="130.0" r="2.6" fill="#cdf7ee" opacity="0.46"/>
+<circle cx="70.0" cy="700.0" r="2.2" fill="#cdf7ee" opacity="0.38"/>
+<circle cx="960.0" cy="140.0" r="2.5" fill="#cdf7ee" opacity="0.4"/>
+<circle cx="250.0" cy="620.0" r="2.0" fill="#cdf7ee" opacity="0.32"/>
+<circle cx="80.0" cy="80.0" r="2.8" fill="#cdf7ee" opacity="0.52"/>
+<circle cx="190.0" cy="140.0" r="2.2" fill="#cdf7ee" opacity="0.44"/>
+<circle cx="330.0" cy="60.0" r="3.0" fill="#cdf7ee" opacity="0.58"/>
+<circle cx="60.0" cy="260.0" r="2.5" fill="#cdf7ee" opacity="0.46"/>
+<circle cx="270.0" cy="330.0" r="2.0" fill="#cdf7ee" opacity="0.38"/>
+<circle cx="140.0" cy="390.0" r="2.9" fill="#cdf7ee" opacity="0.54"/>
+<circle cx="400.0" cy="150.0" r="2.3" fill="#cdf7ee" opacity="0.44"/>
+<circle cx="40.0" cy="470.0" r="2.2" fill="#cdf7ee" opacity="0.4"/>
+</g>
+
+<g transform="translate(-62.16,-60.08) scale(1.0417)">
+
+<!-- laptop / desktop, upper right, tilted -->
+<g transform="translate(760,300) rotate(-9)" filter="url(#dropShadow)">
+  <path d="M -156,-140 L 156,-140 A 34,34 0 0 1 190,-106 L 190,92 A 8,8 0 0 1 182,100 L -182,100 A 8,8 0 0 1 -190,92 L -190,-106 A 34,34 0 0 1 -156,-140 Z"
+        fill="url(#bodyEdge)" stroke="#5b6478" stroke-width="2"/>
+  <circle cx="0" cy="-131" r="4" fill="#4a5568"/>
+  <rect x="-172" y="-122" width="344" height="196" rx="10" fill="url(#screen)"/>
+  <!-- note/document glyph: represents an Obsidian note being synced -->
+  <g transform="translate(0,-24)">
+    <path d="M -32,-56 L 20,-56 L 42,-34 L 42,46 A 10,10 0 0 1 32,56 L -32,56 A 10,10 0 0 1 -42,46 L -42,-46 A 10,10 0 0 1 -32,-56 Z"
+          fill="none" stroke="#5eead4" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M 20,-56 L 42,-34 L 20,-34 Z" fill="#5eead4"/>
+    <line x1="-22" y1="-14" x2="22" y2="-14" stroke="#5eead4" stroke-width="7" stroke-linecap="round"/>
+    <line x1="-22" y1="10" x2="22" y2="10" stroke="#5eead4" stroke-width="7" stroke-linecap="round"/>
+    <line x1="-22" y1="34" x2="8" y2="34" stroke="#5eead4" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <g clip-path="url(#laptopClip)">
+    <polygon points="-172,-122 -50,-122 -172,70" fill="url(#glassShine)"/>
+  </g>
+  <!-- base / keyboard deck, attached flush to the screen's bottom edge, same width as the screen -->
+  <polygon points="-190,100 190,100 190,172 -190,172" fill="url(#keyDeck)"/>
+  <polygon points="-190,172 190,172 190,178 -190,178" fill="#5b6478"/>
+  <rect x="-30" y="100" width="60" height="10" fill="#7d879a"/>
+  <use href="#logoSL" transform="translate(0,87) scale(0.35)"/>
+  <g clip-path="url(#deckClip)">
+    <rect x="-170.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-142.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-114.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-86.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-58.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-30.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="-2.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="26.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="54.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="82.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="110.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+    <rect x="138.0" y="108" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.42"/>
+
+    <rect x="-156.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="-128.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="-100.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="-72.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="-44.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="-16.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="12.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="40.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="68.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="96.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="124.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+    <rect x="152.0" y="119" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.36"/>
+
+    <rect x="-146.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="-118.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="-90.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="-62.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="-34.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="-6.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="22.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="50.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="78.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="106.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="134.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+    <rect x="162.0" y="130" width="22" height="7" rx="2.5" fill="#5b6478" opacity="0.3"/>
+  </g>
+  <rect x="-46" y="146" width="92" height="20" rx="5" fill="#7d879a" opacity="0.55"/>
+</g>
+
+<!-- phone, lower left, tilted -->
+<g transform="translate(250,780) rotate(11)" filter="url(#dropShadow)">
+  <rect x="-92" y="-172" width="184" height="344" rx="34" fill="url(#bodyEdge)" stroke="#5b6478" stroke-width="2"/>
+  <circle cx="0" cy="-163" r="5" fill="#4a5568"/>
+  <rect x="-78" y="-154" width="156" height="288" rx="20" fill="url(#screen)"/>
+  <g transform="translate(0,-12) scale(0.62)">
+    <path d="M -32,-56 L 20,-56 L 42,-34 L 42,46 A 10,10 0 0 1 32,56 L -32,56 A 10,10 0 0 1 -42,46 L -42,-46 A 10,10 0 0 1 -32,-56 Z"
+          fill="none" stroke="#5eead4" stroke-width="9" stroke-linejoin="round"/>
+    <path d="M 20,-56 L 42,-34 L 20,-34 Z" fill="#5eead4"/>
+    <line x1="-22" y1="-14" x2="22" y2="-14" stroke="#5eead4" stroke-width="9" stroke-linecap="round"/>
+    <line x1="-22" y1="10" x2="22" y2="10" stroke="#5eead4" stroke-width="9" stroke-linecap="round"/>
+    <line x1="-22" y1="34" x2="8" y2="34" stroke="#5eead4" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g clip-path="url(#phoneClip)">
+    <polygon points="-78,-154 -20,-154 -78,60" fill="url(#glassShine)"/>
+  </g>
+  <use href="#logoSL" transform="translate(0,153) scale(0.45)"/>
+</g>
+
+<!-- direct sync beam: bigger, ending well inside each device's black screen -->
+<g>
+  <line x1="295.7" y1="702.3" x2="654.5" y2="337.0" stroke="url(#beamGlow)" stroke-width="220" filter="url(#wideBlur)"/>
+
+  <!-- tapered core: thin at the ends, full at midpoint -->
+  <g fill="url(#beam)">
+    <circle cx="343.3" cy="653.8" r="7.0"/>
+    <circle cx="359.8" cy="637.0" r="8.8"/>
+    <circle cx="376.3" cy="620.2" r="10.4"/>
+    <circle cx="392.7" cy="603.5" r="12.0"/>
+    <circle cx="409.2" cy="586.7" r="13.4"/>
+    <circle cx="425.7" cy="569.9" r="14.5"/>
+    <circle cx="442.1" cy="553.2" r="15.3"/>
+    <circle cx="458.6" cy="536.4" r="15.8"/>
+    <circle cx="475.1" cy="519.6" r="16.0"/>
+    <circle cx="491.5" cy="502.9" r="15.8"/>
+    <circle cx="508.0" cy="486.1" r="15.3"/>
+    <circle cx="524.5" cy="469.3" r="14.5"/>
+    <circle cx="541.0" cy="452.5" r="13.4"/>
+    <circle cx="557.4" cy="435.8" r="12.0"/>
+    <circle cx="573.9" cy="419.0" r="10.4"/>
+    <circle cx="590.4" cy="402.2" r="8.8"/>
+    <circle cx="606.8" cy="385.5" r="7.0"/>
+  </g>
+
+  <!-- layered chevron tips, well inside the black screens -->
+  <polyline points="344.7,684.9 295.7,702.3 312.2,653.0" fill="none" stroke="#5eead4" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="366.1,658.7 323.7,673.8 338.0,631.1" fill="none" stroke="#5eead4" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+  <polyline points="605.5,354.3 654.5,337.0 638.0,386.3" fill="none" stroke="#5eead4" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="584.0,380.5 626.5,365.5 612.2,408.2" fill="none" stroke="#5eead4" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+</g>
+</g>
+
+<rect x="0" y="0" width="1024" height="1024" fill="url(#topGloss)"/>
+
+</svg>
