@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
+import '../widgets/shine_progress_bar.dart';
 import '../widgets/pulsing_glow.dart';
 import '../models/repository.dart' show Repository, SyncMode;
 import '../services/repository_provider.dart';
@@ -3734,19 +3735,16 @@ class ScanContinuePanel extends StatelessWidget {
                   builder: (_, __) => Stack(
                     alignment: Alignment.center,
                     children: [
-                      Container(
+                      // 2026-10-02: user - "Progress bar missing internal
+                      // flow." Same shine bar as before, now as the fill.
+                      SizedBox(
+                        width: 180,
+                        child: ShineProgressBar(
+                          value: progress.value,
                           height: 40,
-                          width: 200,
-                          color: Colors.white.withValues(alpha: 0.6)),
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: Container(
-                            width: 200 * progress.value,
-                            color: onBanner
-                                ? Colors.green.shade700
-                                : kGreen),
+                          color: onBanner ? Colors.green.shade700 : kGreen,
+                          backgroundColor: Colors.white.withValues(alpha: 0.6),
+                        ),
                       ),
                       Text(
                           'Continue now · ${(30 * (1 - progress.value)).ceil()} s',

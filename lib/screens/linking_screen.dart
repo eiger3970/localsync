@@ -2064,7 +2064,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final ctrl = widget.ctrl;
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
-      LinkingStep.awaitingVaultCreation => 'Create your $kContainerName',
+      LinkingStep.awaitingVaultCreation => 'Create your $kContainerName to sync:',
       // 2026-08-28: generic-folder mode never reaches
       // awaitingVaultCreation (skips straight here, see
       // startLinkingGenericFolder), so only this branch needed the
@@ -2145,11 +2145,10 @@ class _ParkedViewState extends State<_ParkedView> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      // 2026-10-02: user - heading now reads "Create your vault
+                      // to sync:" and the choice row sits centred under it.
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text('Vault to sync:',
-                            style: TextStyle(color: kTextMid, fontSize: 15)),
-                        const SizedBox(height: 6),
                         // 2026-10-02: third choice - link a vault that already
                         // exists (skips 1.x, one-swipe 2.x). Icons dropped so
                         // three labels fit a phone width. user: First vault (fresh
