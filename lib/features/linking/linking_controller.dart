@@ -489,7 +489,21 @@ class LinkingController extends ChangeNotifier {
   /// lands on 2.1 "There is no vault folder" with no way back to them.
   /// Goes back to the from-scratch vault checklist.
   void showVaultCreationSteps() {
+    linkExisting = false;
     _step = LinkingStep.awaitingVaultCreation;
+    notifyListeners();
+  }
+
+  /// 2026-10-02: user - "Install steps for existing vault, I always skip all
+  /// the steps 1.x and 2.x and just swipe through, so for users, the steps
+  /// 1x and 2x can be mostly minimised to just swiping up to open Files to
+  /// select the existing Files folder." Choosing an existing vault skips the
+  /// 1.x Obsidian steps and shows a one-swipe 2.x (vaultFolderSteps).
+  bool linkExisting = false;
+  void chooseExistingVault() {
+    if (_step != LinkingStep.awaitingVaultCreation) return;
+    linkExisting = true;
+    _step = LinkingStep.pickingVaultFolder;
     notifyListeners();
   }
 
@@ -819,6 +833,11 @@ class LinkingController extends ChangeNotifier {
           '@files tap Open',
           '@localsync phone will pause up to a minute, checking the folder',
         ]
+      : linkExisting
+          ? [
+              '@localsync swipe up to open Files and pick your vault folder',
+              '@localsync phone will pause up to a minute, downloading your notes',
+            ]
       : [
           '@localsync swipe up to open VAULT FOLDER',
           '@files tap Browse',

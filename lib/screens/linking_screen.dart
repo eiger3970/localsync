@@ -2147,21 +2147,25 @@ class _ParkedViewState extends State<_ParkedView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('$kNoteAppName on this phone:',
+                        Text('Vault to sync:',
                             style: TextStyle(color: kTextMid, fontSize: 15)),
                         const SizedBox(height: 6),
-                        SegmentedButton<bool>(
+                        // 2026-10-02: third choice - link a vault that already
+                        // exists (skips 1.x, one-swipe 2.x). Icons dropped so
+                        // three labels fit a phone width. user: First vault (fresh
+                        // Obsidian, default) / Another vault (Obsidian has vaults) /
+                        // Use my vault (sync one you already have).
+                        SegmentedButton<int>(
+                          showSelectedIcon: false,
                           segments: const [
                             ButtonSegment(
-                                value: true,
-                                label: Text('New, no vaults'),
-                                icon: Icon(Icons.fiber_new_outlined)),
+                                value: 0, label: Text('First vault')),
                             ButtonSegment(
-                                value: false,
-                                label: Text('Has vaults'),
-                                icon: Icon(Icons.folder_copy_outlined)),
+                                value: 1, label: Text('Another vault')),
+                            ButtonSegment(
+                                value: 2, label: Text('Use my vault')),
                           ],
-                          selected: {ctrl.obsidianIsNew},
+                          selected: {ctrl.obsidianIsNew ? 0 : 1},
                           style: ButtonStyle(
                             foregroundColor: WidgetStateProperty.resolveWith(
                                 (st) => st.contains(WidgetState.selected)
@@ -2176,7 +2180,11 @@ class _ParkedViewState extends State<_ParkedView> {
                           ),
                           onSelectionChanged: (v) {
                             setState(() => _vaultCreationChecked = null);
-                            ctrl.setObsidianIsNew(v.first);
+                            if (v.first == 2) {
+                              ctrl.chooseExistingVault();
+                            } else {
+                              ctrl.setObsidianIsNew(v.first == 0);
+                            }
                           },
                         ),
                       ],
