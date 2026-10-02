@@ -1108,7 +1108,17 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // action), inconsistent
                                             // casing read as if only one
                                             // were a real button.
-                                            const TextSpan(text: 'Resolved.\n'),
+                                            // 2026-10-02: Ken - "this is bad grammar ... perhaps
+                                            // all these lines presented more succinctly and less
+                                            // verbose? svg images are easier for humans than
+                                            // text." Now 4 short lines, each led by an icon.
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.check_circle,
+                                                  color: kGreen, size: 16),
+                                            ),
+                                            const TextSpan(text: ' Resolved\n'),
                                             // 2026-09-18: real feedback,
                                             // live - "Conflict resolved.
                                             // Swipe PUSH, then PULL on
@@ -1122,26 +1132,32 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // PULL" step naming, instead
                                             // of leading with the phone's
                                             // own gesture ("Swipe").
-                                            const TextSpan(text: 'Phone '),
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.phone_iphone,
+                                                  color: kStar, size: 16),
+                                            ),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(
-                                                text: ' PUSH, the desktop '),
+                                            const TextSpan(text: ' PUSH  →  '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
-                                              child: Icon(
-                                                  Icons.download_rounded,
-                                                  color: kStar,
-                                                  size: 16),
+                                              child: Icon(Icons.computer,
+                                                  color: kStar, size: 16),
                                             ),
-                                            const TextSpan(
-                                                text: ' PULL, completing '
-                                                    'sync.\n\n'),
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.download_rounded,
+                                                  color: kStar, size: 16),
+                                            ),
+                                            const TextSpan(text: ' PULL\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1151,14 +1167,23 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // your phone pushes - "in
                                             // Obsidian" alone didn't say
                                             // which one.
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.refresh,
+                                                  color: kStar, size: 16),
+                                            ),
                                             const TextSpan(
-                                                text: 'If text still looks '
-                                                    'wrong in desktop '
-                                                    'Obsidian, close and '
-                                                    'reopen to refresh the '
-                                                    'note.\n\n'),
-                                            const TextSpan(
-                                                text: 'View or restore '),
+                                                text: ' Desktop Obsidian: close '
+                                                    'and reopen the note if '
+                                                    'text looks wrong\n'),
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(Icons.restore,
+                                                  color: kStar, size: 16),
+                                            ),
+                                            const TextSpan(text: ' Backup: '),
                                             TextSpan(
                                               text: backupFileName,
                                               style: TextStyle(
@@ -1290,9 +1315,6 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // hadn't noticed. Told here, right
                                             // where a resolution just wrote to
                                             // this exact note.
-                                            TextSpan(
-                                                text:
-                                                    ' in $kBackupsPlace.'),
                                           ],
                                         ),
                                       ),
