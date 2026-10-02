@@ -23,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../features/linking/linking_controller.dart';
-import '../widgets/shine_progress_bar.dart';
 import '../widgets/pulsing_glow.dart';
 import '../models/repository.dart' show Repository, SyncMode;
 import '../services/repository_provider.dart';
@@ -3713,60 +3712,54 @@ class ScanContinuePanel extends StatelessWidget {
         // repeated fields 1-4 right below ("isn't this a repeat?"). The
         // heading says the scan worked; the fields say what it filled
         // (FROM QR tags, _stepHeader).
+        // 2026-10-02: user - "Total lines 1 or 2 would be great" and
+        // "Include Desktop found and remove check details (users can look
+        // below at the details)". One row: the Continue button is the
+        // progress bar - it fills from the left as the 30 s count down.
         Row(
           children: [
             Icon(Icons.check_circle, color: fg, size: 22),
             const SizedBox(width: 8),
-            Text('Desktop found',
-                style: TextStyle(
-                    color: fg, fontSize: 17, fontWeight: FontWeight.w700)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        AnimatedBuilder(
-          animation: progress,
-          // 2026-09-27: user - "I don't like the black progress bar,
-          // needs to be a happy colour." Green on a light track, also on
-          // the yellow box (text stays dark for contrast). 2026-09-29: with
-          // a white shine sweeping through, so it never looks frozen.
-          builder: (_, __) => ShineProgressBar(
-            value: progress.value,
-            color: onBanner ? Colors.green.shade700 : kGreen,
-            backgroundColor: Colors.white.withValues(alpha: 0.6),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
             Expanded(
-              child: AnimatedBuilder(
-                animation: progress,
-                builder: (_, __) => Text(
-                    'Continuing in ${(30 * (1 - progress.value)).ceil()} s',
-                    style: TextStyle(color: fg, fontSize: 15)),
+              child: Text('Desktop found',
+                  style: TextStyle(
+                      color: fg, fontSize: 17, fontWeight: FontWeight.w700)),
+            ),
+            GestureDetector(
+              onTap: onContinue,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedBuilder(
+                  animation: progress,
+                  builder: (_, __) => Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                          height: 40,
+                          width: 200,
+                          color: Colors.white.withValues(alpha: 0.6)),
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                            width: 200 * progress.value,
+                            color: onBanner
+                                ? Colors.green.shade700
+                                : kGreen),
+                      ),
+                      Text(
+                          'Continue now · ${(30 * (1 - progress.value)).ceil()} s',
+                          style: TextStyle(
+                              color: onBanner ? kVoid : kStar,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
               ),
             ),
-            FilledButton(
-              onPressed: onContinue,
-              style: FilledButton.styleFrom(
-                  backgroundColor: fg,
-                  foregroundColor: onBanner ? kGreen : kVoid),
-              child: const Text('Continue now',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
           ],
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: onCancel,
-            child: Text('Cancel - check details',
-                style: TextStyle(
-                    color: fg,
-                    fontSize: 15,
-                    decoration: TextDecoration.underline,
-                    decorationColor: fg)),
-          ),
         ),
       ],
     );
