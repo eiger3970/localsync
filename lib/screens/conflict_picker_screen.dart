@@ -1353,28 +1353,19 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 ],
                 if (looksLikeSeparateEntries) ...[
                   const SizedBox(height: 8),
-                  // 2026-10-02: user, on the Oct 1st journal (1840 vs 2120)
-                  // - "Tip suggests KEEP BOTH, but wouldn't KEEP BOTH &
-                  // CLEAN UP be best?" Here it gives the same result (that
-                  // is why the tip didn't name it), so the tip now says so.
                   _autoTipRow(
                       kGreen,
-                      (allHaveLeadingTime(versions.map((v) => v.body).toList())
-                              ? '"KEEP BOTH" is usually right here\n'
-                                  '- each side starts with a different '
-                                  'clock time, these look like two '
-                                  'separate entries, not the same thing '
-                                  'edited twice.'
-                              : '"KEEP BOTH" is usually right here\n'
-                                  '- one side has a clock time, the other '
-                                  'has none at all, these look like two '
-                                  'separate entries, not the same thing '
-                                  'edited twice.') +
-                          (keptBothNote != null
-                              ? ' The times already end up in order, so '
-                                  'KEEP BOTH & CLEAN UP would give the '
-                                  'same result.'
-                              : '')),
+                      allHaveLeadingTime(versions.map((v) => v.body).toList())
+                          ? '"KEEP BOTH" is usually right here\n'
+                              '- each side starts with a different '
+                              'clock time, these look like two '
+                              'separate entries, not the same thing '
+                              'edited twice.'
+                          : '"KEEP BOTH" is usually right here\n'
+                              '- one side has a clock time, the other '
+                              'has none at all, these look like two '
+                              'separate entries, not the same thing '
+                              'edited twice.'),
                 ],
                 if (oneSideHasEverything) ...[
                   const SizedBox(height: 8),
