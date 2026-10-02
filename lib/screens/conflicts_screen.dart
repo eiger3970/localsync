@@ -1144,7 +1144,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' PUSH  →  '),
+                                            const TextSpan(text: ' PUSH → '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
@@ -1157,7 +1157,10 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.download_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' PULL\n'),
+                                            // 2026-10-02: Ken - "After PULL another progress
+                                            // arrow -> for the Obsidian note reboot (if
+                                            // needed)." Step 3 on the next line: reopen the Obsidian tab if the text is old.
+                                            const TextSpan(text: ' PULL →\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1170,13 +1173,11 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
-                                              child: Icon(Icons.refresh,
+                                              child: Icon(Icons.tab,
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' Desktop Obsidian: close '
-                                                    'and reopen the note if '
-                                                    'text looks wrong\n'),
+                                                text: ' Old text? Reopen the Obsidian tab\n'),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
