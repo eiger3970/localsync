@@ -201,12 +201,21 @@ class PairingController extends ChangeNotifier {
           }
         }
 
-        // 2026-10-02: the desktop had 580 lines in authorized_keys - a
-        // re-pair appended the same key again every time. Only append
-        // when the key's base64 part isn't there yet.
-        final keyBody = publicKeyLine.split(' ')[1];
+        // 2026-10-02: the desktop had 580 lines in authorized_keys - every
+        // reinstall and re-pair appended another line. Now: drop this
+        // phone's earlier line(s) (matched by its "localsync-<id>" label,
+        // see keypair_service.dart), then add the current key once. Other
+        // phones' keys and the user's own keys are never touched.
+        final parts = publicKeyLine.split(' ');
+        final keyBody = parts[1];
+        final label = parts.length > 2 ? parts[2] : '';
+        final dropOld = label.startsWith('localsync-')
+            ? "{ grep -vF ' $label' ~/.ssh/authorized_keys || true; } > ~/.ssh/authorized_keys.localsync && "
+              'mv ~/.ssh/authorized_keys.localsync ~/.ssh/authorized_keys && '
+            : '';
         final command = 'mkdir -p ~/.ssh && chmod 700 ~/.ssh && '
             'touch ~/.ssh/authorized_keys && '
+            '$dropOld'
             "{ grep -qF '$keyBody' ~/.ssh/authorized_keys || "
             "printf '%s\\n' '$escaped' >> ~/.ssh/authorized_keys; } && "
             'chmod 600 ~/.ssh/authorized_keys';

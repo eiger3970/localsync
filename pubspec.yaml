@@ -132,6 +132,10 @@ dependencies:
   # 2026-09-24: short completion sounds (push, pull, desktop sync, all
   # conflicts cleared) - see lib/services/sound_service.dart.
   audioplayers: ^6.8.1
+  # 2026-10-02: the SSH key lives in the iOS Keychain too, so deleting and
+  # reinstalling the app reuses the same key instead of adding a new one to
+  # the desktop's authorized_keys every time - see keypair_service.dart.
+  flutter_secure_storage: ^10.3.4
 
 dev_dependencies:
   flutter_test:
