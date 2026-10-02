@@ -49,7 +49,7 @@ class _BrainHeroState extends State<BrainHero>
   // views are cross-faded so 15 deg steps still turn smoothly.
   // 2026-09-28: user - "Moving brain is jittery, add more quality." 48
   // around (7.5 deg) instead of 24 - half the jump between views.
-  static const _yaws = 48;
+  static const _yaws = 96;
   static const _pitches = 9;
   static const _level = 4; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
