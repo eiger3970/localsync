@@ -2064,7 +2064,7 @@ class _ParkedViewState extends State<_ParkedView> {
     final ctrl = widget.ctrl;
     // Derive a plain heading from the current park point
     final heading = switch (ctrl.step) {
-      LinkingStep.awaitingVaultCreation => 'Create your $kContainerName to sync:',
+      LinkingStep.awaitingVaultCreation => 'Which $kContainerName do you want to sync?',
       // 2026-08-28: generic-folder mode never reaches
       // awaitingVaultCreation (skips straight here, see
       // startLinkingGenericFolder), so only this branch needed the
