@@ -2205,7 +2205,10 @@ class _ParkedViewState extends State<_ParkedView> {
                 else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
                   // 2026-09-24: where the vault is, as a picture, above
                   // the steps - see folder_route_view.dart.
-                  if (ctrl.syncMode != SyncMode.genericFolder)
+                  // 2026-10-02: user - "Use my vault: next page is messy and
+                  // unclear". An existing vault's owner knows where it is:
+                  // no route picture, one swipe, a way back to the choice.
+                  if (ctrl.syncMode != SyncMode.genericFolder && !ctrl.linkExisting)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: FolderRouteView([
@@ -2239,7 +2242,10 @@ class _ParkedViewState extends State<_ParkedView> {
                     TextButton.icon(
                       onPressed: _showVaultSteps,
                       icon: Icon(Icons.undo, color: kGreen, size: 18),
-                      label: Text('Show the $kNoteAppName steps again',
+                      label: Text(
+                          ctrl.linkExisting
+                              ? 'Back to the vault choice'
+                              : 'Show the $kNoteAppName steps again',
                           style: TextStyle(color: kGreen, fontSize: 15)),
                     ),
                 ]
@@ -2913,7 +2919,10 @@ class _CompleteViewState extends State<_CompleteView>
           // Obsidian, and may not have it installed at all, so this
           // entire block is skipped for that mode rather than just
           // reworded. Falls straight to the leave-setup swipe below.
-          if (widget.ctrl.syncMode != SyncMode.genericFolder) ...[
+          // 2026-10-02: user - "3.x is not needed for existing vaults" - an
+          // existing vault was already opened (and trusted) in Obsidian.
+          if (widget.ctrl.syncMode != SyncMode.genericFolder &&
+              !widget.ctrl.linkExisting) ...[
             // 2026-08-15: real device feedback - reaching this screen and
             // tapping OPEN OBSIDIAN used to hand the user off with zero
             // guidance for what happens next inside Obsidian. Confirmed
