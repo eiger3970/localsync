@@ -63,6 +63,11 @@ class _BrainHeroState extends State<BrainHero>
   // or bottom view, the brain is the view from the other side (row
   // 16 - i, half a turn round) shown upside down - no new renders.
   static const _tilts = 2 * (_pitches - 1);
+  // Upside down, turning the brain's own axis the same way moves it the
+  // other way on screen - so sideways drag and spin flip sign there, and
+  // the brain keeps following the finger (user: "doesn't follow my drag").
+  double get _yawSign => (_pitch % _tilts) > _pitches - 1 ? -1.0 : 1.0;
+
   static (int, int, bool) _rowOf(int tilt) {
     final i = tilt % _tilts;
     return i <= _pitches - 1 ? (i, 0, false) : (_tilts - i, _yaws ~/ 2, true);
@@ -129,7 +134,7 @@ class _BrainHeroState extends State<BrainHero>
       }
       if (!_paused && !_dragging) {
         setState(() {
-          _yaw = (_yaw + dt * _vel.dx / _yawStep) % _yaws;
+          _yaw = (_yaw + _yawSign * dt * _vel.dx / _yawStep) % _yaws;
           _pitch = (_pitch + dt * _vel.dy / _pitchStep) % _tilts;
           // Friction: a fast flick slows down to idle speed, same
           // direction; never below idle, never back to a sideways spin.
@@ -265,7 +270,7 @@ class _BrainHeroState extends State<BrainHero>
       onPanUpdate: (d) => setState(() {
         final px = Offset(d.delta.dx, _pitchSign * d.delta.dy);
         if (px.distance > 0.5) _dragVec = _dragVec * 0.6 + px * 0.4;
-        _yaw = (_yaw + px.dx * _degPerPx / _yawStep) % _yaws;
+        _yaw = (_yaw + _yawSign * px.dx * _degPerPx / _yawStep) % _yaws;
         _pitch = (_pitch + px.dy * _degPerPx / _pitchStep) % _tilts;
       }),
       onPanEnd: (d) {
