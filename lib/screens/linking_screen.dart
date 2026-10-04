@@ -2154,49 +2154,49 @@ class _ParkedViewState extends State<_ParkedView> {
                         // three labels fit a phone width. user: First vault (fresh
                         // Obsidian, default) / Another vault (Obsidian has vaults) /
                         // Use my vault (sync one you already have).
-                        SegmentedButton<int>(
-                          showSelectedIcon: false,
-                          segments: const [
-                            ButtonSegment(
-                                value: 0, label: Text('First vault')),
-                            ButtonSegment(
-                                value: 1, label: Text('Another vault')),
-                            // 2026-10-04: user - "Use my vault" -> "Existing vault".
-                            ButtonSegment(
-                                value: 2, label: Text('Existing vault')),
-                          ],
-                          selected: {ctrl.obsidianIsNew ? 0 : 1},
-                          style: ButtonStyle(
-                            foregroundColor: WidgetStateProperty.resolveWith(
-                                (st) => st.contains(WidgetState.selected)
-                                    ? kVoid
-                                    : kStar),
-                            backgroundColor: WidgetStateProperty.resolveWith(
-                                (st) => st.contains(WidgetState.selected)
-                                    ? kGreen
-                                    : kSurface),
-                            side: WidgetStatePropertyAll(
-                                BorderSide(color: kBorder)),
+                        // 2026-10-04: user - "Can the user be clear with no
+                        // doubt whatsoever... 1st time, users need hand
+                        // holding." Three cards, each saying when to pick it,
+                        // plus a check anyone can do in Obsidian.
+                        for (final (i, title, pickIf) in const [
+                          (0, 'First vault',
+                              'You have never used Obsidian on this phone. '
+                                  'LocalSync walks you through making your '
+                                  'first vault.'),
+                          (1, 'Another vault',
+                              'Obsidian on this phone already has vaults. '
+                                  'You want a new, empty vault just for '
+                                  'syncing.'),
+                          (2, 'Existing vault',
+                              'Your notes are already in an Obsidian vault '
+                                  'on this phone. You want to sync that '
+                                  'vault, notes and all.'),
+                        ])
+                          _VaultChoiceCard(
+                            title: title,
+                            when: pickIf,
+                            selected: i < 2 && ctrl.obsidianIsNew == (i == 0),
+                            onTap: () {
+                              setState(() => _vaultCreationChecked = null);
+                              if (i == 2) {
+                                ctrl.chooseExistingVault();
+                              } else {
+                                ctrl.setObsidianIsNew(i == 0);
+                              }
+                            },
                           ),
-                          onSelectionChanged: (v) {
-                            setState(() => _vaultCreationChecked = null);
-                            if (v.first == 2) {
-                              ctrl.chooseExistingVault();
-                            } else {
-                              ctrl.setObsidianIsNew(v.first == 0);
-                            }
-                          },
-                        ),
-                        // 2026-10-04: user - a new LocalSync user can already
-                        // have Obsidian with vaults, so each choice says
-                        // what Obsidian has, not how new the user is.
-                        const SizedBox(height: 8),
-                        Text(
-                          ctrl.obsidianIsNew
-                              ? 'Obsidian has no vaults yet on this phone.'
-                              : 'Obsidian already has vaults: this makes a '
-                                  'new, empty one. Your notes already in a '
-                                  'vault? Tap Existing vault.',
+                        const SizedBox(height: 4),
+                        Text.rich(
+                          TextSpan(children: [
+                            const TextSpan(
+                                text: 'Not sure? Open Obsidian. If it shows '),
+                            TextSpan(
+                                text: 'Create a vault',
+                                style: TextStyle(
+                                    color: kGreen,
+                                    fontWeight: FontWeight.w700)),
+                            const TextSpan(text: ', pick First vault.'),
+                          ]),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: kTextMid, fontSize: 13),
                         ),
@@ -3844,4 +3844,68 @@ class BackupReminderCard extends StatelessWidget {
           ),
         ],
       );
+}
+
+
+// 2026-10-04: setup vault choice - one card per choice, saying when to
+// pick it (replaces the cramped three-label row).
+class _VaultChoiceCard extends StatelessWidget {
+  final String title;
+  final String when;
+  final bool selected;
+  final VoidCallback onTap;
+  const _VaultChoiceCard(
+      {required this.title,
+      required this.when,
+      required this.selected,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: selected ? kGreen.withValues(alpha: 0.08) : kSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+              color: selected ? kGreen : kBorder, width: 1.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                    selected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: selected ? kGreen : kTextMid,
+                    size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: TextStyle(
+                              color: kStar,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 3),
+                      Text(when,
+                          style: TextStyle(color: kTextMid, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
