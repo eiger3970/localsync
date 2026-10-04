@@ -50,8 +50,8 @@ class _BrainHeroState extends State<BrainHero>
   // 2026-09-28: user - "Moving brain is jittery, add more quality." 48
   // around (7.5 deg) instead of 24 - half the jump between views.
   static const _yaws = 96;
-  static const _pitches = 9;
-  static const _level = 4; // pitch row facing straight on
+  static const _pitches = 17;
+  static const _level = 8; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
   static const _yawStep = 360.0 / _yaws; // degrees between views
   static const _pitchStep = 180.0 / (_pitches - 1);
