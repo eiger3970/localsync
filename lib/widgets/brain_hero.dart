@@ -58,6 +58,15 @@ class _BrainHeroState extends State<BrainHero>
   static const _idleDeg = 360.0 / _turnSecs; // idle turning, degrees/s
   static const _degPerPx = 1.25; // drag: degrees turned per pixel
   static const _pitchSign = 1.0; // flip if dragging down tilts the wrong way
+  // 2026-10-04: user - "stops turning upside down and won't spin 360".
+  // Tilt now wraps all the way round: 16 steps of 22.5 deg. Past the top
+  // or bottom view, the brain is the view from the other side (row
+  // 16 - i, half a turn round) shown upside down - no new renders.
+  static const _tilts = 2 * (_pitches - 1);
+  static (int, int, bool) _rowOf(int tilt) {
+    final i = tilt % _tilts;
+    return i <= _pitches - 1 ? (i, 0, false) : (_tilts - i, _yaws ~/ 2, true);
+  }
   static String _frame(String set, int yaw, int pitch) {
     final i = pitch * _yaws + (yaw % _yaws) + 1;
     return 'assets/brain/grid_$set/${i.toString().padLeft(4, '0')}.webp';
@@ -83,7 +92,7 @@ class _BrainHeroState extends State<BrainHero>
   double _pulseT = 0; // seconds
   static const _pulseSecs = 1.6;
   double _yaw = 0; // 0.._yaws
-  double _pitch = _level * 1.0; // 0.._pitches-1
+  double _pitch = _level * 1.0; // 0.._tilts, wraps (see _rowOf)
   bool _paused = false;
   bool _dragging = false;
   // 2026-09-28: user - "User drags and lets go, that sets the speed,
@@ -121,12 +130,7 @@ class _BrainHeroState extends State<BrainHero>
       if (!_paused && !_dragging) {
         setState(() {
           _yaw = (_yaw + dt * _vel.dx / _yawStep) % _yaws;
-          _pitch += dt * _vel.dy / _pitchStep;
-          // Up/down bounces off the top and bottom views.
-          if (_pitch <= 0 || _pitch >= _pitches - 1) {
-            _pitch = _pitch.clamp(0.0, _pitches - 1.0);
-            _vel = Offset(_vel.dx, -_vel.dy);
-          }
+          _pitch = (_pitch + dt * _vel.dy / _pitchStep) % _tilts;
           // Friction: a fast flick slows down to idle speed, same
           // direction; never below idle, never back to a sideways spin.
           final m = _vel.distance;
@@ -158,11 +162,11 @@ class _BrainHeroState extends State<BrainHero>
 
   void _preloadRows() {
     if (!mounted) return;
-    final p0 = _pitch.floor().clamp(0, _pitches - 1);
-    final p1 = (p0 + 1).clamp(0, _pitches - 1);
+    final t0 = _pitch.floor();
+    final r0 = _rowOf(t0).$1, r1 = _rowOf(t0 + 1).$1;
     for (final set in [_set, if (_nextSet != null) _nextSet!]) {
-      _precacheRow(set, p0);
-      if (_pitch - p0 > 0.01) _precacheRow(set, p1);
+      _precacheRow(set, r0);
+      if (_pitch - t0 > 0.01) _precacheRow(set, r1);
     }
   }
 
@@ -195,19 +199,22 @@ class _BrainHeroState extends State<BrainHero>
 
   // Nearest views around (_yaw, _pitch), blended by distance.
   Widget _gridView(String set) {
-    final y0 = _yaw.floor(), p0 = _pitch.floor();
-    final fy = _yaw - y0, fp = _pitch - p0;
-    final p1 = (p0 + 1).clamp(0, _pitches - 1);
+    final y0 = _yaw.floor(), t0 = _pitch.floor();
+    final fy = _yaw - y0, fp = _pitch - t0;
     Widget img(int y, int p, double o) => Opacity(
         opacity: o.clamp(0.0, 1.0),
         child: Image.asset(_frame(set, y, p),
             gaplessPlayback: true, fit: BoxFit.contain));
     // Bottom layer fully opaque, the next views fade in on top of it.
-    final row0 = Stack(fit: StackFit.expand,
-        children: [img(y0, p0, 1), img(y0 + 1, p0, fy)]);
-    if (fp < 0.01 || p1 == p0) return row0;
-    final row1 = Stack(fit: StackFit.expand,
-        children: [img(y0, p1, 1), img(y0 + 1, p1, fy)]);
+    Widget row(int tilt) {
+      final (r, off, flip) = _rowOf(tilt);
+      final views = Stack(fit: StackFit.expand,
+          children: [img(y0 + off, r, 1), img(y0 + 1 + off, r, fy)]);
+      return flip ? Transform.rotate(angle: math.pi, child: views) : views;
+    }
+    final row0 = row(t0);
+    if (fp < 0.01) return row0;
+    final row1 = row(t0 + 1);
     return Stack(fit: StackFit.expand,
         children: [row0, Opacity(opacity: fp, child: row1)]);
   }
@@ -259,8 +266,7 @@ class _BrainHeroState extends State<BrainHero>
         final px = Offset(d.delta.dx, _pitchSign * d.delta.dy);
         if (px.distance > 0.5) _dragVec = _dragVec * 0.6 + px * 0.4;
         _yaw = (_yaw + px.dx * _degPerPx / _yawStep) % _yaws;
-        _pitch = (_pitch + px.dy * _degPerPx / _pitchStep)
-            .clamp(0.0, _pitches - 1.0);
+        _pitch = (_pitch + px.dy * _degPerPx / _pitchStep) % _tilts;
       }),
       onPanEnd: (d) {
         final v = d.velocity.pixelsPerSecond;
