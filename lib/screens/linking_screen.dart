@@ -2158,21 +2158,16 @@ class _ParkedViewState extends State<_ParkedView> {
                         // doubt whatsoever... 1st time, users need hand
                         // holding." Three cards, each saying when to pick it,
                         // plus a check anyone can do in Obsidian.
+                        // 2026-10-04: user - "need svg images, too verbose
+                        // with text". One picture and one short line each.
                         for (final (i, title, pickIf) in const [
-                          (0, 'First vault',
-                              'You have never used Obsidian on this phone. '
-                                  'LocalSync walks you through making your '
-                                  'first vault.'),
+                          (0, 'First vault', 'New to Obsidian on this phone'),
                           (1, 'Another vault',
-                              'Obsidian on this phone already has vaults. '
-                                  'You want a new, empty vault just for '
-                                  'syncing.'),
-                          (2, 'Existing vault',
-                              'Your notes are already in an Obsidian vault '
-                                  'on this phone. You want to sync that '
-                                  'vault, notes and all.'),
+                              'Obsidian has vaults - add an empty one'),
+                          (2, 'Existing vault', 'Sync a vault with your notes'),
                         ])
                           _VaultChoiceCard(
+                            svg: _kVaultChoiceSvgs[i],
                             title: title,
                             when: pickIf,
                             selected: i < 2 && ctrl.obsidianIsNew == (i == 0),
@@ -2189,13 +2184,13 @@ class _ParkedViewState extends State<_ParkedView> {
                         Text.rich(
                           TextSpan(children: [
                             const TextSpan(
-                                text: 'Not sure? Open Obsidian. If it shows '),
+                                text: 'Not sure? Open Obsidian. Shows '),
                             TextSpan(
                                 text: 'Create a vault',
                                 style: TextStyle(
                                     color: kGreen,
                                     fontWeight: FontWeight.w700)),
-                            const TextSpan(text: ', pick First vault.'),
+                            const TextSpan(text: '? Pick First vault.'),
                           ]),
                           textAlign: TextAlign.center,
                           style: TextStyle(color: kTextMid, fontSize: 13),
@@ -3849,13 +3844,22 @@ class BackupReminderCard extends StatelessWidget {
 
 // 2026-10-04: setup vault choice - one card per choice, saying when to
 // pick it (replaces the cramped three-label row).
+// Obsidian purple vaults, LocalSync green actions (colour rule 2026-10-04).
+const _kVaultChoiceSvgs = [
+  r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><rect x="22" y="6" width="52" height="52" rx="10" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="5 4"/><g transform="translate(48,30)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><circle cx="70" cy="50" r="10" fill="#00ff41"/><path d="M70 44 V56 M64 50 H76" stroke="#03020a" stroke-width="3" stroke-linecap="round"/></svg>''',
+  r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><g fill="none" stroke="#a78bfa" stroke-width="2.5"><rect x="6" y="14" width="26" height="36" rx="6"/><rect x="36" y="14" width="26" height="36" rx="6"/></g><g transform="translate(19,32) scale(.7)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><g transform="translate(49,32) scale(.7)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><rect x="66" y="14" width="26" height="36" rx="6" fill="none" stroke="#00ff41" stroke-width="2.5" stroke-dasharray="4 3"/><path d="M79 25 V39 M72 32 H86" stroke="#00ff41" stroke-width="3" stroke-linecap="round"/></svg>''',
+  r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><rect x="8" y="8" width="44" height="48" rx="8" fill="none" stroke="#a78bfa" stroke-width="2.5"/><g transform="translate(20,20) scale(.6)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><g stroke="#9a98b0" stroke-width="2.5" stroke-linecap="round"><path d="M16 34 H44"/><path d="M16 41 H40"/><path d="M16 48 H36"/></g><g fill="none" stroke="#00ff41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M62 26 A14 14 0 0 1 86 26"/><path d="M80 20 L86 26 L91 19"/><path d="M86 40 A14 14 0 0 1 62 40"/><path d="M68 46 L62 40 L57 47"/></g></svg>''',
+];
+
 class _VaultChoiceCard extends StatelessWidget {
+  final String svg;
   final String title;
   final String when;
   final bool selected;
   final VoidCallback onTap;
   const _VaultChoiceCard(
-      {required this.title,
+      {required this.svg,
+      required this.title,
       required this.when,
       required this.selected,
       required this.onTap});
@@ -3877,15 +3881,9 @@ class _VaultChoiceCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                    selected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: selected ? kGreen : kTextMid,
-                    size: 20),
-                const SizedBox(width: 10),
+                SvgPicture.string(svg, width: 72, height: 48),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
