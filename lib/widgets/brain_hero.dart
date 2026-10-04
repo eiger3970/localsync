@@ -156,29 +156,33 @@ class _BrainHeroState extends State<BrainHero>
   // the 100 MB image cache couldn't hold them, so it kept re-decoding.
   // Now the (at most two) rows the brain is between are preloaded as it
   // tilts, for the set showing and the one fading in.
-  final _loadedRows = <String>{};
-  void _precacheRow(String set, int pitch) {
-    if (!_loadedRows.add('$set/$pitch')) return;
-    if (_loadedRows.length > 6) _loadedRows.remove(_loadedRows.first);
-    for (var y = 0; y < _yaws; y++) {
-      precacheImage(AssetImage(_frame(set, y, pitch)), context);
-    }
-  }
-
+  // 2026-10-04: user - "locks up when upside down". Whole rows (96 views,
+  // ~50 MB decoded each) didn't fit the 100 MB image cache two at a time,
+  // and queueing views ahead made the views on screen wait behind them -
+  // the old view stayed (frozen) or nothing showed (blank). Tested on the
+  // desktop build with a scripted drag: only the (up to 4) views on screen
+  // are requested now, and a full vertical turn shows every step.
+  String _warmKey = '';
   void _preloadRows() {
     if (!mounted) return;
-    final t0 = _pitch.floor();
-    final r0 = _rowOf(t0).$1, r1 = _rowOf(t0 + 1).$1;
+    final t0 = _pitch.floor(), y0 = _yaw.floor();
+    final key = '$_set/${_nextSet ?? ''}/$t0/$y0';
+    if (key == _warmKey) return;
+    _warmKey = key;
     for (final set in [_set, if (_nextSet != null) _nextSet!]) {
-      _precacheRow(set, r0);
-      if (_pitch - t0 > 0.01) _precacheRow(set, r1);
+      for (var t = t0; t <= t0 + 1; t++) {
+        final (r, off, _) = _rowOf(t);
+        for (var y = y0; y <= y0 + 1; y++) {
+          precacheImage(AssetImage(_frame(set, y + off, r)), context);
+        }
+      }
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _precacheRow('idle', _level);
+    _preloadRows();
   }
 
   @override
@@ -211,17 +215,17 @@ class _BrainHeroState extends State<BrainHero>
         child: Image.asset(_frame(set, y, p),
             gaplessPlayback: true, fit: BoxFit.contain));
     // Bottom layer fully opaque, the next views fade in on top of it.
+    // Same widget tree at every angle (both rows, always rotated - by 0 or
+    // half a turn), so no Image is rebuilt from scratch and none blanks.
     Widget row(int tilt) {
       final (r, off, flip) = _rowOf(tilt);
-      final views = Stack(fit: StackFit.expand,
-          children: [img(y0 + off, r, 1), img(y0 + 1 + off, r, fy)]);
-      return flip ? Transform.rotate(angle: math.pi, child: views) : views;
+      return Transform.rotate(
+          angle: flip ? math.pi : 0,
+          child: Stack(fit: StackFit.expand,
+              children: [img(y0 + off, r, 1), img(y0 + 1 + off, r, fy)]));
     }
-    final row0 = row(t0);
-    if (fp < 0.01) return row0;
-    final row1 = row(t0 + 1);
     return Stack(fit: StackFit.expand,
-        children: [row0, Opacity(opacity: fp, child: row1)]);
+        children: [row(t0), Opacity(opacity: fp, child: row(t0 + 1))]);
   }
 
   // Soft white light inside the circle, behind the brain: 0.35 -> 1
