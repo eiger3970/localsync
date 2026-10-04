@@ -2161,8 +2161,9 @@ class _ParkedViewState extends State<_ParkedView> {
                                 value: 0, label: Text('First vault')),
                             ButtonSegment(
                                 value: 1, label: Text('Another vault')),
+                            // 2026-10-04: user - "Use my vault" -> "Existing vault".
                             ButtonSegment(
-                                value: 2, label: Text('Use my vault')),
+                                value: 2, label: Text('Existing vault')),
                           ],
                           selected: {ctrl.obsidianIsNew ? 0 : 1},
                           style: ButtonStyle(
@@ -2185,6 +2186,19 @@ class _ParkedViewState extends State<_ParkedView> {
                               ctrl.setObsidianIsNew(v.first == 0);
                             }
                           },
+                        ),
+                        // 2026-10-04: user - a new LocalSync user can already
+                        // have Obsidian with vaults, so each choice says
+                        // what Obsidian has, not how new the user is.
+                        const SizedBox(height: 8),
+                        Text(
+                          ctrl.obsidianIsNew
+                              ? 'Obsidian has no vaults yet on this phone.'
+                              : 'Obsidian already has vaults: this makes a '
+                                  'new, empty one. Your notes already in a '
+                                  'vault? Tap Existing vault.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: kTextMid, fontSize: 13),
                         ),
                       ],
                     ),
