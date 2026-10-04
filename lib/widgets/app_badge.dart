@@ -28,10 +28,13 @@ class AppBadge extends StatelessWidget {
   const AppBadge(this.app, {super.key});
 
   static const _obsidianPurple = Color(0xFFA78BFA);
-  static const _filesBlue = Color(0xFF1E88E5);
+  // 2026-10-04: user - Files in the iPhone Files app's own colours: white
+  // tile, Apple blue folder. A plain blue badge read as "desktop" (blue
+  // means desktop across the app and website).
+  static const _filesBlue = Color(0xFF0A84FF);
 
   static (String, IconData, Color) look(StepApp a) => switch (a) {
-        StepApp.phone => ('PHONE', Icons.phone_iphone, kTextMid),
+        StepApp.phone => ('PHONE', Icons.phone_iphone, kGreen),
         StepApp.localsync => ('LOCALSYNC', Icons.sync, kGreen),
         StepApp.obsidian => (
             'OBSIDIAN',
@@ -44,10 +47,13 @@ class AppBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, icon, color) = look(app);
+    final filled = app == StepApp.files;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        border: Border.all(color: color.withValues(alpha: 0.7)),
+        color: filled ? Colors.white : null,
+        border: Border.all(
+            color: filled ? Colors.white : color.withValues(alpha: 0.7)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
