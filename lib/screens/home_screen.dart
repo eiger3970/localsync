@@ -943,7 +943,7 @@ class HomeScreen extends StatelessWidget {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smartphone, color: kTextDim, size: 18),
+            Icon(Icons.smartphone, color: kGreen, size: 18),
             const SizedBox(width: 8),
             Text('Device name', style: TextStyle(color: kStar, fontSize: 16)),
           ],

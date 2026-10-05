@@ -201,7 +201,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
                   children: [
                     // 2026-09-30: user - a picture on each line: the desktop
                     // is the real backup, the rows below are one-off copies.
-                    _introLine(Icons.computer, kGreen,
+                    _introLine(Icons.computer, kBlue,
                         'Your backup is your desktop - it keeps every version of your $_things.'),
                     _introLine(Icons.folder_copy_outlined, kTextMid,
                         'These are one-off copies from linking and conflict fixes, safe to delete.'),

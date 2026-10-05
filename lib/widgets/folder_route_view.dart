@@ -62,7 +62,7 @@ class FolderRouteView extends StatelessWidget {
   static (IconData, Color) _look(CrumbKind k) => switch (k) {
         CrumbKind.home => (Icons.home_outlined, kTextMid),
         CrumbKind.filesApp => (Icons.folder, _filesBlue),
-        CrumbKind.device => (Icons.phone_iphone, kTextMid),
+        CrumbKind.device => (Icons.phone_iphone, kGreen),
         CrumbKind.cloud => (Icons.cloud_outlined, kTextMid),
         CrumbKind.folder => (Icons.folder_outlined, kTextMid),
         CrumbKind.vault => (Icons.folder_special_outlined, kGreen),

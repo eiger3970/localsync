@@ -456,7 +456,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 top: 0,
                                 right: 0,
                                 child: Icon(Icons.computer,
-                                    color: kGreen, size: 16),
+                                    color: kBlue, size: 16),
                               ),
                             ],
                           ),
@@ -697,7 +697,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     top: 0,
                                     right: 0,
                                     child: Icon(Icons.computer,
-                                        color: kTextMid, size: 11),
+                                        color: kBlue, size: 11),
                                   ),
                                 ],
                               ),
@@ -1136,7 +1136,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.phone_iphone,
-                                                  color: kStar, size: 16),
+                                                  color: kGreen, size: 16),
                                             ),
                                             WidgetSpan(
                                               alignment:
@@ -1149,7 +1149,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.computer,
-                                                  color: kStar, size: 16),
+                                                  color: kBlue, size: 16),
                                             ),
                                             WidgetSpan(
                                               alignment:

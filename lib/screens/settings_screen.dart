@@ -923,7 +923,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       TextSpan(text: prefix),
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
-        child: Icon(icon, size: 14, color: kTextMid),
+        child: Icon(icon, size: 14, color: device == 'Desktop' ? kBlue : kGreen),
       ),
       TextSpan(text: ' $device: '),
       ..._spansWithCommand(rest, command),
@@ -3110,7 +3110,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         children: [
           Row(
             children: [
-              Icon(Icons.computer, color: kTextMid, size: 18),
+              Icon(Icons.computer, color: kBlue, size: 18),
               const SizedBox(width: 8),
               Text('DESKTOP SYNC TIMER',
                   style: TextStyle(

@@ -2449,7 +2449,7 @@ class StepChecklistState extends State<StepChecklist> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
             child: Row(children: [
-              Icon(Icons.phone_iphone, size: 14, color: kTextMid),
+              Icon(Icons.phone_iphone, size: 14, color: kGreen),
               const SizedBox(width: 4),
               Text('ON YOUR PHONE',
                   style: TextStyle(

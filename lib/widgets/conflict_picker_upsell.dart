@@ -38,7 +38,6 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
   bool _busy = false;
   Package? _package;
   String? _priceLabel;
-  bool _checked = false;
 
   @override
   void initState() {
@@ -53,14 +52,10 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
             p.storeProduct.identifier.contains(kConflictPickerEntitlementId))
         .firstOrNull;
     if (!mounted) return;
-    if (package == null) {
-      setState(() => _checked = true);
-      return;
-    }
+    if (package == null) return;
     setState(() {
       _package = package;
       _priceLabel = package.storeProduct.priceString;
-      _checked = true;
     });
   }
 
@@ -77,6 +72,10 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
 
   @override
   Widget build(BuildContext context) {
+    // 2026-10-05: user - no "Coming soon" teaser cards: the card shows only
+    // once the store returns a real price (sideloaded builds never do, and
+    // App Review rejects placeholder features).
+    if (_package == null) return const SizedBox.shrink();
     // Same fair-value framing every time this shows - never louder or
     // more urgent than the free path sitting right next to it.
     return Container(
@@ -115,29 +114,18 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
                   child:
                       CircularProgressIndicator(strokeWidth: 2, color: kGreen),
                 )
-              // 2026-09-26: showed a hardcoded "$19.99" (real price is
-              // US$14.99) whenever the store returned no product - now
-              // "Coming soon", same as PkmSyncUpsell.
-              : _package == null
-                  ? (_checked
-                      ? Text('Coming soon',
-                          style: TextStyle(
-                              color: kTextDim,
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic))
-                      : const SizedBox.shrink())
-                  : OutlinedButton(
-                      onPressed: _buy,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: kGreen),
-                        foregroundColor: kGreen,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                      ),
-                      child: Text(_priceLabel!,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700)),
-                    ),
+              : OutlinedButton(
+                  onPressed: _buy,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: kGreen),
+                    foregroundColor: kGreen,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  ),
+                  child: Text(_priceLabel!,
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
         ],
       ),
     );

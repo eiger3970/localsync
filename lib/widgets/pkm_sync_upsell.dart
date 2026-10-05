@@ -34,15 +34,6 @@ class PkmSyncUpsell extends StatefulWidget {
 class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
   Package? _package;
   String? _priceLabel;
-  // 2026-08-28: real feedback, live - "smoother" for this exact widget,
-  // given its own 2026-08-18 spec (small, always-visible, "fries with
-  // that", NOT naggy) means fixing the one thing that spec doesn't
-  // cover: a real-looking "$24.99" next to a button that can never be
-  // pressed (no RevenueCat product configured yet - see
-  // purchase_service.dart) reads as broken, not honest. This distinguishes
-  // "still checking" from "checked, nothing to sell yet" so the button
-  // slot can show a quiet coming-soon state instead of a dead price.
-  bool _checked = false;
 
   @override
   void initState() {
@@ -53,18 +44,13 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
   Future<void> _loadOffering() async {
     final offerings = await widget.purchases.getOfferings();
     final package = offerings?.current?.availablePackages
-        .where((p) =>
-            p.storeProduct.identifier.contains(kPkmSyncEntitlementId))
+        .where((p) => p.storeProduct.identifier.contains(kPkmSyncEntitlementId))
         .firstOrNull;
     if (!mounted) return;
-    if (package == null) {
-      setState(() => _checked = true);
-      return;
-    }
+    if (package == null) return;
     setState(() {
       _package = package;
       _priceLabel = package.storeProduct.priceString;
-      _checked = true;
     });
   }
 
@@ -77,14 +63,17 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
     final unlocked = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-          builder: (_) =>
-              PaywallObsidianScreen(purchases: widget.purchases)),
+          builder: (_) => PaywallObsidianScreen(purchases: widget.purchases)),
     );
     if (unlocked == true) widget.onUnlocked();
   }
 
   @override
   Widget build(BuildContext context) {
+    // 2026-10-05: user - no "Coming soon" teaser cards: the card shows only
+    // once the store returns a real price (sideloaded builds never do, and
+    // App Review rejects placeholder features).
+    if (_package == null) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -118,30 +107,18 @@ class _PkmSyncUpsellState extends State<PkmSyncUpsell> {
                 ),
               ),
               const SizedBox(width: 10),
-              if (_package != null)
-                OutlinedButton(
-                  onPressed: _openPaywall,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: kGreen),
-                    foregroundColor: kGreen,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                  ),
-                  child: Text(_priceLabel!,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700)),
-                )
-              else if (_checked)
-                // No real product configured yet (purchase_service.dart -
-                // no funded Apple Developer account/RevenueCat product).
-                // A quiet, non-interactive label instead of a fake price
-                // on a dead button - reads as "not yet available", not
-                // "broken".
-                Text('Coming soon',
-                    style: TextStyle(
-                        color: kTextDim,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic)),
+              OutlinedButton(
+                onPressed: _openPaywall,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: kGreen),
+                  foregroundColor: kGreen,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
+                child: Text(_priceLabel!,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700)),
+              )
             ],
           ),
         ],
