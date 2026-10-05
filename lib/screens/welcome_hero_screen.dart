@@ -25,7 +25,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import '../theme.dart' show kGreen;
+import '../theme.dart' show kGreen, kObsidianPurple;
 import '../models/repository.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/purchase_service.dart';
@@ -42,7 +42,7 @@ const wTealDark = Color(0xFF0E4A44);
 const wCream = Color(0xFFEAFFFB);
 const wTealBg = Color(0xFFD9F5EF);
 const wViolet = Color(0xFFB39DDB);
-const wVioletDark = Color(0xFF6B4FA0);
+const wVioletDark = kObsidianPurple;
 const wVioletBg = Color(0xFFF1ECFA);
 const wGold = Color(0xFFFFD166);
 

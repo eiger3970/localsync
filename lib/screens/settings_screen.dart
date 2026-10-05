@@ -1360,16 +1360,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 2026-10-05: colour rule - blue only means desktop; guide link in dark ink.
                           Icon(Icons.menu_book_outlined,
-                              color: Colors.blue.shade900, size: 18),
+                              color: kVoid, size: 18),
                           const SizedBox(width: 6),
                           Text('Lost? Picture guide',
                               style: TextStyle(
-                                  color: Colors.blue.shade900,
+                                  color: kVoid,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 15,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: Colors.blue.shade900)),
+                                  decorationColor: kVoid)),
                         ],
                       ),
                     ),

@@ -74,7 +74,7 @@ class _SparkleBackgroundState extends State<SparkleBackground>
       animation: Listenable.merge([_ctrl, _fadeCtrl]),
       builder: (_, __) => CustomPaint(
         painter: _SparklePainter(_ctrl.value,
-            color: Color.lerp(kGreen, kBlue, _fadeCtrl.value)!,
+            color: kGreen, // 2026-10-05: colour rule - was fading to blue (desktop)
             opacity: 1 - _fadeCtrl.value),
       ),
     );

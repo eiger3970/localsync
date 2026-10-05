@@ -57,7 +57,7 @@ class FolderRouteView extends StatelessWidget {
   final List<Crumb> crumbs;
   const FolderRouteView(this.crumbs, {super.key});
 
-  static const _filesBlue = Color(0xFF1E88E5);
+  static const _filesBlue = kFilesBlue;
 
   static (IconData, Color) _look(CrumbKind k) => switch (k) {
         CrumbKind.home => (Icons.home_outlined, kTextMid),

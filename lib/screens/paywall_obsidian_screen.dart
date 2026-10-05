@@ -18,6 +18,7 @@
 // deliberately avoid. Add it for real once that product exists.
 
 import 'package:flutter/material.dart';
+import '../theme.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../services/purchase_service.dart';
 import '../widgets/paywall_cards.dart';
@@ -25,7 +26,7 @@ import 'welcome_hero_screen.dart' show wInk, wInkDim, wCream;
 
 const _pBg1 = Color(0xFFF3FBFA);
 const _pBg2 = Color(0xFFF1ECFA);
-const _pVioletDark = Color(0xFF6B4FA0);
+const _pVioletDark = kObsidianPurple;
 const _pVioletBg = Color(0xFFF1ECFA);
 
 class PaywallObsidianScreen extends StatefulWidget {

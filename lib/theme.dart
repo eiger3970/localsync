@@ -637,6 +637,13 @@ Color get kSurface => AppTheme.current.surface;
 Color get kBorder => AppTheme.current.border;
 Color get kPurple => AppTheme.current.purple;
 Color get kBlue => AppTheme.current.blue;
+
+// 2026-10-05: user - colour rule audit. One Obsidian purple (was #A78BFA,
+// #6B4FA0 and #6B21D6 in different screens) - #8B5CF6 reads on both the
+// dark app screens and the light welcome/paywall screens. One Files blue
+// (Apple system blue, was #0A84FF and #1E88E5).
+const kObsidianPurple = Color(0xFF8B5CF6);
+const kFilesBlue = Color(0xFF0A84FF);
 Color get kStar => AppTheme.current.star;
 Color get kTextDim => AppTheme.current.textDim;
 Color get kTextMid => AppTheme.current.textMid;

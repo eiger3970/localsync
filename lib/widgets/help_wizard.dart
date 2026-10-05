@@ -720,7 +720,8 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
 
   Color _eyebrowColor(_WizardNode node) {
     if (node.type == _NodeType.question) return kTextMid;
-    if (node.type == _NodeType.action) return kBlue;
+    // 2026-10-05: colour rule - blue only means desktop.
+    if (node.type == _NodeType.action) return kStar;
     switch (node.tone!) {
       case _Tone.good:
         return kGreen;
