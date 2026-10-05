@@ -169,10 +169,14 @@ class _BrainHeroState extends State<BrainHero>
     final key = '$_set/${_nextSet ?? ''}/$t0/$y0';
     if (key == _warmKey) return;
     _warmKey = key;
+    // 2026-10-05: user - "jumpy on vertical turn" (96x17 and 96x9 both).
+    // Only the views on screen were requested, so tilting into the next
+    // row showed a view not decoded yet. Now one more row and view on
+    // every side too (16 views per set; 240 px views, ~0.2 MB decoded).
     for (final set in [_set, if (_nextSet != null) _nextSet!]) {
-      for (var t = t0; t <= t0 + 1; t++) {
-        final (r, off, _) = _rowOf(t);
-        for (var y = y0; y <= y0 + 1; y++) {
+      for (var t = t0 - 1; t <= t0 + 2; t++) {
+        final (r, off, _) = _rowOf(t + _tilts);
+        for (var y = y0 - 1; y <= y0 + 2; y++) {
           precacheImage(AssetImage(_frame(set, y + off, r)), context);
         }
       }
