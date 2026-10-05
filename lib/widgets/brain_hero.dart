@@ -50,8 +50,15 @@ class _BrainHeroState extends State<BrainHero>
   // 2026-09-28: user - "Moving brain is jittery, add more quality." 48
   // around (7.5 deg) instead of 24 - half the jump between views.
   static const _yaws = 96;
-  static const _pitches = 9;
-  static const _level = 4; // pitch row facing straight on
+  // 2026-10-05: user - "brain glitch with vertical or diagonal swipes". Rows
+  // stopped at straight up/down (+-90), so a vertical spin had no exact
+  // view for ~8% of each turn (shown up to 15 deg off, then a snap). Two
+  // rows added past them: 11 rows, -112.5..+112.5 deg, 22.5 deg apart.
+  // Simulated on 33 spin axes: every orientation exact, one flip per
+  // vertical turn (was two).
+  static const _pitches = 11;
+  static const _level = 5; // pitch row facing straight on
+  static const _tiltMax = 112.5; // degrees, top and bottom rows
   static const _turnSecs = 4.0; // one full idle turn
   static const _idleDeg = 360.0 / _turnSecs; // idle turning, degrees/s
   static const _degPerPx = 1.25; // drag: degrees turned per pixel
@@ -105,22 +112,26 @@ class _BrainHeroState extends State<BrainHero>
     final qr = u[0] * _camRight[0] + u[1] * _camRight[1] + u[2] * _camRight[2];
     final qu = u[0] * _camUp[0] + u[1] * _camUp[1] + u[2] * _camUp[2];
     final now = math.atan2(qu, qr);
-    (double, double, double, double)? best, fallback;
+    // Two candidate rolls (180 deg apart); keep the one nearest the last
+    // roll while its tilt is within the rendered rows - no needless flips.
+    const lim = _tiltMax * math.pi / 180;
+    (bool, double, double, double, double)? best;
     for (final target in [math.pi / 2, -math.pi / 2]) {
       final th = _wrap(target - now);
       final w = _mul(_axisAngle(_camF, -th), _m);
-      var a = math.atan2(-w[5], w[8]);
-      final ok = w[8] >= -1e-9 && a.abs() <= math.pi / 2 + 1e-6;
-      if (!ok) a = w[8] >= 0 ? a.clamp(-math.pi / 2, math.pi / 2) : (a > 0 ? math.pi / 2 : -math.pi / 2);
+      final a = math.atan2(-w[5], w[8]);
       final k = _mul(_rx(-a), w);
       final b = math.atan2(k[3], k[0]);
-      final cand = (_wrap(th - _roll).abs(), th, a, b);
-      if (ok) { if (best == null || cand.$1 < best.$1) best = cand; }
-      else if (fallback == null || w[8] > fallback.$1) { fallback = (w[8], th, a, b); }
+      final cand = (a.abs() > lim + 1e-6, _wrap(th - _roll).abs(), th, a, b);
+      if (best == null ||
+          (cand.$1 != best.$1 ? !cand.$1 : cand.$2 < best.$2)) {
+        best = cand;
+      }
     }
-    final (_, th, a, b) = best ?? fallback!;
+    final (_, _, th, a, b) = best!;
     _roll = th;
-    _rowF = ((a * 180 / math.pi + 90) / (180 / (_pitches - 1))).clamp(0.0, _pitches - 1.0);
+    _rowF = ((a * 180 / math.pi + _tiltMax) / (2 * _tiltMax / (_pitches - 1)))
+        .clamp(0.0, _pitches - 1.0);
     _yawF = ((b * 180 / math.pi + 35) / (360 / _yaws)) % _yaws;
   }
 
