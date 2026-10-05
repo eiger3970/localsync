@@ -83,6 +83,7 @@ class _BrainHeroState extends State<BrainHero>
         BrainMode.distracted => 'distracted_hold',
       };
   static const _fadeSecs = 1.2; // idle -> result cross-fade
+  static const _pivotY = 0.1185; // spin pivot, below picture centre (see row())
 
   // Turntable showing, and the one fading in over it (null = no fade).
   String _set = 'idle';
@@ -223,8 +224,14 @@ class _BrainHeroState extends State<BrainHero>
     // half a turn), so no Image is rebuilt from scratch and none blanks.
     Widget row(int tilt) {
       final (r, off, flip) = _rowOf(tilt);
+      // 2026-10-05: user - "like an imperfect gif loop, not spinning on a
+      // central axis". The flip turned the picture round its middle, but the
+      // render camera looks down 15 deg, so the brain's real centre (the spin
+      // pivot) sits 11.85% of the half-height below the middle (camera at
+      // (0,-5.2,1.6), 75 deg, 58 mm lens - render_brain.py). Flip round that.
       return Transform.rotate(
           angle: flip ? math.pi : 0,
+          alignment: const Alignment(0, _pivotY),
           child: Stack(fit: StackFit.expand,
               children: [img(y0 + off, r, 1), img(y0 + 1 + off, r, fy)]));
     }
