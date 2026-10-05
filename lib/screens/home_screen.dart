@@ -290,6 +290,19 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+                    // 2026-10-05: user - renamed from "Vault - add another":
+                    // free users sync a plain folder, not a vault. Moved
+                    // here to keep the menu alphabetical.
+                    PopupMenuItem(
+                      value: 'link',
+                      child: _MenuRow(
+                        icon: Icons.phone_iphone,
+                        label: provider.repos.isEmpty
+                            ? 'Add a sync'
+                            : 'Add another sync',
+                        subtitle: 'Files or Obsidian notes',
+                      ),
+                    ),
                     // Commit stays pinned near the top since it's what
                     // gets tapped most once set up is done - a stated
                     // reason to deviate from alphabetical, not an
@@ -366,18 +379,6 @@ class HomeScreen extends StatelessWidget {
                         icon: Icons.workspace_premium,
                         iconColor: Colors.amber,
                         label: 'Upgrades',
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'link',
-                      child: _MenuRow(
-                        icon: Icons.phone_iphone,
-                        label: provider.repos.isEmpty
-                            ? 'Vault - set up'
-                            : 'Vault - add another',
-                        subtitle: provider.repos.isEmpty
-                            ? 'Link a $kContainerName to this phone'
-                            : 'Link another $kContainerName to this phone',
                       ),
                     ),
                     // 2026-08-20: real user feedback - "this is difficult

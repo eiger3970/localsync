@@ -2029,9 +2029,18 @@ class _ParkedViewState extends State<_ParkedView> {
   // confirm below can check it.
   List<bool>? _vaultCreationChecked;
 
+  // 2026-10-05: user - "3 fat buttons taking up whole screen". The vault
+  // choice is its own screen now; the 1.x steps show only once picked.
+  bool _vaultChosen = false;
+
   // 2026-09-29: back to the 1.x vault steps, ticks cleared.
   void _showVaultSteps() {
-    setState(() => _vaultCreationChecked = null);
+    setState(() {
+      _vaultCreationChecked = null;
+      // From "Existing vault" back means back to the choice; from the
+      // folder step of First/Another vault, back to its steps.
+      _vaultChosen = !widget.ctrl.linkExisting;
+    });
     widget.ctrl.showVaultCreationSteps();
   }
 
@@ -2141,7 +2150,8 @@ class _ParkedViewState extends State<_ParkedView> {
                 // resetting. A groupNumber-keyed instance per step
                 // forces a fresh State (and fresh _checked) each time.
                 // 2026-09-29: which Obsidian - the steps differ.
-                if (ctrl.step == LinkingStep.awaitingVaultCreation)
+                if (ctrl.step == LinkingStep.awaitingVaultCreation &&
+                    !_vaultChosen)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Column(
@@ -2170,9 +2180,13 @@ class _ParkedViewState extends State<_ParkedView> {
                             svg: _kVaultChoiceSvgs[i],
                             title: title,
                             when: pickIf,
-                            selected: i < 2 && ctrl.obsidianIsNew == (i == 0),
+                            height: ((constraints.maxHeight - 230) / 3)
+                                .clamp(130.0, 230.0),
                             onTap: () {
-                              setState(() => _vaultCreationChecked = null);
+                              setState(() {
+                                _vaultCreationChecked = null;
+                                _vaultChosen = i < 2;
+                              });
                               if (i == 2) {
                                 ctrl.chooseExistingVault();
                               } else {
@@ -2198,7 +2212,8 @@ class _ParkedViewState extends State<_ParkedView> {
                       ],
                     ),
                   ),
-                if (ctrl.step == LinkingStep.awaitingVaultCreation)
+                if (ctrl.step == LinkingStep.awaitingVaultCreation &&
+                    _vaultChosen) ...[
                   StepChecklist(
                     key: ValueKey('1-${ctrl.obsidianIsNew}'),
                     groupNumber: 1,
@@ -2210,7 +2225,18 @@ class _ParkedViewState extends State<_ParkedView> {
                     swipeActions: {0: ctrl.openObsidianNow},
                     onChanged: (checked) =>
                         setState(() => _vaultCreationChecked = checked),
-                  )
+                  ),
+                  TextButton.icon(
+                    onPressed: () => setState(() {
+                      _vaultCreationChecked = null;
+                      _vaultChosen = false;
+                    }),
+                    icon: Icon(Icons.undo, color: kGreen, size: 18),
+                    label: Text('Back to the vault choice',
+                        style: TextStyle(color: kGreen, fontSize: 15)),
+                  ),
+                ] else if (ctrl.step == LinkingStep.awaitingVaultCreation)
+                  const SizedBox.shrink()
                 else if (ctrl.step == LinkingStep.pickingVaultFolder) ...[
                   // 2026-09-24: where the vault is, as a picture, above
                   // the steps - see folder_route_view.dart.
@@ -2275,7 +2301,8 @@ class _ParkedViewState extends State<_ParkedView> {
 
                 const SizedBox(height: 16),
 
-                if (ctrl.step == LinkingStep.awaitingVaultCreation) ...[
+                if (ctrl.step == LinkingStep.awaitingVaultCreation &&
+                    _vaultChosen) ...[
                   // 2026-08-15: OPEN OBSIDIAN moved into checklist item
                   // 1.1 itself (see StepChecklist's firstItemSwipeAction
                   // above) - the standalone swipe-up button that used to
@@ -3861,51 +3888,51 @@ class _VaultChoiceCard extends StatelessWidget {
   final String svg;
   final String title;
   final String when;
-  final bool selected;
+  final double height;
   final VoidCallback onTap;
   const _VaultChoiceCard(
       {required this.svg,
       required this.title,
       required this.when,
-      required this.selected,
+      required this.height,
       required this.onTap});
 
+  // 2026-10-05: user - "3 fat buttons taking up whole screen". Picture on
+  // top, big title, one line; the three share the screen height.
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: selected ? kGreen.withValues(alpha: 0.08) : kSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-              color: selected ? kGreen : kBorder, width: 1.5),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                SvgPicture.string(svg, width: 72, height: 48),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: TextStyle(
-                              color: kStar,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 3),
-                      Text(when,
-                          style: TextStyle(color: kTextMid, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Material(
+          color: kSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: kGreen, width: 1.5),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(child: SvgPicture.string(svg)),
+                  const SizedBox(height: 8),
+                  Text(title,
+                      style: TextStyle(
+                          color: kStar,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(when,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: kTextMid, fontSize: 14)),
+                ],
+              ),
             ),
           ),
         ),
