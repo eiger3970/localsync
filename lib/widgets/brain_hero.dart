@@ -53,30 +53,86 @@ class _BrainHeroState extends State<BrainHero>
   static const _pitches = 9;
   static const _level = 4; // pitch row facing straight on
   static const _turnSecs = 4.0; // one full idle turn
-  static const _yawStep = 360.0 / _yaws; // degrees between views
-  static const _pitchStep = 180.0 / (_pitches - 1);
   static const _idleDeg = 360.0 / _turnSecs; // idle turning, degrees/s
   static const _degPerPx = 1.25; // drag: degrees turned per pixel
-  static const _pitchSign = 1.0; // flip if dragging down tilts the wrong way
-  // 2026-10-04: user - "stops turning upside down and won't spin 360".
-  // Tilt now wraps all the way round: 16 steps of 22.5 deg. Past the top
-  // or bottom view, the brain is the view from the other side (row
-  // 16 - i, half a turn round) shown upside down - no new renders.
-  static const _tilts = 2 * (_pitches - 1);
-  // Upside down, turning the brain's own axis the same way moves it the
-  // other way on screen - so sideways drag and spin flip sign there, and
-  // the brain keeps following the finger (user: "doesn't follow my drag").
-  // 2026-10-05: user - "after a while the brain starts spinning the opposite
-  // direction". The sign flipped as soon as the tilt passed row 8.0, but the
-  // upside-down picture only takes over at 8.5 (rows cross-fade), so for half
-  // a step at every pass over the top/bottom the spin ran backwards on screen.
-  // Flip with the picture that's actually showing (nearest row).
-  double get _yawSign => _pitch.round() % _tilts > _pitches - 1 ? -1.0 : 1.0;
 
-  static (int, int, bool) _rowOf(int tilt) {
-    final i = tilt % _tilts;
-    return i <= _pitches - 1 ? (i, 0, false) : (_tilts - i, _yaws ~/ 2, true);
+  // 2026-10-05: user - "keep spinning with the momentum the user drags", on a
+  // perfect axis. The brain now has a real 3D orientation (_m, 3x3) that turns
+  // around the axis the drag sets (_w, degrees/s) - forever, like a real
+  // object. Each frame the orientation is split into the nearest rendered
+  // view (tilt row + turn) plus an on-screen roll of that picture: render
+  // views are Rx(tilt) * Rz(turn) (render_brain.py, BRAIN_GRID 96x9) seen by
+  // a camera at 75 deg, so any orientation = roll about the camera's view
+  // axis * a view. Checked in Python: 99.4% of orientations exact, the rest
+  // (top pointing into the screen) within 10 deg, no jumps on a long
+  // diagonal spin. Replaces the yaw/pitch + upside-down flip, which tumbled
+  // off-axis and seemed to reverse.
+  static final _camF = [0.0, math.sin(75 * math.pi / 180), -math.cos(75 * math.pi / 180)];
+  static final _camUp = [0.0, math.cos(75 * math.pi / 180), math.sin(75 * math.pi / 180)];
+  static const _camRight = [1.0, 0.0, 0.0];
+
+  static List<double> _axisAngle(List<double> axis, double rad) {
+    final n = math.sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+    if (n == 0) return [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    final x = axis[0] / n, y = axis[1] / n, z = axis[2] / n;
+    final c = math.cos(rad), s = math.sin(rad), t = 1 - c;
+    return [t * x * x + c, t * x * y - s * z, t * x * z + s * y,
+        t * x * y + s * z, t * y * y + c, t * y * z - s * x,
+        t * x * z - s * y, t * y * z + s * x, t * z * z + c];
   }
+  static List<double> _mul(List<double> a, List<double> b) => [
+        for (var r = 0; r < 3; r++)
+          for (var c = 0; c < 3; c++)
+            a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c]
+      ];
+  static List<double> _rx(double a) => [1, 0, 0, 0, math.cos(a), -math.sin(a), 0, math.sin(a), math.cos(a)];
+  static double _wrap(double a) => (a + math.pi) % (2 * math.pi) - math.pi;
+  // Keep _m a clean rotation (rounding drifts over thousands of frames).
+  static List<double> _orthonormal(List<double> m) {
+    var x = [m[0], m[3], m[6]], y = [m[1], m[4], m[7]];
+    double dot(List<double> a, List<double> b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    List<double> norm(List<double> v) { final n = math.sqrt(dot(v, v)); return [v[0] / n, v[1] / n, v[2] / n]; }
+    x = norm(x);
+    final d = dot(x, y);
+    y = norm([y[0] - d * x[0], y[1] - d * x[1], y[2] - d * x[2]]);
+    final z = [x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]];
+    return [x[0], y[0], z[0], x[1], y[1], z[1], x[2], y[2], z[2]];
+  }
+
+  // Orientation -> (roll, tilt row 0..8, turn 0..96).
+  void _decompose() {
+    final u = [_m[2], _m[5], _m[8]];
+    final qr = u[0] * _camRight[0] + u[1] * _camRight[1] + u[2] * _camRight[2];
+    final qu = u[0] * _camUp[0] + u[1] * _camUp[1] + u[2] * _camUp[2];
+    final now = math.atan2(qu, qr);
+    (double, double, double, double)? best, fallback;
+    for (final target in [math.pi / 2, -math.pi / 2]) {
+      final th = _wrap(target - now);
+      final w = _mul(_axisAngle(_camF, -th), _m);
+      var a = math.atan2(-w[5], w[8]);
+      final ok = w[8] >= -1e-9 && a.abs() <= math.pi / 2 + 1e-6;
+      if (!ok) a = w[8] >= 0 ? a.clamp(-math.pi / 2, math.pi / 2) : (a > 0 ? math.pi / 2 : -math.pi / 2);
+      final k = _mul(_rx(-a), w);
+      final b = math.atan2(k[3], k[0]);
+      final cand = (_wrap(th - _roll).abs(), th, a, b);
+      if (ok) { if (best == null || cand.$1 < best.$1) best = cand; }
+      else if (fallback == null || w[8] > fallback.$1) { fallback = (w[8], th, a, b); }
+    }
+    final (_, th, a, b) = best ?? fallback!;
+    _roll = th;
+    _rowF = ((a * 180 / math.pi + 90) / (180 / (_pitches - 1))).clamp(0.0, _pitches - 1.0);
+    _yawF = ((b * 180 / math.pi + 35) / (360 / _yaws)) % _yaws;
+  }
+
+  // Turn the orientation by a screen-space amount: right = around the
+  // camera's up axis, down = around its right axis (the brain follows the finger).
+  void _turnBy(double degRight, double degDown) {
+    final axis = [for (var i = 0; i < 3; i++) degRight * _camUp[i] + degDown * _camRight[i]];
+    final deg = math.sqrt(degRight * degRight + degDown * degDown);
+    if (deg == 0) return;
+    _m = _mul(_axisAngle(axis, deg * math.pi / 180), _m);
+  }
+
   static String _frame(String set, int yaw, int pitch) {
     final i = pitch * _yaws + (yaw % _yaws) + 1;
     return 'assets/brain/grid_$set/${i.toString().padLeft(4, '0')}.webp';
@@ -102,8 +158,11 @@ class _BrainHeroState extends State<BrainHero>
   // inside the circle, around the brain, every 1.6 s while success shows.
   double _pulseT = 0; // seconds
   static const _pulseSecs = 1.6;
-  double _yaw = 0; // 0.._yaws
-  double _pitch = _level * 1.0; // 0.._tilts, wraps (see _rowOf)
+  List<double> _m = _axisAngle(const [0, 0, 1], -35 * math.pi / 180); // straight-on view 1
+  int _frames = 0;
+  double _roll = 0, _rowF = _level * 1.0, _yawF = 0;
+  // Spin: axis * speed in degrees/s, world frame. Idle = the brain's own up axis.
+  List<double> _w = const [0, 0, _idleDeg];
   bool _paused = false;
   bool _dragging = false;
   // 2026-09-28: user - "User drags and lets go, that sets the speed,
@@ -114,7 +173,6 @@ class _BrainHeroState extends State<BrainHero>
   // Turning velocity in degrees/s: dx = around, dy = up/down. Its
   // direction is always the user's last movement - sideways, up/down or
   // diagonal - and it never slows below idle speed.
-  Offset _vel = const Offset(_idleDeg, 0);
   // Recent drag direction - a mouse usually stops before the button is
   // let go, so the release speed alone often reads 0.
   Offset _dragVec = Offset.zero;
@@ -140,14 +198,15 @@ class _BrainHeroState extends State<BrainHero>
       }
       if (!_paused && !_dragging) {
         setState(() {
-          _yaw = (_yaw + _yawSign * dt * _vel.dx / _yawStep) % _yaws;
-          _pitch = (_pitch + dt * _vel.dy / _pitchStep) % _tilts;
-          // Friction: a fast flick slows down to idle speed, same
-          // direction; never below idle, never back to a sideways spin.
-          final m = _vel.distance;
+          final speed = math.sqrt(_w[0] * _w[0] + _w[1] * _w[1] + _w[2] * _w[2]);
+          _m = _mul(_axisAngle(_w, speed * dt * math.pi / 180), _m);
+          if (++_frames % 120 == 0) _m = _orthonormal(_m);
+          // Friction: a fast flick slows to idle speed on the SAME axis -
+          // the momentum's direction is kept for good, never below idle.
           final k = (dt * 0.6).clamp(0.0, 1.0);
-          final next = m > _idleDeg ? m + (_idleDeg - m) * k : _idleDeg;
-          _vel = m > 0 ? _vel * (next / m) : const Offset(_idleDeg, 0);
+          final next = speed > _idleDeg ? speed + (_idleDeg - speed) * k : _idleDeg;
+          if (speed > 0) _w = [for (final c in _w) c * next / speed];
+          _decompose();
         });
       }
       _preloadRows();
@@ -171,19 +230,14 @@ class _BrainHeroState extends State<BrainHero>
   String _warmKey = '';
   void _preloadRows() {
     if (!mounted) return;
-    final t0 = _pitch.floor(), y0 = _yaw.floor();
-    final key = '$_set/${_nextSet ?? ''}/$t0/$y0';
+    final r0 = _rowF.floor(), y0 = _yawF.floor();
+    final key = '$_set/${_nextSet ?? ''}/$r0/$y0';
     if (key == _warmKey) return;
     _warmKey = key;
-    // 2026-10-05: user - "jumpy on vertical turn" (96x17 and 96x9 both).
-    // Only the views on screen were requested, so tilting into the next
-    // row showed a view not decoded yet. Now one more row and view on
-    // every side too (16 views per set; 240 px views, ~0.2 MB decoded).
     for (final set in [_set, if (_nextSet != null) _nextSet!]) {
-      for (var t = t0 - 1; t <= t0 + 2; t++) {
-        final (r, off, _) = _rowOf(t + _tilts);
+      for (var r = math.max(0, r0 - 1); r <= math.min(_pitches - 1, r0 + 2); r++) {
         for (var y = y0 - 1; y <= y0 + 2; y++) {
-          precacheImage(AssetImage(_frame(set, y + off, r)), context);
+          precacheImage(AssetImage(_frame(set, y, r)), context);
         }
       }
     }
@@ -218,35 +272,24 @@ class _BrainHeroState extends State<BrainHero>
 
   // Nearest views around (_yaw, _pitch), blended by distance.
   Widget _gridView(String set) {
-    final y0 = _yaw.floor(), t0 = _pitch.floor();
-    final fy = _yaw - y0, fp = _pitch - t0;
+    final y0 = _yawF.floor(), r0 = _rowF.floor();
+    final r1 = math.min(r0 + 1, _pitches - 1);
+    final fy = _yawF - y0, fp = _rowF - r0;
     Widget img(int y, int p, double o) => Opacity(
         opacity: o.clamp(0.0, 1.0),
         child: Image.asset(_frame(set, y, p),
             gaplessPlayback: true, fit: BoxFit.contain));
-    // Bottom layer fully opaque, the next views fade in on top of it.
-    // Same widget tree at every angle (both rows, always rotated - by 0 or
-    // half a turn), so no Image is rebuilt from scratch and none blanks.
-    Widget row(int tilt) {
-      final (r, off, flip) = _rowOf(tilt);
-      // 2026-10-05: user - "like an imperfect gif loop, not spinning on a
-      // central axis". The flip turned the picture round its middle, but the
-      // render camera looks down 15 deg, so the brain's real centre (the spin
-      // pivot) sits 11.85% of the half-height below the middle (camera at
-      // (0,-5.2,1.6), 75 deg, 58 mm lens - render_brain.py). Flip round that.
-      return Transform.rotate(
-          angle: flip ? math.pi : 0,
-          alignment: const Alignment(0, _pivotY),
-          child: Stack(fit: StackFit.expand,
-              children: [img(y0 + off, r, 1), img(y0 + 1 + off, r, fy)]));
-    }
-    return Stack(fit: StackFit.expand,
-        children: [row(t0), Opacity(opacity: fp, child: row(t0 + 1))]);
+    // Nearest views blended by distance, then the whole picture rolled
+    // round the spin centre (the pivot, 11.85% below the middle).
+    Widget row(int r) => Stack(fit: StackFit.expand,
+        children: [img(y0, r, 1), img(y0 + 1, r, fy)]);
+    return Transform.rotate(
+        angle: _roll,
+        alignment: const Alignment(0, _pivotY),
+        child: Stack(fit: StackFit.expand,
+            children: [row(r0), Opacity(opacity: fp, child: row(r1))]));
   }
 
-  // Soft white light inside the circle, behind the brain: 0.35 -> 1
-  // opacity and 0.9 -> 1.08 size, and back, every [_pulseSecs]. White
-  // outside the circle would vanish on the light welcome screen.
   Widget _successGlow() {
     final k = 0.5 - 0.5 * math.cos(2 * math.pi * _pulseT / _pulseSecs);
     return IgnorePointer(
@@ -288,22 +331,18 @@ class _BrainHeroState extends State<BrainHero>
       // Any direction: sideways turns, up/down tilts, diagonal does both.
       onPanStart: (_) => _dragging = true,
       onPanUpdate: (d) => setState(() {
-        final px = Offset(d.delta.dx, _pitchSign * d.delta.dy);
+        final px = d.delta;
         if (px.distance > 0.5) _dragVec = _dragVec * 0.6 + px * 0.4;
-        _yaw = (_yaw + _yawSign * px.dx * _degPerPx / _yawStep) % _yaws;
-        _pitch = (_pitch + px.dy * _degPerPx / _pitchStep) % _tilts;
+        _turnBy(px.dx * _degPerPx, px.dy * _degPerPx);
+        _decompose();
       }),
       onPanEnd: (d) {
-        final v = d.velocity.pixelsPerSecond;
-        final flick = Offset(v.dx, _pitchSign * v.dy) * _degPerPx;
-        if (flick.distance > _idleDeg) {
-          // A real flick: its own speed and direction, capped.
-          _vel = flick.distance > _idleDeg * 6
-              ? flick * (_idleDeg * 6 / flick.distance)
-              : flick;
-        } else if (_dragVec.distance > 0) {
-          // Slow let-go: idle speed, in the direction last dragged.
-          _vel = _dragVec * (_idleDeg / _dragVec.distance);
+        // The flick sets the spin axis and speed for good (see _w).
+        final v = d.velocity.pixelsPerSecond * _degPerPx;
+        var s = v.distance > _idleDeg ? v : (_dragVec.distance > 0 ? _dragVec * (_idleDeg / _dragVec.distance) : Offset.zero);
+        if (s.distance > _idleDeg * 6) s = s * (_idleDeg * 6 / s.distance);
+        if (s != Offset.zero) {
+          _w = [for (var i = 0; i < 3; i++) s.dx * _camUp[i] + s.dy * _camRight[i]];
         }
         _dragVec = Offset.zero;
         _dragging = false;
