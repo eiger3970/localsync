@@ -2385,6 +2385,12 @@ class StepChecklist extends StatefulWidget {
 }
 
 class StepChecklistState extends State<StepChecklist> {
+  // 2026-10-05: user - "2.1 swipe up to open Files... is this just noise?"
+  // A list with one step shows no number; longer lists keep "2.1, 2.2"
+  // so a step can still be pointed at.
+  String _stepNo(int i) => widget.steps.length == 1 && widget.startIndex == 1
+      ? ''
+      : '${widget.groupNumber}.${i + widget.startIndex}  ';
   late final List<bool> _checked = List.filled(widget.steps.length, false);
 
   @override
@@ -2443,7 +2449,7 @@ class StepChecklistState extends State<StepChecklist> {
             if (widget.swipeActions.containsKey(i))
               _SwipeChecklistRow(
                 label:
-                    '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
+                    '${_stepNo(i)}${splitStepApp(widget.steps[i]).$2}',
                 onConfirm: widget.swipeActions[i]!,
                 resilient: widget.resilientSwipeIndices.contains(i),
                 onDone: () {
@@ -2472,7 +2478,7 @@ class StepChecklistState extends State<StepChecklist> {
                 activeColor: kGreen,
                 checkColor: kVoid,
                 title: Text(
-                  '${widget.groupNumber}.${i + widget.startIndex}  ${splitStepApp(widget.steps[i]).$2}',
+                  '${_stepNo(i)}${splitStepApp(widget.steps[i]).$2}',
                   style: TextStyle(
                     color: _checked[i] ? kTextMid : kStar,
                     fontSize: 16,
