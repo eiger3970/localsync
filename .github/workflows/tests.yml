@@ -19,4 +19,4 @@ jobs:
           channel: stable
       - run: flutter pub get
       - name: Sync and conflict tests
-        run: flutter test test/binary_conflict_test.dart test/sync_result_message_test.dart test/backup_compare_test.dart test/backup_dedupe_test.dart
+        run: flutter test test/free_folder_conflict_test.dart test/sync_result_message_test.dart test/backup_compare_test.dart test/backup_dedupe_test.dart
