@@ -495,7 +495,7 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
                     children: [
                       for (int i = 0; i < choice.icons.length; i++) ...[
                         if (i > 0) const SizedBox(width: 5),
-                        Icon(choice.icons[i], size: 27, color: color),
+                        Icon(choice.icons[i], size: 27, color: _deviceColor(choice.icons[i])),
                       ],
                     ],
                   ),
@@ -606,9 +606,11 @@ class _FlowAPickerDialogState extends State<_FlowAPickerDialog> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(step.deviceIcon, size: 20, color: kStar),
+                  // 2026-10-05: user - device colours here too (phone
+                  // green, desktop blue).
+                  Icon(step.deviceIcon, size: 20, color: _deviceColor(step.deviceIcon!)),
                   const SizedBox(width: 3),
-                  Icon(step.directionIcon, size: 16, color: kStar),
+                  Icon(step.directionIcon, size: 16, color: _deviceColor(step.deviceIcon!)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -859,3 +861,6 @@ class _HelpWizardDialogState extends State<_HelpWizardDialog> {
     );
   }
 }
+
+Color _deviceColor(IconData icon) =>
+    icon == Icons.computer ? kBlue : kGreen;
