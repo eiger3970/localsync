@@ -204,7 +204,9 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
           content: Text(
               'Copy made when this phone was linked, '
               '${date.day} ${months[date.month - 1]}. Not needed once your '
-              'notes look right.',
+              // 2026-10-05: user - free syncs hold files, not notes.
+              '${repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes'} '
+              'look right.',
               style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
           actions: [
             TextButton(
