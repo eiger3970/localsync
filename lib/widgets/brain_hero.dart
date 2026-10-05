@@ -66,7 +66,12 @@ class _BrainHeroState extends State<BrainHero>
   // Upside down, turning the brain's own axis the same way moves it the
   // other way on screen - so sideways drag and spin flip sign there, and
   // the brain keeps following the finger (user: "doesn't follow my drag").
-  double get _yawSign => (_pitch % _tilts) > _pitches - 1 ? -1.0 : 1.0;
+  // 2026-10-05: user - "after a while the brain starts spinning the opposite
+  // direction". The sign flipped as soon as the tilt passed row 8.0, but the
+  // upside-down picture only takes over at 8.5 (rows cross-fade), so for half
+  // a step at every pass over the top/bottom the spin ran backwards on screen.
+  // Flip with the picture that's actually showing (nearest row).
+  double get _yawSign => _pitch.round() % _tilts > _pitches - 1 ? -1.0 : 1.0;
 
   static (int, int, bool) _rowOf(int tilt) {
     final i = tilt % _tilts;
