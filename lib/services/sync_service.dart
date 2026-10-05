@@ -968,16 +968,31 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
     git.Merge.commit(repo: repo, commit: annotated);
     var unresolvedCount = 0;
+    var bothKeptCount = 0;
     if (repo.index.hasConflicts) {
       final other = labelForCommit(repo, remoteOid);
       unresolvedCount = repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
+      // 2026-10-05: user - "if I edit a text file on phone and desktop, then
+      // sync, does it break?" It did: this everyday pull only repaired .md,
+      // so any other file changed on both sides (every file in a free
+      // "Sync my files" folder - .txt, Word, photos) stayed conflicted and
+      // finishMergeCommit threw mid-merge. Same second pass the other merge
+      // paths already run: phone's copy kept, the desktop's saved to the
+      // backups place - nothing lost.
+      bothKeptCount = repairBinaryConflictsOnDisk(repo, p.vaultPath,
+          otherLabel: other.label);
     }
     finishMergeCommit(repo, p.deviceName,
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     if (unresolvedCount > 0) return SyncOkWithConflicts(unresolvedCount);
+    if (bothKeptCount > 0) {
+      return SyncOk('Merged. $bothKeptCount file${bothKeptCount == 1 ? '' : 's'} '
+          'changed on both - kept the phone\'s, saved the desktop\'s copy to '
+          '$kBackupsPlace.');
+    }
     return const SyncOk('Merged in changes from desktop.');
   });
 }

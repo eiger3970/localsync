@@ -1,0 +1,22 @@
+# .github/workflows/tests.yml
+#
+# 2026-10-05: the git2dart test binaries are x86-64 only, so sync/conflict
+# tests can't run on the Pi (ARM). This runs them on GitHub's x86 Linux,
+# by hand (workflow_dispatch) so it never spends minutes on its own.
+name: Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - name: Sync and conflict tests
+        run: flutter test test/binary_conflict_test.dart test/sync_result_message_test.dart test/backup_compare_test.dart test/backup_dedupe_test.dart
