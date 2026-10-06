@@ -3734,29 +3734,40 @@ class _PrimaryButton extends StatelessWidget {
 Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
     {Future<void> Function()? onOpenObsidian,
     VoidCallback? onShowSteps}) async {
+  // 2026-10-06: Kevin - "Backed up first ... small and the background shows,
+  // creating noise and eye bleed". Every prompt here now hides the screen
+  // behind it (solid background), is nearly full width, with bigger text.
   // 2026-09-24: "eyes are bleeding from overwhelming text... add svg
   // imagery and be less verbose." Each case is a picture of the folders
   // (FolderRouteView) plus one short line, not a paragraph.
   final route = filesAppRoute(check.absolutePath);
   final here = crumbsFromRoute(route);
 
-  Widget body(String line, List<Crumb> crumbs) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FolderRouteView(crumbs),
-          const SizedBox(height: 14),
-          Text(line,
-              style: TextStyle(color: kTextMid, fontSize: 14, height: 1.35)),
-        ],
+  Widget body(String line, List<Crumb> crumbs) => SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Transform.scale(
+                scale: 1.25,
+                alignment: Alignment.topLeft,
+                child: FolderRouteView(crumbs)),
+            SizedBox(height: 14 + crumbs.length * 22 * 0.25),
+            Text(line,
+                style: TextStyle(color: kTextMid, fontSize: 16, height: 1.4)),
+          ],
+        ),
       );
 
   Future<void> info(String title, Widget content, List<Widget> actions) =>
       showDialog<void>(
         context: context,
+        barrierColor: kVoid,
         builder: (_) => AlertDialog(
           backgroundColor: kSurface,
-          title: Text(title, style: TextStyle(color: kStar, fontSize: 16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+          title: Text(title, style: TextStyle(color: kStar, fontSize: 20)),
           content: content,
           actions: actions,
         ),
@@ -3811,8 +3822,10 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
     final one = check.childVaults.length == 1;
     await showDialog<void>(
       context: context,
+      barrierColor: kVoid,
       builder: (_) => AlertDialog(
         backgroundColor: kSurface,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: Colors.amber)),
@@ -3822,7 +3835,7 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
           const SizedBox(width: 10),
           Expanded(
             child: Text("That's the ${check.folderName} folder",
-                style: TextStyle(color: kStar, fontSize: 16)),
+                style: TextStyle(color: kStar, fontSize: 20)),
           ),
         ]),
         content: body(
@@ -3852,10 +3865,12 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
 
   final go = await showDialog<bool>(
     context: context,
+    barrierColor: kVoid,
     builder: (dialogCtx) => AlertDialog(
       backgroundColor: kSurface,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       title: Text('Backed up first',
-          style: TextStyle(color: kStar, fontSize: 16)),
+          style: TextStyle(color: kStar, fontSize: 20)),
       content: body('Nothing is deleted.', fullBackupCrumbs('Backup <date>')),
       actions: [
         TextButton(
@@ -3907,7 +3922,7 @@ class BackupReminderCard extends StatelessWidget {
 const _kVaultChoiceSvgs = [
   r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><rect x="22" y="6" width="52" height="52" rx="10" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="5 4"/><g transform="translate(48,30)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><circle cx="70" cy="50" r="10" fill="#00ff41"/><path d="M70 44 V56 M64 50 H76" stroke="#03020a" stroke-width="3" stroke-linecap="round"/></svg>''',
   r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><g fill="none" stroke="#a78bfa" stroke-width="2.5"><rect x="6" y="14" width="26" height="36" rx="6"/><rect x="36" y="14" width="26" height="36" rx="6"/></g><g transform="translate(19,32) scale(.7)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><g transform="translate(49,32) scale(.7)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><rect x="66" y="14" width="26" height="36" rx="6" fill="none" stroke="#00ff41" stroke-width="2.5" stroke-dasharray="4 3"/><path d="M79 25 V39 M72 32 H86" stroke="#00ff41" stroke-width="3" stroke-linecap="round"/></svg>''',
-  r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><rect x="8" y="8" width="44" height="48" rx="8" fill="none" stroke="#a78bfa" stroke-width="2.5"/><g transform="translate(20,20) scale(.6)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><g stroke="#9a98b0" stroke-width="2.5" stroke-linecap="round"><path d="M16 34 H44"/><path d="M16 41 H40"/><path d="M16 48 H36"/></g><g fill="none" stroke="#00ff41" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M62 26 A14 14 0 0 1 86 26"/><path d="M80 20 L86 26 L91 19"/><path d="M86 40 A14 14 0 0 1 62 40"/><path d="M68 46 L62 40 L57 47"/></g></svg>''',
+  r'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64"><rect x="8" y="8" width="44" height="48" rx="8" fill="none" stroke="#a78bfa" stroke-width="2.5"/><g transform="translate(20,20) scale(.6)"><path d="M0 -9 L7 -3 L5 8 L-5 8 L-7 -3 Z" fill="#a78bfa"/></g><g stroke="#9a98b0" stroke-width="2.5" stroke-linecap="round"><path d="M16 34 H44"/><path d="M16 41 H40"/><path d="M16 48 H36"/></g><g transform="translate(94.6,12) scale(-1.65,1.65)"><path fill="#00ff41" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></g></svg>''',
 ];
 
 class _VaultChoiceCard extends StatelessWidget {

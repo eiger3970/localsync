@@ -21,19 +21,25 @@ import '../models/repository.dart';
 const kDemoBookmarkPrefix = 'localsync-demo:';
 const _stageKey = 'demo_conflict_stage';
 
-/// Two versions of the same diary note, written on two devices. Every
-/// entry starts with a clock time and the times cross between the sides,
-/// so Auto merge visibly interleaves them in time order.
-const kDemoConflictNote = '# Diary - Saturday\n'
+/// 2026-10-06: Kevin - "make a fun conflict that is good for marketing",
+/// then "add some romance and a date too" - Valentine's Day in Zermatt.
+/// Two versions of the same trip plan: edited on the phone on the train,
+/// and on the computer at home. Every entry starts with a clock time and
+/// the times cross between the sides, so Auto merge visibly interleaves
+/// them into one day.
+const kDemoConflictFile = 'Zermatt weekend.md';
+const kDemoConflictNote = '# Zermatt weekend - Saturday 14 February\n'
     '\n'
     '> [!warning]+ SYNC CONFLICT — yours (review and delete one)\n'
-    '> 0730 Coffee on the balcony. Three things I am grateful for.\n'
+    '> 0800 Train to Zermatt. Window seat for the first Matterhorn view.\n'
     '> \n'
-    '> 1830 Called Mum. Promised to visit next weekend.\n'
-    '> [!warning]+ SYNC CONFLICT — desktop - 202609261215 (review and delete one)\n'
-    '> 1215 Lunch idea: start the herb garden this spring.\n'
+    '> 1500 Snowball fight with Sam at the glacier. Loser buys hot chocolate.\n'
     '> \n'
-    '> 2145 Private: still thinking about the job offer.\n'
+    '> 2200 Stargazing on the balcony with Alex, one blanket, two hot chocolates.\n'
+    '> [!warning]+ SYNC CONFLICT — desktop - 202602141230 (review and delete one)\n'
+    '> 1230 Raclette at the mountain hut, extra pickles.\n'
+    '> \n'
+    '> 1930 Valentine\'s dinner date with Alex. Candlelit table booked, roses on the way.\n'
     '\n';
 
 class DemoConflict {
@@ -66,7 +72,7 @@ class DemoConflict {
     final dir = Directory('${base.path}/localsync_demo');
     if (await dir.exists()) await dir.delete(recursive: true);
     await dir.create(recursive: true);
-    await File('${dir.path}/Diary - Saturday.md').writeAsString(kDemoConflictNote);
+    await File('${dir.path}/$kDemoConflictFile').writeAsString(kDemoConflictNote);
     return Repository(
       name: 'Sample',
       remoteHost: '',

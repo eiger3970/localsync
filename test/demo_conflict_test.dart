@@ -11,7 +11,7 @@ void main() {
   test('demo note is one real conflict with two versions', () async {
     final dir = await Directory.systemTemp.createTemp('localsync_demo_');
     addTearDown(() => dir.delete(recursive: true));
-    await File('${dir.path}/Diary - Saturday.md').writeAsString(kDemoConflictNote);
+    await File('${dir.path}/$kDemoConflictFile').writeAsString(kDemoConflictNote);
     final entries = await scanForConflicts(dir.path);
     expect(entries, hasLength(1));
     expect(entries.single.versions, hasLength(2));
@@ -20,13 +20,13 @@ void main() {
   test('auto merge interleaves the demo entries in clock order', () async {
     final dir = await Directory.systemTemp.createTemp('localsync_demo_');
     addTearDown(() => dir.delete(recursive: true));
-    final f = File('${dir.path}/Diary - Saturday.md');
+    final f = File('${dir.path}/$kDemoConflictFile');
     await f.writeAsString(kDemoConflictNote);
     final entry = (await scanForConflicts(dir.path)).single;
     await mergeConflictKeepingBoth(dir.path, entry, cleanUp: true);
     final out = await f.readAsString();
     expect(out, isNot(contains('SYNC CONFLICT')));
-    final order = ['0730', '1215', '1830', '2145'].map(out.indexOf).toList();
+    final order = ['0800', '1230', '1500', '1930', '2200'].map(out.indexOf).toList();
     expect(order.every((i) => i >= 0), isTrue);
     expect(order, orderedEquals([...order]..sort()));
   });
