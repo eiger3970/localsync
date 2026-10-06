@@ -103,7 +103,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             icon: Icons.auto_fix_high,
             title: 'Auto merge & clean up',
             line: 'Merges conflicting notes for you, with undo',
-            price: _priceFor(kKeepBothCleanupEntitlementId),
+            price: _priceFor(kKeepBothCleanupEntitlementId, suffix: ' / year'),
             onTap: () =>
                 _open(PaywallKeepBothCleanupScreen(purchases: purchases)),
           ),

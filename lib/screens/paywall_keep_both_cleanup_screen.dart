@@ -139,9 +139,7 @@ class _PaywallKeepBothCleanupScreenState
               const _Bullet(icon: Icons.schedule, text: 'Both versions in one note, in time order'),
               const _Bullet(icon: Icons.library_add_check, text: 'Every word kept, backed up first'),
               const _Bullet(icon: Icons.touch_app, text: 'One tap, every conflict'),
-              // 2026-10-06: Kevin - one-time purchase (matches App Store Connect:
-              // non-consumable), not a yearly subscription.
-              const _Bullet(icon: Icons.lock_open, text: 'Pay once, yours to keep'),
+              const _Bullet(icon: Icons.autorenew, text: 'Yearly · cancel anytime'),
               const Spacer(),
               if (_busy)
                 Center(
@@ -164,7 +162,7 @@ class _PaywallKeepBothCleanupScreenState
                             offset: const Offset(0, 4)),
                       ],
                     ),
-                    child: Text('Unlock clean up - $_priceLabel',
+                    child: Text('Unlock clean up - $_priceLabel / year',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             color: Colors.black,
@@ -227,8 +225,16 @@ class _PaywallKeepBothCleanupScreenState
                   ),
                 ],
               ),
-              // 2026-10-06: one-time purchase - no auto-renew terms (were here for the
-              // yearly subscription).
+              // Apple requires this for auto-renewable subscriptions:
+              // price + period, auto-renew terms, Terms and Privacy links.
+              const SizedBox(height: 10),
+              Text(
+                '${_priceLabel ?? ''} per year. Renews automatically unless '
+                'cancelled at least 24 hours before the year ends. Manage '
+                'or cancel in iPhone Settings -> Apple Account -> '
+                'Subscriptions.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: kTextDim, height: 1.4),
               ),
               const SizedBox(height: 6),
               Text('Free KEEP BOTH also keeps every word, one version after the other.',
