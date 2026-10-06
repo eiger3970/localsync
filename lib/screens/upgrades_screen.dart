@@ -93,7 +93,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             best: true,
             icon: Icons.auto_fix_high,
             title: 'Auto merge & clean up',
-            points: const ['Conflicts merged for you', 'In time order', 'Every word kept', 'Backed up first', 'Undo any merge'],
+            points: const ['Backup, before every merge', 'Conflicts, merged for you', 'Order, by time', 'Undo, any merge', 'Words, every one kept'],
             period: 'per year · cancel anytime',
             price: _priceFor(kKeepBothCleanupEntitlementId),
             onTap: () =>
@@ -103,7 +103,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             bars: 2,
             icon: Icons.auto_stories_rounded,
             title: 'PKM sync',
-            points: const ['Your whole Obsidian vault', 'Phone ⇄ computer', 'Kanban-safe merge'],
+            points: const ['Kanban, safe merge', 'Phone ⇄ computer', 'Vault, your whole Obsidian'],
             period: 'once',
             price: _priceFor(kPkmSyncEntitlementId),
             onTap: () => _open(PaywallObsidianScreen(purchases: purchases)),
@@ -112,7 +112,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             bars: 1,
             icon: Icons.compare_arrows,
             title: 'Visual picker',
-            points: const ['Both versions side by side', 'Tap to keep one'],
+            points: const ['Choice, one tap to keep', 'Versions, side by side'],
             period: 'once',
             price: _priceFor(kConflictPickerEntitlementId),
             onTap: () =>
@@ -124,7 +124,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             rescue: true,
             icon: Icons.emergency,
             title: 'Rescue package',
-            points: const ['One button', 'Missing notes back', 'Every conflict cleaned up', 'Nothing deleted'],
+            points: const ['Button, just one', 'Conflicts, all cleaned up', 'Deletions, none', 'Notes, missing ones back'],
             period: 'once · for emergencies',
             price: _priceFor(kRescueProductId),
             onTap: () => _open(const RescueScreen()),
@@ -158,7 +158,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
 class _UpgradeTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final List<String> points; // higher tiers list more
+  final List<String> points; // main noun first, A-Z; higher tiers list more
   final String period;
   final String price;
   final VoidCallback onTap;
