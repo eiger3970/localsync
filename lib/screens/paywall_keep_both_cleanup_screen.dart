@@ -131,26 +131,15 @@ class _PaywallKeepBothCleanupScreenState
                   style: TextStyle(
                       fontWeight: FontWeight.w800, fontSize: 24, color: kStar)),
               const SizedBox(height: 8),
-              Text(
-                'Free KEEP BOTH keeps every word, always - it just '
-                'concatenates both sides as-is. This unlocks real '
-                'chronological reordering on top of that.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kTextMid, fontSize: 13, height: 1.5),
-              ),
-              const SizedBox(height: 20),
-              const _Bullet(
-                  text: 'Every timestamped entry from both sides, '
-                      'interleaved by clock time'),
-              const _Bullet(
-                  text: 'Not just each side kept in a block - entries mix '
-                      'in true time order'),
-              const _Bullet(
-                  text: 'Falls back to the free behavior automatically if '
-                      'any entry has no clock time'),
-              // 2026-09-26: Auto merge is now a yearly subscription
-              // (US$49.99/year) - was "Pay once. No subscription, ever."
-              const _Bullet(text: 'Yearly - cancel anytime'),
+              // 2026-10-06: Kevin - "This is confusing, just tell users the
+              // product they're getting, tell it in point form or with svg
+              // images. Then as a minor last note additional info like KEEP
+              // BOTH has less features." What you get first, icons, 1 line each.
+              const SizedBox(height: 12),
+              const _Bullet(icon: Icons.schedule, text: 'Both versions in one note, in time order'),
+              const _Bullet(icon: Icons.library_add_check, text: 'Every word kept, backed up first'),
+              const _Bullet(icon: Icons.touch_app, text: 'One tap, every conflict'),
+              const _Bullet(icon: Icons.autorenew, text: 'Yearly · cancel anytime'),
               const Spacer(),
               if (_busy)
                 Center(
@@ -193,7 +182,7 @@ class _PaywallKeepBothCleanupScreenState
                   child: Text('Coming soon',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: kTextMid, fontStyle: FontStyle.italic)),
+                          color: kTextMid, fontSize: 16, fontStyle: FontStyle.italic)),
                 ),
                 // TEMPORARY - same reasoning as
                 // paywall_obsidian_screen.dart's matching button: no
@@ -213,7 +202,7 @@ class _PaywallKeepBothCleanupScreenState
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: kTextDim,
-                            fontSize: 13,
+                            fontSize: 15,
                             decoration: TextDecoration.underline)),
                   ),
                 ],
@@ -232,7 +221,7 @@ class _PaywallKeepBothCleanupScreenState
                   GestureDetector(
                     onTap: _busy ? null : _restore,
                     child: Text('Restore purchase',
-                        style: TextStyle(fontSize: 11, color: kTextDim)),
+                        style: TextStyle(fontSize: 13, color: kTextDim)),
                   ),
                 ],
               ),
@@ -245,8 +234,12 @@ class _PaywallKeepBothCleanupScreenState
                 'or cancel in iPhone Settings -> Apple Account -> '
                 'Subscriptions.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: kTextDim, height: 1.4),
+                style: TextStyle(fontSize: 12, color: kTextDim, height: 1.4),
               ),
+              const SizedBox(height: 6),
+              Text('Free KEEP BOTH also keeps every word, one version after the other.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: kTextDim)),
               const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -256,7 +249,7 @@ class _PaywallKeepBothCleanupScreenState
                       url: 'https://www.apple.com/legal/internet-services/'
                           'itunes/dev/stdeula/'),
                   Text('  ·  ',
-                      style: TextStyle(fontSize: 10, color: kTextDim)),
+                      style: TextStyle(fontSize: 12, color: kTextDim)),
                   const _LegalLink(
                       label: 'Privacy Policy',
                       url: 'https://kworld.space/privacy'),
@@ -272,7 +265,8 @@ class _PaywallKeepBothCleanupScreenState
 
 class _Bullet extends StatelessWidget {
   final String text;
-  const _Bullet({required this.text});
+  final IconData icon;
+  const _Bullet({required this.text, this.icon = Icons.check});
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -281,15 +275,17 @@ class _Bullet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.only(top: 1),
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(color: kSurface, shape: BoxShape.circle),
-            child: Icon(Icons.check, color: kGreen, size: 14),
+            child: Icon(icon, color: kGreen, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(text, style: TextStyle(fontSize: 14, color: kTextMid)),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 7),
+              child: Text(text, style: TextStyle(fontSize: 16, color: kStar)),
+            ),
           ),
         ],
       ),
@@ -308,7 +304,7 @@ class _LegalLink extends StatelessWidget {
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Text(label,
           style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               color: kTextDim,
               decoration: TextDecoration.underline)),
     );

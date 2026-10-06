@@ -891,6 +891,67 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     }
   }
 
+  // The merged sample, one line per timed entry, as a "this is what you get".
+  Future<void> _showDemoResult(String merged, bool cleanUp) async {
+    final lines = merged.split('\n')
+        .map((l) => l.replaceFirst(RegExp(r'^>\s?'), '').trim())
+        .where((l) => RegExp(r'^\d{4}\s').hasMatch(l))
+        .toList();
+    await showDialog<void>(
+      context: context,
+      barrierColor: kVoid,
+      builder: (c) => AlertDialog(
+        backgroundColor: kSurface,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+        title: Row(children: [
+          Icon(Icons.check_circle, color: kGreen, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(cleanUp ? 'One day, in time order' : 'Both versions kept',
+                style: TextStyle(color: kStar, fontSize: 20)),
+          ),
+        ]),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final l in lines)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(l.substring(0, 4),
+                        style: TextStyle(color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(l.substring(4).trim(),
+                          style: TextStyle(color: kStar, fontSize: 15, height: 1.35)),
+                    ),
+                  ]),
+                ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Icon(Icons.library_add_check, color: kGreen, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Every word kept, backed up first',
+                      style: TextStyle(color: kTextMid, fontSize: 14)),
+                ),
+              ]),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: Text('DONE', style: TextStyle(color: kGreen, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _keepBoth({bool cleanUp = false}) async {
     setState(() => _resolving = true);
     final vaultFolder = VaultFolderService();
@@ -906,6 +967,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         mergeUndo = kept.undo;
         if (DemoConflict.isDemo(widget.repo)) {
           if (cleanUp) await DemoConflict.advancePast(0);
+          // 2026-10-06: Kevin - "I tap keep both and clean -> then nothing".
+          // The sample's free try merged quietly and closed; now the result
+          // is shown - the whole day in time order, the point of the product.
+          if (mounted) {
+            final merged = await File('$path/${widget.entry.filePath}').readAsString();
+            if (mounted) await _showDemoResult(merged, cleanUp);
+          }
         } else {
           await DatabaseService().addResolvedRecords(
             recordsFor(widget.entry, DateTime.now()),
