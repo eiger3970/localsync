@@ -14,6 +14,7 @@ import '../widgets/demo_conflict_card.dart';
 import 'paywall_conflict_picker_screen.dart';
 import 'paywall_keep_both_cleanup_screen.dart';
 import 'paywall_obsidian_screen.dart';
+import 'rescue_screen.dart';
 
 class UpgradesScreen extends StatefulWidget {
   const UpgradesScreen({super.key});
@@ -38,7 +39,8 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
       for (final id in [
         kKeepBothCleanupEntitlementId,
         kPkmSyncEntitlementId,
-        kConflictPickerEntitlementId
+        kConflictPickerEntitlementId,
+        kRescueProductId
       ]) {
         if (p.storeProduct.identifier.contains(id)) {
           _prices[id] = p.storeProduct.priceString;
@@ -52,6 +54,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
     ]) {
       if (await purchases.hasEntitlement(id)) _owned.add(id);
     }
+    if (await purchases.hasEntitlement(kRescueEntitlementId)) _owned.add(kRescueProductId);
     if (mounted) setState(() {});
   }
 
@@ -77,50 +80,54 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text('Syncing your files stays free. These add convenience.',
-              style: TextStyle(color: kTextMid, fontSize: 13)),
-          const SizedBox(height: 14),
-          // 2026-09-26: user - "say data protection ... Someone in a panic
-          // will appreciate this", as a positive statement.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.verified_user_outlined, color: kGreen, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                    'Two devices edit the same note? LocalSync keeps both '
-                    'versions safe. Every upgrade backs up both versions '
-                    'first, so you can always restore.\n'
-                    'Your data is precious. Your private data is priceless.',
-                    style: TextStyle(color: kStar, fontSize: 13, height: 1.5)),
-              ),
-            ],
-          ),
+          // 2026-10-07: Kevin - "Order these by best value at top. Income
+          // incoming door must be easy for users, not hidden or obfuscated,
+          // make sales the easiest part of the app with no friction." A
+          // ladder, best value first (an exception to the alphabetical rule:
+          // the order IS the message); each card is one tap to its purchase.
+          Text('Syncing your files stays free. More bars = more done for you.',
+              style: TextStyle(color: kTextMid, fontSize: 14)),
           const SizedBox(height: 16),
-          // Alphabetical (house rule).
           _UpgradeTile(
+            bars: 3,
+            best: true,
             icon: Icons.auto_fix_high,
             title: 'Auto merge & clean up',
-            line: 'Merges conflicting notes for you, with undo',
-            price: _priceFor(kKeepBothCleanupEntitlementId, suffix: ' / year'),
+            line: 'Conflicts merged for you, in time order, with undo',
+            period: 'per year · cancel anytime',
+            price: _priceFor(kKeepBothCleanupEntitlementId),
             onTap: () =>
                 _open(PaywallKeepBothCleanupScreen(purchases: purchases)),
           ),
           _UpgradeTile(
+            bars: 2,
             icon: Icons.auto_stories_rounded,
             title: 'PKM sync',
-            line: 'Sync your notes app vault too',
+            line: 'Your whole Obsidian vault, phone ⇄ computer',
+            period: 'once',
             price: _priceFor(kPkmSyncEntitlementId),
             onTap: () => _open(PaywallObsidianScreen(purchases: purchases)),
           ),
           _UpgradeTile(
+            bars: 1,
             icon: Icons.compare_arrows,
             title: 'Visual picker',
-            line: 'See both versions side by side, tap to keep',
+            line: 'Both versions side by side, tap to keep',
+            period: 'once',
             price: _priceFor(kConflictPickerEntitlementId),
             onTap: () =>
                 _open(PaywallConflictPickerScreen(purchases: purchases)),
+          ),
+          const SizedBox(height: 8),
+          _UpgradeTile(
+            bars: 0,
+            rescue: true,
+            icon: Icons.emergency,
+            title: 'Rescue package',
+            line: 'One button: missing notes back, every conflict cleaned up',
+            period: 'once · for emergencies',
+            price: _priceFor(kRescueProductId),
+            onTap: () => _open(const RescueScreen()),
           ),
           const SizedBox(height: 20),
           const DemoConflictCard(),
@@ -152,51 +159,97 @@ class _UpgradeTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String line;
+  final String period;
   final String price;
   final VoidCallback onTap;
+  final int bars; // 1-3 value bars; 0 = none (Rescue)
+  final bool best;
+  final bool rescue;
   const _UpgradeTile(
       {required this.icon,
       required this.title,
       required this.line,
+      required this.period,
       required this.price,
-      required this.onTap});
+      required this.onTap,
+      this.bars = 0,
+      this.best = false,
+      this.rescue = false});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final accent = rescue ? Colors.amber : kGreen;
+    final owned = price == 'Owned';
+    final card = InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: kSurface, border: Border.all(color: kBorder)),
-        child: Row(
-          children: [
-            Icon(icon, color: kGreen, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: TextStyle(
-                          color: kStar,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(line, style: TextStyle(color: kTextMid, fontSize: 12)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(price,
-                style: TextStyle(
-                    color: price == 'Owned' ? kTextDim : kGreen,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700)),
-          ],
+          color: kSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: best ? kGreen : rescue ? Colors.amber : kBorder, width: best ? 1.6 : 1),
+          boxShadow: best ? [BoxShadow(color: kGreen.withValues(alpha: 0.3), blurRadius: 14)] : null,
         ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, color: accent, size: 22),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(title,
+                  style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            if (best) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(99)),
+                child: Text('BEST', style: TextStyle(color: kVoid, fontSize: 11, fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 6),
+          Text('+ $line', style: TextStyle(color: kStar, fontSize: 13, height: 1.4)),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: Text(period, style: TextStyle(color: kTextMid, fontSize: 12))),
+            // The price IS the button - one tap to buy.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                  color: owned ? Colors.transparent : accent,
+                  border: Border.all(color: owned ? kTextDim : accent),
+                  borderRadius: BorderRadius.circular(99)),
+              child: Text(owned ? 'Owned' : price == 'Coming soon' ? price : 'Get $price',
+                  style: TextStyle(color: owned ? kTextDim : kVoid, fontSize: 14, fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ]),
       ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        // Value bars: more bars = more done for you.
+        SizedBox(
+          width: 30,
+          child: bars == 0
+              ? const SizedBox.shrink()
+              : Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  for (var i = 0; i < 3; i++)
+                    Container(
+                      width: 7,
+                      height: 14.0 + 12 * i,
+                      margin: const EdgeInsets.only(right: 2),
+                      decoration: BoxDecoration(
+                          color: i < bars ? kGreen : kBorder,
+                          borderRadius: BorderRadius.circular(2)),
+                    ),
+                ]),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: card),
+      ]),
     );
   }
 }
