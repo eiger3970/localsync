@@ -3070,7 +3070,7 @@ class _CompleteViewState extends State<_CompleteView>
           if (above == null) const Spacer() else SizedBox(height: above),
           Padding(padding: const EdgeInsets.only(bottom: 8), child: tick),
           heading,
-          Expanded(child: SingleChildScrollView(child: Column(children: rest))),
+          Expanded(child: SingleChildScrollView(child: SizedBox(width: double.infinity, child: Column(children: rest)))),
         ],
       ),
     );
@@ -3950,13 +3950,16 @@ class BackupReminderCard extends StatelessWidget {
   const BackupReminderCard({super.key, required this.backupRelPath});
 
   @override
+  // 2026-10-06: centred under the centred heading (Kevin: "doesn't look centered").
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.shield_outlined, color: kGreen, size: 18),
           const SizedBox(width: 8),
           Flexible(
             child: Text('Earlier files kept: LocalSync -> Menu -> Backups',
+                textAlign: TextAlign.center,
                 style: TextStyle(color: kTextMid, fontSize: 14)),
           ),
         ],
