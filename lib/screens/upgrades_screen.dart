@@ -241,7 +241,7 @@ class _UpgradeTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
         // 2026-10-07: Kevin - "the bars can change to the dog mascot ... levels
-        // of happiness". 1 = calm dog (still), 2 = walking, 3 = jumping happy.
+        // of happiness". 1 = sitting dog (still), 2 = walking, 3 = jumping happy.
         SizedBox(
           width: 52,
           child: bars == 0
@@ -251,7 +251,7 @@ class _UpgradeTile extends StatelessWidget {
                       ? 'assets/gifs/dog_success_stand.gif'
                       : bars == 2
                           ? 'assets/gifs/progress_running.gif'
-                          : 'assets/gifs/dog_calm.png',
+                          : 'assets/gifs/dog_sit.png',
                   height: bars == 3 ? 66 : 36,
                   fit: BoxFit.contain,
                   filterQuality: FilterQuality.none, // crisp pixel art
