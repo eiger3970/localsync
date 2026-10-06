@@ -85,7 +85,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
           // make sales the easiest part of the app with no friction." A
           // ladder, best value first (an exception to the alphabetical rule:
           // the order IS the message); each card is one tap to its purchase.
-          Text('Syncing your files stays free. The happier the dog, the more is done for you.',
+          Text('Syncing your files stays free. The happier the doggie, the more is done for you.',
               style: TextStyle(color: kTextMid, fontSize: 14)),
           const SizedBox(height: 16),
           _UpgradeTile(
