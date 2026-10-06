@@ -93,7 +93,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             best: true,
             icon: Icons.auto_fix_high,
             title: 'Auto merge & clean up',
-            points: const ['Backup, before every merge', 'Conflicts, merged for you', 'Order, by time', 'Undo, any merge', 'Words, every one kept'],
+            points: const ['Backup, before every merge', 'Conflicts, merged for you', 'Order, by time', 'Text, every word kept', 'Undo, any merge'],
             period: 'per year · cancel anytime',
             price: _priceFor(kKeepBothCleanupEntitlementId),
             onTap: () =>
@@ -103,7 +103,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             bars: 2,
             icon: Icons.auto_stories_rounded,
             title: 'PKM sync',
-            points: const ['Kanban, safe merge', 'Phone ⇄ computer', 'Vault, your whole Obsidian'],
+            points: const ['Kanban boards, kept intact', 'Merge, safe', 'Phone ⇄ computer', 'Vault, your whole Obsidian'],
             period: 'once',
             price: _priceFor(kPkmSyncEntitlementId),
             onTap: () => _open(PaywallObsidianScreen(purchases: purchases)),
