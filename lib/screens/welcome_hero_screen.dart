@@ -30,6 +30,8 @@ import '../models/repository.dart';
 import '../features/linking/linking_controller.dart';
 import '../services/purchase_service.dart';
 import '../widgets/shatter_page_route.dart';
+import '../widgets/demo_conflict_card.dart' show openDemoConflict;
+import 'upgrades_screen.dart';
 import 'linking_screen.dart';
 import 'paywall_obsidian_screen.dart';
 
@@ -221,6 +223,29 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                         tagFg: wVioletDark,
                         subtitle: 'Real conflict protection',
                         onTap: () => _choose(context, SyncMode.obsidianVault),
+                      ),
+                      // 2026-10-06: try before setting anything up - and App
+                      // Review can reach the sample conflict and the upgrades
+                      // without a computer (with no sync yet, the app always
+                      // returns here, which had no way in to either).
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () => openDemoConflict(context),
+                            icon: const Icon(Icons.auto_fix_high, size: 18, color: wTealDark),
+                            label: Text('Try a sample conflict',
+                                style: TextStyle(color: wTealDark, fontWeight: FontWeight.w700)),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => const UpgradesScreen())),
+                            icon: const Icon(Icons.workspace_premium_outlined, size: 18, color: wVioletDark),
+                            label: Text('Upgrades',
+                                style: TextStyle(color: wVioletDark, fontWeight: FontWeight.w700)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
