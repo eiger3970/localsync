@@ -2875,12 +2875,20 @@ class _CompleteViewState extends State<_CompleteView>
     // glance). Shrunk the checkmark/burst area and outer vertical
     // padding so the whole screen fits without scrolling on a normal
     // phone - this was the one area with real slack to give back.
-    return SingleChildScrollView(
+    // 2026-10-06: Kevin - "Your notes have arrived! This is not centered, rather
+    // is too low down ... I want the tick above the centered text". The heading
+    // sits at the screen's vertical middle, the tick right above it, everything
+    // else below (that part scrolls on small phones).
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
             width: 100,
             height: 100,
             child: AnimatedBuilder(
@@ -2903,12 +2911,17 @@ class _CompleteViewState extends State<_CompleteView>
               ),
             ),
           ),
-          const SizedBox(height: 8),
+              ),
+            ),
+          ),
           // 2026-08-16: emoji replaced with the same success gif used
           // for the final swipe control below - decorative, always
           // playing (not gated behind a trigger like the swipe gifs,
           // there's no gesture here to wait for).
-          Row(
+          // 2026-10-06: never wider than the screen - shrinks to fit narrow phones.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               // 2026-08-28: real feedback, live - this heading was
@@ -2945,6 +2958,11 @@ class _CompleteViewState extends State<_CompleteView>
               ),
             ],
           ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+            child: Column(
+              children: [
           // 2026-09-24: the "where" reminder - see BackupReminderCard.
           if (widget.ctrl.lastVaultBackupRelPath != null) ...[
             const SizedBox(height: 14),
@@ -3021,6 +3039,10 @@ class _CompleteViewState extends State<_CompleteView>
             child: SwapGifSwipeConfirm(
               animatedAssetPath: 'assets/gifs/progress_running.gif',
               onConfirm: () => _leaveSetup(context),
+            ),
+          ),
+              ],
+            ),
             ),
           ),
         ],

@@ -34,7 +34,8 @@ void main() {
           theme: buildAppTheme(),
           home: Scaffold(
               backgroundColor: kVoid,
-              body: SingleChildScrollView(child: completeViewForPreview(ctrl)))),
+              // 2026-10-06: bounded like the app (Expanded > AnimatedSwitcher).
+              body: completeViewForPreview(ctrl))),
     ));
     await tester.pump(const Duration(seconds: 2));
     while (tester.takeException() != null) {}
