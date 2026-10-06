@@ -65,9 +65,11 @@ void main() {
           home: Scaffold(
               backgroundColor: kVoid,
               // 2026-10-06: bounded like the app (Expanded > AnimatedSwitcher).
-              body: completeViewForPreview(ctrl))),
+              // Like the app: header + progress bar above the view.
+              body: Column(children: [const SizedBox(height: 140), Expanded(child: completeViewForPreview(ctrl))]))),
     ));
     await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
     while (tester.takeException() != null) {}
     await expectLater(find.byType(MaterialApp),
         matchesGoldenFile('goldens/complete_view_existing.png'));

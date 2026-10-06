@@ -2695,6 +2695,16 @@ class _CompleteView extends StatefulWidget {
 
 class _CompleteViewState extends State<_CompleteView>
     with SingleTickerProviderStateMixin {
+  // Top of this view on the screen, measured after the first frame.
+  final _areaKey = GlobalKey();
+  double? _areaTop;
+  void _measureArea() {
+    final box = _areaKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    if (_areaTop == null || (top - _areaTop!).abs() > 1) setState(() => _areaTop = top);
+  }
+
   late final AnimationController _burstCtrl;
   late final List<_Particle> _particles;
 
@@ -3043,16 +3053,22 @@ class _CompleteViewState extends State<_CompleteView>
         ),
       );
     }
+    // 2026-10-06: Kevin - "I see no change" (Existing vault). The middle of
+    // this area sits below the screen's middle (header + progress bar above
+    // it), so the heading still looked low. Centred on the whole screen now:
+    // the area's top is measured once, then the space above the tick is sized
+    // so the heading's middle lands on the screen's middle.
+    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _measureArea(); });
+    final screenH = MediaQuery.sizeOf(context).height;
+    const headingHalf = 22.0, tickH = 100.0, pad = 16.0;
+    final above = _areaTop == null ? null : (screenH / 2 - _areaTop! - pad - headingHalf - tickH - 8).clamp(0.0, screenH);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      key: _areaKey,
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: pad),
       child: Column(
         children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(padding: const EdgeInsets.only(bottom: 8), child: tick),
-            ),
-          ),
+          if (above == null) const Spacer() else SizedBox(height: above),
+          Padding(padding: const EdgeInsets.only(bottom: 8), child: tick),
           heading,
           Expanded(child: SingleChildScrollView(child: Column(children: rest))),
         ],
