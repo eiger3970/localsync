@@ -1156,13 +1156,25 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final keptBothNote = note != null && widget.entry.matchEnd <= note.length
         ? applyKeepBoth(note, widget.entry).content
         : null;
-    final cleanUpHelps =
-        !oneSideTooShort && keptBothNote != null && cleanUpWouldChange(keptBothNote);
+    // 2026-10-06: Kevin - on the sample the tip said KEEP BOTH while CLEAN UP
+    // was the right one: cleanUpWouldChange skips notes with a title heading.
+    // The direct test: does the CLEAN UP button give a different note than
+    // plain KEEP BOTH? Then the tip recommends it.
+    final cleanedNote = note != null && widget.entry.matchEnd <= note.length
+        ? applyKeepBoth(note, widget.entry, cleanUp: true).content
+        : null;
+    final cleanUpHelps = !oneSideTooShort && keptBothNote != null &&
+        (cleanUpWouldChange(keptBothNote) ||
+            (cleanedNote != null && normalizeWhitespace(cleanedNote) != normalizeWhitespace(keptBothNote)));
     final keepBothLeavesRepeats = cleanUpHelps &&
         normalizeWhitespace(cleanUpJournalNote(keptBothNote)).length <
             normalizeWhitespace(keptBothNote).length;
     final looksLikeSeparateEntries =
         !oneSideTooShort && !cleanUpHelps && anyHasLeadingTime;
+    // 2026-10-06: Kevin - "Tip says to tap KEEP BOTH, but colours hint to tap
+    // KEEP BOTH & CLEAN UP. Which button to tap?" One signal: the button the
+    // tip names is the green one.
+    final tipKeepBoth = looksLikeSeparateEntries;
     // 2026-09-08: real feedback, live - "that's a useful hint... more
     // of this." Second deterministic signal: one side's text fully
     // contains the other's, meaning nothing is actually lost by
@@ -1523,7 +1535,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBoth,
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: kStar),
+                          side: BorderSide(color: tipKeepBoth ? kGreen : kStar),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
@@ -1537,10 +1549,10 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                         // near the top of the screen (see above), kStar
                         // keeps this button visually consistent with the
                         // now-white MERGE TEXT INSTEAD button below it.
-                        icon: Icon(Icons.done_all, color: kStar, size: 18),
+                        icon: Icon(Icons.done_all, color: tipKeepBoth ? kGreen : kStar, size: 18),
                         label: Text('KEEP BOTH',
                             style: TextStyle(
-                                color: kStar,
+                                color: tipKeepBoth ? kGreen : kStar,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
@@ -1578,15 +1590,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBothCleanedUp,
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: kGreen),
+                          side: BorderSide(color: tipKeepBoth ? kStar : kGreen),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
                         icon:
-                            Icon(Icons.auto_fix_high, color: kGreen, size: 18),
+                            Icon(Icons.auto_fix_high, color: tipKeepBoth ? kStar : kGreen, size: 18),
                         label: Text('KEEP BOTH & CLEAN UP',
                             style: TextStyle(
-                                color: kGreen,
+                                color: tipKeepBoth ? kStar : kGreen,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
