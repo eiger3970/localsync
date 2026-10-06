@@ -25,7 +25,9 @@ class Crumb {
   /// Indent level; null = one deeper than the row above. Siblings (e.g.
   /// several vaults inside one folder) pass the same depth.
   final int? depth;
-  const Crumb(this.label, this.kind, {this.depth});
+  /// 2026-10-06: small tag after the label ("you picked", "pick this one").
+  final String? note;
+  const Crumb(this.label, this.kind, {this.depth, this.note});
 }
 
 /// Turns a filesAppRoute() list (e.g. ['On My iPhone', 'Obsidian',
@@ -96,14 +98,34 @@ class FolderRouteView extends StatelessWidget {
                   child: Text(
                     crumbs[i].label,
                     style: TextStyle(
-                      color: i == crumbs.length - 1 ? kStar : kTextMid,
+                      color: crumbs[i].note != null &&
+                              crumbs[i].kind == CrumbKind.vault
+                          ? kGreen
+                          : i == crumbs.length - 1
+                              ? kStar
+                              : kTextMid,
                       fontSize: 13,
-                      fontWeight: i == crumbs.length - 1
+                      fontWeight: i == crumbs.length - 1 ||
+                              crumbs[i].kind == CrumbKind.vault
                           ? FontWeight.w700
                           : FontWeight.w400,
+                      // 2026-10-06: the wrong folder is crossed out.
+                      decoration: crumbs[i].kind == CrumbKind.wrong
+                          ? TextDecoration.lineThrough
+                          : null,
+                      decorationColor: kTextMid,
                     ),
                   ),
                 ),
+                if (crumbs[i].note != null) ...[
+                  const SizedBox(width: 6),
+                  Text(crumbs[i].note!,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: crumbs[i].kind == CrumbKind.wrong
+                              ? Colors.amber
+                              : kGreen)),
+                ],
               ],
             ),
           ),

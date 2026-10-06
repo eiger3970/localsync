@@ -3802,16 +3802,41 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
     return false;
   }
 
+  // 2026-10-06: user - users can't be sure whether to pick "Obsidian" or
+  // "Obsidian/<vault>"; Files screens change with iOS versions, so the
+  // folder picked is checked instead of explaining the screens. Approved
+  // mockup: amber warning title, picked folder crossed out, the vault in
+  // green with "pick this one".
   if (check.looksLikeParentOfVaults) {
-    await info(
-      'Pick one vault',
-      body('Open "${check.folderName}", tap one vault, then Open.', [
-        ...here.take(here.length - 1),
-        Crumb(here.last.label, CrumbKind.wrong),
-        for (final v in check.childVaults)
-          Crumb(v, CrumbKind.vault, depth: here.length),
-      ]),
-      [
+    final one = check.childVaults.length == 1;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Colors.amber)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: Colors.amber, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text("That's the ${check.folderName} folder",
+                style: TextStyle(color: kStar, fontSize: 16)),
+          ),
+        ]),
+        content: body(
+            one
+                ? 'Swipe up again, open "${check.folderName}", tap "${check.childVaults.first}", then Open.'
+                : 'Swipe up again, open "${check.folderName}", tap your vault, then Open.',
+            [
+              ...here.take(here.length - 1),
+              Crumb(here.last.label, CrumbKind.wrong, note: 'you picked'),
+              for (final v in check.childVaults)
+                Crumb(v, CrumbKind.vault,
+                    depth: here.length, note: one ? 'pick this one' : null),
+            ]),
+        actions: [
         Builder(
             builder: (c) => TextButton(
                   onPressed: () => Navigator.pop(c),
@@ -3819,7 +3844,8 @@ Future<bool> confirmVaultFolder(BuildContext context, VaultFolderCheck check,
                       style: TextStyle(
                           color: kGreen, fontWeight: FontWeight.w700)),
                 )),
-      ],
+        ],
+      ),
     );
     return false;
   }

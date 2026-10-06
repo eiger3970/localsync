@@ -835,7 +835,7 @@ class LinkingController extends ChangeNotifier {
         ]
       : linkExisting
           ? [
-              '@localsync swipe up to open Files and pick your vault folder',
+              '@localsync Swipe up to open Files and pick your vault folder',
             ]
       : [
           '@localsync swipe up to open VAULT FOLDER',

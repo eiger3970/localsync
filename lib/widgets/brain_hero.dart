@@ -115,7 +115,7 @@ class _BrainHeroState extends State<BrainHero>
     // Two candidate rolls (180 deg apart); keep the one nearest the last
     // roll while its tilt is within the rendered rows - no needless flips.
     const lim = _tiltMax * math.pi / 180;
-    (bool, double, double, double, double)? best;
+    (bool, double, double, double, double)? best, other;
     for (final target in [math.pi / 2, -math.pi / 2]) {
       final th = _wrap(target - now);
       final w = _mul(_axisAngle(_camF, -th), _m);
@@ -125,10 +125,20 @@ class _BrainHeroState extends State<BrainHero>
       final cand = (a.abs() > lim + 1e-6, _wrap(th - _roll).abs(), th, a, b);
       if (best == null ||
           (cand.$1 != best.$1 ? !cand.$1 : cand.$2 < best.$2)) {
+        other = best;
         best = cand;
+      } else {
+        other = cand;
       }
     }
     final (_, _, th, a, b) = best!;
+    // 2026-10-06: the other split is where the next flip lands - its views
+    // are preloaded too (_preloadRows), so the flip never shows a stale view.
+    _altRow = ((other!.$4 * 180 / math.pi + _tiltMax) /
+            (2 * _tiltMax / (_pitches - 1)))
+        .clamp(0.0, _pitches - 1.0)
+        .floor();
+    _altYaw = ((other.$5 * 180 / math.pi + 35) / (360 / _yaws)).floor() % _yaws;
     _roll = th;
     _rowF = ((a * 180 / math.pi + _tiltMax) / (2 * _tiltMax / (_pitches - 1)))
         .clamp(0.0, _pitches - 1.0);
@@ -142,6 +152,25 @@ class _BrainHeroState extends State<BrainHero>
     final deg = math.sqrt(degRight * degRight + degDown * degDown);
     if (deg == 0) return;
     _m = _mul(_axisAngle(axis, deg * math.pi / 180), _m);
+  }
+
+  // 2026-10-06: user - "vertical spin better, but does a weird jiggle to the
+  // left and right then continues". Once a turn the brain's top points
+  // straight at the camera, where the split into view + roll has no clear
+  // roll. If the top is even 3 deg off the spin's plane (a finger is never
+  // exactly vertical), the roll swings left and right there - simulated: up
+  // to 34x faster than the spin itself. A near-vertical flick now spins
+  // exactly vertically (_vertical) and the top eases into that plane - same
+  // simulation: the swing drops from 2 deg to 0.06 deg per 0.1 deg of spin.
+  bool _vertical = false;
+  static const _snapDeg = 10.0; // flicks this close to vertical spin vertically
+  void _easeTopIntoSpin() {
+    final u = [_m[2], _m[5], _m[8]];
+    final qr = u[0] * _camRight[0] + u[1] * _camRight[1] + u[2] * _camRight[2];
+    if (qr.abs() < 1e-9 || qr.abs() > 0.26) return; // in plane, or far from the singular view
+    final t = [for (var i = 0; i < 3; i++) u[i] - qr * _camRight[i]];
+    final axis = [u[1] * t[2] - u[2] * t[1], u[2] * t[0] - u[0] * t[2], u[0] * t[1] - u[1] * t[0]];
+    _m = _mul(_axisAngle(axis, math.asin(qr.abs().clamp(0.0, 1.0)) * 0.02), _m);
   }
 
   static String _frame(String set, int yaw, int pitch) {
@@ -172,6 +201,7 @@ class _BrainHeroState extends State<BrainHero>
   List<double> _m = _axisAngle(const [0, 0, 1], -35 * math.pi / 180); // straight-on view 1
   int _frames = 0;
   double _roll = 0, _rowF = _level * 1.0, _yawF = 0;
+  int _altRow = _level, _altYaw = 48; // the flip's views (see _decompose)
   // Spin: axis * speed in degrees/s, world frame. Idle = the brain's own up axis.
   List<double> _w = const [0, 0, _idleDeg];
   bool _paused = false;
@@ -217,6 +247,7 @@ class _BrainHeroState extends State<BrainHero>
           final k = (dt * 0.6).clamp(0.0, 1.0);
           final next = speed > _idleDeg ? speed + (_idleDeg - speed) * k : _idleDeg;
           if (speed > 0) _w = [for (final c in _w) c * next / speed];
+          if (_vertical) _easeTopIntoSpin();
           _decompose();
         });
       }
@@ -242,18 +273,29 @@ class _BrainHeroState extends State<BrainHero>
   void _preloadRows() {
     if (!mounted) return;
     final r0 = _rowF.floor(), y0 = _yawF.floor();
-    final key = '$_set/${_nextSet ?? ''}/$r0/$y0';
+    final key = '$_set/${_nextSet ?? ''}/$r0/$y0/$_altRow/$_altYaw';
     if (key == _warmKey) return;
     _warmKey = key;
     for (final set in [_set, if (_nextSet != null) _nextSet!]) {
       for (var r = math.max(0, r0 - 1); r <= math.min(_pitches - 1, r0 + 2); r++) {
         for (var y = y0 - 1; y <= y0 + 2; y++) {
-          precacheImage(AssetImage(_frame(set, y, r)), context);
+          _warm(_frame(set, y, r));
+        }
+      }
+      for (var r = _altRow; r <= math.min(_pitches - 1, _altRow + 1); r++) {
+        for (var y = _altYaw; y <= _altYaw + 1; y++) {
+          _warm(_frame(set, y, r));
         }
       }
     }
   }
 
+  // 2026-10-06: views already decoded - each is requested once.
+  final Set<String> _ready = {};
+  void _warm(String f) {
+    if (_ready.contains(f)) return;
+    precacheImage(AssetImage(f), context).then((_) => _ready.add(f));
+  }
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -352,6 +394,9 @@ class _BrainHeroState extends State<BrainHero>
         final v = d.velocity.pixelsPerSecond * _degPerPx;
         var s = v.distance > _idleDeg ? v : (_dragVec.distance > 0 ? _dragVec * (_idleDeg / _dragVec.distance) : Offset.zero);
         if (s.distance > _idleDeg * 6) s = s * (_idleDeg * 6 / s.distance);
+        _vertical = s != Offset.zero &&
+            s.dx.abs() < s.dy.abs() * math.tan(_snapDeg * math.pi / 180);
+        if (_vertical) s = Offset(0, s.dy);
         if (s != Offset.zero) {
           _w = [for (var i = 0; i < 3; i++) s.dx * _camUp[i] + s.dy * _camRight[i]];
         }
