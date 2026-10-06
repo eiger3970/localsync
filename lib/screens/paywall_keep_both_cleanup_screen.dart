@@ -229,6 +229,7 @@ class _PaywallKeepBothCleanupScreenState
               ),
               // 2026-10-06: one-time purchase - no auto-renew terms (were here for the
               // yearly subscription).
+              ),
               const SizedBox(height: 6),
               Text('Free KEEP BOTH also keeps every word, one version after the other.',
                   textAlign: TextAlign.center,
