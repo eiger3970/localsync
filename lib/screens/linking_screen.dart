@@ -1998,12 +1998,32 @@ class _RunningView extends StatelessWidget {
           // 11px was the dimmest+smallest text anywhere in this app.
           // kTextMid/13px matches the fix already applied to every
           // other instance of this same complaint.
-          Text(
-            ctrl.stepSubtitle,
-            style: TextStyle(
-                color: kTextMid, fontSize: 13, letterSpacing: 0.3, height: 1.6),
-            textAlign: TextAlign.center,
-          ),
+          // 2026-10-06: Kevin - "First sync? Can this verbosity have some
+          // brevity? Svg images and points are welcoming and easy". The
+          // first copy gets 3 icon points; other steps keep their one line.
+          if (ctrl.step == LinkingStep.cloning)
+            Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              for (final (icon, text) in const [
+                (Icons.sync_alt, 'Phone ⇄ computer, first copy'),
+                (Icons.schedule, 'Big folders: a few minutes'),
+                (Icons.check_circle_outline, 'Nothing is wrong - keep LocalSync open'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, color: kGreen, size: 22),
+                    const SizedBox(width: 12),
+                    Text(text, style: TextStyle(color: kStar, fontSize: 16)),
+                  ]),
+                ),
+            ])
+          else
+            Text(
+              ctrl.stepSubtitle,
+              style: TextStyle(
+                  color: kTextMid, fontSize: 13, letterSpacing: 0.3, height: 1.6),
+              textAlign: TextAlign.center,
+            ),
         ],
       ),
     );
@@ -2177,6 +2197,10 @@ class _ParkedViewState extends State<_ParkedView> {
                           (2, 'Existing vault', 'Sync a vault with your notes'),
                         ])
                           _VaultChoiceCard(
+                            // 2026-10-06: Kevin - "Beginners need a crystal clear
+                            // sign to use the top First vault, perhaps glowing or
+                            // pulsing" - experts still tap past it.
+                            glow: i == 0,
                             svg: _kVaultChoiceSvgs[i],
                             title: title,
                             when: pickIf,
@@ -2657,11 +2681,45 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
                       ),
                     ),
                   ),
+                  // 2026-10-06: Kevin - "I liked your swipe up svg image before.
+                  // Perhaps this can fit in somewhere with my stars hint". A
+                  // finger swiping up, gently bouncing, next to the stars.
+                  if (!_done) const _BounceUp(child: Icon(Icons.swipe_up, size: 30)),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BounceUp extends StatefulWidget {
+  final Widget child;
+  const _BounceUp({required this.child});
+  @override
+  State<_BounceUp> createState() => _BounceUpState();
+}
+
+class _BounceUpState extends State<_BounceUp> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.of(context).disableAnimations;
+    return IconTheme(
+      data: IconThemeData(color: kGreen),
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (_, child) => Transform.translate(offset: Offset(0, still ? 0 : -6 * Curves.easeInOut.transform(_c.value)), child: child),
+        child: widget.child,
       ),
     );
   }
@@ -3982,23 +4040,20 @@ class _VaultChoiceCard extends StatelessWidget {
   final String when;
   final double height;
   final VoidCallback onTap;
+  final bool glow;
   const _VaultChoiceCard(
       {required this.svg,
       required this.title,
       required this.when,
       required this.height,
-      required this.onTap});
+      required this.onTap,
+      this.glow = false});
 
   // 2026-10-05: user - "3 fat buttons taking up whole screen". Picture on
   // top, big title, one line; the three share the screen height.
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: Material(
+    final card = Material(
           color: kSurface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -4027,8 +4082,52 @@ class _VaultChoiceCard extends StatelessWidget {
               ),
             ),
           ),
-        ),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: glow ? _GlowPulse(child: card) : card,
       ),
+    );
+  }
+}
+
+// A soft green glow breathing around a card - "start here" for beginners.
+// Still for visitors who turned off animations (iOS Reduce Motion).
+class _GlowPulse extends StatefulWidget {
+  final Widget child;
+  const _GlowPulse({required this.child});
+  @override
+  State<_GlowPulse> createState() => _GlowPulseState();
+}
+
+class _GlowPulseState extends State<_GlowPulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat(reverse: true);
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.of(context).disableAnimations;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, child) {
+        final t = still ? 0.6 : _c.value;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: kGreen.withValues(alpha: 0.25 + 0.45 * t), blurRadius: 8 + 18 * t, spreadRadius: 1 + 3 * t)],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }

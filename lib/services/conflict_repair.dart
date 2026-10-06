@@ -245,7 +245,12 @@ String repositionedReplace(
 /// contains the other.
 bool oneContainsTheOther(String a, String b) {
   if (a.isEmpty || b.isEmpty) return false;
-  return a.contains(b) || b.contains(a);
+  // 2026-10-06: real police-contact conflict - the desktop had two sentences on
+  // one line, the phone had them on two lines; a line break is not a real
+  // difference, so whitespace is normalized before comparing.
+  final na = normalizeWhitespace(a), nb = normalizeWhitespace(b);
+  if (na.isEmpty || nb.isEmpty) return false;
+  return na.contains(nb) || nb.contains(na);
 }
 
 /// 2026-09-08: real feedback, live - "go with both" (the other one

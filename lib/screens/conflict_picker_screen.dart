@@ -1133,7 +1133,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // before the two hints below so both can defer to it - a
     // suspiciously short side is a warning worth checking before
     // acting, not a reassurance, so it takes priority over both.
-    final oneSideTooShort = versions.length == 2 &&
+    // 2026-10-06: Kevin - "Why doesn't the tip say: your phone's version already
+    // has everything the desktop has - tap the left side to keep it?" When one
+    // side contains all of the other, that is THE tip: it wins over every other
+    // hint (a short side fully inside the long one is not an accidental edit).
+    final containsAll = versions.length == 2 &&
+        oneContainsTheOther(versions[0].body, versions[1].body);
+    final fullSide = !containsAll ? -1
+        : normalizeWhitespace(versions[0].body).length >= normalizeWhitespace(versions[1].body).length ? 0 : 1;
+    final oneSideTooShort = !containsAll && versions.length == 2 &&
         oneSideSuspiciouslyShort(versions[0].body, versions[1].body);
     // 2026-09-14: real feedback, live - real case, Sep 12th conflict:
     // "1315 2 guys pushed in at different times..." (timed) vs.
@@ -1163,14 +1171,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     final cleanedNote = note != null && widget.entry.matchEnd <= note.length
         ? applyKeepBoth(note, widget.entry, cleanUp: true).content
         : null;
-    final cleanUpHelps = !oneSideTooShort && keptBothNote != null &&
+    final cleanUpHelps = !containsAll && !oneSideTooShort && keptBothNote != null &&
         (cleanUpWouldChange(keptBothNote) ||
             (cleanedNote != null && normalizeWhitespace(cleanedNote) != normalizeWhitespace(keptBothNote)));
     final keepBothLeavesRepeats = cleanUpHelps &&
         normalizeWhitespace(cleanUpJournalNote(keptBothNote)).length <
             normalizeWhitespace(keptBothNote).length;
     final looksLikeSeparateEntries =
-        !oneSideTooShort && !cleanUpHelps && anyHasLeadingTime;
+        !containsAll && !oneSideTooShort && !cleanUpHelps && anyHasLeadingTime;
     // 2026-10-06: Kevin - "Tip says to tap KEEP BOTH, but colours hint to tap
     // KEEP BOTH & CLEAN UP. Which button to tap?" One signal: the button the
     // tip names is the green one.
@@ -1182,10 +1190,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // versions, same gate useDiff already uses) and only shown when
     // the time-based hint above doesn't already apply, so a note
     // never shows two competing suggestions at once.
-    final oneSideHasEverything = !oneSideTooShort &&
-        !looksLikeSeparateEntries &&
-        versions.length == 2 &&
-        oneContainsTheOther(versions[0].body, versions[1].body);
+    final oneSideHasEverything = containsAll;
     // 2026-09-08, second pass - real feedback, live: "why isn't this
     // suggestion with a reason a hint on the app?" The first version
     // of this hint only named which side had a repeat - it stopped
@@ -1451,9 +1456,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   const SizedBox(height: 8),
                   _autoTipRow(
                       kGreen,
-                      'Keeping the longer version loses nothing - '
-                      'it already contains all of the other\'s '
-                      'text, plus more.'),
+                      fullSide == 0
+                          ? 'Tap the LEFT side (this phone) to keep it\n'
+                              '- it already has everything the other side has. '
+                              'Nothing is lost.'
+                          : 'Tap the RIGHT side (${versions[1].who}) to keep it\n'
+                              '- it already has everything the other side has. '
+                              'Nothing is lost.'),
                 ],
                 if (duplicateSide != -1) ...[
                   const SizedBox(height: 8),
@@ -1590,15 +1599,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBothCleanedUp,
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: tipKeepBoth ? kStar : kGreen),
+                          side: BorderSide(color: cleanUpHelps ? kGreen : kStar),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
                         icon:
-                            Icon(Icons.auto_fix_high, color: tipKeepBoth ? kStar : kGreen, size: 18),
+                            Icon(Icons.auto_fix_high, color: cleanUpHelps ? kGreen : kStar, size: 18),
                         label: Text('KEEP BOTH & CLEAN UP',
                             style: TextStyle(
-                                color: tipKeepBoth ? kStar : kGreen,
+                                color: cleanUpHelps ? kGreen : kStar,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
