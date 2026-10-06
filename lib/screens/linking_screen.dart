@@ -2879,16 +2879,7 @@ class _CompleteViewState extends State<_CompleteView>
     // is too low down ... I want the tick above the centered text". The heading
     // sits at the screen's vertical middle, the tick right above it, everything
     // else below (that part scrolls on small phones).
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-      child: Column(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: SizedBox(
+    final Widget tick = SizedBox(
             width: 100,
             height: 100,
             child: AnimatedBuilder(
@@ -2910,10 +2901,8 @@ class _CompleteViewState extends State<_CompleteView>
                 ),
               ),
             ),
-          ),
-              ),
-            ),
-          ),
+          );
+    final Widget heading =
           // 2026-08-16: emoji replaced with the same success gif used
           // for the final swipe control below - decorative, always
           // playing (not gated behind a trigger like the swipe gifs,
@@ -2958,11 +2947,8 @@ class _CompleteViewState extends State<_CompleteView>
               ),
             ],
           ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-            child: Column(
-              children: [
+          );
+    final List<Widget> rest = [
           // 2026-09-24: the "where" reminder - see BackupReminderCard.
           if (widget.ctrl.lastVaultBackupRelPath != null) ...[
             const SizedBox(height: 14),
@@ -3041,10 +3027,34 @@ class _CompleteViewState extends State<_CompleteView>
               onConfirm: () => _leaveSetup(context),
             ),
           ),
-              ],
-            ),
+    ];
+    // 2026-10-06: Kevin - "Only when fits, minimal user interaction is a higher
+    // priority, so users should not have to move the screen to swipe". Centred
+    // only when there's no "Finish up in Obsidian" checklist (existing vault,
+    // plain files); a first vault keeps everything from the top so the final
+    // swipe stays on screen without scrolling.
+    final centred = widget.ctrl.syncMode == SyncMode.genericFolder || widget.ctrl.linkExisting;
+    if (!centred) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [tick, const SizedBox(height: 8), heading, ...rest],
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      child: Column(
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(padding: const EdgeInsets.only(bottom: 8), child: tick),
             ),
           ),
+          heading,
+          Expanded(child: SingleChildScrollView(child: Column(children: rest))),
         ],
       ),
     );
