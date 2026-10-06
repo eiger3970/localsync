@@ -85,7 +85,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
           // make sales the easiest part of the app with no friction." A
           // ladder, best value first (an exception to the alphabetical rule:
           // the order IS the message); each card is one tap to its purchase.
-          Text('Syncing your files stays free. More bars = more done for you.',
+          Text('Syncing your files stays free. The happier the dog, the more is done for you.',
               style: TextStyle(color: kTextMid, fontSize: 14)),
           const SizedBox(height: 16),
           _UpgradeTile(
@@ -93,7 +93,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             best: true,
             icon: Icons.auto_fix_high,
             title: 'Auto merge & clean up',
-            line: 'Conflicts merged for you, in time order, with undo',
+            points: const ['Conflicts merged for you', 'In time order', 'Every word kept', 'Backed up first', 'Undo any merge'],
             period: 'per year · cancel anytime',
             price: _priceFor(kKeepBothCleanupEntitlementId),
             onTap: () =>
@@ -103,7 +103,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             bars: 2,
             icon: Icons.auto_stories_rounded,
             title: 'PKM sync',
-            line: 'Your whole Obsidian vault, phone ⇄ computer',
+            points: const ['Your whole Obsidian vault', 'Phone ⇄ computer', 'Kanban-safe merge'],
             period: 'once',
             price: _priceFor(kPkmSyncEntitlementId),
             onTap: () => _open(PaywallObsidianScreen(purchases: purchases)),
@@ -112,7 +112,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             bars: 1,
             icon: Icons.compare_arrows,
             title: 'Visual picker',
-            line: 'Both versions side by side, tap to keep',
+            points: const ['Both versions side by side', 'Tap to keep one'],
             period: 'once',
             price: _priceFor(kConflictPickerEntitlementId),
             onTap: () =>
@@ -124,7 +124,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
             rescue: true,
             icon: Icons.emergency,
             title: 'Rescue package',
-            line: 'One button: missing notes back, every conflict cleaned up',
+            points: const ['One button', 'Missing notes back', 'Every conflict cleaned up', 'Nothing deleted'],
             period: 'once · for emergencies',
             price: _priceFor(kRescueProductId),
             onTap: () => _open(const RescueScreen()),
@@ -158,17 +158,17 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
 class _UpgradeTile extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String line;
+  final List<String> points; // higher tiers list more
   final String period;
   final String price;
   final VoidCallback onTap;
-  final int bars; // 1-3 value bars; 0 = none (Rescue)
+  final int bars; // 1-3 dog happiness levels; 0 = none (Rescue)
   final bool best;
   final bool rescue;
   const _UpgradeTile(
       {required this.icon,
       required this.title,
-      required this.line,
+      required this.points,
       required this.period,
       required this.price,
       required this.onTap,
@@ -209,7 +209,17 @@ class _UpgradeTile extends StatelessWidget {
             ],
           ]),
           const SizedBox(height: 6),
-          Text('+ $line', style: TextStyle(color: kStar, fontSize: 13, height: 1.4)),
+          // 2026-10-07: Kevin - "points, to visualise the points included in
+          // each tier, then higher tiers have more points of value".
+          for (final pt in points)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Row(children: [
+                Icon(Icons.check, color: accent, size: 16),
+                const SizedBox(width: 6),
+                Flexible(child: Text(pt, style: TextStyle(color: kStar, fontSize: 13))),
+              ]),
+            ),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: Text(period, style: TextStyle(color: kTextMid, fontSize: 12))),
@@ -230,22 +240,22 @@ class _UpgradeTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        // Value bars: more bars = more done for you.
+        // 2026-10-07: Kevin - "the bars can change to the dog mascot ... levels
+        // of happiness". 1 = calm dog (still), 2 = walking, 3 = jumping happy.
         SizedBox(
-          width: 30,
+          width: 52,
           child: bars == 0
               ? const SizedBox.shrink()
-              : Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  for (var i = 0; i < 3; i++)
-                    Container(
-                      width: 7,
-                      height: 14.0 + 12 * i,
-                      margin: const EdgeInsets.only(right: 2),
-                      decoration: BoxDecoration(
-                          color: i < bars ? kGreen : kBorder,
-                          borderRadius: BorderRadius.circular(2)),
-                    ),
-                ]),
+              : Image.asset(
+                  bars == 3
+                      ? 'assets/gifs/dog_success_stand.gif'
+                      : bars == 2
+                          ? 'assets/gifs/progress_running.gif'
+                          : 'assets/gifs/dog_calm.png',
+                  height: bars == 3 ? 66 : 36,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.none, // crisp pixel art
+                ),
         ),
         const SizedBox(width: 8),
         Expanded(child: card),
