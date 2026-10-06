@@ -229,10 +229,12 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                       // Upgrades (App Review reaches both from here).
                       const SizedBox(height: 6),
                       Center(
-                        child: TextButton(
+                        // 2026-10-07: Kevin - same icon as the kebab menu's Upgrades.
+                        child: TextButton.icon(
                           onPressed: () => Navigator.push(context,
                               MaterialPageRoute(builder: (_) => const UpgradesScreen())),
-                          child: Text('Upgrades',
+                          icon: const Icon(Icons.workspace_premium, color: Colors.amber, size: 18),
+                          label: Text('Upgrades',
                               style: TextStyle(color: wInkDim, fontSize: 13, decoration: TextDecoration.underline)),
                         ),
                       ),

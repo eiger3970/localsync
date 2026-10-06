@@ -1456,13 +1456,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                   const SizedBox(height: 8),
                   _autoTipRow(
                       kGreen,
-                      fullSide == 0
-                          ? 'Tap the LEFT side (this phone) to keep it\n'
-                              '- it already has everything the other side has. '
-                              'Nothing is lost.'
-                          : 'Tap the RIGHT side (${versions[1].who}) to keep it\n'
-                              '- it already has everything the other side has. '
-                              'Nothing is lost.'),
+                      // 2026-10-06: Kevin - "there is no left side, just a full
+                      // column". Long notes stack top/bottom instead of side by
+                      // side (useDiff) - the tip names the place as shown.
+                      '${fullSide == 0 ? (useDiff ? 'Tap the LEFT side (this phone)' : 'Tap the TOP version (this phone)') : (useDiff ? 'Tap the RIGHT side (${versions[1].who})' : 'Tap the BOTTOM version (${versions[1].who})')} to keep it\n'
+                          '- it already has everything the other one has. '
+                          'Nothing is lost.'),
                 ],
                 if (duplicateSide != -1) ...[
                   const SizedBox(height: 8),
