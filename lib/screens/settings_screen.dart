@@ -39,6 +39,7 @@ import '../services/desktop_schedule.dart';
 import '../services/sync_service.dart' show SyncOk;
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
+import '../services/purchase_service.dart' show kIsStoreBuild;
 
 class SettingsScreen extends StatefulWidget {
   // 2026-08-30: real device feedback - "the yellow warning label is
@@ -2924,7 +2925,10 @@ class _SettingsScreenState extends State<SettingsScreen>
               // own comment there. This was only ever meant to sit here
               // temporarily (see the original 2026-08-21 note, removed),
               // while there was no purchasable Test Store product yet.
-              _buildAutoDiscoveryCard(),
+              // 2026-10-07: "IN DEVELOPMENT" price poll for an unbuilt feature -
+              // App Review rejects unfinished features and prices that aren't
+              // real purchases, so store builds leave it out.
+              if (!kIsStoreBuild) _buildAutoDiscoveryCard(),
             ],
           ],
         ),
