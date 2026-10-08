@@ -134,50 +134,59 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                       onDone: () => setState(() => _brainMode = BrainMode.idle),
                     ),
                     const SizedBox(width: 12),
+                    // 2026-10-08: "No more backup worries." ran past the
+                    // right edge on a 6.3" iPhone (App Store screenshot 1) -
+                    // all four lines now shrink together to fit, same size
+                    // as each other, full 20px wherever there's room.
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _HeadlinePoint(
-                              icon: Icons.insert_drive_file_outlined,
-                              text: 'No more lost files.'),
-                          // 2026-09-22: real feedback, live - "cloud image is
-                          // right or should be cloud with strike through, or
-                          // local backup image?" Icons.backup_outlined reads as a
-                          // cloud-upload glyph - a mixed signal on a screen whose
-                          // whole pitch is "no cloud" (see the cloud_off caption
-                          // line below), even before considering a strike-through
-                          // version of it. The real reason this is safe isn't
-                          // "backed up somewhere" at all, it's that a synced copy
-                          // already exists on both devices - reused the same
-                          // phone+laptop pairing icon the "Needs your phone + a
-                          // desktop" caption line already uses further down this
-                          // screen, scaled up to headline size, so the icon
-                          // itself states the actual mechanism instead of
-                          // implying a cloud that doesn't exist.
-                          const _HeadlinePoint(
-                              iconWidget: _PhoneLaptopIcon(
-                                  color: wTealDark, scale: 1.2),
-                              text: 'No more backup worries.'),
-                          const _HeadlinePoint(
-                              assetIcon: 'assets/logos/git-branches-only.svg',
-                              text: 'No more conflicts.'),
-                          // 2026-09-27: user - "Need to say no cloud, privacy
-                          // or something too."
-                          const _HeadlinePoint(
-                              icon: Icons.cloud_off,
-                              text: 'No cloud. Private.'),
-                          // 2026-09-04: real feedback, live, three rounds - "Try
-                          // it... is under No more conflicts, maybe move to above
-                          // the dashed line" (fixed by widening the gap above so
-                          // it read as a caption for the demo, not a fourth
-                          // headline bullet); then "this can go under the dashed
-                          // line" (moved below the demo entirely); then "too far
-                          // low, can the text be added close above the dashed
-                          // line?" - below the WHOLE demo (past its own animation)
-                          // was further away than intended. Back above it, tight
-                          // gap directly against the demo it labels.
-                        ],
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _HeadlinePoint(
+                                icon: Icons.insert_drive_file_outlined,
+                                text: 'No more lost files.'),
+                            // 2026-09-22: real feedback, live - "cloud image is
+                            // right or should be cloud with strike through, or
+                            // local backup image?" Icons.backup_outlined reads as a
+                            // cloud-upload glyph - a mixed signal on a screen whose
+                            // whole pitch is "no cloud" (see the cloud_off caption
+                            // line below), even before considering a strike-through
+                            // version of it. The real reason this is safe isn't
+                            // "backed up somewhere" at all, it's that a synced copy
+                            // already exists on both devices - reused the same
+                            // phone+laptop pairing icon the "Needs your phone + a
+                            // desktop" caption line already uses further down this
+                            // screen, scaled up to headline size, so the icon
+                            // itself states the actual mechanism instead of
+                            // implying a cloud that doesn't exist.
+                            const _HeadlinePoint(
+                                iconWidget: _PhoneLaptopIcon(
+                                    color: wTealDark, scale: 1.2),
+                                text: 'No more backup worries.'),
+                            const _HeadlinePoint(
+                                assetIcon: 'assets/logos/git-branches-only.svg',
+                                text: 'No more conflicts.'),
+                            // 2026-09-27: user - "Need to say no cloud, privacy
+                            // or something too."
+                            const _HeadlinePoint(
+                                icon: Icons.cloud_off,
+                                text: 'No cloud. Private.'),
+                            // 2026-09-04: real feedback, live, three rounds - "Try
+                            // it... is under No more conflicts, maybe move to above
+                            // the dashed line" (fixed by widening the gap above so
+                            // it read as a caption for the demo, not a fourth
+                            // headline bullet); then "this can go under the dashed
+                            // line" (moved below the demo entirely); then "too far
+                            // low, can the text be added close above the dashed
+                            // line?" - below the WHOLE demo (past its own animation)
+                            // was further away than intended. Back above it, tight
+                            // gap directly against the demo it labels.
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -231,11 +240,17 @@ class _WelcomeHeroScreenState extends State<WelcomeHeroScreen> {
                       Center(
                         // 2026-10-07: Kevin - same icon as the kebab menu's Upgrades.
                         child: TextButton.icon(
-                          onPressed: () => Navigator.push(context,
-                              MaterialPageRoute(builder: (_) => const UpgradesScreen())),
-                          icon: const Icon(Icons.workspace_premium, color: Colors.amber, size: 18),
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const UpgradesScreen())),
+                          icon: const Icon(Icons.workspace_premium,
+                              color: Colors.amber, size: 18),
                           label: Text('Upgrades',
-                              style: TextStyle(color: wInkDim, fontSize: 13, decoration: TextDecoration.underline)),
+                              style: TextStyle(
+                                  color: wInkDim,
+                                  fontSize: 13,
+                                  decoration: TextDecoration.underline)),
                         ),
                       ),
                     ],
