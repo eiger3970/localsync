@@ -1800,7 +1800,8 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               // real, live dependency (git2dart FFI bindings, and the
               // desktop script's own git fetch/merge/push) and was
               // simply never added.
-              'Bash, Blender, C, C++, Claude, Codemagic, Dart, Eye of '
+              'Bash, Blender, BlenderKit brain model by danes_dysfunction, '
+              'C, C++, Claude, Codemagic, Dart, Eye of '
               'MATE, Flameshot, Flutter, GIMP, Git, iLoader, Inkscape, '
               'iPhone, Kanban plugin, Logseq, Obsidian, Public library '
               'CHUV, Public library Médiathèque Valais Sion Makerspace '

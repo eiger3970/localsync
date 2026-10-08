@@ -1,7 +1,7 @@
 // widgets/brain_hero.dart
 //
 // 2026-09-26: welcome-screen hero - a glowing see-through brain (Blender
-// render of a Royalty Free BlenderKit model, coloured by brain area).
+// render of a Royalty Free BlenderKit model "Stylized Human Brain" by danes_dysfunction, coloured by brain area).
 //   idle        turns by itself; drag any direction to turn it, tap to
 //               stop/start
 //   success     plays once when the dog lands on the desktop: rainbow
