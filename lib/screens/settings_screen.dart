@@ -463,6 +463,21 @@ class _SettingsScreenState extends State<SettingsScreen>
   // 2026-08-30: extracted from the old "Use suggested path" text link's
   // inline onTap so the big laptop icon above the field can trigger the
   // exact same autofill - one shared handler, two tap targets.
+  // 2026-10-13: user - "the grey text disappears, do I need to type?" The grey text was only an
+  // example. Now step 3 fills itself from the step 1 username while it is empty or still the
+  // automatic suggestion; a path typed or scanned by the user is never overwritten.
+  String? _autoPath;
+
+  void _autoSuggestPath() {
+    final user = _userCtrl.text.trim();
+    if (user.isEmpty) return;
+    final current = _pathCtrl.text.trim();
+    if (current.isNotEmpty && current != _autoPath) return;
+    final suggestion = '/home/$user/Documents/Git/localsync.git';
+    _autoPath = suggestion;
+    if (current != suggestion) _pathCtrl.text = suggestion;
+  }
+
   void _useSuggestedPath() {
     final user = _userCtrl.text.trim();
     if (user.isEmpty) {
@@ -501,6 +516,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     _ipCtrl = TextEditingController(text: ctrl.desktopIp);
     _pathCtrl = TextEditingController(text: ctrl.bareRepoPath);
     _vaultPathCtrl = TextEditingController(text: ctrl.desktopVaultPath ?? '');
+    _userCtrl.addListener(_autoSuggestPath);
+    _autoSuggestPath();
     // 2026-09-25: show the SELECTED synced folder's own desktop path.
     final selected = context.read<RepositoryProvider>().selectedRepo;
     if (selected != null) {
@@ -684,7 +701,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final point in points)
+                  for (final point in _foldCommands(points))
                     if (identical(point, _kCommandToggle))
                       _buildCommandToggleRow(command, showCommand,
                           () => setState(() => showCommand = !showCommand))
@@ -792,6 +809,24 @@ class _SettingsScreenState extends State<SettingsScreen>
   // tap reveals it via _buildStepPoint((_cmdToken, false), ...), which
   // renders as just the command (no surrounding step text to strip out,
   // since _spansWithCommand finds the token alone in that string).
+  // 2026-10-13: user - "steps 2-4 info has garble and command stuff". A point that showed a
+  // shell command inline now says where it is, and the command sits in one closed fold.
+  List<Object> _foldCommands(List<Object> points) {
+    final hasToggle = points.any((p) => identical(p, _kCommandToggle));
+    var needsToggle = false;
+    final out = <Object>[];
+    for (final p in points) {
+      if (p is (String, bool) && p.$1.contains(_cmdToken) && p.$1.trim() != _cmdToken) {
+        out.add((p.$1.replaceAll(_cmdToken, 'the command (Advanced, below)'), p.$2));
+        needsToggle = true;
+      } else {
+        out.add(p);
+      }
+    }
+    if (needsToggle && !hasToggle) out.add(_kCommandToggle);
+    return out;
+  }
+
   Widget _buildCommandToggleRow(
       String command, bool showCommand, VoidCallback onToggle) {
     return Column(
@@ -806,7 +841,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               children: [
                 Icon(Icons.terminal, color: kTextDim, size: 15),
                 const SizedBox(width: 5),
-                Text(showCommand ? 'Hide command' : 'Show command',
+                Text(showCommand ? 'Hide command' : 'Advanced: command for your computer',
                     style: TextStyle(
                         color: kTextDim,
                         fontSize: 12.5,
@@ -1622,6 +1657,40 @@ class _SettingsScreenState extends State<SettingsScreen>
               const SizedBox(height: 20),
             ],
             if (!widget.neededForPairing) _readyNote(),
+            // 2026-10-13: user - "lost adventurers who stray from the easy QR setup might get
+            // lost in the manual Settings - tell them where the phone's QR scan is."
+            Container(
+              margin: const EdgeInsets.only(bottom: 18),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: kGreen.withValues(alpha: 0.5)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.qr_code_scanner, color: kGreen, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('Easiest: scan the QR code - it fills in steps 1-4 for you',
+                          style: TextStyle(color: kStar, fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text('The QR code appears on your computer after the desktop setup file '
+                      '(kworld.space/localsync). The steps below are only for setting up by hand.',
+                      style: TextStyle(color: kTextMid, fontSize: 12.5, height: 1.35)),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _scanInto(_pathCtrl, 'DESKTOP SETUP'),
+                    icon: Icon(Icons.qr_code_scanner, color: kGreen, size: 18),
+                    label: Text('Scan QR code', style: TextStyle(color: kGreen)),
+                    style: OutlinedButton.styleFrom(side: BorderSide(color: kGreen)),
+                  ),
+                ],
+              ),
+            ),
             _stepHeader('1. DESKTOP USERNAME', _userOk, field: 0),
             const SizedBox(height: 6),
             Row(
@@ -2587,7 +2656,11 @@ class _SettingsScreenState extends State<SettingsScreen>
             // primary documented platform - macOS users (~/Users/...
             // instead) still need to adjust it themselves, noted in the
             // snackbar-free case below rather than guessing the OS.
-            Padding(
+            // 2026-10-13: step 3 now fills itself - the link only shows when step 3 is empty
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _pathCtrl,
+              builder: (_, v, child) => v.text.trim().isEmpty ? child! : const SizedBox.shrink(),
+              child: Padding(
               padding: const EdgeInsets.only(left: 32, top: 8),
               child: GestureDetector(
                 // 2026-08-30: now shared with the big laptop icon above
@@ -2630,6 +2703,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 ),
               ),
             ),
+            ),
             // 2026-08-21: real feedback, live - "add a line space above
             // to separate more from the above text, as all the
             // information looks like 1, rather than 2 controls." A
@@ -2642,6 +2716,13 @@ class _SettingsScreenState extends State<SettingsScreen>
             if (!_isFreeFolder) ...[
               const SizedBox(height: 40),
               _stepHeader('4. DESKTOP VAULT PATH (optional)', true, field: 3),
+              // 2026-10-13: user - "unclear on the 2 paths". Step 3 = the git hub folder; step 4 =
+              // the Obsidian vault folder on the computer.
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 2),
+                child: Text('Your Obsidian vault folder on the computer - leave blank for a fresh one',
+                    style: TextStyle(color: kTextMid, fontSize: 12.5)),
+              ),
               const SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,

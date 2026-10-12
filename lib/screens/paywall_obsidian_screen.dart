@@ -97,7 +97,9 @@ class _PaywallObsidianScreenState extends State<PaywallObsidianScreen> {
     if (restored) {
       Navigator.pop(context, true);
     } else {
-      setState(() => _error = 'Nothing to restore on this account.');
+      setState(() => _error = widget.purchases.restoreFailed
+          ? "Couldn't reach the App Store - check your internet and try again"
+          : 'Nothing to restore on this account.');
     }
   }
 

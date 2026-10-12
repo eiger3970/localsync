@@ -152,8 +152,19 @@ class PurchaseService {
     return Purchases.purchasePackage(package);
   }
 
+  /// 2026-10-13: user - "Restore purchases doesn't action anything". When the App Store
+  /// call failed (common in TestFlight's sandbox), the error went uncaught and the button
+  /// silently did nothing. Now it is caught and [restoreFailed] tells the screen to say so.
+  bool restoreFailed = false;
+
   Future<CustomerInfo?> restorePurchases() async {
+    restoreFailed = false;
     if (!_configured) return null;
-    return Purchases.restorePurchases();
+    try {
+      return await Purchases.restorePurchases();
+    } catch (_) {
+      restoreFailed = true;
+      return null;
+    }
   }
 }

@@ -141,7 +141,9 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text(n > 0
                         ? 'Restored $n purchase${n == 1 ? '' : 's'}'
-                        : 'Nothing to restore on this Apple Account')));
+                        : purchases.restoreFailed
+                            ? "Couldn't reach the App Store - check your internet and try again"
+                            : 'Nothing to restore on this Apple Account')));
                 _load();
               },
               icon: Icon(Icons.restore, color: kTextDim, size: 18),
