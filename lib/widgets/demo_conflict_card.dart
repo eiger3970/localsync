@@ -49,7 +49,7 @@ class DemoConflictCard extends StatelessWidget {
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   // 2026-10-06: Kevin - the sample is now Valentine's weekend in Zermatt.
-                  Text('Valentine\'s weekend in Zermatt with Alex and Sam - your real files are never touched',
+                  Text('Valentine\'s weekend in Zermatt with Alex - your real files are never touched',
                       style: TextStyle(color: kTextMid, fontSize: 11)),
                 ],
               ),
