@@ -1673,13 +1673,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                     Icon(Icons.qr_code_scanner, color: kGreen, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('Easiest: scan the QR code - it fills in steps 1-4 for you',
+                      child: Text('Easiest: go back (‹ top left), slide the key onto the laptop, then scan the QR code in the yellow bar',
                           style: TextStyle(color: kStar, fontSize: 13.5, fontWeight: FontWeight.w600)),
                     ),
                   ]),
                   const SizedBox(height: 6),
-                  Text('The QR code appears on your computer after the desktop setup file '
-                      '(kworld.space/localsync). The steps below are only for setting up by hand.',
+                  // 2026-10-13: user - "a user who taps Settings top right doesn't know the easy QR
+                  // scan is on the previous page, by sliding the key onto the laptop" - say where.
+                  Text('It fills in steps 1-4 for you. The QR code shows on your computer after the '
+                      'desktop setup file (kworld.space/localsync). Or scan it right here:',
                       style: TextStyle(color: kTextMid, fontSize: 12.5, height: 1.35)),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
