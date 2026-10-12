@@ -277,38 +277,28 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         linkText: kBackupsPlace,
         onLinkTap: _openBackupList,
       ),
-      // 2026-09-16: real feedback, live - "keeping both is a
-      // concatenate dump." Rewritten to say plainly what this free
-      // action actually does (whole-block concatenate, only reordered
-      // if EACH side's own text starts with a clock time) rather than
-      // "sorted by time," which reads as more thorough than it is -
-      // see KEEP BOTH & CLEAN UP below for the real per-entry sort.
-      _DialogPoint(
-        icon: Icons.sort,
-        color: kGreen,
-        // 2026-09-18: real feedback, live - "not reordered entry by
-        // entry. Just, not reordered." simplified per direct wording.
-        // 2026-09-26: user - "Says KEEP BOTH, but that doesn't sort the
-        // times. If it does sort times, seems to make KEEP BOTH & CLEAN
-        // UP redundant." Says plainly what is NOT sorted.
-        text: 'Times inside each text are not sorted - each text stays '
-            'one block. To sort every entry by time, use KEEP BOTH & '
-            'CLEAN UP',
-      ),
-      // 2026-09-08, fifth pass - real feedback, live: icon review.
-      // done_all (two checks) reads as "both/every version," distinct
-      // from the single-check "verified" badge above - the two were
-      // easy to confuse as "the same tick" before.
-      _DialogPoint(
-        icon: Icons.done_all,
-        color: kGreen,
-        text: 'Both texts kept, as plain text',
-      ),
+      // 2026-10-13: user - "UNDO at top as priority info, rest why not alphabetical?" -
+      // UNDO first, then A-Z by the first word: Backs up, Text visible, Texts both kept, Times inside.
       _DialogPoint(
         icon: Icons.visibility,
         color: kGreen,
-        text: 'Text visible, all kept as plain text paragraphs, nothing '
+        text: 'Text visible - all kept as plain text paragraphs, nothing '
             'hidden',
+      ),
+      // done_all (two checks) reads as "both/every version", distinct from the backup badge.
+      _DialogPoint(
+        icon: Icons.done_all,
+        color: kGreen,
+        text: 'Texts both kept, as plain text',
+      ),
+      // 2026-09-16 "keeping both is a concatenate dump" / 2026-09-26 "doesn't sort the times":
+      // says plainly what is NOT sorted, and points to KEEP BOTH & CLEAN UP.
+      _DialogPoint(
+        icon: Icons.sort,
+        color: kGreen,
+        text: 'Times inside each text are not sorted - each text stays '
+            'one block. To sort every entry by time, use KEEP BOTH & '
+            'CLEAN UP',
       ),
     ];
   }
@@ -330,23 +320,25 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-10-13: user - "works forever - probably not true?" Right: conflict backups
+            // are deleted after 30 days (vault_backup.dart pruneOldConflictBackups). A-Z.
+            _DialogPoint(
+              icon: Icons.restore,
+              color: kGreen,
+              text: 'Time - any backup from the last 30 days, even after '
+                  'the conflict is resolved',
+            ),
             _DialogPoint(
               icon: Icons.history,
               color: kGreen,
-              text: 'Looks back further - every backup ever saved for '
-                  'this note, not just this one conflict',
+              text: 'View back further - every backup of this note, not '
+                  'just this one conflict',
             ),
             _DialogPoint(
               icon: Icons.difference_outlined,
               color: kGreen,
-              text: 'Same side-by-side diff view as above, so '
-                  'differences are easy to spot',
-            ),
-            _DialogPoint(
-              icon: Icons.restore,
-              color: kGreen,
-              text: 'Works anytime - even long after a conflict is '
-                  'already resolved',
+              text: 'View the same side-by-side as the other conflict '
+                  'fixers',
             ),
           ],
         ),
@@ -375,26 +367,28 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 2026-10-13: user - UNDO first, then A-Z: Control, Paid feature, Text.
             _DialogPoint(
-              icon: Icons.checklist,
+              icon: Icons.undo,
               color: kGreen,
-              text: 'Pick individual sentences from each side to build '
-                  'your own text',
+              text: 'UNDO button appears right after, on the confirmation '
+                  'message',
             ),
             _DialogPoint(
               icon: Icons.tune,
               color: kGreen,
-              text: 'More control than Keep Both, but more work',
-            ),
-            _DialogPoint(
-              icon: Icons.undo,
-              color: kGreen,
-              text: 'UNDO button appears right after, on the confirmation',
+              text: 'Control - more than Keep Both, but more work',
             ),
             _DialogPoint(
               icon: Icons.lock,
               color: kGreen,
-              text: 'A paid feature',
+              text: 'Paid feature',
+            ),
+            _DialogPoint(
+              icon: Icons.checklist,
+              color: kGreen,
+              text: 'Text - pick individual sentences from each side to '
+                  'build your own',
             ),
           ],
         ),
@@ -549,23 +543,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ..._keepBothDialogPoints().take(2),
+            // 2026-10-13: user - UNDO, then A-Z: Backs up, Text visible, Texts both kept,
+            // Timestamped entries (the first 4 are Keep both's own first 4).
+            ..._keepBothDialogPoints().take(4),
             _DialogPoint(
               icon: Icons.auto_fix_high,
               color: kGreen,
-              text: 'Every timestamped entry from both sides, interleaved '
-                  'by clock time - not just each side kept as one block',
-            ),
-            _DialogPoint(
-              icon: Icons.done_all,
-              color: kGreen,
-              text: 'Both texts kept, as plain text',
-            ),
-            _DialogPoint(
-              icon: Icons.visibility,
-              color: kGreen,
-              text: 'Text visible, all kept as plain text paragraphs, '
-                  'nothing hidden',
+              text: 'Timestamped entries from both sides, interleaved by '
+                  'clock time - not just each side kept as one block',
             ),
           ],
         ),

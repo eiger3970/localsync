@@ -65,16 +65,16 @@ void main() {
     // unambiguous proof the dialog opened with the right content.
     expect(find.text('Compare with a backup'), findsNWidgets(2));
     expect(
-        find.text('Looks back further - every backup ever saved for '
-            'this note, not just this one conflict'),
+        find.text('Time - any backup from the last 30 days, even after '
+            'the conflict is resolved'),
         findsOneWidget);
     expect(
-        find.text('Same side-by-side diff view as above, so '
-            'differences are easy to spot'),
+        find.text('View back further - every backup of this note, not '
+            'just this one conflict'),
         findsOneWidget);
     expect(
-        find.text('Works anytime - even long after a conflict is '
-            'already resolved'),
+        find.text('View the same side-by-side as the other conflict '
+            'fixers'),
         findsOneWidget);
 
     await expectLater(
