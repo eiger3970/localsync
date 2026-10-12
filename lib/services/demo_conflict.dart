@@ -27,15 +27,17 @@ const _stageKey = 'demo_conflict_stage';
 /// and on the computer at home. Every entry starts with a clock time and
 /// the times cross between the sides, so Auto merge visibly interleaves
 /// them into one day.
+/// 2026-10-13: user - "3 characters, is this a threesome? the logic doesn't hold" - one couple now:
+/// Alex plays the snowball fight, loses, and pays for the two hot chocolates at night.
 const kDemoConflictFile = 'Zermatt weekend.md';
 const kDemoConflictNote = '# Zermatt weekend - Saturday 14 February\n'
     '\n'
     '> [!warning]+ SYNC CONFLICT — yours (review and delete one)\n'
     '> 0800 Train to Zermatt. Window seat for the first Matterhorn view.\n'
     '> \n'
-    '> 1500 Snowball fight with Sam at the glacier. Loser buys hot chocolate.\n'
+    '> 1500 Snowball fight with Alex at the glacier. Loser buys hot chocolate.\n'
     '> \n'
-    '> 2200 Stargazing on the balcony with Alex, one blanket, two hot chocolates.\n'
+    '> 2200 Stargazing on the balcony with Alex, one blanket, two hot chocolates - Alex lost.\n'
     '> [!warning]+ SYNC CONFLICT — desktop - 202602141230 (review and delete one)\n'
     '> 1230 Raclette at the mountain hut, extra pickles.\n'
     '> \n'
