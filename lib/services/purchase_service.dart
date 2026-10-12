@@ -157,6 +157,18 @@ class PurchaseService {
   /// silently did nothing. Now it is caught and [restoreFailed] tells the screen to say so.
   bool restoreFailed = false;
 
+  /// 2026-10-13: user - founder price (a): early supporters get an Apple offer code by email.
+  /// Opens Apple's own "Redeem code" sheet (iOS); the unlock arrives through RevenueCat's
+  /// customer info like any purchase.
+  Future<void> presentCodeRedemption() async {
+    if (!_configured) return;
+    try {
+      await Purchases.presentCodeRedemptionSheet();
+    } catch (_) {
+      // Apple's sheet not available here (simulator, older iOS) - nothing to do
+    }
+  }
+
   Future<CustomerInfo?> restorePurchases() async {
     restoreFailed = false;
     if (!_configured) return null;

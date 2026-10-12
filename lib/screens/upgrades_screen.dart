@@ -132,6 +132,19 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
           const SizedBox(height: 20),
           const DemoConflictCard(),
           const SizedBox(height: 20),
+          // 2026-10-13: "Redeem code" next to Restore - for offer codes sent by email
+          // (founder price for early supporters).
+          Center(
+            child: TextButton.icon(
+              onPressed: () async {
+                await purchases.presentCodeRedemption();
+                if (context.mounted) _load();
+              },
+              icon: Icon(Icons.redeem, color: kTextDim, size: 18),
+              label: Text('Redeem code',
+                  style: TextStyle(color: kTextDim, fontSize: 13)),
+            ),
+          ),
           Center(
             child: TextButton.icon(
               onPressed: () async {
