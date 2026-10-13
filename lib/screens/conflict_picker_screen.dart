@@ -1167,7 +1167,13 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     // 2026-10-06: Kevin - "Tip says to tap KEEP BOTH, but colours hint to tap
     // KEEP BOTH & CLEAN UP. Which button to tap?" One signal: the button the
     // tip names is the green one.
-    final tipKeepBoth = looksLikeSeparateEntries;
+    // 2026-10-13: owner - the tip said KEEP BOTH on a journal with clock
+    // times; it should name KEEP BOTH & CLEAN UP. When every side starts
+    // with a time, CLEAN UP keeps both entries too, and in time order.
+    final separateTimed = looksLikeSeparateEntries &&
+        allHaveLeadingTime(versions.map((v) => v.body).toList());
+    final tipKeepBoth = looksLikeSeparateEntries && !separateTimed;
+    final tipCleanUp = cleanUpHelps || separateTimed;
     // 2026-09-08: real feedback, live - "that's a useful hint... more
     // of this." Second deterministic signal: one side's text fully
     // contains the other's, meaning nothing is actually lost by
@@ -1406,6 +1412,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                     ],
                   ),
                 ],
+                if (separateTimed) ...[
+                  const SizedBox(height: 8),
+                  _autoTipRow(
+                      kGreen,
+                      '"KEEP BOTH & CLEAN UP" is best here\n'
+                          '- each side starts with a different clock '
+                          'time, so these are two separate entries. '
+                          'CLEAN UP keeps both, in time order.'),
+                ],
                 if (cleanUpHelps) ...[
                   const SizedBox(height: 8),
                   _autoTipRow(
@@ -1421,17 +1436,12 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                               'order. CLEAN UP puts every entry in time '
                               'order.'),
                 ],
-                if (looksLikeSeparateEntries) ...[
+                if (tipKeepBoth) ...[
                   const SizedBox(height: 8),
                   _autoTipRow(
                       kGreen,
-                      allHaveLeadingTime(versions.map((v) => v.body).toList())
-                          ? '"KEEP BOTH" is usually right here\n'
-                              '- each side starts with a different '
-                              'clock time, these look like two '
-                              'separate entries, not the same thing '
-                              'edited twice.'
-                          : '"KEEP BOTH" is usually right here\n'
+                      // all-timed sides get the CLEAN UP tip above
+                      '"KEEP BOTH" is usually right here\n'
                               '- one side has a clock time, the other '
                               'has none at all, these look like two '
                               'separate entries, not the same thing '
@@ -1583,15 +1593,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _confirmAndKeepBothCleanedUp,
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: cleanUpHelps ? kGreen : kStar),
+                          side: BorderSide(color: tipCleanUp ? kGreen : kStar),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           minimumSize: const Size.fromHeight(0),
                         ),
                         icon:
-                            Icon(Icons.auto_fix_high, color: cleanUpHelps ? kGreen : kStar, size: 18),
+                            Icon(Icons.auto_fix_high, color: tipCleanUp ? kGreen : kStar, size: 18),
                         label: Text('KEEP BOTH & CLEAN UP',
                             style: TextStyle(
-                                color: cleanUpHelps ? kGreen : kStar,
+                                color: tipCleanUp ? kGreen : kStar,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.3)),
