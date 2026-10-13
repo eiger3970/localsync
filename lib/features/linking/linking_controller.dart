@@ -678,11 +678,18 @@ class LinkingController extends ChangeNotifier {
           _step = LinkingStep.cloning;
           notifyListeners();
         }
-        final result = await git.pullFromBareRepo();
+        // 2026-10-13: real crash, owner's iPhone 11 (Runner-2026-10-13-123645.ips,
+        // 0x8BADF00D scene-update watchdog): the first sync of an existing
+        // ~3,900-note vault ran git_index_add_all on the main thread - the
+        // screen froze ("page frozen for 5 minutes") and iOS killed the app the
+        // moment it went to the background. Now off the main thread, like the
+        // day-to-day sync (sync_service.dart's compute()).
+        final (result, backup) = await compute(
+            _firstSyncInIsolate, (git, RootIsolateToken.instance!));
         if (result case StepFailure()) {
           return _fail(result);
         }
-        _lastVaultBackupRelPath = git.lastBackupRelPath;
+        _lastVaultBackupRelPath = backup;
       } finally {
         await _vaultFolder.stopAccessing(bookmark);
       }
@@ -1033,4 +1040,13 @@ class VaultFolderCheck {
   /// Anything worth stopping to tell the user before linking.
   bool get needsPrompt =>
       !isEmpty || looksLikeParentOfVaults || isObsidianTopFolderWithNoVault;
+}
+
+// Top-level for compute(). The token lets saved settings (shared_preferences,
+// read while installing the desktop sync) work from this background isolate.
+Future<(StepResult, String?)> _firstSyncInIsolate(
+    (GitServiceImpl, RootIsolateToken) args) async {
+  BackgroundIsolateBinaryMessenger.ensureInitialized(args.$2);
+  final result = await args.$1.pullFromBareRepo();
+  return (result, args.$1.lastBackupRelPath);
 }
