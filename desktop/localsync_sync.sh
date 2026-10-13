@@ -56,6 +56,14 @@ REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/.local/share/localsync/repair_conflicts.
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
 die() { log "FATAL: $*"; exit 1; }
 
+# 2026-10-13: real incident - a stale .git/index.lock blocked every cron run
+# for 29 hours and nothing said why: cron sends output to /dev/null and
+# git's own error goes to stderr, never the log. Now every error line also
+# lands in the log (and still reaches the phone, which reads stderr), and
+# the failing command is named.
+exec 2> >(tee -a "$LOG" >&2)
+trap 'rc=$?; log "FATAL: exit $rc at line $LINENO: $BASH_COMMAND"' ERR
+
 # ── Repo identity check ───────────────────────────────────────────────────────
 # 2026-09-06: real incident - this vault's git remote got silently
 # repointed to a different, unrelated bare repo at some point (during
@@ -424,6 +432,20 @@ fi
 
 cd "$VAULT" || die "Cannot cd to $VAULT"
 log "=== localsync_sync start ==="
+
+# ── Stale git locks ───────────────────────────────────────────────────────────
+# 2026-10-13: an index.lock left behind by a killed git (empty, 29 h old)
+# stopped every sync. A lock older than 10 minutes with no git running is
+# leftover, not in use. Moved aside (never deleted) so git can carry on.
+STALE_LOCKS="${LOCALSYNC_STALE_LOCKS:-$HOME/.local/share/localsync/stale_locks}"
+if ! pgrep -x git >/dev/null 2>&1; then
+  while IFS= read -r -d '' lock; do
+    mkdir -p "$STALE_LOCKS"
+    dest="$STALE_LOCKS/$(basename "$lock")_$(date -r "$lock" '+%Y%m%d_%H%M')_$(date '+%Y%m%d%H%M%S')"
+    mv -f "$lock" "$dest"
+    log "  Stale git lock moved aside (left by a stopped git): .git/${lock#.git/} -> $dest"
+  done < <(find .git -maxdepth 4 -name '*.lock' -type f -mmin +10 -print0 2>/dev/null)
+fi
 verify_repo_identity
 ensure_repo_name
 # Never stage the hidden backup folder (local to this desktop, not synced).
