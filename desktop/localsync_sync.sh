@@ -54,15 +54,42 @@ LOCK="/tmp/localsync_sync_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1).lo
 REPAIR_PY="${LOCALSYNC_REPAIR_PY:-$HOME/.local/share/localsync/repair_conflicts.py}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG"; }
-die() { log "FATAL: $*"; exit 1; }
+die() { FAIL_REASON="$*"; log "FATAL: $*"; exit 1; }
 
 # 2026-10-13: real incident - a stale .git/index.lock blocked every cron run
 # for 29 hours and nothing said why: cron sends output to /dev/null and
 # git's own error goes to stderr, never the log. Now every error line also
 # lands in the log (and still reaches the phone, which reads stderr), and
 # the failing command is named.
-exec 2> >(tee -a "$LOG" >&2)
-trap 'rc=$?; log "FATAL: exit $rc at line $LINENO: $BASH_COMMAND"' ERR
+LAST_ERR="$HOME/.local/share/localsync/last_error_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1)"
+mkdir -p "$(dirname "$LAST_ERR")" && : > "$LAST_ERR"
+exec 2> >(tee -a "$LOG" "$LAST_ERR" >&2)
+FAIL_REASON=""
+SKIPPED=""
+trap 'rc=$?; FAIL_REASON="${FAIL_REASON:-$BASH_COMMAND (exit $rc)}"; log "FATAL: exit $rc at line $LINENO: $BASH_COMMAND"' ERR
+
+# 2026-10-13: owner - the phone should say when the desktop's own timed
+# sync stopped, not only after a tap on Desktop sync. Every run leaves
+# one line next to the bare repo the phone already knows the path of:
+#   OK<tab>2026-10-13 14:05            or
+#   FAIL<tab>2026-10-13 14:05<tab>the error git itself gave
+# The phone reads it after each sync (sync_service.dart readDesktopStatus).
+write_status() {
+  local rc=$1 repo="$BARE_REPO" when reason=""
+  [[ -n "$SKIPPED" ]] && return 0
+  [[ "$repo" == /* ]] || repo="$HOME/$repo"
+  [[ -d "$repo" ]] || return 0
+  when=$(date '+%Y-%m-%d %H:%M')
+  if [[ "$rc" == 0 ]]; then
+    printf 'OK\t%s\n' "$when" > "$repo/localsync_desktop_status" 2>/dev/null || true
+    return 0
+  fi
+  sleep 0.3  # let tee finish writing git's own message
+  reason=$(grep -E '^(fatal|error): ' "$LAST_ERR" 2>/dev/null | tail -1 | sed -E 's/^(fatal|error): //' || true)
+  [[ -n "$reason" ]] || reason="$FAIL_REASON"
+  printf 'FAIL\t%s\t%s\n' "$when" "${reason//$'\t'/ }" > "$repo/localsync_desktop_status" 2>/dev/null || true
+}
+trap 'write_status $?' EXIT
 
 # ── Repo identity check ───────────────────────────────────────────────────────
 # 2026-09-06: real incident - this vault's git remote got silently
@@ -167,7 +194,7 @@ ensure_repo_name() {
 
 # ── Lock: one run at a time ───────────────────────────────────────────────────
 exec 9>"$LOCK"
-flock -n 9 || { log "Already running — skipping"; exit 0; }
+flock -n 9 || { SKIPPED=1; log "Already running — skipping"; exit 0; }
 
 # ── Backup before the first sync ──────────────────────────────────────────────
 # 2026-09-25: user - "Desktop backup, absolutely, but inform user it actions

@@ -531,6 +531,32 @@ class RepositoryProvider extends ChangeNotifier {
     }
   }
 
+  // 2026-10-13: owner - the phone says when the desktop's own timed sync
+  // stopped (sync_service.dart readDesktopStatus). Null = fine/unknown.
+  final Map<int, String> _desktopProblems = {};
+  String? desktopProblem(int repoId) => _desktopProblems[repoId];
+
+  Future<String?> checkDesktopStatus(int id) async {
+    final i = _repos.indexWhere((r) => r.id == id);
+    if (i == -1) return null;
+    final repo = _repos[i];
+    final msg = await readDesktopStatus(
+      remoteHost: repo.remoteHost,
+      remotePort: repo.remotePort,
+      remoteUser: repo.remoteUser,
+      remotePath: repo.remotePath,
+      sshPrivateKeyPath: await SshKeyPaths.privateKeyPath(),
+    ).timeout(const Duration(seconds: 12), onTimeout: () => null);
+    final had = _desktopProblems[id];
+    if (msg == null) {
+      _desktopProblems.remove(id);
+    } else {
+      _desktopProblems[id] = msg;
+    }
+    if (had != msg) notifyListeners();
+    return msg;
+  }
+
   Future<SyncResult?> _desktopSyncNow(int id) async {
     await _ensureReachableHost(id);
     final repo = _repos.firstWhere((r) => r.id == id, orElse: () => throw
@@ -553,6 +579,8 @@ class RepositoryProvider extends ChangeNotifier {
     // here keeps this call site best-effort, same as before.
     if (result is SyncOk) {
       unawaited(BackupReminderService().scheduleReminder().catchError((_) {}));
+      // the run just wrote OK on the desktop
+      if (_desktopProblems.remove(id) != null) notifyListeners();
     }
     return result;
   }

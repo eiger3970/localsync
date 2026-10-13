@@ -306,6 +306,60 @@ Future<SyncResult> runDesktopSyncScriptNow({
   }
 }
 
+// 2026-10-13: owner - "phone show the real reason". A stale git lock
+// stopped the desktop's timed sync for 29 hours and the phone never
+// knew: its own push/pull to the bare repo kept working. The desktop
+// script now leaves one line next to the bare repo after every run
+// (localsync_sync.sh write_status); this reads it. Returns the text to
+// show when the last desktop run failed, null when it was fine or the
+// file can't be read (older script, desktop off) - never an error.
+Future<String?> readDesktopStatus({
+  required String remoteHost,
+  required int remotePort,
+  required String remoteUser,
+  required String remotePath,
+  required String sshPrivateKeyPath,
+  String sshPassphrase = '',
+}) async {
+  SSHClient? client;
+  try {
+    final socket = await SSHSocket.connect(remoteHost, remotePort,
+        timeout: const Duration(seconds: 10));
+    final privateKeyPem = await File(sshPrivateKeyPath).readAsString();
+    client = SSHClient(
+      socket,
+      username: remoteUser,
+      identities: SSHKeyPair.fromPem(
+          privateKeyPem, sshPassphrase.isEmpty ? null : sshPassphrase),
+    );
+    final escapedRepo = remotePath.replaceAll("'", r"'\''");
+    final res = await client
+        .runWithResult("cat '$escapedRepo/localsync_desktop_status'");
+    if (res.exitCode != 0) return null;
+    return desktopStatusMessage(utf8.decode(res.stdout, allowMalformed: true));
+  } catch (_) {
+    return null;
+  } finally {
+    client?.close();
+  }
+}
+
+/// "FAIL<tab>2026-10-13 14:05<tab>reason" -> the line the phone shows;
+/// anything else (OK, empty, unknown) -> null.
+String? desktopStatusMessage(String raw) {
+  final parts = raw.trim().split('\t');
+  if (parts.length < 2 || parts[0] != 'FAIL') return null;
+  final when = parts[1];
+  final reason = parts.length > 2 ? parts.sublist(2).join(' ').trim() : '';
+  final plain = reason.contains('index.lock')
+      ? 'A git lock file was stuck. It clears by itself within 10 minutes.'
+      : reason.isEmpty
+          ? 'No reason given - see ~/.localsync_sync.log on the desktop.'
+          : reason;
+  return 'Desktop sync stopped $when\n$plain\n'
+      'To retry now: LocalSync main screen -> ⋮ -> Desktop sync';
+}
+
 // ── SyncService ────────────────────────────────────────────────────────────────
 
 /// Writes [schedule] to the desktop's crontab now, over SSH - Settings ->

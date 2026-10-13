@@ -1504,6 +1504,29 @@ Future<void> _runAndShow(
       duration: const Duration(seconds: 12),
     ),
   );
+  // 2026-10-13: owner - "phone show the real reason". The phone's own
+  // sync can succeed while the desktop's timed sync is stuck; check the
+  // desktop's last run and say so in red, replacing the success line.
+  if (repo?.id != null &&
+      (result is SyncOk || result is SyncNoChanges || result is SyncOkWithConflicts)) {
+    final messenger = ScaffoldMessenger.of(context);
+    unawaited(context
+        .read<RepositoryProvider>()
+        .checkDesktopStatus(repo!.id!)
+        .then((msg) {
+      if (msg == null) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(
+        backgroundColor: kSurface,
+        content: Center(
+          child: Text(msg,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
+        ),
+        duration: const Duration(seconds: 20),
+      ));
+    }));
+  }
   if (result case SyncOkWithConflicts() when repo != null && context.mounted) {
     final provider = context.read<RepositoryProvider>();
     await Navigator.push(context,
