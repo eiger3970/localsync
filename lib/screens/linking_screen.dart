@@ -251,14 +251,10 @@ class LinkingScreen extends StatelessWidget {
         // (home_screen.dart's empty-repos auto-redirect, see _leaveSetup's
         // own comment above). A permanent action here means Settings is
         // always reachable regardless of what happened with the SnackBar.
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
-        ],
+        // 2026-10-13: user - "remove the Settings icon from the top right of the
+        // install page. Then all must swipe the key to the laptop, following the
+        // intended path to setup, simple." The drag itself opens Settings
+        // (neededForPairing, below), so it is still reached - just one way in.
       ),
       body: Consumer<LinkingController>(
         builder: (_, ctrl, __) {

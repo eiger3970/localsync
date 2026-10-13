@@ -473,7 +473,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     if (user.isEmpty) return;
     final current = _pathCtrl.text.trim();
     if (current.isNotEmpty && current != _autoPath) return;
-    final suggestion = '/home/$user/Documents/Git/localsync.git';
+    // = desktop/setup.sh BARE_REPO_PATH (2026-10-13: was localsync.git, a folder setup never makes)
+    final suggestion = '/home/$user/Documents/Git/LocalSync/vault.git';
     _autoPath = suggestion;
     if (current != suggestion) _pathCtrl.text = suggestion;
   }
@@ -1611,88 +1612,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                   onTap: () => Navigator.pop(context, 'pair')),
               const SizedBox(height: 28),
             ],
-            // 2026-09-26: user - "Settings 1. 2. 3. 4. can this be auto
-            // populated by a qr code on the desktop? ... I see no qr
-            // coder." The scanner only showed during first setup; now
-            // always one tap above the fields it fills.
-            if (!widget.neededForPairing) ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _scanInto(_pathCtrl, 'DESKTOP SETUP'),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: kGreen),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  icon: Icon(Icons.qr_code_scanner, color: kGreen, size: 20),
-                  label: Text('Scan desktop QR code - fills in 1 to 4',
-                      style: TextStyle(color: kGreen, fontSize: 13)),
-                ),
-              ),
-              // 2026-09-29: user - "This button needs the website link too."
-              // Where the QR comes from, one tap away.
-              const SizedBox(height: 6),
-              Center(
-                child: GestureDetector(
-                  onTap: () => launchUrl(
-                      Uri.parse('https://kworld.space/localsync#desktop-setup'),
-                      mode: LaunchMode.externalApplication),
-                  child: Text.rich(
-                    TextSpan(children: [
-                      TextSpan(
-                          text: 'QR code: ',
-                          style: TextStyle(
-                              color: kStar, fontWeight: FontWeight.w600)),
-                      const TextSpan(text: 'from the desktop setup file - '),
-                      TextSpan(
-                          text: 'kworld.space/localsync',
-                          style: TextStyle(
-                              color: kGreen,
-                              decoration: TextDecoration.underline)),
-                    ]),
-                    style: TextStyle(color: kTextMid, fontSize: 13),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
             if (!widget.neededForPairing) _readyNote(),
-            // 2026-10-13: user - "lost adventurers who stray from the easy QR setup might get
-            // lost in the manual Settings - tell them where the phone's QR scan is."
-            Container(
-              margin: const EdgeInsets.only(bottom: 18),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: kGreen.withValues(alpha: 0.5)),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Icon(Icons.qr_code_scanner, color: kGreen, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Easiest: go back (‹ top left), slide the key onto the laptop, then scan the QR code in the yellow bar',
-                          style: TextStyle(color: kStar, fontSize: 13.5, fontWeight: FontWeight.w600)),
-                    ),
-                  ]),
-                  const SizedBox(height: 6),
-                  // 2026-10-13: user - "a user who taps Settings top right doesn't know the easy QR
-                  // scan is on the previous page, by sliding the key onto the laptop" - say where.
-                  Text('It fills in steps 1-4 for you. The QR code shows on your computer after the '
-                      'desktop setup file (kworld.space/localsync). Or scan it right here:',
-                      style: TextStyle(color: kTextMid, fontSize: 12.5, height: 1.35)),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: () => _scanInto(_pathCtrl, 'DESKTOP SETUP'),
-                    icon: Icon(Icons.qr_code_scanner, color: kGreen, size: 18),
-                    label: Text('Scan QR code', style: TextStyle(color: kGreen)),
-                    style: OutlinedButton.styleFrom(side: BorderSide(color: kGreen)),
-                  ),
-                ],
-              ),
-            ),
+            // 2026-10-13: user - "overdone ... repeated about 4 times" - the scan
+            // button, QR link and "Easiest" box are gone; the install page's key drag is
+            // the one way in, and the yellow bar above scans the QR.
             _stepHeader('1. DESKTOP USERNAME', _userOk, field: 0),
             const SizedBox(height: 6),
             Row(
@@ -2374,7 +2297,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       // duplicated the new "2. GIT BARE REPO PATH" step
                       // header above it (same reasoning as Desktop
                       // username below).
-                      hintText: '/home/user/Documents/Git/localsync.git',
+                      hintText: '/home/user/Documents/Git/LocalSync/vault.git',
                       errorText: _pathError,
                       // 2026-08-21: real feedback, live - "circle with
                       // i" instead of a "?" - Icons.info_outline reads
