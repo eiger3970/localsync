@@ -1179,7 +1179,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' Obsidian still shows the old text? Close that note\'s tab, then open the note again\n'),
+                                                text: ' Old text still showing? Reopen the Obsidian tab\n'),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
