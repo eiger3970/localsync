@@ -198,15 +198,19 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
           title: Row(children: [
             Icon(Icons.delete_outline, color: kStar, size: 22),
             const SizedBox(width: 8),
-            Text('Free ${formatBytes(f.bytes)}?',
+            // 2026-10-13: owner read "Free 50 MB?" as a price and searched help
+            // for it - the title now says what the tap does.
+            Text('Delete an old backup?',
                 style: TextStyle(color: kStar, fontSize: 17)),
           ]),
           content: Text(
-              'Copy made when this phone was linked, '
-              '${date.day} ${months[date.month - 1]}. Not needed once your '
+              'LocalSync copied your '
               // 2026-10-05: user - free syncs hold files, not notes.
               '${repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes'} '
-              'look right.',
+              'when this phone was linked, ${date.day} ${months[date.month - 1]}. '
+              'Deleting the copy frees ${formatBytes(f.bytes)} on this phone - '
+              'your ${repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes'} '
+              'stay as they are. Unsure? Keep it.',
               style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
           actions: [
             TextButton(
