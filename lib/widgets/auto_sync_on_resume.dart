@@ -181,53 +181,69 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
         await provider.withRepoFolder(repo, (path) => listBackupFolders(path));
     if (folders == null || !mounted) return;
     final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-    for (final f in folders.where((f) => f.phoneOnly)) {
-      final key = 'offered_free_${repo.id}_${f.name}';
-      final date = fullBackupDate(f.name);
-      if (date == null || date.isAfter(weekAgo) || prefs.getBool(key) == true) {
-        continue;
-      }
-      await prefs.setBool(key, true);
-      if (!mounted) return;
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
-          'Sep', 'Oct', 'Nov', 'Dec'];
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (c) => AlertDialog(
-          backgroundColor: kSurface,
-          title: Row(children: [
-            Icon(Icons.delete_outline, color: kStar, size: 22),
-            const SizedBox(width: 8),
-            // 2026-10-13: owner read "Free 50 MB?" as a price and searched help
-            // for it - the title now says what the tap does.
-            Text('Delete an old backup?',
-                style: TextStyle(color: kStar, fontSize: 17)),
-          ]),
-          content: Text(
-              'LocalSync copied your '
-              // 2026-10-05: user - free syncs hold files, not notes.
-              '${repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes'} '
-              'when this phone was linked, ${date.day} ${months[date.month - 1]}. '
-              'Deleting the copy frees ${formatBytes(f.bytes)} on this phone - '
-              'your ${repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes'} '
-              'stay as they are. Unsure? Keep it.',
-              style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(c, false),
-                child: Text('KEEP', style: TextStyle(color: kTextDim))),
-            TextButton(
-                onPressed: () => Navigator.pop(c, true),
-                child: Text('DELETE',
-                    style: TextStyle(
-                        color: Colors.redAccent, fontWeight: FontWeight.w700))),
-          ],
-        ),
-      );
-      if (ok == true) {
-        await provider.withRepoFolder(repo, (path) => deleteFullBackup(path, f));
-      }
-      return; // one question per app open
+    // 2026-10-13: owner - the prompt "keeps appearing every few minutes, even
+    // after I tap KEEP". After several relinks the phone holds several old
+    // copies and this asked about ONE per app open, so KEEP only silenced
+    // that one. Now one question covers every old copy, and the answer
+    // (KEEP or DELETE) silences them all.
+    final old = [
+      for (final f in folders.where((f) => f.phoneOnly))
+        if (fullBackupDate(f.name) case final d?
+            when !d.isAfter(weekAgo) &&
+                prefs.getBool('offered_free_${repo.id}_${f.name}') != true)
+          f
+    ];
+    if (old.isEmpty) return;
+    for (final f in old) {
+      await prefs.setBool('offered_free_${repo.id}_${f.name}', true);
+    }
+    if (!mounted) return;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
+        'Sep', 'Oct', 'Nov', 'Dec'];
+    final dates = old.map((f) => fullBackupDate(f.name)!).toList()..sort();
+    final first = dates.first, last = dates.last;
+    final when = old.length == 1
+        ? '${first.day} ${months[first.month - 1]}'
+        : '${first.day} ${months[first.month - 1]} - ${last.day} ${months[last.month - 1]}';
+    final total = old.fold<int>(0, (n, f) => n + f.bytes);
+    // 2026-10-05: user - free syncs hold files, not notes.
+    final what = repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Row(children: [
+          Icon(Icons.delete_outline, color: kStar, size: 22),
+          const SizedBox(width: 8),
+          // 2026-10-13: owner read "Free 50 MB?" as a price - the title now
+          // says what the tap does.
+          Text(old.length == 1 ? 'Delete an old backup?' : 'Delete ${old.length} old backups?',
+              style: TextStyle(color: kStar, fontSize: 17)),
+        ]),
+        content: Text(
+            'LocalSync copied your $what when this phone was linked ($when). '
+            'Deleting ${old.length == 1 ? 'the copy' : 'the copies'} frees ${formatBytes(total)} '
+            'on this phone - your $what stay as they are. Unsure? Keep. '
+            'Asked once - later: LocalSync -> ⋮ -> Backups.',
+            style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text('KEEP', style: TextStyle(color: kTextDim))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, true),
+              child: Text('DELETE',
+                  style: TextStyle(
+                      color: Colors.redAccent, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await provider.withRepoFolder(repo, (path) {
+        for (final f in old) {
+          deleteFullBackup(path, f);
+        }
+      });
     }
   }
 
