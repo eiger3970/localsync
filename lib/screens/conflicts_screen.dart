@@ -1144,7 +1144,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' PUSH → '),
+                                            const TextSpan(text: ' PUSH -> '),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
@@ -1160,7 +1160,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // 2026-10-02: user - "After PULL another progress
                                             // arrow -> for the Obsidian note reboot (if
                                             // needed)." Step 3 on the next line: reopen the Obsidian tab if the text is old.
-                                            const TextSpan(text: ' PULL →\n'),
+                                            // 2026-10-13: owner - "PULL" read as the phone's pull; the
+                                            // computer step is the kebab menu's Desktop sync.
+                                            const TextSpan(text: ' DESKTOP SYNC ->\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1177,7 +1179,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   color: kStar, size: 16),
                                             ),
                                             const TextSpan(
-                                                text: ' Old text? Reopen the Obsidian tab\n'),
+                                                text: ' Obsidian still shows the old text? Close that note\'s tab, then open the note again\n'),
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
