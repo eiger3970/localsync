@@ -153,9 +153,47 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   @override
   void initState() {
     super.initState();
+    _practiceFirst();
     _resolveMyDeviceName();
     _loadKeepLeftoverSetting();
     _loadPrecedingContext();
+  }
+
+  // 2026-10-14: user - first real conflict on a new install? Practise on the
+  // sample first (30 seconds, real files untouched), then come back.
+  Future<void> _practiceFirst() async {
+    if (DemoConflict.isDemo(widget.repo) || await DemoConflict.practised()) return;
+    if (!mounted) return;
+    final go = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Row(children: [
+          const Icon(Icons.star, color: Colors.amber),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Practice first', style: TextStyle(color: kStar))),
+        ]),
+        content: Text(
+            'Try the sample conflict once - it takes 30 seconds and your real files are never touched. '
+            'Then come back to this one.',
+            style: TextStyle(color: kTextMid)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Try the sample')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (go != true) {
+      Navigator.pop(context);
+      return;
+    }
+    final demo = await DemoConflict.prepare();
+    final entries = await scanForConflicts(demo.localPath);
+    if (!mounted || entries.isEmpty) return;
+    Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (_) => ConflictPickerScreen(repo: demo, entry: entries.first)));
   }
 
   void _equalizeDisputedHeights() {

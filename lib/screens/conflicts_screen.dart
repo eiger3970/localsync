@@ -23,6 +23,7 @@ import '../services/repository_provider.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
 import '../widgets/conflict_picker_upsell.dart';
+import '../services/demo_conflict.dart';
 import '../widgets/demo_conflict_card.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/help_wizard.dart';
@@ -568,8 +569,13 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                           ),
                           // 2026-09-26: always somewhere to try the
                           // paid fixes, even with no real conflict.
-                          const SizedBox(height: 24),
-                          const DemoConflictCard(),
+                          // 2026-10-14: gone once practised (still in Upgrades)
+                          ValueListenableBuilder<bool>(
+                            valueListenable: DemoConflict.triesLeft,
+                            builder: (_, left, __) => left
+                                ? const Padding(padding: EdgeInsets.only(top: 24), child: DemoConflictCard())
+                                : const SizedBox.shrink(),
+                          ),
                         ],
                       ),
                     ),
@@ -747,9 +753,14 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                     // spec: "a genuine lift/convenience offer... not a
                     // lock screen" - the free manual-pick list below is
                     // fully unaffected either way.
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: DemoConflictCard(),
+                    ValueListenableBuilder<bool>(
+                      valueListenable: DemoConflict.triesLeft,
+                      builder: (_, left, __) => left
+                          ? const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                              child: DemoConflictCard(),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                     if (entries.isNotEmpty)
                       Padding(

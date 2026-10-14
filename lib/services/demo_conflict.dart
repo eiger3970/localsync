@@ -48,20 +48,27 @@ class DemoConflict {
   /// 2026-09-26: user - "Shouldn't Conflicts be amber as there's a test
   /// conflict in there?" True while the sample still has a free try, so
   /// the main screen's Conflicts icon can glow amber for it too.
+  /// 2026-10-14: user - "conflicts cleared, but conflict still shows yellow, due to the
+  /// sample". Now true only until the sample is practised once; after that the
+  /// icon is amber for real conflicts only.
   static final triesLeft = ValueNotifier<bool>(true);
 
   static Future<int> stage() async {
     final s = (await SharedPreferences.getInstance()).getInt(_stageKey) ?? 0;
-    triesLeft.value = s < 2;
+    triesLeft.value = s < 1;
     return s;
   }
+
+  /// 2026-10-14: user - "force a user in conflicts to run the sample first ... once
+  /// sample is run, remove it". Practised = the sample's first try is done.
+  static Future<bool> practised() async => await stage() >= 1;
 
   /// Called after a demo resolution finishes; only moves forward.
   static Future<void> advancePast(int finishedStage) async {
     final prefs = await SharedPreferences.getInstance();
     final now = prefs.getInt(_stageKey) ?? 0;
     if (finishedStage >= now) await prefs.setInt(_stageKey, finishedStage + 1);
-    triesLeft.value = (prefs.getInt(_stageKey) ?? 0) < 2;
+    triesLeft.value = (prefs.getInt(_stageKey) ?? 0) < 1;
   }
 
   static bool isDemo(Repository repo) =>
