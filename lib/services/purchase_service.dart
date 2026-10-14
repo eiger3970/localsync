@@ -18,7 +18,7 @@
 
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, ValueNotifier;
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 // 2026-08-26: confirmed with the user directly - this IS the real key
@@ -126,7 +126,20 @@ class PurchaseService {
     if (kIsWeb || !(Platform.isIOS || Platform.isAndroid)) return;
     await Purchases.configure(PurchasesConfiguration(kRevenueCatApiKey));
     _configured = true;
+    // 2026-10-14: user - on the top package the amber Upgrades ribbon goes
+    // (top bar) or turns white (menu). Kept live from RevenueCat.
+    void track(CustomerInfo i) =>
+        autoMergeOwned.value = i.entitlements.active.containsKey(kKeepBothCleanupEntitlementId);
+    Purchases.addCustomerInfoUpdateListener(track);
+    try {
+      track(await Purchases.getCustomerInfo());
+    } catch (_) {
+      // offline at start - the listener catches up later
+    }
   }
+
+  /// True once Auto merge & clean up (the top package) is active.
+  final ValueNotifier<bool> autoMergeOwned = ValueNotifier(false);
 
   Future<bool> hasEntitlement(String id) async {
     if (!_configured) return false;

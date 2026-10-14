@@ -151,11 +151,18 @@ class HomeScreen extends StatelessWidget {
         actions: [
           // 2026-09-26: user - "purchases are the important way in - must
           // not be deep and buried." One tap to every upgrade.
-          IconButton(
-            tooltip: 'Upgrades',
-            icon: const Icon(Icons.workspace_premium, color: Colors.amber),
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const UpgradesScreen())),
+          // 2026-10-14: user - on Auto merge & clean up (the top package) the
+          // ribbon leaves the top bar: less distraction, more room for the title.
+          ValueListenableBuilder<bool>(
+            valueListenable: context.read<PurchaseService>().autoMergeOwned,
+            builder: (context, owned, _) => owned
+                ? const SizedBox.shrink()
+                : IconButton(
+                    tooltip: 'Upgrades',
+                    icon: const Icon(Icons.workspace_premium, color: Colors.amber),
+                    onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const UpgradesScreen())),
+                  ),
           ),
           // Fixed 2026-08-09: two bare icon buttons (key, phone) with only
           // a long-press tooltip for explanation - on iOS a tap doesn't
@@ -373,11 +380,14 @@ class HomeScreen extends StatelessWidget {
                         label: 'Restore deleted files',
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'upgrades',
                       child: _MenuRow(
                         icon: Icons.workspace_premium,
-                        iconColor: Colors.amber,
+                        // 2026-10-14: white once the top package is owned
+                        iconColor: context.read<PurchaseService>().autoMergeOwned.value
+                            ? Colors.white
+                            : Colors.amber,
                         label: 'Upgrades',
                       ),
                     ),
