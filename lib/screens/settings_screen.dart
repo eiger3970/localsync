@@ -1597,14 +1597,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                         .toggleAutoSync(_repo!.id!),
                   ),
                 ),
-              if (_repo != null)
-                _SettingsTile(
-                    icon: Icons.link_off,
-                    iconColor: Colors.redAccent,
-                    label: 'Connection of sync - remove',
-                    labelColor: Colors.redAccent,
-                    subtitle: 'Stops syncing this folder - files stay',
-                    onTap: () => Navigator.pop(context, 'delete')),
               _SettingsTile(
                   svgAsset: 'assets/pairing/pairing_phone_key.svg',
                   label: 'Pair with desktop',
@@ -2890,15 +2882,11 @@ class _SettingsScreenState extends State<SettingsScreen>
               // 2026-09-24: "That's not alphabetical" - LOCALSYNC FOLDER,
               // SKINS, SOUNDS (house rule: alphabetical unless a stated
               // reason); IN DEVELOPMENT stays last, it isn't a setting.
-              _buildDesktopSyncCard(),
-              const SizedBox(height: 28),
               _SettingsTile(
                   icon: Icons.smartphone,
                   label: 'Device name (for app only)',
                   subtitle: 'Shown in LocalSync conflicts',
                   onTap: () => Navigator.pop(context, 'device_name')),
-              const SizedBox(height: 28),
-              _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
               if (_repo != null) ...[
                 _SettingsTile(
@@ -2921,6 +2909,27 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildSkinsCard(),
               const SizedBox(height: 28),
               _buildSoundsCard(),
+              const SizedBox(height: 28),
+              // 2026-10-19 owner: the Sync settings are one group, "Sync: ..." names, alphabetical after Sounds
+              if (_repo != null) ...[
+                _SettingsTile(
+                    icon: Icons.add_link,
+                    label: 'Sync: connection add',
+                    subtitle: 'Files or Obsidian notes',
+                    onTap: () => Navigator.pop(context, 'link')),
+                if (_repo != null)
+                  _SettingsTile(
+                      icon: Icons.link_off,
+                      iconColor: Colors.redAccent,
+                      label: 'Sync: connection removal',
+                      labelColor: Colors.redAccent,
+                      subtitle: 'Stops syncing this folder - files stay',
+                      onTap: () => Navigator.pop(context, 'delete')),
+                const SizedBox(height: 28),
+              ],
+              _buildDesktopSyncCard(),
+              const SizedBox(height: 28),
+              _buildLocalSyncFolderCard(),
               const SizedBox(height: 28),
               _buildUpgradesCard(),
               const SizedBox(height: 28),
@@ -3049,12 +3058,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('SOUNDS',
-                    style: TextStyle(
-                        color: kTextMid,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2)),
+                Text('Sounds',
+                    style: TextStyle(color: kStar, fontSize: 14)),
                 const SizedBox(height: 4),
                 Text(
                     'A short chime when Push, Pull, Desktop sync finish, '
@@ -3122,12 +3127,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             children: [
               Icon(Icons.computer, color: kBlue, size: 18),
               const SizedBox(width: 8),
-              Text('DESKTOP SYNC TIMER',
-                  style: TextStyle(
-                      color: kTextMid,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2)),
+              Text('Sync: desktop sync timer',
+                  style: TextStyle(color: kStar, fontSize: 14)),
             ],
           ),
           const SizedBox(height: 10),
@@ -3207,12 +3208,8 @@ class _SettingsScreenState extends State<SettingsScreen>
             children: [
               Icon(Icons.folder_outlined, color: kTextMid, size: 18),
               const SizedBox(width: 8),
-              Text('LOCALSYNC FOLDER (backups)',
-                  style: TextStyle(
-                      color: kTextMid,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2)),
+              Text('Sync: Localsync folder (backups) name',
+                  style: TextStyle(color: kStar, fontSize: 14)),
             ],
           ),
           const SizedBox(height: 10),
@@ -3281,12 +3278,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               children: [
                 Icon(Icons.palette_outlined, color: kTextMid, size: 18),
                 const SizedBox(width: 8),
-                Text('SKINS',
-                    style: TextStyle(
-                        color: kTextMid,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2)),
+                Text('Skins',
+                    style: TextStyle(color: kStar, fontSize: 14)),
                 const Spacer(),
                 if (!_skinsOpen)
                   Text(themeService.palette.label,

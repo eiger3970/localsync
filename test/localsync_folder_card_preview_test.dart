@@ -72,7 +72,7 @@ void main() {
     });
     await tester.pump();
 
-    final card = find.text('LOCALSYNC FOLDER');
+    final card = find.text('Sync: Localsync folder (backups) name');
     await tester.scrollUntilVisible(card, 300,
         scrollable: find.byType(Scrollable).first);
     await tester.pump();

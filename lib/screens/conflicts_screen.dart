@@ -947,10 +947,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                       'Check the backup note if unsure.'
                                   : (e.versions.length > 2
                                       ? '${e.versions.length - 1} unresolved versions '
-                                          'stacked - most recent by ${e.who}'
-                                      : (e.when != null
-                                          ? 'Conflicting change by ${e.who} - ${e.when}'
-                                          : 'Conflicting change by ${e.who}')),
+                                          'stacked - most recent by ${e.who == 'yours' ? 'this phone' : e.who}'
+                                      // 2026-10-19 owner: "Conflicting change by yours (what does this mean?)" -
+                                      // 'yours' is the label for this phone's own side; say what happened.
+                                      : (e.who == 'yours'
+                                          ? (e.when != null
+                                              ? 'Edited on 2 devices at once - ${e.when}'
+                                              : 'Edited on 2 devices at once')
+                                          : (e.when != null
+                                              ? 'Conflicting change by ${e.who} - ${e.when}'
+                                              : 'Conflicting change by ${e.who}'))),
                               // 2026-08-20: real feedback, live - "too dark
                               // and grey", same complaint this screen has hit
                               // repeatedly today on dim/small text (the

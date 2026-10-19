@@ -297,19 +297,6 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                    // 2026-10-05: user - renamed from "Vault - add another":
-                    // free users sync a plain folder, not a vault. Moved
-                    // here to keep the menu alphabetical.
-                    PopupMenuItem(
-                      value: 'link',
-                      child: _MenuRow(
-                        icon: Icons.phone_iphone,
-                        label: provider.repos.isEmpty
-                            ? 'Add a sync'
-                            : 'Add another sync',
-                        subtitle: 'Files or Obsidian notes',
-                      ),
-                    ),
                     // Commit stays pinned near the top since it's what
                     // gets tapped most once set up is done - a stated
                     // reason to deviate from alphabetical, not an
@@ -360,35 +347,12 @@ class HomeScreen extends StatelessWidget {
                     // made a change, not just when (see sync_service.dart's
                     // _signatureFor). Placeholder in the explainer, not a
                     // real/pseudonym example - names never go in app UI text.
-                    // 2026-09-29: user - Rescue Package, "Yes re rescue in
-                    // Kebab menu". Red, alphabetical (before Restore).
-                    if (kRescueEnabled)
-                    const PopupMenuItem(
-                      value: 'rescue',
-                      child: _MenuRow(
-                        icon: Icons.emergency_outlined,
-                        iconColor: Color(0xFFFF2D3D),
-                        label: 'Rescue',
-                        subtitle: 'Notes lost or messed up? One tap',
-                      ),
-                    ),
                     // 2026-09-25: restore files deleted on either device.
                     const PopupMenuItem(
                       value: 'deleted',
                       child: _MenuRow(
                         icon: Icons.restore_from_trash_outlined,
                         label: 'Restore deleted files',
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'upgrades',
-                      child: _MenuRow(
-                        icon: Icons.workspace_premium,
-                        // 2026-10-14: white once the top package is owned
-                        iconColor: context.read<PurchaseService>().autoMergeOwned.value
-                            ? Colors.white
-                            : Colors.amber,
-                        label: 'Upgrades',
                       ),
                     ),
                     // 2026-08-20: real user feedback - "this is difficult
@@ -437,6 +401,29 @@ class HomeScreen extends StatelessWidget {
                         // 2026-09-26: Settings now also holds the items moved out of
                         // the kebab - IP stays named first (see above).
                         subtitle: 'IP, sync folder, device name & more',
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'upgrades',
+                      child: _MenuRow(
+                        icon: Icons.workspace_premium,
+                        // 2026-10-14: white once the top package is owned
+                        iconColor: context.read<PurchaseService>().autoMergeOwned.value
+                            ? Colors.white
+                            : Colors.amber,
+                        label: 'Upgrades',
+                      ),
+                    ),
+                    // 2026-09-29: user - Rescue Package, "Yes re rescue in
+                    // Kebab menu". Red, alphabetical (before Restore).
+                    if (kRescueEnabled)
+                    const PopupMenuItem(
+                      value: 'rescue',
+                      child: _MenuRow(
+                        icon: Icons.emergency_outlined,
+                        iconColor: Color(0xFFFF2D3D),
+                        label: 'Rescue',
+                        subtitle: 'Notes lost or messed up? One tap',
                       ),
                     ),
                   ];
