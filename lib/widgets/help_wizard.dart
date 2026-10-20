@@ -252,7 +252,7 @@ const Map<String, List<_WorkflowStep>> _flowASteps = {
   'both': [
     _WorkflowStep('Phone PUSH',
         deviceIcon: Icons.smartphone, directionIcon: Icons.north_east_rounded),
-    _WorkflowStep('Desktop PUSH',
+    _WorkflowStep('Desktop sync',
         note: _desktopPushNote,
         deviceIcon: Icons.computer,
         directionIcon: Icons.north_east_rounded),
@@ -261,7 +261,7 @@ const Map<String, List<_WorkflowStep>> _flowASteps = {
     _WorkflowStep('Done'),
   ],
   'desktop': [
-    _WorkflowStep('Desktop PUSH',
+    _WorkflowStep('Desktop sync',
         note: _desktopPushNote,
         deviceIcon: Icons.computer,
         directionIcon: Icons.north_east_rounded),
@@ -272,7 +272,7 @@ const Map<String, List<_WorkflowStep>> _flowASteps = {
   'phone': [
     _WorkflowStep('Phone PUSH',
         deviceIcon: Icons.smartphone, directionIcon: Icons.north_east_rounded),
-    _WorkflowStep('Desktop PULL',
+    _WorkflowStep('Desktop sync',
         note: _desktopPullNote,
         deviceIcon: Icons.computer,
         directionIcon: Icons.south_west_rounded),
