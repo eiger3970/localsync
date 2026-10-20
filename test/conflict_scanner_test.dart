@@ -775,4 +775,50 @@ void main() {
       expect(cleaned, '0958 vape shop entry.\n\n1030 police visit today.\n');
     });
   });
+  group('applyKeepBoth - Kanban (real 2026-10-20 Appointments incident)', () {
+    Future<(String, ConflictEntry)> board(String card, String other) async {
+      final dir = await Directory.systemTemp.createTemp('localsync_test_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/Board daily stuff.md');
+      await file.writeAsString(
+        '---\n'
+        'kanban-plugin: board\n'
+        '---\n'
+        '\n'
+        '## Appointments\n'
+        '\n'
+        '$card\n'
+        '%% CONFLICT-OTHER (desktop obsidian): $other %%\n'
+        '- [ ] Berne_34_H 2026-10-21 2100 (@2026-10-20 2100)\n'
+        '\n'
+        '## Done\n',
+      );
+      final entries = await scanForConflicts(dir.path);
+      expect(entries, hasLength(1));
+      return (await file.readAsString(), entries.single);
+    }
+
+    test('keeps the next card on its own line (regression: cards were glued together)',
+        () async {
+      final (content, entry) = await board(
+          '- [ ] LAVI update 2026-10-21 0915 (@2026-10-20 0915)',
+          '- [ ] AK Bern mail 2026-10-23 1000 (@2026-10-23)');
+      final updated = applyKeepBoth(content, entry).content;
+      expect(updated, contains('LAVI update 2026-10-21 0915 (@2026-10-20 0915)\n- [ ] AK Bern'));
+      expect(updated, contains('(@2026-10-23)\n- [ ] Berne_34_H'));
+      expect(updated, isNot(contains(')- [')));
+    });
+
+    test('the same card edited on two devices is kept once, with the newest stamp',
+        () async {
+      final (content, entry) = await board(
+          '- [ ] LAVI update 2026-10-21 0915 (@2026-10-20 0915)',
+          '- [ ] - [ ] LAVI update 2026-10-21 0915 (@2026-10-21)');
+      final updated = applyKeepBoth(content, entry).content;
+      expect(RegExp('LAVI update').allMatches(updated), hasLength(1));
+      expect(updated, contains('(@2026-10-21)'));
+      expect(updated, contains('(@2026-10-21)\n- [ ] Berne_34_H'));
+    });
+  });
+
 }

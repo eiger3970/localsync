@@ -803,6 +803,33 @@ class KeepBothResult {
 // reintroducing the 2026-09-16 "text with clock is out of order" report
 // for free-tier users who don't buy Clean Up. User's own tradeoff to
 // make, confirmed when asked.
+/// The same Kanban card as seen by two devices: leading checkbox markers (including a doubled "- [ ] - [ ]") and the
+/// trailing "(@date)" edit stamp are ignored when comparing. When two bodies are the same card, the one with the newest
+/// stamp wins (the first one if neither has a stamp). Different wording is never merged, so no text is ever lost.
+List<String> dedupeKanbanCards(List<String> cards) {
+  String key(String c) => c
+      .replaceFirst(RegExp(r'^(?:- \[[ xX]\] )+'), '')
+      .replaceFirst(RegExp(r'\s*\(@[^)]*\)\s*$'), '')
+      .trim();
+  String stamp(String c) {
+    final m = RegExp(r'\(@([^)]*)\)\s*$').firstMatch(c);
+    return m == null ? '' : m.group(1)!.replaceAll(RegExp(r'[^0-9]'), '');
+  }
+
+  final order = <String>[];
+  final best = <String, String>{};
+  for (final c in cards) {
+    final k = key(c);
+    if (!best.containsKey(k)) {
+      order.add(k);
+      best[k] = c;
+    } else if (stamp(c).compareTo(stamp(best[k]!)) > 0) {
+      best[k] = c;
+    }
+  }
+  return [for (final k in order) best[k]!];
+}
+
 KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
     {bool cleanUp = false}) {
   // 2026-09-28: real Sep 28th journal - the desktop box held "1030 ...",
@@ -818,7 +845,17 @@ KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
       .where((b) => !outside.contains(normalizeWhitespace(b)))
       .toList();
   final bodies = cleanUp ? journalOrderedEntries(rawBodies) : rawBodies;
-  final merged = bodies.join('\n\n');
+  // 2026-10-20 owner: "You destroyed Obsidian Kanban, Appointments now has duplicates". Two real bugs, both Kanban:
+  // 1) the matched span usually ends with a newline (see applyResolution, fixed 2026-08-20) but this path dropped it,
+  //    gluing the next card onto the merged line: "...(@2026-10-19)- [x] LAVI..." and "%%- [ ] Berne_34_H...".
+  // 2) cards are one line each, so the blank line this join adds between versions is noise; and the same card edited on
+  //    two devices (only the trailing "(@date)" stamp or a doubled "- [ ] - [ ]" differs) was kept twice.
+  final merged = (entry.isKanban ? dedupeKanbanCards(bodies) : bodies)
+      .join(entry.isKanban ? '\n' : '\n\n');
+  final trailingNewline =
+      content.substring(entry.matchStart, entry.matchEnd).endsWith('\n')
+          ? '\n'
+          : '';
   // 2026-09-15: no wrapper marker written any more (see the comment
   // above _decodeKeptBothData) - the merged text goes into the note
   // exactly as a plain resolution would, and undo state for it lives
@@ -826,7 +863,7 @@ KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
   // 2026-09-14: real feedback, live - same fix as applyResolution
   // above, checking $merged's own leading time to place it correctly.
   final updated = repositionedReplace(
-      content, entry.matchStart, entry.matchEnd, merged,
+      content, entry.matchStart, entry.matchEnd, '$merged$trailingNewline',
       timeCheckText: merged);
   // 2026-09-28: CLEAN UP now covers the whole note (repeats and time
   // order outside the box too) - see cleanUpJournalNote.
