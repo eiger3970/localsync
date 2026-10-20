@@ -55,6 +55,14 @@ DateTime? _parseWhen(String? when) {
   }
 }
 
+// 2026-10-20 owner: "conflicts isn't showing most recent at top". The two devices write the time in different
+// shapes (phone "202610201959", desktop "Desktop sync 2026-10-20 20:02:37"), so a plain string compare put every
+// desktop entry behind every phone entry ('-' sorts before a digit). Keep only the digits, first 12 = YYYYMMDDhhmm.
+String _recency(String? when) {
+  final digits = (when ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+  return digits.length >= 12 ? digits.substring(0, 12) : digits.padRight(12, '0');
+}
+
 class ConflictsScreen extends StatefulWidget {
   final Repository repo;
   const ConflictsScreen({super.key, required this.repo});
@@ -138,7 +146,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       // plain string compare already sorts chronologically; entries with
       // no timestamp (shouldn't normally happen - every stacked entry
       // has at least one non-"yours" version) sort last, not first.
-      entries.sort((a, b) => (b.when ?? '').compareTo(a.when ?? ''));
+      entries.sort((a, b) => _recency(b.when).compareTo(_recency(a.when)));
       // 2026-09-14: unlike _pushReminderGlowing below (read inside this
       // same FutureBuilder's own subtree, so its rebuild already covers
       // it), the safety-steps row using this field lives in the OUTER
@@ -165,7 +173,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
       if (_pushReminderGlowing &&
           _newestWhenAtLastResolve != null &&
           newestWhen != null &&
-          newestWhen.compareTo(_newestWhenAtLastResolve!) > 0) {
+          _recency(newestWhen).compareTo(_recency(_newestWhenAtLastResolve)) > 0) {
         _pushReminderGlowing = false;
       }
       await _checkForReverts(entries);
