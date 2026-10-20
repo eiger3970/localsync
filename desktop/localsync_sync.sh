@@ -241,7 +241,7 @@ fi
 command -v python3 >/dev/null || die "python3 not found"
 if [[ -z "${LOCALSYNC_REPAIR_PY:-}" ]]; then
   mkdir -p "$(dirname "$REPAIR_PY")"
-  cat > "$REPAIR_PY.tmp" <<'LOCALSYNC_PY'
+  cat > "$REPAIR_PY.tmp.$$" <<'LOCALSYNC_PY'
 import sys, os, re
 
 path = sys.argv[1]
@@ -453,7 +453,7 @@ reviewed = count[0] - deduped[0] - auto_appended[0]
 print(f"Repaired {count[0]} conflict(s) — {deduped[0]} identical (auto), {auto_appended[0]} appended (auto), {reviewed} flagged for review: {path}")
 sys.exit(2)
 LOCALSYNC_PY
-  mv -f "$REPAIR_PY.tmp" "$REPAIR_PY"
+  mv -f "$REPAIR_PY.tmp.$$" "$REPAIR_PY"
 fi
 [[ -f "$REPAIR_PY" ]] || die "repair_conflicts.py missing: $REPAIR_PY"
 
