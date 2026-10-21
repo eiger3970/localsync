@@ -85,9 +85,30 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
 // entry (the old rule was a bare four digits followed by a word boundary, and "0650ish" has none), so cleanup treated it
 // as untimed and left it at the END of the page instead of between 0330 and 0710. One rule for every place that reads a
 // leading time: a real clock time (00-23 hours, 00-59 minutes, so a year like 1980 is not one), optionally written
-// approximately - 0650ish, 0650?, ~0650, 0650h, 0650am. Group 1 is always the four digits.
+// approximately or with am / pm - 0650ish, 0650?, ~0650, 0650h, 0650am, 0650 a.m., 0650 P.M. Group 1 is always the four digits.
 final _journalTimePattern = RegExp(
-    r'^[~≈]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|am\b|pm\b|hrs?\b|h\b|[?~]|\b)');
+    r'^[~≈]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|[ap]\.?m\b\.?|hrs?\b|h\b|[?~]|\b)',
+    caseSensitive: false);
+
+/// The time of day of an entry that starts with a journal time, as HHMM for sorting. Written in 12-hour style it is
+/// converted: "0650 pm" is 1850, "1205 am" is 0005, "1205 pm" stays 1205. Everything else is read as 24-hour, the
+/// owner's usual convention ("0650", "0650ish").
+int _journalTimeOf(String text) {
+  final m = _journalTimePattern.firstMatch(text)!;
+  var hhmm = int.parse(m.group(1)!);
+  final ap = RegExp(r'^[~≈]?\s?\d{4}\s?([ap])\.?m\b', caseSensitive: false).firstMatch(text);
+  if (ap != null) {
+    var h = hhmm ~/ 100;
+    final pm = ap.group(1)!.toLowerCase() == 'p';
+    if (h == 12) {
+      h = pm ? 12 : 0;
+    } else if (pm && h < 12) {
+      h += 12;
+    }
+    hhmm = h * 100 + hhmm % 100;
+  }
+  return hhmm;
+}
 
 /// True when [text] starts with a journal clock time (see [_journalTimePattern]).
 bool startsWithJournalTime(String text) => _journalTimePattern.hasMatch(text);
@@ -112,8 +133,8 @@ List<String> journalOrderedBodies(List<String> bodies) {
     return bodies;
   }
   final sorted = [...bodies];
-  sorted.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
-      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
+  sorted.sort((a, b) => _journalTimeOf(a)
+      .compareTo(_journalTimeOf(b)));
   return sorted;
 }
 
@@ -142,8 +163,8 @@ List<String> journalOrderedEntries(List<String> bodies) {
     return journalOrderedBodies(bodies);
   }
   final sorted = [...allParagraphs];
-  sorted.sort((a, b) => int.parse(_journalTimePattern.firstMatch(a)!.group(1)!)
-      .compareTo(int.parse(_journalTimePattern.firstMatch(b)!.group(1)!)));
+  sorted.sort((a, b) => _journalTimeOf(a)
+      .compareTo(_journalTimeOf(b)));
   return sorted;
 }
 
@@ -168,10 +189,10 @@ List<String> journalOrderedEntries(List<String> bodies) {
 int insertionIndexByTime(List<String> contextParagraphs, String candidate) {
   final m = _journalTimePattern.firstMatch(candidate);
   if (m == null) return contextParagraphs.length;
-  final candidateTime = int.parse(m.group(1)!);
+  final candidateTime = _journalTimeOf(candidate);
   for (var i = 0; i < contextParagraphs.length; i++) {
     final cm = _journalTimePattern.firstMatch(contextParagraphs[i]);
-    if (cm != null && int.parse(cm.group(1)!) > candidateTime) {
+    if (cm != null && _journalTimeOf(contextParagraphs[i]) > candidateTime) {
       return i;
     }
   }
@@ -643,10 +664,9 @@ String repairConflictMarkers(String content,
     // leaves the whole list in its original arrival order untouched -
     // this never guesses.
     if (versions.every((v) => _journalTimePattern.hasMatch(v.body))) {
-      versions.sort((a, b) => int.parse(
-              _journalTimePattern.firstMatch(a.body)!.group(1)!)
+      versions.sort((a, b) => _journalTimeOf(a.body)
           .compareTo(
-              int.parse(_journalTimePattern.firstMatch(b.body)!.group(1)!)));
+              _journalTimeOf(b.body)));
     }
     final blocks = <String>[];
     for (var i = 0; i < versions.length; i++) {
@@ -822,7 +842,7 @@ String cleanUpJournalNote(String content) {
   }
   if (canSort && entries.length >= 2) {
     int timeOf(List<String> e) =>
-        int.parse(_journalTimePattern.firstMatch(e.first)!.group(1)!);
+        _journalTimeOf(e.first);
     final indexed = entries.indexed.toList()
       ..sort((a, b) {
         final c = timeOf(a.$2).compareTo(timeOf(b.$2));

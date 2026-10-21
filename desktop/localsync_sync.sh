@@ -272,7 +272,22 @@ def normalize(text):
 
 # 2026-10-21: same rule as conflict_repair.dart's _journalTimePattern - a real clock time, optionally approximate
 # (0650ish, 0650?, ~0650, 0650h, 0650am); "0650ish ..." used to count as untimed and ended up at the end of the page.
-JOURNAL_TIME_RE = re.compile(r'^[~\u2248]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|am\b|pm\b|hrs?\b|h\b|[?~]|\b)')
+JOURNAL_TIME_RE = re.compile(r'^[~\u2248]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|[ap]\.?m\b\.?|hrs?\b|h\b|[?~]|\b)', re.I)
+_AMPM_RE = re.compile(r'^[~\u2248]?\s?\d{4}\s?([ap])\.?m\b', re.I)
+
+def journal_time_of(text):
+    # HHMM for sorting; 12-hour style is converted ("0650 pm" -> 1850, "1205 am" -> 0005), like conflict_repair.dart
+    hhmm = int(JOURNAL_TIME_RE.match(text).group(1))
+    ap = _AMPM_RE.match(text)
+    if ap:
+        h = hhmm // 100
+        pm = ap.group(1).lower() == 'p'
+        if h == 12:
+            h = 12 if pm else 0
+        elif pm and h < 12:
+            h += 12
+        hhmm = h * 100 + hhmm % 100
+    return hhmm
 # Mirrors conflict_repair.dart's calloutHeaderPattern (either dash).
 CALLOUT_HEADER_RE = re.compile(
     r'^\[!(?:info|warning)\][+-] SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)[^\n]*$',
@@ -299,7 +314,7 @@ def chronologically_ordered_if_journal(ours, theirs_remaining):
     paras = _split_paragraphs(ours) + _split_paragraphs(theirs_remaining)
     if not paras or not all(JOURNAL_TIME_RE.match(p) for p in paras):
         return None
-    paras.sort(key=lambda p: int(JOURNAL_TIME_RE.match(p).group(1)))
+    paras.sort(key=journal_time_of)
     return "\n\n".join(paras)
 
 def dedupe_and_check_append(ours, theirs):
@@ -425,7 +440,7 @@ def merge_both(m):
         # sides genuinely have a leading time to compare.
         ours_m = JOURNAL_TIME_RE.match(ours)
         theirs_m = JOURNAL_TIME_RE.match(theirs)
-        if ours_m and theirs_m and int(theirs_m.group(1)) < int(ours_m.group(1)):
+        if ours_m and theirs_m and journal_time_of(theirs) < journal_time_of(ours):
             return f'{theirs_block}\n{ours}\n\n'
         return (
             f'{ours}\n\n'

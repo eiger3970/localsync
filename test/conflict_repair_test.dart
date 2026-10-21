@@ -539,7 +539,7 @@ void main() {
   // shape (timed entries, one untimed note after the last one, an approximate time at the end) is the real note's.
   group('approximate journal times (0650ish) - real 2026-10-21 case', () {
     test('startsWithJournalTime accepts approximate times and real clock times only', () {
-      for (final t in ['0650 x', '0650ish x', '0650ish. x', '0650? x', '~0650 x', '0650h x', '0650am x', '0650ish']) {
+      for (final t in ['0650 x', '0650ish x', '0650ish. x', '0650? x', '~0650 x', '0650h x', '0650am x', '0650ish', '0650 am x', '0650 AM x', '0650 a.m. x', '0650a.m. x', '0650 A.M. x', '0650 pm x', '0650 p.m. x', '0650ISH x']) {
         expect(startsWithJournalTime(t), isTrue, reason: t);
       }
       for (final t in ['1980 was a year', '2475 x', '0675 x', '650 x', 'about 0650', '0650abc x', '']) {
@@ -568,6 +568,17 @@ void main() {
     test('insertionIndexByTime and journalOrderedEntries place 0650ish by the clock', () {
       expect(insertionIndexByTime(['0330 a', '0710 b', '0720 c'], '0650ish z'), 1);
       expect(journalOrderedEntries(['0710 b\n\n0720 c', '0650ish z']), ['0650ish z', '0710 b', '0720 c']);
+    });
+
+    test('am and pm (also a.m. / p.m., any case) are read as 12-hour time when sorting', () {
+      // "0650 pm" is 18:50, "1205 am" is 00:05, "1205 pm" is 12:05; plain and "am" times are read as written
+      expect(journalOrderedEntries(['0710 a', '0650 pm b']), ['0710 a', '0650 pm b']);
+      expect(journalOrderedEntries(['0650 P.M. b', '0710 a']), ['0710 a', '0650 P.M. b']);
+      expect(journalOrderedEntries(['0030 a', '1205 am b']), ['1205 am b', '0030 a']);
+      expect(journalOrderedEntries(['1300 a', '1205 pm b']), ['1205 pm b', '1300 a']);
+      expect(journalOrderedEntries(['0710 a', '0650 a.m. b']), ['0650 a.m. b', '0710 a']);
+      expect(journalOrderedEntries(['0710 a', '0650AM b']), ['0650AM b', '0710 a']);
+      expect(insertionIndexByTime(['0330 a', '0710 b'], '0650 am z'), 1);
     });
   });
 }
