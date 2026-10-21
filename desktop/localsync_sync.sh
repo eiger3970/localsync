@@ -458,6 +458,7 @@ fi
 [[ -f "$REPAIR_PY" ]] || die "repair_conflicts.py missing: $REPAIR_PY"
 
 cd "$VAULT" || die "Cannot cd to $VAULT"
+SYNC_STARTED=$SECONDS
 log "=== localsync_sync start ==="
 
 # ── Stale git locks ───────────────────────────────────────────────────────────
@@ -618,12 +619,40 @@ repair_conflicts() {
   finish_merge_if_ready
 }
 
+# 2026-10-21: owner - "I need the app to diagnose and fix it." When a merge
+# stays stuck after every automatic repair, say exactly which files and why
+# (the sentence reaches the phone through write_status), and leave nothing
+# half-done: unresolved files are copied to Conflict Backups first, so
+# whatever the user does next cannot lose them.
+diagnose_stuck_merge() {
+  local backup_dir="$VAULT/$HIDDEN_BACKUPS/Conflict Backups" code f n=0 list=""
+  mkdir -p "$backup_dir"
+  while IFS= read -r line; do
+    code="${line:0:2}"; f="${line:3}"; f="${f//\"/}"
+    case "$code" in UU|AA|DD|AU|UA|DU|UD) ;; *) continue ;; esac
+    [[ -f "$f" ]] && cp -p -- "$f" "$backup_dir/$(basename "${f%.*}") - stuck $(date '+%Y%m%d%H%M').${f##*.}"
+    case "$code" in
+      UU|AA) list+="$f (edited on both devices), " ;;
+      DU|UD) list+="$f (deleted on one device, edited on the other), " ;;
+      *)     list+="$f (added or deleted on both), " ;;
+    esac
+    n=$((n+1))
+  done < <(git status --porcelain)
+  if (( n > 0 )); then
+    FAIL_REASON="Merge stuck on $n file(s): ${list%, }. Copies are in $HIDDEN_BACKUPS/Conflict Backups. Open each in Obsidian, keep the text you want, then LocalSync -> : -> Desktop sync"
+  else
+    FAIL_REASON="Merge stuck with no conflicting file listed - a half-finished merge from an earlier run. Run: git status"
+  fi
+  log "  ⚠ Diagnosis: $FAIL_REASON"
+}
+
 # ── Recover from a previous crashed mid-merge ─────────────────────────────────
 if [[ -f ".git/MERGE_HEAD" ]]; then
   log "⚠ Stuck MERGE_HEAD from previous run — resuming..."
   repair_conflicts
   if [[ -f ".git/MERGE_HEAD" ]]; then
-    die "Repair incomplete after resuming a stuck merge — real conflicts remain. Run: git status"
+    diagnose_stuck_merge
+    die "$FAIL_REASON"
   fi
 fi
 
@@ -788,11 +817,21 @@ else
     log "  Merge conflict — repairing (both sides kept)..."
     repair_conflicts
     if [[ -f ".git/MERGE_HEAD" ]]; then
-      die "Repair incomplete — MERGE_HEAD still present. Run: git merge --abort"
+      diagnose_stuck_merge
+      die "$FAIL_REASON"
     fi
   fi
   push_with_retry
   log "✓ Merged and pushed"
 fi
 
+# 2026-10-21: owner - slow syncs should diagnose themselves. A healthy run
+# takes about a second; over SLOW_AFTER seconds the log says where the time
+# probably went (file count, biggest top-level folders) so the cause is in
+# the log without anyone running du by hand.
+SLOW_AFTER=60
+if (( SECONDS - SYNC_STARTED > SLOW_AFTER )); then
+  log "  ⚠ Slow sync: $((SECONDS - SYNC_STARTED))s, $(git ls-files | wc -l) tracked files"
+  log "  ⚠ Biggest folders: $(du -s --exclude=.git ./*/ 2>/dev/null | sort -rn | head -3 | awk '{printf "%s (%d MB) ", $2, $1/1024}')"
+fi
 log "=== localsync_sync complete ==="
