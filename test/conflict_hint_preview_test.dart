@@ -70,7 +70,7 @@ void main() {
     tester.takeException();
 
     expect(
-        find.textContaining('these look like two separate entries'),
+        find.textContaining('so these are two separate entries'),
         findsOneWidget);
 
     await expectLater(
@@ -122,10 +122,10 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.textContaining('these look like two separate entries'),
+    expect(find.textContaining('so these are two separate entries'),
         findsNothing);
     expect(
-        find.textContaining('already contains all of the other'),
+        find.textContaining('it already has everything the other one has'),
         findsOneWidget);
 
     await expectLater(
@@ -172,9 +172,9 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.textContaining('these look like two separate entries'),
+    expect(find.textContaining('so these are two separate entries'),
         findsNothing);
-    expect(find.textContaining('already contains all of the other'),
+    expect(find.textContaining('it already has everything the other one has'),
         findsNothing);
     expect(
         find.textContaining('much shorter than the other'), findsOneWidget);
@@ -251,14 +251,12 @@ void main() {
     // instead of always pointing at "Merge text instead".
     expect(
         find.textContaining(
-            '"This device" (left) repeats the same paragraph twice - '
-            '"desktop obsidian - 202609081200" doesn\'t have that '
-            'problem. The two sides share nothing in common, so '
-            'neither "Keep both" nor "Merge" can drop just the '
-            'duplicate - picking a whole side, or Keep Both plus a '
-            'manual cleanup after, are the real options.'),
+            '"This device" (left) repeats the same paragraph twice, '
+            '"desktop obsidian" doesn\'t have that '
+            'problem, and the two sides share nothing else in '
+            'common.'),
         findsOneWidget);
-    expect(find.textContaining('"Merge text instead" below can'),
+    expect(find.textContaining('"Merge text" below can'),
         findsNothing);
 
     await expectLater(
@@ -314,7 +312,7 @@ void main() {
     tester.takeException();
 
     expect(
-        find.textContaining('"Merge text instead" below can keep one '
+        find.textContaining('"Merge text" below can keep one '
             'copy plus everything from the other side.'),
         findsOneWidget);
     expect(find.textContaining('share nothing in common'), findsNothing);
@@ -362,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
     tester.takeException();
 
-    expect(find.textContaining('worth cleaning up after you resolve this'),
+    expect(find.textContaining('Worth cleaning up after you resolve this'),
         findsOneWidget);
     expect(find.textContaining('instead'), findsNothing);
   });

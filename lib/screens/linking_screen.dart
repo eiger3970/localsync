@@ -2505,7 +2505,11 @@ class StepChecklistState extends State<StepChecklist> {
                 },
               )
             else
-              CheckboxListTile(
+              // 2026-10-21: the enclosing DecoratedBox paints a background, which hid
+              // this tile's tap splash (Flutter's own ListTile assertion). Own Material.
+              Material(
+                type: MaterialType.transparency,
+                child: CheckboxListTile(
                 value: _checked[i],
                 onChanged: (checked) {
                   // 2026-09-01: real feedback - these manual steps are
@@ -2534,6 +2538,7 @@ class StepChecklistState extends State<StepChecklist> {
                     decorationColor: kTextMid,
                   ),
                 ),
+              ),
               ),
           ],
         ],
