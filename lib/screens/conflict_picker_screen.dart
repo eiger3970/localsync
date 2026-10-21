@@ -21,6 +21,7 @@ import '../services/purchase_service.dart';
 import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
+        startsWithJournalTime,
         cleanUpJournalNote,
         cleanUpWouldChange,
         findDuplicateParagraph,
@@ -918,7 +919,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
   Future<void> _showDemoResult(String merged, bool cleanUp) async {
     final lines = merged.split('\n')
         .map((l) => l.replaceFirst(RegExp(r'^>\s?'), '').trim())
-        .where((l) => RegExp(r'^\d{4}\s').hasMatch(l))
+        .where(startsWithJournalTime)
         .toList();
     await showDialog<void>(
       context: context,

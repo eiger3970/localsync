@@ -533,4 +533,41 @@ void main() {
       expect(cleanUpWouldChange(note), isFalse);
     });
   });
+
+  // 2026-10-21: real bug, live - "0650ish staff bonjour wake up call." ended up at the END of the note after Keep Both &
+  // Clean Up instead of between 0330 and 0710: "0650ish" was not recognised as a timed entry. Text below is made up; the
+  // shape (timed entries, one untimed note after the last one, an approximate time at the end) is the real note's.
+  group('approximate journal times (0650ish) - real 2026-10-21 case', () {
+    test('startsWithJournalTime accepts approximate times and real clock times only', () {
+      for (final t in ['0650 x', '0650ish x', '0650ish. x', '0650? x', '~0650 x', '0650h x', '0650am x', '0650ish']) {
+        expect(startsWithJournalTime(t), isTrue, reason: t);
+      }
+      for (final t in ['1980 was a year', '2475 x', '0675 x', '650 x', 'about 0650', '0650abc x', '']) {
+        expect(startsWithJournalTime(t), isFalse, reason: t);
+      }
+    });
+
+    test('cleanUpJournalNote puts 0650ish between 0330 and 0710', () {
+      const note = '0330 woke up\nsecond line of the same entry\n\n'
+          '0710 first\n\n0720 second\n\n0915 third\n\n'
+          '1309 last timed entry\n\nAn untimed note after the last entry.\n\n'
+          '0650ish staff wake up call.\n';
+      final out = cleanUpJournalNote(note);
+      final order = RegExp(r'^(?:\d{4}\w*|An untimed)', multiLine: true)
+          .allMatches(out)
+          .map((m) => m.group(0)!)
+          .toList();
+      expect(order, ['0330', '0650ish', '0710', '0720', '0915', '1309', 'An untimed']);
+      // the untimed note stays attached to the entry it followed
+      expect(out.indexOf('An untimed'), greaterThan(out.indexOf('1309 last')));
+      // nothing lost
+      expect(out, contains('second line of the same entry'));
+      expect(out, contains('0650ish staff wake up call.'));
+    });
+
+    test('insertionIndexByTime and journalOrderedEntries place 0650ish by the clock', () {
+      expect(insertionIndexByTime(['0330 a', '0710 b', '0720 c'], '0650ish z'), 1);
+      expect(journalOrderedEntries(['0710 b\n\n0720 c', '0650ish z']), ['0650ish z', '0710 b', '0720 c']);
+    });
+  });
 }

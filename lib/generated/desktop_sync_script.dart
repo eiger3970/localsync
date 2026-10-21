@@ -274,7 +274,9 @@ auto_appended = [0]
 def normalize(text):
     return re.sub(r'\s+', ' ', text).strip()
 
-JOURNAL_TIME_RE = re.compile(r'^(\d{4})\b')
+# 2026-10-21: same rule as conflict_repair.dart's _journalTimePattern - a real clock time, optionally approximate
+# (0650ish, 0650?, ~0650, 0650h, 0650am); "0650ish ..." used to count as untimed and ended up at the end of the page.
+JOURNAL_TIME_RE = re.compile(r'^[~\u2248]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|am\b|pm\b|hrs?\b|h\b|[?~]|\b)')
 # Mirrors conflict_repair.dart's calloutHeaderPattern (either dash).
 CALLOUT_HEADER_RE = re.compile(
     r'^\[!(?:info|warning)\][+-] SYNC CONFLICT [-—] (.+?) \(review and delete one[^)]*\)[^\n]*$',

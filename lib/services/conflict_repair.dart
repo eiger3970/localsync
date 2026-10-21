@@ -81,7 +81,16 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
   return null;
 }
 
-final _journalTimePattern = RegExp(r'^(\d{4})\b');
+// 2026-10-21: real bug, live - an entry written "0650ish staff bonjour wake up call." was not recognised as a timed
+// entry (the old rule was a bare four digits followed by a word boundary, and "0650ish" has none), so cleanup treated it
+// as untimed and left it at the END of the page instead of between 0330 and 0710. One rule for every place that reads a
+// leading time: a real clock time (00-23 hours, 00-59 minutes, so a year like 1980 is not one), optionally written
+// approximately - 0650ish, 0650?, ~0650, 0650h, 0650am. Group 1 is always the four digits.
+final _journalTimePattern = RegExp(
+    r'^[~≈]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|am\b|pm\b|hrs?\b|h\b|[?~]|\b)');
+
+/// True when [text] starts with a journal clock time (see [_journalTimePattern]).
+bool startsWithJournalTime(String text) => _journalTimePattern.hasMatch(text);
 
 List<String> _splitParagraphs(String text) => text
     .split(RegExp(r'\n\s*\n'))
