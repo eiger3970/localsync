@@ -6,6 +6,9 @@
 // debugDetail (both raw paths + the human name, per the same-day fix
 // that made this always populate instead of only when a name file
 // happened to be reachable).
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/theme.dart';

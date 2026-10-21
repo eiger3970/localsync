@@ -1,6 +1,9 @@
 // Local visual verification only - frames of the welcome -> app glass
 // transition (shatter_page_route.dart) at a few points in time. Run with:
 //   flutter test test/shatter_transition_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/widgets/shatter_page_route.dart';

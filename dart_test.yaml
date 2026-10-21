@@ -1,0 +1,7 @@
+# Screenshot tests (test/*_preview_test.dart) save or compare pictures of
+# screens in test/goldens (gitignored), so they fail on any fresh checkout.
+# Skipped in a normal run. To run them on purpose:
+#   flutter test --tags preview --run-skipped --update-goldens
+tags:
+  preview:
+    skip: "screenshot test - run with --tags preview --run-skipped --update-goldens"

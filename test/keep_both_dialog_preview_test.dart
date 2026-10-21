@@ -3,6 +3,9 @@
 // in the exact same order (they drifted apart across earlier edits -
 // this is what catches that class of bug before a build). Run with:
 //   flutter test test/keep_both_dialog_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

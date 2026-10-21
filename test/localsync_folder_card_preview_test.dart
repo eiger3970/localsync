@@ -2,6 +2,9 @@
 // one linked vault, scrolled to the LOCALSYNC FOLDER card, with a new
 // folder typed in but not saved yet. Run with:
 //   flutter test test/localsync_folder_card_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';

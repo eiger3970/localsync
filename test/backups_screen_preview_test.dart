@@ -1,6 +1,9 @@
 // Local visual verification only - Backups screen with plain-words rows and
 // Delete all (backups_screen.dart). Run with:
 //   flutter test test/backups_screen_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/models/repository.dart';

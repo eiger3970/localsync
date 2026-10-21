@@ -1,6 +1,9 @@
 // Local visual verification only - checks the syncing-state app bar
 // (vault name + "downloading notes" label) without a full device build.
 // Run with: flutter test test/appbar_syncing_preview_test.dart
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

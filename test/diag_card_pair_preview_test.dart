@@ -2,6 +2,9 @@
 // to Stage 2's inline password-failure display - lighter than fully
 // simulating the 3-stage pairing dance to reach _pairingFailure, but
 // still a real render of the exact same DiagCard props/stacking.
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/theme.dart';

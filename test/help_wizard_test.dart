@@ -97,7 +97,7 @@ void main() {
     expect(widthsAfter.where((w) => w > 0).length, 1);
   });
 
-  testWidgets('Flow A: PHONE EDITED -> Phone PUSH, Desktop PULL (with note), Done',
+  testWidgets('Flow A: PHONE EDITED -> Phone PUSH, Desktop sync (with note), Done',
       (tester) async {
     await tester.pumpWidget(_harness('A'));
     await tester.tap(find.text('open'));
@@ -108,10 +108,11 @@ void main() {
 
     expect(find.text('WORKFLOW'), findsOneWidget);
     expect(find.text('Phone PUSH'), findsOneWidget);
-    expect(find.text('Desktop PULL'), findsOneWidget);
+    expect(find.text('Desktop sync'), findsOneWidget);
     expect(
-        find.text('Your OTHER device (computer/desktop/laptop) must '
-            'receive the data - not this LocalSync app.'),
+        find.text('Desktop receives changes by itself every few '
+            'minutes.\nTo receive now: LocalSync main screen -> ⋮ -> '
+            'Desktop sync (sends and receives in one go).'),
         findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     // No back link any more.
@@ -122,7 +123,7 @@ void main() {
   });
 
   testWidgets(
-      'Flow A: DESKTOP EDITED -> Desktop PUSH (with note), Phone PULL, Done - no push needed',
+      'Flow A: DESKTOP EDITED -> Desktop sync (with note), Phone PULL, Done - no push needed',
       (tester) async {
     await tester.pumpWidget(_harness('A'));
     await tester.tap(find.text('open'));
@@ -131,10 +132,11 @@ void main() {
     await tester.tap(find.text('DESKTOP\nEDITED'));
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
-    expect(find.text('Desktop PUSH'), findsOneWidget);
+    expect(find.text('Desktop sync'), findsOneWidget);
     expect(
-        find.text('Your OTHER device (computer/desktop/laptop) must send '
-            'its data first - phone LocalSync app is after this step.'),
+        find.text('Desktop sends its changes by itself every few '
+            'minutes.\nTo send now: LocalSync main screen -> ⋮ -> '
+            'Desktop sync (sends and receives in one go).'),
         findsOneWidget);
     expect(find.text('Phone PULL'), findsOneWidget);
     expect(find.text('Phone PUSH'), findsNothing);
@@ -145,7 +147,7 @@ void main() {
   });
 
   testWidgets(
-      'Flow A: BOTH EDITED -> Phone PUSH, Desktop PUSH, Phone PULL, Done - no "Flow B" footnote',
+      'Flow A: BOTH EDITED -> Phone PUSH, Desktop sync, Phone PULL, Done - no "Flow B" footnote',
       (tester) async {
     await tester.pumpWidget(_harness('A'));
     await tester.tap(find.text('open'));
@@ -155,7 +157,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
     expect(find.text('Phone PUSH'), findsOneWidget);
-    expect(find.text('Desktop PUSH'), findsOneWidget);
+    expect(find.text('Desktop sync'), findsOneWidget);
     expect(find.text('Phone PULL'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     // "Flow B" is internal design-doc shorthand, never a name a real

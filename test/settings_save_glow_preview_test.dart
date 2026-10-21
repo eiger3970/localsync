@@ -1,6 +1,9 @@
 // Local visual verification only - Save glows once the pairing fields
 // are filled (settings_screen.dart). Run with:
 //   flutter test test/settings_save_glow_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

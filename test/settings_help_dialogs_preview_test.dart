@@ -5,6 +5,9 @@
 // hiding off-screen, and each dialog places the command box exactly
 // where its own step text refers to it. Run with:
 //   flutter test test/settings_help_dialogs_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

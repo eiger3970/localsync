@@ -1,6 +1,9 @@
 // Local visual verification only - step ticks, "N of 4 ready" note and
 // Save greyed out until 1 and 2 are valid (settings_screen.dart). Run with:
 //   flutter test test/settings_ready_note_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -1,6 +1,9 @@
 // Local visual verification only - the "Desktop found" progress panel in
 // the yellow box after a complete QR scan (settings_screen.dart). Run with:
 //   flutter test test/scan_continue_panel_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/screens/settings_screen.dart';

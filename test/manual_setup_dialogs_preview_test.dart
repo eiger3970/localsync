@@ -3,6 +3,9 @@
 // side, so the "make step 2 match step 3's style" change can actually be
 // eyeballed before pushing, instead of just reading a diff. Run with:
 //   flutter test test/manual_setup_dialogs_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/theme.dart';

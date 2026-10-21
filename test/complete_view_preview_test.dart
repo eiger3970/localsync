@@ -1,6 +1,9 @@
 // Local visual verification only - the final "Your notes have arrived!"
 // screen (linking_screen.dart _CompleteView). Run with:
 //   flutter test test/complete_view_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

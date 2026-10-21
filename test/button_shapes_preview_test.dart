@@ -5,6 +5,9 @@
 // outlinedButtonTheme) without the placeholder-font noise a full-screen
 // capture carries. Run with:
 //   flutter test test/button_shapes_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/theme.dart';

@@ -3,6 +3,9 @@
 // _onKeyPairingSettled) to confirm the action button stays beside the
 // text instead of dropping to its own row. Run with:
 //   flutter test test/settings_snackbar_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

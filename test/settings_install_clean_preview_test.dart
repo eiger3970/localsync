@@ -1,6 +1,9 @@
 // Local visual preview only (2026-10-13): the install Settings page - owner:
 // "overdone ... repeated about 4 times". Real icon font loaded so icons show.
 //   flutter test test/settings_install_clean_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

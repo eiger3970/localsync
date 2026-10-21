@@ -3,6 +3,9 @@
 // PNG so the layout can actually be checked before pushing/sideloading,
 // instead of guessing pixel values blind. Run with:
 //   flutter test test/stage1_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

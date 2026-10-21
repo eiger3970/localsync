@@ -4,6 +4,9 @@
 // keep_both_dialog_preview_test.dart's fixture, which has no leading
 // time on one side and must NOT show this hint). Run with:
 //   flutter test test/conflict_hint_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

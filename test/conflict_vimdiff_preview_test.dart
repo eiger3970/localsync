@@ -2,6 +2,9 @@
 // conflict picker with realistic text so the vimdiff-style layout can
 // actually be checked before pushing/sideloading.
 //   flutter test test/conflict_vimdiff_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

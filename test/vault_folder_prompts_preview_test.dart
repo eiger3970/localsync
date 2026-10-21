@@ -2,6 +2,9 @@
 // prompts (linking_screen.dart): wrong-folder, backup-first, and the
 // after-setup reminder. Run with:
 //   flutter test test/vault_folder_prompts_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:localsync/features/linking/linking_controller.dart';

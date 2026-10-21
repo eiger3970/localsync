@@ -6,6 +6,9 @@
 // Material's bundled Roboto that test mode never loads - and DejaVu
 // Sans Mono under 'monospace', which the inline command text explicitly
 // requests. Local dev/preview only, not shipped.
+@Tags(['preview'])
+library;
+
 import 'dart:async';
 import 'dart:io';
 

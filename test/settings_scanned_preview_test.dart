@@ -2,6 +2,9 @@
 // yellow box says Desktop found, fields 1-4 carry FROM QR tags
 // (settings_screen.dart). Run with:
 //   flutter test test/settings_scanned_preview_test.dart --update-goldens
+@Tags(['preview'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
