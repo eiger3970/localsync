@@ -359,18 +359,18 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 2026-10-13: user - "works forever - probably not true?" Right: conflict backups
-            // are deleted after 30 days (vault_backup.dart pruneOldConflictBackups). A-Z.
+            // are replaced by the next conflict run (vault_backup.dart keepOnlyLatestConflictRun). A-Z.
             _DialogPoint(
               icon: Icons.restore,
               color: kGreen,
-              text: 'Time - any backup from the last 30 days, even after '
-                  'the conflict is resolved',
+              text: 'Time - the backups from the latest conflict '
+                  'resolution. A newer conflict replaces them',
             ),
             _DialogPoint(
               icon: Icons.history,
               color: kGreen,
-              text: 'View back further - every backup of this note, not '
-                  'just this one conflict',
+              text: 'View back further - every kept backup of this note, '
+                  'not just this one conflict',
             ),
             _DialogPoint(
               icon: Icons.difference_outlined,

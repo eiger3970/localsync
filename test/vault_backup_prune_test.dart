@@ -69,4 +69,34 @@ void main() {
       await emptyVault.delete(recursive: true);
     }
   });
+
+  test('keepOnlyLatestConflictRun keeps the newest run, removes older runs',
+      () async {
+    final now = DateTime.now();
+    await _write('A - yours - ${_ts(now.subtract(const Duration(days: 3)))}.md');
+    await _write('B - yours - ${_ts(now.subtract(const Duration(days: 1)))}.md');
+    await _write('C - yours - ${_ts(now)}.md');
+    await _write('D - theirs - ${_ts(now.subtract(const Duration(minutes: 1)))}.md');
+
+    final r = await keepOnlyLatestConflictRun(tmp.path);
+
+    final remaining = await Directory(
+            '${tmp.path}/$kFullBackupsFolder/Conflict Backups')
+        .list()
+        .map((e) => e.uri.pathSegments.last)
+        .toList();
+    expect(r.files, 2);
+    expect(remaining, hasLength(2));
+    expect(remaining.join(), allOf(contains('C -'), contains('D -')));
+  });
+
+  test('keepOnlyLatestConflictRun keeps an old run when nothing is newer',
+      () async {
+    final old = DateTime.now().subtract(const Duration(days: 90));
+    await _write('A - yours - ${_ts(old)}.md');
+
+    final r = await keepOnlyLatestConflictRun(tmp.path);
+
+    expect(r.files, 0);
+  });
 }

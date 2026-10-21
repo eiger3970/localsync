@@ -633,7 +633,7 @@ class SyncService {
       // effort, never affects the sync's own result" was the intent
       // from the start - this is what actually makes that true.
       try {
-        await pruneOldConflictBackups(resolvedPath);
+        await keepOnlyLatestConflictRun(resolvedPath);
       } catch (_) {
         // Never let a cleanup failure discard a real, already-succeeded
         // sync result.

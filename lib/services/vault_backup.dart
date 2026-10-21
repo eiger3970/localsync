@@ -237,6 +237,57 @@ Future<void> pruneOldConflictBackups(String vaultPath,
   }
 }
 
+/// 2026-10-21: real device - Backups showed 728 MB on a 330 MB vault.
+/// User: "just store the recent backups from the last conflict resolution.
+/// A new conflict run removes the previous conflict backups, and inform
+/// the user." A run = every backup written within [runWindow] of the newest
+/// one (one resolution pass writes several files, usually in the same
+/// minute). Older ones are deleted. With no newer run nothing is removed,
+/// so the last resolution's backups always stay. Both sides of every
+/// conflict also stay in the sync history. Same filename timestamp as
+/// pruneOldConflictBackups. Best-effort, never throws. Returns what was
+/// removed so the Backups screen can say so.
+Future<({int files, int bytes})> keepOnlyLatestConflictRun(String vaultPath,
+    {Duration runWindow = const Duration(minutes: 10)}) async {
+  var files = 0, bytes = 0;
+  try {
+    final dir = Directory(conflictBackupsDir(vaultPath));
+    if (!await dir.exists()) return (files: 0, bytes: 0);
+    final tsPattern = RegExp(r'(\d{12})(?:\.[^.]*)?$');
+    final stamped = <File, DateTime>{};
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final m = tsPattern.firstMatch(entity.uri.pathSegments.last);
+      if (m == null) continue;
+      final ts = m.group(1)!;
+      stamped[entity] = DateTime(
+        int.parse(ts.substring(0, 4)),
+        int.parse(ts.substring(4, 6)),
+        int.parse(ts.substring(6, 8)),
+        int.parse(ts.substring(8, 10)),
+        int.parse(ts.substring(10, 12)),
+      );
+    }
+    if (stamped.isEmpty) return (files: 0, bytes: 0);
+    final newest = stamped.values.reduce((a, b) => a.isAfter(b) ? a : b);
+    final cutoff = newest.subtract(runWindow);
+    for (final e in stamped.entries) {
+      if (!e.value.isBefore(cutoff)) continue;
+      try {
+        final size = await e.key.length();
+        await e.key.delete();
+        files++;
+        bytes += size;
+      } catch (_) {
+        // One file failing to delete shouldn't block the rest.
+      }
+    }
+  } catch (_) {
+    // Best-effort safety net - never worth surfacing an error for.
+  }
+  return (files: files, bytes: bytes);
+}
+
 Future<void> _copyDirectoryContents(
   Directory source,
   Directory dest, {

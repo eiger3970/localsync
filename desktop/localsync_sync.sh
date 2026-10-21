@@ -479,6 +479,24 @@ ensure_repo_name
 grep -qxF "/$HIDDEN_BACKUPS/" .git/info/exclude 2>/dev/null || { mkdir -p .git/info && echo "/$HIDDEN_BACKUPS/" >> .git/info/exclude; }
 
 # ── Repair markdown/Kanban conflict markers ───────────────────────────────────
+# 2026-10-21: real incident - Projects/LocalSync/LocalSync.md stayed
+# unmerged (git status "UU") with no complete markers left on disk, so the
+# repair above found nothing to do and every 5-minute run died on "real
+# conflicts remain" for hours. The working copy is already the resolved
+# text, git just needs it staged. Copy it to Conflict Backups first, then
+# stage it. Only mid-merge, only for a file git lists as unmerged.
+stage_unmerged_without_markers() {
+  local file="${1#./}"
+  [[ -f ".git/MERGE_HEAD" ]] || return 0
+  git diff --name-only --diff-filter=U | grep -qxF -- "$file" || return 0
+  local backup_dir="$VAULT/$HIDDEN_BACKUPS/Conflict Backups" base
+  base="$(basename "$file")"
+  mkdir -p "$backup_dir"
+  cp -p -- "$file" "$backup_dir/${base%.md} - unmerged $(date '+%Y%m%d%H%M').md"
+  git add -- "$file"
+  log "  ✓ No markers left, staged as is (copy in $HIDDEN_BACKUPS/Conflict Backups): $file"
+}
+
 repair_md_conflicts() {
   local repaired=0
   while IFS= read -r -d '' file; do
@@ -488,7 +506,8 @@ repair_md_conflicts() {
       log "  ✓ Repaired: $file"
       repaired=1
     elif [[ "$rc" = "0" ]]; then
-      log "  ⚠ grep matched $file but python found no complete markers — check manually"
+      log "  ⚠ grep matched $file but python found no complete markers"
+      stage_unmerged_without_markers "$file"
     else
       log "  ERROR: repair failed for $file (exit $rc) — markers left for manual fix"
     fi
@@ -592,6 +611,9 @@ finish_merge_if_ready() {
 
 repair_conflicts() {
   repair_md_conflicts
+  while IFS= read -r -d '' f; do
+    [[ "$f" == *.md ]] && ! grep -q "^<<<<<<< " -- "$f" && stage_unmerged_without_markers "$f"
+  done < <(git diff --name-only -z --diff-filter=U)
   repair_binary_conflicts
   finish_merge_if_ready
 }
