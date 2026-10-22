@@ -23,6 +23,17 @@ final fullConflictPattern = RegExp(
   dotAll: true,
 );
 final partialConflictPattern = RegExp(r'^<<<<<<< [^\n]*\n', multiLine: true);
+// 2026-10-22 real data loss (Kanban board, 21 Oct): the opening `<<<<<<<` line was stripped by the partial-marker
+// rule above, but the `=======` and `>>>>>>> <sha>` lines were left behind. Nothing ever looked for them again
+// (the scan only looked for `<<<<<<< `), Obsidian's Kanban plugin read them as card text, and the five cards after
+// them vanished when the board was next saved. A `>>>>>>> <ref>` line is never real content, and the `=======`
+// directly above it belongs to it. A lone `=======` is NOT removed: it is a valid markdown heading underline.
+final orphanMarkerPattern = RegExp(r'^(?:=======\n)?>>>>>>> [\w./-]+[ \t]*(?:\n|$)', multiLine: true);
+
+/// True when the text still holds git conflict marker lines, including orphans with no opening `<<<<<<<`.
+bool hasConflictMarkers(String content) =>
+    content.contains('<<<<<<< ') || orphanMarkerPattern.hasMatch(content);
+
 final kanbanFrontmatterPattern = RegExp(r'^kanban-plugin:', multiLine: true);
 
 String normalizeWhitespace(String text) =>
@@ -691,6 +702,7 @@ String repairConflictMarkers(String content,
   var fixed = content.replaceAllMapped(fullConflictPattern, mergeBoth);
   // Stray/incomplete markers left over from a previous failed repair.
   fixed = fixed.replaceAll(partialConflictPattern, '');
+  fixed = fixed.replaceAll(orphanMarkerPattern, '');
   return consolidateStackedRuns(fixed);
 }
 

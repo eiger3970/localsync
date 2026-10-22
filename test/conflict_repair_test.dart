@@ -581,4 +581,37 @@ void main() {
       expect(insertionIndexByTime(['0330 a', '0710 b'], '0650 am z'), 1);
     });
   });
+
+  // 2026-10-22 real data loss: a Kanban board kept `=======` and `>>>>>>> <sha>` lines with no opening
+  // `<<<<<<<`. Nothing repaired them, and the cards below them vanished when Obsidian next saved the board.
+  group('orphan conflict markers (no opening line)', () {
+    const board = '---\n\nkanban-plugin: board\n\n---\n\n## Appointments\n\n'
+        '- [x] LAVI update\n'
+        '=======\n'
+        '>>>>>>> 7c34f3db03021bfb399bba003205f6155f273aa6\n'
+        '- [x] Berne_34_H\n'
+        '- [ ] AK Bern mail\n'
+        '- [ ] ORP meeting 2026-11-03 0900\n\n\n## Bills\n\n- [ ] Rent\n';
+
+    test('are detected', () {
+      expect(hasConflictMarkers(board), isTrue);
+      expect(hasConflictMarkers('# Title\nText\n'), isFalse);
+    });
+
+    test('are removed and every card is kept', () {
+      final out = repairConflictMarkers(board, otherLabel: 'Desktop', otherTime: '');
+      expect(out.contains('======='), isFalse);
+      expect(out.contains('>>>>>>>'), isFalse);
+      for (final card in ['LAVI update', 'Berne_34_H', 'AK Bern mail', 'ORP meeting 2026-11-03 0900', 'Rent']) {
+        expect(out, contains(card));
+      }
+      expect('- ['.allMatches(out).length, '- ['.allMatches(board).length);
+    });
+
+    test('a lone ======= heading underline is NOT touched', () {
+      const note = 'Title\n=======\n\nBody text\n';
+      expect(hasConflictMarkers(note), isFalse);
+      expect(repairConflictMarkers(note, otherLabel: 'Desktop', otherTime: ''), contains('======='));
+    });
+  });
 }

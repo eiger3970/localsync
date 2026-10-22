@@ -262,6 +262,8 @@ full_pattern = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 partial_pattern = re.compile(r'^<<<<<<< [^\n]*\n', re.MULTILINE)
+# orphan markers: `>>>>>>> <ref>` with no opener, plus the `=======` directly above it (2026-10-22 Kanban data loss)
+orphan_pattern = re.compile(r'^(?:=======\n)?>>>>>>> [\w./-]+[ \t]*(?:\n|$)', re.MULTILINE)
 
 count = [0]
 deduped = [0]
@@ -455,6 +457,12 @@ if partial_count:
     count[0] += partial_count
     print(f"Stripped {partial_count} partial conflict marker(s): {path}")
 
+orphan_count = len(orphan_pattern.findall(fixed))
+if orphan_count:
+    fixed = orphan_pattern.sub('', fixed)
+    count[0] += orphan_count
+    print(f"Stripped {orphan_count} orphan conflict marker(s): {path}")
+
 if count[0] == 0:
     print(f"No conflict markers: {path}")
     sys.exit(0)
@@ -529,7 +537,7 @@ repair_md_conflicts() {
     else
       log "  ERROR: repair failed for $file (exit $rc) — markers left for manual fix"
     fi
-  done < <(grep -rlZ --include="*.md" --exclude-dir=.git --exclude-dir="$HIDDEN_BACKUPS" "^<<<<<<< " . 2>/dev/null || true)
+  done < <(grep -rlZ --include="*.md" --exclude-dir=.git --exclude-dir="$HIDDEN_BACKUPS" -E "^(<<<<<<< |>>>>>>> [A-Za-z0-9./_-]+[[:space:]]*$)" . 2>/dev/null || true)
 
   if [[ "$repaired" = "1" ]]; then
     git add -- '*.md'
@@ -718,6 +726,20 @@ hide_backups() {
 hide_backups
 
 # ── Commit local desktop changes ──────────────────────────────────────────────
+# 2026-10-22: card-loss guard. A Kanban board that lost 3 or more cards since the last sync is kept as it was in
+# Conflict Backups first, so nothing is ever only in git history (real loss 21 Oct: 5 appointment cards vanished).
+while IFS= read -r -d '' board; do
+  if git cat-file -e "HEAD:$board" 2>/dev/null && grep -q '^kanban-plugin:' "$board" 2>/dev/null; then
+    before=$(git show "HEAD:$board" 2>/dev/null | grep -c '^- \[' || true)
+    after=$(grep -c '^- \[' "$board" || true)
+    if (( before - after >= 3 )); then
+      mkdir -p "$VAULT/$HIDDEN_BACKUPS/Conflict Backups"
+      bk="$VAULT/$HIDDEN_BACKUPS/Conflict Backups/$(basename "${board%.md}") - before card loss - $(date '+%Y%m%d%H%M').md"
+      git show "HEAD:$board" > "$bk" 2>/dev/null || true
+      log "  WARNING: $board lost $((before - after)) cards ($before -> $after). Earlier copy kept: $bk"
+    fi
+  fi
+done < <(find "Board Kanban" -name "*.md" -print0 2>/dev/null || true)
 git add .
 git rm -r -q --cached --ignore-unmatch -- "$HIDDEN_BACKUPS" >/dev/null
 if git diff --cached --quiet; then

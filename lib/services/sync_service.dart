@@ -1889,7 +1889,7 @@ int repairAllConflictsOnDisk(String path,
     if (!entity.path.endsWith('.md')) continue;
     try {
       final content = entity.readAsStringSync();
-      if (!content.contains('<<<<<<< ')) continue;
+      if (!hasConflictMarkers(content)) continue;
       final repaired = repairConflictMarkers(content,
           otherLabel: otherLabel, otherTime: otherTime);
       entity.writeAsStringSync(repaired);
