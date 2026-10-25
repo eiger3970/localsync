@@ -462,10 +462,24 @@ def merge_both(m):
         # sides genuinely have a leading time to compare.
         ours_m = JOURNAL_TIME_RE.match(ours)
         theirs_m = JOURNAL_TIME_RE.match(theirs)
+        # 2026-10-25: real Oct 25th journal - this wrote "ours" as bare
+        # text plus ONE callout, but the phone's Conflicts scanner needs
+        # every side in its own callout (>= 2) and skipped the note as
+        # malformed, so the screen showed only the sample. Wrap "ours"
+        # the same way the phone's own repair does, unless it already
+        # carries callouts of its own (then the run is already >= 2).
+        if CALLOUT_HEADER_RE.search(re.sub(r'(?m)^(> ?)+', '', ours)):
+            ours_block = ours
+        else:
+            ours_block = (
+                '> [!info]- SYNC CONFLICT — yours (review and delete one) '
+                '- fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
+                + ''.join(f'> {line}\n' for line in ours.splitlines())
+            )
         if ours_m and theirs_m and journal_time_of(theirs) < journal_time_of(ours):
-            return f'{theirs_block}\n{ours}\n\n'
+            return f'{theirs_block}\n{ours_block}\n'
         return (
-            f'{ours}\n\n'
+            f'{ours_block}\n'
             f'{theirs_block}\n'
         )
 
