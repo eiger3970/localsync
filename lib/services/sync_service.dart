@@ -353,6 +353,10 @@ String? desktopStatusMessage(String raw) {
   final reason = parts.length > 2 ? parts.sublist(2).join(' ').trim() : '';
   final plain = reason.contains('index.lock')
       ? 'A git lock file was stuck. It clears by itself within 10 minutes.'
+      : reason.contains('SYNC PAUSED')
+          ? 'The notes folder on the desktop moved or changed, so nothing was '
+              'synced. Tap FIX PATHS and check Bare repo path and Desktop '
+              'vault path.'
       : reason.isEmpty
           ? 'No reason given - see ~/.localsync_sync.log on the desktop.'
           : reason;

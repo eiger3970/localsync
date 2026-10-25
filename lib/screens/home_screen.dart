@@ -1507,6 +1507,7 @@ Future<void> _runAndShow(
   if (repo?.id != null &&
       (result is SyncOk || result is SyncNoChanges || result is SyncOkWithConflicts)) {
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
     unawaited(context
         .read<RepositoryProvider>()
         .checkDesktopStatus(repo!.id!)
@@ -1521,6 +1522,18 @@ Future<void> _runAndShow(
               style: const TextStyle(color: Colors.redAccent, fontSize: 16)),
         ),
         duration: const Duration(seconds: 20),
+        // 2026-10-25: owner - after the desktop folders were renamed the
+        // pause message gave no way to correct the app's paths. A moved
+        // or missing folder now offers Settings (Bare repo path /
+        // Desktop vault path) right in the message.
+        action: _looksLikePathProblem(msg)
+            ? SnackBarAction(
+                label: 'FIX PATHS',
+                textColor: kStar,
+                onPressed: () => navigator.push(MaterialPageRoute(
+                    builder: (_) => const SettingsScreen())),
+              )
+            : null,
       ));
     }));
   }
@@ -1531,6 +1544,12 @@ Future<void> _runAndShow(
     await provider.refreshConflicts(repo.id!);
   }
 }
+
+bool _looksLikePathProblem(String msg) =>
+    msg.contains('FIX PATHS') ||
+    msg.contains('address changed') ||
+    msg.contains('No such file') ||
+    msg.contains('not a git repository');
 
 // 2026-08-17: relocated from the removed _MetaText - the persistent,
 // tappable full-error view is real functionality, not just tile

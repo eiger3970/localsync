@@ -229,12 +229,29 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
             body: _stripQuoteBlock(m.group(2)!),
           ));
         }
+        var start = block.start;
+        // 2026-10-25: real Oct 25th journal - the desktop script used to
+        // write "yours" as bare text right before ONE callout, which this
+        // scanner skipped as malformed (Conflicts showed only the
+        // sample). Legacy shape: the paragraph just above the box is
+        // "yours"; the match span grows to include it, so resolving
+        // replaces both and nothing is lost.
+        if (versions.length == 1) {
+          final before = content.substring(0, block.start);
+          final trimmed = before.replaceFirst(RegExp(r'\s+$'), '');
+          final cut = trimmed.lastIndexOf('\n\n');
+          final paraStart = cut == -1 ? 0 : cut + 2;
+          final para = trimmed.substring(paraStart);
+          if (para.trim().isEmpty || para.trimLeft().startsWith('>')) continue;
+          versions.insert(0, ConflictVersion(who: 'yours', body: para.trim()));
+          start = paraStart;
+        }
         if (versions.length < 2) continue; // malformed - nothing to act on
         entries.add(ConflictEntry(
           filePath: relPath,
           versions: versions,
           isKanban: false,
-          matchStart: block.start,
+          matchStart: start,
           matchEnd: block.end,
         ));
       }
