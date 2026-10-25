@@ -120,7 +120,23 @@ verify_repo_identity() {
   local expected
   expected=$(cat "$IDENTITY_FILE")
   if [[ "$current_url" != "$expected" ]]; then
-    die "REPO IDENTITY MISMATCH - origin's remote URL is now '$current_url', but this vault was set up against '$expected'. This means something repointed the remote to a DIFFERENT repository - the exact bug that caused a real multi-day data-loss incident on 2026-09-06. Refusing to sync until this is resolved by hand (check 'git remote -v' in $VAULT). If this change was genuinely intentional, delete $IDENTITY_FILE to accept the new identity."
+    # 2026-10-25: the address changed, but is it the SAME repository? A moved or renamed folder keeps its
+    # history, so the first commit is the same on both sides. A DIFFERENT repository (the 2026-09-06
+    # data-loss bug) shares no first commit with this vault, and still stops sync.
+    local branch local_roots remote_roots r
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+    if git fetch origin --quiet 2>/dev/null; then
+      local_roots=$(git rev-list --max-parents=0 HEAD 2>/dev/null)
+      remote_roots=$(git rev-list --max-parents=0 "origin/$branch" 2>/dev/null)
+      for r in $local_roots; do
+        if [[ -n "$r" ]] && grep -qx "$r" <<<"$remote_roots"; then
+          echo "$current_url" > "$IDENTITY_FILE"
+          log "Repo address changed ($expected -> $current_url) but the history is the same repository - accepted"
+          return 0
+        fi
+      done
+    fi
+    die "SYNC PAUSED - the notes repository address changed to '$current_url' (was '$expected') and its history does not match this vault, so nothing was changed. If you moved or replaced it on purpose, delete $IDENTITY_FILE and sync again."
   fi
 }
 

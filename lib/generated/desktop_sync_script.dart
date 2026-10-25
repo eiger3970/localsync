@@ -124,7 +124,23 @@ verify_repo_identity() {
   local expected
   expected=$(cat "$IDENTITY_FILE")
   if [[ "$current_url" != "$expected" ]]; then
-    die "REPO IDENTITY MISMATCH - origin's remote URL is now '$current_url', but this vault was set up against '$expected'. This means something repointed the remote to a DIFFERENT repository - the exact bug that caused a real multi-day data-loss incident on 2026-09-06. Refusing to sync until this is resolved by hand (check 'git remote -v' in $VAULT). If this change was genuinely intentional, delete $IDENTITY_FILE to accept the new identity."
+    # 2026-10-25: the address changed, but is it the SAME repository? A moved or renamed folder keeps its
+    # history, so the first commit is the same on both sides. A DIFFERENT repository (the 2026-09-06
+    # data-loss bug) shares no first commit with this vault, and still stops sync.
+    local branch local_roots remote_roots r
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+    if git fetch origin --quiet 2>/dev/null; then
+      local_roots=$(git rev-list --max-parents=0 HEAD 2>/dev/null)
+      remote_roots=$(git rev-list --max-parents=0 "origin/$branch" 2>/dev/null)
+      for r in $local_roots; do
+        if [[ -n "$r" ]] && grep -qx "$r" <<<"$remote_roots"; then
+          echo "$current_url" > "$IDENTITY_FILE"
+          log "Repo address changed ($expected -> $current_url) but the history is the same repository - accepted"
+          return 0
+        fi
+      done
+    fi
+    die "SYNC PAUSED - the notes repository address changed to '$current_url' (was '$expected') and its history does not match this vault, so nothing was changed. If you moved or replaced it on purpose, delete $IDENTITY_FILE and sync again."
   fi
 }
 
@@ -266,6 +282,8 @@ full_pattern = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 partial_pattern = re.compile(r'^<<<<<<< [^\n]*\n', re.MULTILINE)
+# orphan markers: `>>>>>>> <ref>` with no opener, plus the `=======` directly above it (2026-10-22 Kanban data loss)
+orphan_pattern = re.compile(r'^(?:=======\n)?>>>>>>> [\w./-]+[ \t]*(?:\n|$)', re.MULTILINE)
 
 count = [0]
 deduped = [0]
@@ -459,6 +477,12 @@ if partial_count:
     count[0] += partial_count
     print(f"Stripped {partial_count} partial conflict marker(s): {path}")
 
+orphan_count = len(orphan_pattern.findall(fixed))
+if orphan_count:
+    fixed = orphan_pattern.sub('', fixed)
+    count[0] += orphan_count
+    print(f"Stripped {orphan_count} orphan conflict marker(s): {path}")
+
 if count[0] == 0:
     print(f"No conflict markers: {path}")
     sys.exit(0)
@@ -533,7 +557,7 @@ repair_md_conflicts() {
     else
       log "  ERROR: repair failed for $file (exit $rc) — markers left for manual fix"
     fi
-  done < <(grep -rlZ --include="*.md" --exclude-dir=.git --exclude-dir="$HIDDEN_BACKUPS" "^<<<<<<< " . 2>/dev/null || true)
+  done < <(grep -rlZ --include="*.md" --exclude-dir=.git --exclude-dir="$HIDDEN_BACKUPS" -E "^(<<<<<<< |>>>>>>> [A-Za-z0-9./_-]+[[:space:]]*$)" . 2>/dev/null || true)
 
   if [[ "$repaired" = "1" ]]; then
     git add -- '*.md'
@@ -722,6 +746,20 @@ hide_backups() {
 hide_backups
 
 # ── Commit local desktop changes ──────────────────────────────────────────────
+# 2026-10-22: card-loss guard. A Kanban board that lost 3 or more cards since the last sync is kept as it was in
+# Conflict Backups first, so nothing is ever only in git history (real loss 21 Oct: 5 appointment cards vanished).
+while IFS= read -r -d '' board; do
+  if git cat-file -e "HEAD:$board" 2>/dev/null && grep -q '^kanban-plugin:' "$board" 2>/dev/null; then
+    before=$(git show "HEAD:$board" 2>/dev/null | grep -c '^- \[' || true)
+    after=$(grep -c '^- \[' "$board" || true)
+    if (( before - after >= 3 )); then
+      mkdir -p "$VAULT/$HIDDEN_BACKUPS/Conflict Backups"
+      bk="$VAULT/$HIDDEN_BACKUPS/Conflict Backups/$(basename "${board%.md}") - before card loss - $(date '+%Y%m%d%H%M').md"
+      git show "HEAD:$board" > "$bk" 2>/dev/null || true
+      log "  WARNING: $board lost $((before - after)) cards ($before -> $after). Earlier copy kept: $bk"
+    fi
+  fi
+done < <(find "Board Kanban" -name "*.md" -print0 2>/dev/null || true)
 git add .
 git rm -r -q --cached --ignore-unmatch -- "$HIDDEN_BACKUPS" >/dev/null
 if git diff --cached --quiet; then
