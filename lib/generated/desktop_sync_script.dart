@@ -248,6 +248,39 @@ if [[ ! -d "$VAULT" ]]; then
 fi
 
 [[ -d "$VAULT/.git" ]] || die "Not a git repo: $VAULT"
+
+# 2026-10-26: real report - a phone note pushed 45 s after a cron run sat
+# unseen on the desktop for up to 5 min. A post-receive hook in the bare
+# repo runs this same script 2 s after any push, so the phone's push shows
+# on the desktop within seconds; cron stays as the fallback (the flock above
+# skips a run that overlaps another). Our own push triggers the hook too,
+# which only logs "Already in sync" and ends - no loop. Installed here, not
+# by setup.sh, so every existing install gets it on its next run. A hook the
+# person wrote themselves (no LocalSync marker) is never touched.
+install_push_hook() {
+  local hook="$BARE_REPO/hooks/post-receive" self want
+  [[ -d "$BARE_REPO/hooks" ]] || return 0
+  self=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null) || return 0
+  want=$(cat <<HOOK
+#!/bin/bash
+# LocalSync post-receive hook (written by localsync_sync.sh - edits are overwritten)
+export HOME=$(printf '%q' "$HOME") PATH=/usr/local/bin:/usr/bin:/bin
+export LOCALSYNC_BARE_REPO=$(printf '%q' "$BARE_REPO") LOCALSYNC_VAULT=$(printf '%q' "$VAULT")
+export LOCALSYNC_BRANCH=$(printf '%q' "$BRANCH") LOCALSYNC_LOG=$(printf '%q' "$LOG")
+export LOCALSYNC_BACKUP_ROOT=$(printf '%q' "${LOCALSYNC_BACKUP_ROOT:-$HOME/Documents/LocalSync Backups}")
+${LOCALSYNC_NAME:+export LOCALSYNC_NAME=$(printf '%q' "$LOCALSYNC_NAME")}
+unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+setsid nohup bash -c 'sleep 2; exec "\$0"' $(printf '%q' "$self") >/dev/null 2>&1 </dev/null &
+exit 0
+HOOK
+)
+  if [[ -e "$hook" ]]; then
+    grep -q "^# LocalSync post-receive hook" "$hook" 2>/dev/null || { log "  Push hook skipped: $hook is not LocalSync's own"; return 0; }
+    [[ "$(cat "$hook")" == "$want" ]] && return 0
+  fi
+  printf '%s\n' "$want" > "$hook" && chmod +x "$hook" && log "  Push hook installed: phone pushes now sync within seconds"
+}
+install_push_hook || true
 # 2026-09-27: a vault folder linked to a DIFFERENT bare repo than this
 # run's LOCALSYNC_BARE_REPO would sync that other repo instead, silently
 # (everything below uses the vault's own origin). Seen live: a first
