@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../theme.dart';
 import '../services/purchase_service.dart';
+import '../screens/paywall_conflict_picker_screen.dart';
 
 class ConflictPickerUpsell extends StatefulWidget {
   final PurchaseService purchases;
@@ -35,7 +36,7 @@ class ConflictPickerUpsell extends StatefulWidget {
 }
 
 class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
-  bool _busy = false;
+  final bool _busy = false;
   Package? _package;
   String? _priceLabel;
 
@@ -59,15 +60,10 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
     });
   }
 
-  Future<void> _buy() async {
-    final package = _package;
-    if (package == null) return;
-    setState(() => _busy = true);
-    try {
-      await widget.purchases.purchasePackage(package);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  // 2026-11-04 owner: the price button opens the product info screen first; the purchase happens there.
+  void _openInfo() {
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PaywallConflictPickerScreen(purchases: widget.purchases)));
   }
 
   @override
@@ -115,7 +111,7 @@ class _ConflictPickerUpsellState extends State<ConflictPickerUpsell> {
                       CircularProgressIndicator(strokeWidth: 2, color: kGreen),
                 )
               : OutlinedButton(
-                  onPressed: _buy,
+                  onPressed: _openInfo,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: kGreen),
                     foregroundColor: kGreen,

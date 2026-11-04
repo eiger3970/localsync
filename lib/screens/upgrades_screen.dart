@@ -193,7 +193,7 @@ class _UpgradeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = rescue ? Colors.amber : kGreen;
+    final accent = rescue ? Colors.redAccent : kGreen;
     final owned = price == 'Owned';
     final card = InkWell(
       onTap: onTap,
@@ -203,7 +203,7 @@ class _UpgradeTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: kSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: best ? kGreen : rescue ? Colors.amber : kBorder, width: best ? 1.6 : 1),
+          border: Border.all(color: best ? kGreen : rescue ? Colors.redAccent : kBorder, width: best ? 1.6 : 1),
           boxShadow: best ? [BoxShadow(color: kGreen.withValues(alpha: 0.3), blurRadius: 14)] : null,
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
