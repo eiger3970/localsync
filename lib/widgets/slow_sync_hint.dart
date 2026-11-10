@@ -69,7 +69,7 @@ class _SlowSyncHintState extends State<SlowSyncHint>
   @override
   void initState() {
     super.initState();
-    _tick = Timer.periodic(const Duration(milliseconds: 500), (_) {
+    _tick = Timer.periodic(const Duration(milliseconds: 400), (_) {
       if (mounted) setState(() {});
     });
   }
@@ -83,7 +83,9 @@ class _SlowSyncHintState extends State<SlowSyncHint>
 
   @override
   Widget build(BuildContext context) {
-    final show = SlowSyncHint.step(widget.syncing, DateTime.now());
+    final now = DateTime.now();
+    final dots = 1 + (now.millisecondsSinceEpoch ~/ 400) % 3;
+    final show = SlowSyncHint.step(widget.syncing, now);
     if (!show) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () => setState(SlowSyncHint.dismiss),
@@ -103,8 +105,18 @@ class _SlowSyncHintState extends State<SlowSyncHint>
             ),
             const SizedBox(width: 10),
             Flexible(
-              child: Text('Big note or slow connection - still working.',
-                  style: TextStyle(color: kStar, fontSize: 14)),
+              child: Text.rich(
+                TextSpan(children: [
+                  const TextSpan(text: 'Big note or slow connection'),
+                  // flowing ellipsis: 1-3 dots, rest invisible so the
+                  // text doesn't jump.
+                  TextSpan(text: '.' * dots),
+                  TextSpan(
+                      text: '.' * (3 - dots),
+                      style: const TextStyle(color: Colors.transparent)),
+                ]),
+                style: TextStyle(color: kStar, fontSize: 14),
+              ),
             ),
           ],
         ),
