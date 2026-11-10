@@ -20,6 +20,6 @@ void main() {
     expect(buildDiagnosticsReport(d), contains('Merge result: user says NOT right'));
     expect(isRatableMerge('Merged. 2 notes changed on both - combined'), isTrue);
     expect(isRatableMerge('Merged in changes from desktop.'), isFalse);
-    expect(kDiagnosticsPrivacy, contains('anonymous'));
+    expect(kDiagnosticsPrivacy, contains('Nothing is sent unless'));
   });
 }

@@ -45,9 +45,9 @@ Uri diagnosticsContactUri(String report) =>
         '${Uri.encodeComponent(report)}');
 
 const kDiagnosticsPrivacy =
-    'Secure and anonymous. Only diagnostics are sent: app version, device '
-    'system, the step that failed and the error text. No notes, no file '
-    'contents, no account, no tracking. Nothing is sent unless you tap Send.';
+    'Only diagnostics are sent: app version, device system, the step that '
+    'failed and the error text. No notes, no file contents, no tracking. '
+    'Nothing is sent unless you tap Send.';
 
 /// True when a sync result is a merge the user may want to rate.
 bool isRatableMerge(String message) =>
