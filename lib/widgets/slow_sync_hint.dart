@@ -18,7 +18,7 @@ class SlowSyncHint extends StatefulWidget {
     super.key,
     required this.syncing,
     this.after = const Duration(seconds: 5),
-    this.minVisible = const Duration(seconds: 5),
+    this.minVisible = const Duration(seconds: 12),
   });
 
   @override
