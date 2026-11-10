@@ -1608,6 +1608,12 @@ bool _looksLikePathProblem(String msg) =>
 // fields through the same labeled DiagCard layout the setup flow's
 // _FailedView already used (linking_screen.dart) - both places now
 // look identical or a real inconsistency, not just this bug.
+Widget _diagBadge(IconData icon, String label) => Column(children: [
+      Icon(icon, color: kGreen, size: 26),
+      const SizedBox(height: 4),
+      Text(label, style: TextStyle(color: kStar, fontSize: 12)),
+    ]);
+
 Future<void> _sendDetails(BuildContext context, Repository repo,
     {String? verdict}) async {
   final info = await PackageInfo.fromPlatform();
@@ -1630,20 +1636,22 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(Icons.lock_outline, color: kGreen, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(kDiagnosticsPrivacy,
-                    style: TextStyle(color: kGreen, fontSize: 13, height: 1.35)),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            Text('This is everything that will be sent:',
-                style: TextStyle(color: kTextMid, fontSize: 12)),
-            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _diagBadge(Icons.lock_outline, 'Secure'),
+                _diagBadge(Icons.no_accounts_outlined, 'Anonymous'),
+                _diagBadge(Icons.monitor_heart_outlined, 'Diagnostics only'),
+              ],
+            ),
+            const SizedBox(height: 14),
             SelectableText(report,
                 style: TextStyle(color: kStar, fontSize: 12, height: 1.35)),
+            const SizedBox(height: 10),
+            Center(
+              child: Text('No notes. No files. No account.',
+                  style: TextStyle(color: kTextMid, fontSize: 12)),
+            ),
           ],
         ),
       ),
