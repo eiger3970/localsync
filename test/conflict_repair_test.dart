@@ -40,6 +40,59 @@ void main() {
     });
   });
 
+  group('Myers diff - same answers as a brute-force diff, and fast on a big note', () {
+    int lcs(List<String> a, List<String> b) {
+      final dp = List.generate(a.length + 1, (_) => List<int>.filled(b.length + 1, 0));
+      for (var i = a.length - 1; i >= 0; i--) {
+        for (var j = b.length - 1; j >= 0; j--) {
+          dp[i][j] = a[i] == b[j] ? dp[i + 1][j + 1] + 1 : (dp[i + 1][j] > dp[i][j + 1] ? dp[i + 1][j] : dp[i][j + 1]);
+        }
+      }
+      return dp[0][0];
+    }
+
+    test('300 random edits: rebuilds both sides exactly and changes the fewest lines possible', () {
+      var seed = 7;
+      int next(int n) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed % n;
+      }
+
+      for (var round = 0; round < 300; round++) {
+        final a = [for (var i = 0; i < next(14); i++) 'l${next(6)}'];
+        final b = [for (var i = 0; i < next(14); i++) 'l${next(6)}'];
+        final ops = debugDiffOps(a, b);
+        expect([for (final o in ops) if (o[0] != '+') o.substring(1)], a, reason: 'a rebuilt, round $round');
+        expect([for (final o in ops) if (o[0] != '-') o.substring(1)], b, reason: 'b rebuilt, round $round');
+        final changes = ops.where((o) => o[0] != '=').length;
+        expect(changes, a.length + b.length - 2 * lcs(a, b), reason: 'minimal, round $round');
+      }
+    });
+
+    test('deleted lines come before inserted lines inside a changed run', () {
+      expect(debugDiffOps(['a', 'B', 'c'], ['a', 'X', 'c']), ['=a', '-B', '+X', '=c']);
+    });
+
+    test('a 10,000-line note with edits at both ends merges in well under a second', () {
+      final base = [for (var i = 0; i < 10000; i++) 'line $i'].join('\n');
+      final ours = ('top edit\n$base');
+      final theirs = '$base\nbottom edit';
+      final sw = Stopwatch()..start();
+      final out = mergeThreeWayLines(base, ours, theirs);
+      expect(out, 'top edit\n$base\nbottom edit');
+      expect(sw.elapsedMilliseconds < 1000, isTrue);
+    });
+
+    test('two completely rewritten big notes are reported as too large, never guessed', () {
+      final base = [for (var i = 0; i < 6000; i++) 'base $i'].join('\n');
+      final ours = [for (var i = 0; i < 6000; i++) 'phone $i'].join('\n');
+      final theirs = [for (var i = 0; i < 6000; i++) 'desktop $i'].join('\n');
+      final r = mergeThreeWayLinesOrReason(base, ours, theirs);
+      expect(r.merged, isNull);
+      expect(r.tooLarge, isTrue);
+    });
+  });
+
   group('mergeThreeWayLines - everyday edits that git calls conflicts', () {
     test('two different lines changed next to each other are both kept', () {
       expect(mergeThreeWayLines('one\ntwo\nthree\nfour', 'one\nTWO desk\nthree\nfour', 'one\ntwo\nTHREE phone\nfour'), 'one\nTWO desk\nTHREE phone\nfour');

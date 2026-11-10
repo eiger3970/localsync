@@ -314,38 +314,84 @@ except OSError as e:
 # rewrote is left for the box flow below. Mirrors conflict_repair.dart's mergeThreeWayLines (unit-tested there).
 import subprocess
 
+class DiffTooLarge(Exception):
+    pass
+
+MAX_EDIT_DISTANCE = 2000
+
 def _diff_lines(a, b):
-    # only the lines between the shared start and the shared end can differ (a 9,500-line note was minutes of work)
+    # Myers' O(ND) diff (what git uses): cost follows the number of CHANGED lines, not the note size.
+    # Shared start and end are skipped first; inside a changed run deletions come before insertions.
     pre = 0
     while pre < len(a) and pre < len(b) and a[pre] == b[pre]:
         pre += 1
     suf = 0
     while suf < len(a) - pre and suf < len(b) - pre and a[len(a) - 1 - suf] == b[len(b) - 1 - suf]:
         suf += 1
-    if pre or suf:
-        mid = _diff_lines(a[pre:len(a) - suf], b[pre:len(b) - suf])
-        return [('eq', x) for x in a[:pre]] + mid + [('eq', x) for x in a[len(a) - suf:]]
-    n, m = len(a), len(b)
-    if n * m > 4000000:
-        raise ValueError('changed part too large to merge safely')
-    dp = [[0] * (m + 1) for _ in range(n + 1)]
-    for i in range(n - 1, -1, -1):
-        for j in range(m - 1, -1, -1):
-            dp[i][j] = dp[i + 1][j + 1] + 1 if a[i] == b[j] else max(dp[i + 1][j], dp[i][j + 1])
-    out = []
-    i = j = 0
-    while i < n and j < m:
-        if a[i] == b[j]:
-            out.append(('eq', a[i])); i += 1; j += 1
-        elif dp[i + 1][j] >= dp[i][j + 1]:
-            out.append(('base', a[i])); i += 1
+    mid = _myers(a[pre:len(a) - suf], b[pre:len(b) - suf])
+    out = [('eq', x) for x in a[:pre]]
+    dels, ins = [], []
+    for op in mid + [('eq', None)]:
+        if op[0] == 'base':
+            dels.append(op)
+        elif op[0] == 'other':
+            ins.append(op)
         else:
-            out.append(('other', b[j])); j += 1
-    while i < n:
-        out.append(('base', a[i])); i += 1
-    while j < m:
-        out.append(('other', b[j])); j += 1
+            out.extend(dels); out.extend(ins); dels, ins = [], []
+            if op[1] is not None:
+                out.append(op)
+    out.extend(('eq', x) for x in a[len(a) - suf:])
     return out
+
+def _myers(a, b):
+    n, m = len(a), len(b)
+    if n == 0:
+        return [('other', l) for l in b]
+    if m == 0:
+        return [('base', l) for l in a]
+    limit = min(n + m, MAX_EDIT_DISTANCE)
+    v = {1: 0}
+    trace = []
+    found = None
+    for d in range(limit + 1):
+        trace.append(dict(v))
+        for k in range(-d, d + 1, 2):
+            if k == -d or (k != d and v.get(k - 1, -1) < v.get(k + 1, -1)):
+                x = v.get(k + 1, 0)
+            else:
+                x = v.get(k - 1, 0) + 1
+            y = x - k
+            while x < n and y < m and a[x] == b[y]:
+                x += 1; y += 1
+            v[k] = x
+            if x >= n and y >= m:
+                found = d
+                break
+        if found is not None:
+            break
+    if found is None:
+        raise DiffTooLarge()
+    rev = []
+    x, y = n, m
+    for d in range(found, 0, -1):
+        snap = trace[d]
+        k = x - y
+        if k == -d or (k != d and snap.get(k - 1, -1) < snap.get(k + 1, -1)):
+            prev_k = k + 1
+        else:
+            prev_k = k - 1
+        prev_x = snap.get(prev_k, 0)
+        prev_y = prev_x - prev_k
+        while x > prev_x and y > prev_y:
+            rev.append(('eq', a[x - 1])); x -= 1; y -= 1
+        if x == prev_x:
+            rev.append(('other', b[y - 1])); y -= 1
+        else:
+            rev.append(('base', a[x - 1])); x -= 1
+    while x > 0 and y > 0:
+        rev.append(('eq', a[x - 1])); x -= 1; y -= 1
+    rev.reverse()
+    return rev
 
 def _fill(diff, kept, gaps):
     k = 0
@@ -403,7 +449,28 @@ def _git_stage(n):
 try:
     _base, _ours, _theirs = _git_stage(1), _git_stage(2), _git_stage(3)
     if _base is not None and _ours is not None and _theirs is not None and '<<<<<<< ' in content:
-        _merged = merge_three_way_lines(_base, _ours, _theirs)
+        _too_large = False
+        try:
+            _merged = merge_three_way_lines(_base, _ours, _theirs)
+        except DiffTooLarge:
+            _merged, _too_large = None, True
+        if _too_large:
+            # Changed a lot on both devices: no box around thousands of lines. This device's version stays whole,
+            # the other device's complete copy is saved next to the backups, and the log says so plainly.
+            _bk = os.environ.get('SYNCO_BACKUP_DIR', '').strip()
+            if _bk:
+                os.makedirs(_bk, exist_ok=True)
+                _stem = os.path.basename(path)[:-3] if path.endswith('.md') else os.path.basename(path)
+                _ts = __import__('datetime').datetime.now().strftime('%Y%m%d%H%M')
+                for _lab, _txt in (('desktop version', _ours), ('phone version', _theirs)):
+                    _f = os.path.join(_bk, f'{_stem} - {_lab} - {_ts}.md')
+                    if not os.path.exists(_f):
+                        with open(_f, 'w', encoding='utf-8') as _h:
+                            _h.write(_txt)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(_ours)
+            print(f"Changed a lot on both devices: kept this desktop's version, saved the phone's complete copy to the backups folder (nothing lost): {path}")
+            sys.exit(2)
         if _merged is not None:
             _bk = os.environ.get('SYNCO_BACKUP_DIR', '').strip()
             if _bk:

@@ -1028,13 +1028,16 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     var unresolvedCount = 0;
     var bothKeptCount = 0;
     var autoMergedCount = 0;
+    var keptOneCount = 0;
     if (repo.index.hasConflicts) {
       final other = labelForCommit(repo, remoteOid);
       // 2026-11-10 owner: "not just my diary - all users' text". libgit2 calls any two edits that touch the same or
       // neighbouring lines a conflict, and the repair below then boxes both. With the real common ancestor in hand,
       // everything the two sides changed in different places (or added at the same gap) can be combined with no
       // box at all; only a line BOTH sides rewrote is left for the box + Conflicts screen, exactly as before.
-      autoMergedCount = autoMergeMarkdownConflicts(repo, p.vaultPath);
+      final auto = autoMergeMarkdownConflicts(repo, p.vaultPath);
+      autoMergedCount = auto.merged;
+      keptOneCount = auto.keptOne;
       unresolvedCount = repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
@@ -1052,6 +1055,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     if (unresolvedCount > 0) return SyncOkWithConflicts(unresolvedCount);
+    if (keptOneCount > 0 && bothKeptCount == 0) {
+      return SyncOk('Merged. $keptOneCount note${keptOneCount == 1 ? '' : 's'} changed a lot on both devices: kept '
+          'this phone\'s version and saved the desktop\'s complete copy to $kBackupsPlace. Nothing was lost.');
+    }
     if (autoMergedCount > 0 && bothKeptCount == 0) {
       return SyncOk('Merged. $autoMergedCount note${autoMergedCount == 1 ? '' : 's'} changed on both - combined '
           'automatically (both originals saved to $kBackupsPlace first).');
@@ -1884,8 +1891,9 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 /// _resolveBinaryConflict uses. Anything the merge will not decide (the same base line rewritten by both sides) is left
 /// untouched for the existing box + Conflicts-screen flow. Returns how many notes were combined. Any failure on one
 /// file leaves that file exactly as libgit2 wrote it.
-int autoMergeMarkdownConflicts(git.Repository repo, String vaultPath) {
+({int merged, int keptOne}) autoMergeMarkdownConflicts(git.Repository repo, String vaultPath) {
   var merged = 0;
+  var keptOne = 0;
   final conflicts = repo.index.conflicts;
   for (final relPath in conflicts.keys.toList()) {
     if (!relPath.endsWith('.md')) continue;
@@ -1897,8 +1905,9 @@ int autoMergeMarkdownConflicts(git.Repository repo, String vaultPath) {
       final oursBlob = git.Blob.lookup(repo: repo, oid: our.oid);
       final theirsBlob = git.Blob.lookup(repo: repo, oid: their.oid);
       if (baseBlob.isBinary || oursBlob.isBinary || theirsBlob.isBinary) continue;
-      final result = mergeThreeWayLines(baseBlob.content, oursBlob.content, theirsBlob.content);
-      if (result == null) continue;
+      final attempt = mergeThreeWayLinesOrReason(baseBlob.content, oursBlob.content, theirsBlob.content);
+      final result = attempt.merged;
+      if (result == null && !attempt.tooLarge) continue;
       final backupDir = Directory(conflictBackupsDir(vaultPath));
       backupDir.createSync(recursive: true);
       final ts = backupTimestamp();
@@ -1906,14 +1915,21 @@ int autoMergeMarkdownConflicts(git.Repository repo, String vaultPath) {
           utf8.encode(neutralizeReminderTags(oursBlob.content)));
       saveBackupUnlessIdentical(backupDir, _conflictBackupName(relPath, 'before auto-merge, desktop version', ts),
           utf8.encode(neutralizeReminderTags(theirsBlob.content)));
-      File('$vaultPath/$relPath').writeAsStringSync(result);
+      // Changed in too many places on both devices to combine safely: no box around thousands of lines. This phone's
+      // version stays whole, the desktop's complete copy is in the backups place (saved just above), and the sync
+      // message says so plainly.
+      File('$vaultPath/$relPath').writeAsStringSync(result ?? oursBlob.content);
       repo.index.add(relPath);
-      merged++;
+      if (result == null) {
+        keptOne++;
+      } else {
+        merged++;
+      }
     } catch (_) {
       // Leave this note to the box + Conflicts flow below.
     }
   }
-  return merged;
+  return (merged: merged, keptOne: keptOne);
 }
 
 // 2026-08-19: the pure string-transform logic (regexes, dedupe, the

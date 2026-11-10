@@ -17,6 +17,8 @@
 // merge`. Operates on working-directory files as plain text, not
 // git's index/tree objects.
 
+import 'dart:typed_data';
+
 final fullConflictPattern = RegExp(
   r'^<<<<<<< [^\n]*\n(.*?)\n=======\n(.*?)\n>>>>>>> [^\n]*\n?',
   multiLine: true,
@@ -407,61 +409,20 @@ enum _LineOp { equal, baseOnly, otherOnly }
 /// in mergeThreeWayLines below, [b] the other side - baseOnly means "in
 /// base, gone from the other side" (a deletion/replacement), otherOnly
 /// means "new in the other side, not in base" (an insertion).
-List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
-  // 2026-11-10: real note of 9,500 lines made the full table 90 million cells (minutes on a desktop, far too much memory
-  // on a phone). Only the lines between the shared start and the shared end can differ, so only those are compared.
-  var pre = 0;
-  while (pre < a.length && pre < b.length && a[pre] == b[pre]) {
-    pre++;
-  }
-  var suf = 0;
-  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] == b[b.length - 1 - suf]) {
-    suf++;
-  }
-  if (pre > 0 || suf > 0) {
-    final mid = _diffLines(a.sublist(pre, a.length - suf), b.sublist(pre, b.length - suf));
-    return [
-      for (var i = 0; i < pre; i++) (_LineOp.equal, a[i]),
-      ...mid,
-      for (var i = a.length - suf; i < a.length; i++) (_LineOp.equal, a[i]),
-    ];
-  }
-  final n = a.length, m = b.length;
-  final dp = List.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
-  for (var i = n - 1; i >= 0; i--) {
-    for (var j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] == b[j]
-          ? dp[i + 1][j + 1] + 1
-          : (dp[i + 1][j] > dp[i][j + 1] ? dp[i + 1][j] : dp[i][j + 1]);
-    }
-  }
-  final result = <(_LineOp, String)>[];
-  var i = 0, j = 0;
-  while (i < n && j < m) {
-    if (a[i] == b[j]) {
-      result.add((_LineOp.equal, a[i]));
-      i++;
-      j++;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      result.add((_LineOp.baseOnly, a[i]));
-      i++;
-    } else {
-      result.add((_LineOp.otherOnly, b[j]));
-      j++;
-    }
-  }
-  while (i < n) {
-    result.add((_LineOp.baseOnly, a[i]));
-    i++;
-  }
-  while (j < m) {
-    result.add((_LineOp.otherOnly, b[j]));
-    j++;
-  }
-  return result;
+/// Thrown when two versions differ in too many places to compare safely - callers defer to the "keep one, save the
+/// other" handling instead of guessing.
+class DiffTooLarge implements Exception {
+  const DiffTooLarge();
 }
 
-int _changedMiddle(List<String> a, List<String> b) {
+/// Most changed lines (inserted + deleted) compared before giving up.
+const int _kMaxEditDistance = 2000;
+
+/// 2026-11-10: Myers' O(ND) diff (the method git itself uses). Cost grows with the number of CHANGED lines, not with the
+/// size of the note, so a 10,000-line list with a few edits is instant. The old table-filling method needed n x m cells
+/// (90 million for a 9,500-line note). The shared start and end are skipped first; within a changed run the deleted
+/// lines always come before the inserted ones, the order the merge below relies on.
+List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
   var pre = 0;
   while (pre < a.length && pre < b.length && a[pre] == b[pre]) {
     pre++;
@@ -470,7 +431,107 @@ int _changedMiddle(List<String> a, List<String> b) {
   while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] == b[b.length - 1 - suf]) {
     suf++;
   }
-  return (a.length - pre - suf + 1) * (b.length - pre - suf + 1);
+  final mid = _myers(a.sublist(pre, a.length - suf), b.sublist(pre, b.length - suf));
+  return [
+    for (var i = 0; i < pre; i++) (_LineOp.equal, a[i]),
+    ..._deletesBeforeInserts(mid),
+    for (var i = a.length - suf; i < a.length; i++) (_LineOp.equal, a[i]),
+  ];
+}
+
+/// Test hook: the diff as strings ('=line', '-line' deleted from [a], '+line' inserted from [b]).
+List<String> debugDiffOps(List<String> a, List<String> b) => [
+      for (final (op, t) in _diffLines(a, b)) '${op == _LineOp.equal ? '=' : op == _LineOp.baseOnly ? '-' : '+'}$t'
+    ];
+
+List<(_LineOp, String)> _deletesBeforeInserts(List<(_LineOp, String)> ops) {
+  final out = <(_LineOp, String)>[];
+  var del = <(_LineOp, String)>[], ins = <(_LineOp, String)>[];
+  void flush() {
+    out
+      ..addAll(del)
+      ..addAll(ins);
+    del = [];
+    ins = [];
+  }
+
+  for (final op in ops) {
+    if (op.$1 == _LineOp.equal) {
+      flush();
+      out.add(op);
+    } else if (op.$1 == _LineOp.baseOnly) {
+      del.add(op);
+    } else {
+      ins.add(op);
+    }
+  }
+  flush();
+  return out;
+}
+
+List<(_LineOp, String)> _myers(List<String> a, List<String> b) {
+  final n = a.length, m = b.length;
+  if (n == 0) return [for (final l in b) (_LineOp.otherOnly, l)];
+  if (m == 0) return [for (final l in a) (_LineOp.baseOnly, l)];
+  final limit = (n + m) < _kMaxEditDistance ? (n + m) : _kMaxEditDistance;
+  final off = limit + 1;
+  final v = Int32List(2 * off + 3);
+  final trace = <Int32List>[]; // snapshot of v[-d-1 .. d+1] taken before round d
+  int? found;
+  for (var d = 0; d <= limit && found == null; d++) {
+    trace.add(Int32List.sublistView(v, off - d - 1, off + d + 2).sublist(0));
+    for (var k = -d; k <= d; k += 2) {
+      int x;
+      if (k == -d || (k != d && v[off + k - 1] < v[off + k + 1])) {
+        x = v[off + k + 1]; // step down: insert a line of b
+      } else {
+        x = v[off + k - 1] + 1; // step right: delete a line of a
+      }
+      var y = x - k;
+      while (x < n && y < m && a[x] == b[y]) {
+        x++;
+        y++;
+      }
+      v[off + k] = x;
+      if (x >= n && y >= m) {
+        found = d;
+        break;
+      }
+    }
+  }
+  if (found == null) throw const DiffTooLarge();
+  final rev = <(_LineOp, String)>[];
+  var x = n, y = m;
+  for (var d = found; d > 0; d--) {
+    final snap = trace[d]; // index of k is k + d + 1
+    final k = x - y;
+    int prevK;
+    if (k == -d || (k != d && snap[k - 1 + d + 1] < snap[k + 1 + d + 1])) {
+      prevK = k + 1;
+    } else {
+      prevK = k - 1;
+    }
+    final prevX = snap[prevK + d + 1];
+    final prevY = prevX - prevK;
+    while (x > prevX && y > prevY) {
+      rev.add((_LineOp.equal, a[x - 1]));
+      x--;
+      y--;
+    }
+    if (x == prevX) {
+      rev.add((_LineOp.otherOnly, b[y - 1]));
+      y--;
+    } else {
+      rev.add((_LineOp.baseOnly, a[x - 1]));
+      x--;
+    }
+  }
+  while (x > 0 && y > 0) {
+    rev.add((_LineOp.equal, a[x - 1]));
+    x--;
+    y--;
+  }
+  return rev.reversed.toList();
 }
 
 /// 2026-09-06: real gap found live - a phone stuck behind on fetch
@@ -503,12 +564,21 @@ int _changedMiddle(List<String> a, List<String> b) {
 /// Pure insertions (new lines with no base counterpart) landing at the
 /// same gap from both sides are NOT a collision - neither side is
 /// overwriting content the other touched, so both are kept, ours first.
-String? mergeThreeWayLines(String base, String ours, String theirs) {
-  final baseLines = base.split('\n');
-  // Even after trimming, two huge rewritten middles are not worth guessing at - deferred like any other doubt.
-  if (_changedMiddle(baseLines, ours.split('\n')) > 4000000 || _changedMiddle(baseLines, theirs.split('\n')) > 4000000) {
-    return null;
+String? mergeThreeWayLines(String base, String ours, String theirs) => mergeThreeWayLinesOrReason(base, ours, theirs).merged;
+
+/// Same merge, but says WHY nothing was merged: [tooLarge] is true when the two versions differ in too many places to
+/// compare safely (the caller then keeps one version whole and saves the other, with a clear message - never a box
+/// around thousands of lines).
+({String? merged, bool tooLarge}) mergeThreeWayLinesOrReason(String base, String ours, String theirs) {
+  try {
+    return (merged: _mergeThreeWayLines(base, ours, theirs), tooLarge: false);
+  } on DiffTooLarge {
+    return (merged: null, tooLarge: true);
   }
+}
+
+String? _mergeThreeWayLines(String base, String ours, String theirs) {
+  final baseLines = base.split('\n');
   final oursDiff = _diffLines(baseLines, ours.split('\n'));
   final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
 
