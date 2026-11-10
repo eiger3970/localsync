@@ -304,6 +304,110 @@ except OSError as e:
     print(f"ERROR: cannot read {path}: {e}", file=sys.stderr)
     sys.exit(1)
 
+# 2026-11-10 owner: "not just my diary - all users' text". git calls any two edits on the same or neighbouring
+# lines a conflict. Mid-merge the real common ancestor is in the index (stage 1), so everything the two sides changed
+# in different places - or added at the same gap - is combined here with no box at all. Only a line BOTH sides
+# rewrote is left for the box flow below. Mirrors conflict_repair.dart's mergeThreeWayLines (unit-tested there).
+import subprocess
+
+def _diff_lines(a, b):
+    n, m = len(a), len(b)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n - 1, -1, -1):
+        for j in range(m - 1, -1, -1):
+            dp[i][j] = dp[i + 1][j + 1] + 1 if a[i] == b[j] else max(dp[i + 1][j], dp[i][j + 1])
+    out = []
+    i = j = 0
+    while i < n and j < m:
+        if a[i] == b[j]:
+            out.append(('eq', a[i])); i += 1; j += 1
+        elif dp[i + 1][j] >= dp[i][j + 1]:
+            out.append(('base', a[i])); i += 1
+        else:
+            out.append(('other', b[j])); j += 1
+    while i < n:
+        out.append(('base', a[i])); i += 1
+    while j < m:
+        out.append(('other', b[j])); j += 1
+    return out
+
+def _fill(diff, kept, gaps):
+    k = 0
+    for op, text in diff:
+        if op == 'eq':
+            k += 1
+        elif op == 'base':
+            kept[k] = False; k += 1
+        else:
+            gaps[k].append(text)
+
+_STUB = re.compile(r'^(#{1,6}) (\d{1,11})$')
+
+def _entry_heading(lines, stub):
+    for l in lines:
+        m = re.match(r'^(#{1,6}) (\d+)\s*$', l)
+        if m and m.group(1) == stub.group(1) and len(m.group(2)) > len(stub.group(2)) and m.group(2).startswith(stub.group(2)):
+            return m.group(2)
+    return None
+
+def merge_three_way_lines(base, ours, theirs):
+    bl = base.split('\n')
+    ok = [True] * len(bl); tk = [True] * len(bl)
+    og = [[] for _ in range(len(bl) + 1)]; tg = [[] for _ in range(len(bl) + 1)]
+    _fill(_diff_lines(bl, ours.split('\n')), ok, og)
+    _fill(_diff_lines(bl, theirs.split('\n')), tk, tg)
+    newest_first = set()
+    for k in range(len(bl)):
+        if not ok[k] and not tk[k]:
+            stub = _STUB.match(bl[k])
+            oh = _entry_heading(og[k + 1], stub) if stub else None
+            th = _entry_heading(tg[k + 1], stub) if stub else None
+            if oh is None or th is None or oh == th:
+                return None
+            if int(th) > int(oh):
+                newest_first.add(k + 1)
+    out = []
+    def gap(g):
+        if g in newest_first:
+            out.extend(tg[g]); out.extend(og[g])
+        else:
+            out.extend(og[g]); out.extend(tg[g])
+    gap(0)
+    for k in range(len(bl)):
+        if ok[k] and tk[k]:
+            out.append(bl[k])
+        gap(k + 1)
+    return '\n'.join(out)
+
+def _git_stage(n):
+    rel = path if path.startswith('./') else './' + path
+    r = subprocess.run(['git', 'show', f':{n}:{rel}'], capture_output=True)
+    return r.stdout.decode('utf-8', errors='replace') if r.returncode == 0 else None
+
+try:
+    _base, _ours, _theirs = _git_stage(1), _git_stage(2), _git_stage(3)
+    if _base is not None and _ours is not None and _theirs is not None and '<<<<<<< ' in content:
+        _merged = merge_three_way_lines(_base, _ours, _theirs)
+        if _merged is not None:
+            _bk = os.environ.get('SYNCO_BACKUP_DIR', '').strip()
+            if _bk:
+                os.makedirs(_bk, exist_ok=True)
+                _stem = os.path.basename(path)[:-3] if path.endswith('.md') else os.path.basename(path)
+                _ts = __import__('datetime').datetime.now().strftime('%Y%m%d%H%M')
+                for _lab, _txt in (('before auto-merge, desktop version', _ours), ('before auto-merge, phone version', _theirs)):
+                    _f = os.path.join(_bk, f'{_stem} - {_lab} - {_ts}.md')
+                    if not os.path.exists(_f):
+                        with open(_f, 'w', encoding='utf-8') as _h:
+                            _h.write(_txt)
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(_merged)
+            print(f"Combined automatically (changes in different places, no box needed): {path}")
+            sys.exit(2)
+except SystemExit:
+    raise
+except Exception as e:
+    print(f"3-way merge skipped ({e}): {path}", file=sys.stderr)
+
 is_kanban = bool(re.search(r'^kanban-plugin:', content, re.MULTILINE))
 
 full_pattern = re.compile(
@@ -604,7 +708,7 @@ repair_md_conflicts() {
   local repaired=0
   while IFS= read -r -d '' file; do
     log "  ⚠ Conflict markers: $file"
-    rc=0; python3 "$REPAIR_PY" "$file" || rc=$?
+    rc=0; SYNCO_BACKUP_DIR="$VAULT/$HIDDEN_BACKUPS/Conflict Backups" python3 "$REPAIR_PY" "$file" || rc=$?
     if [[ "$rc" = "2" ]]; then
       log "  ✓ Repaired: $file"
       repaired=1

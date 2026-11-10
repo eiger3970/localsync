@@ -1027,8 +1027,14 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     git.Merge.commit(repo: repo, commit: annotated);
     var unresolvedCount = 0;
     var bothKeptCount = 0;
+    var autoMergedCount = 0;
     if (repo.index.hasConflicts) {
       final other = labelForCommit(repo, remoteOid);
+      // 2026-11-10 owner: "not just my diary - all users' text". libgit2 calls any two edits that touch the same or
+      // neighbouring lines a conflict, and the repair below then boxes both. With the real common ancestor in hand,
+      // everything the two sides changed in different places (or added at the same gap) can be combined with no
+      // box at all; only a line BOTH sides rewrote is left for the box + Conflicts screen, exactly as before.
+      autoMergedCount = autoMergeMarkdownConflicts(repo, p.vaultPath);
       unresolvedCount = repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
@@ -1046,6 +1052,10 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
     if (unresolvedCount > 0) return SyncOkWithConflicts(unresolvedCount);
+    if (autoMergedCount > 0 && bothKeptCount == 0) {
+      return SyncOk('Merged. $autoMergedCount note${autoMergedCount == 1 ? '' : 's'} changed on both - combined '
+          'automatically (both originals saved to $kBackupsPlace first).');
+    }
     if (bothKeptCount > 0) {
       return SyncOk('Merged. $bothKeptCount file${bothKeptCount == 1 ? '' : 's'} '
           'changed on both - kept the phone\'s, saved the desktop\'s copy to '
@@ -1867,6 +1877,44 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
 //    blockquote callout (which doesn't render inside Kanban cards), and
 //    the callout names which device/when the other version came from
 //    instead of a generic label. Ported line-for-line, not reinvented. ──
+
+/// 2026-11-10: for every conflicted markdown note that has a real common ancestor, tries the three-way line merge
+/// (mergeThreeWayLines, unit-tested) before anything is boxed. Both originals are saved to the backups place first, the
+/// merged text replaces the conflict markers, and re-staging the path clears its conflict - the same resolution step
+/// _resolveBinaryConflict uses. Anything the merge will not decide (the same base line rewritten by both sides) is left
+/// untouched for the existing box + Conflicts-screen flow. Returns how many notes were combined. Any failure on one
+/// file leaves that file exactly as libgit2 wrote it.
+int autoMergeMarkdownConflicts(git.Repository repo, String vaultPath) {
+  var merged = 0;
+  final conflicts = repo.index.conflicts;
+  for (final relPath in conflicts.keys.toList()) {
+    if (!relPath.endsWith('.md')) continue;
+    try {
+      final entry = conflicts[relPath]!;
+      final anc = entry.ancestor, our = entry.our, their = entry.their;
+      if (anc == null || our == null || their == null) continue;
+      final baseBlob = git.Blob.lookup(repo: repo, oid: anc.oid);
+      final oursBlob = git.Blob.lookup(repo: repo, oid: our.oid);
+      final theirsBlob = git.Blob.lookup(repo: repo, oid: their.oid);
+      if (baseBlob.isBinary || oursBlob.isBinary || theirsBlob.isBinary) continue;
+      final result = mergeThreeWayLines(baseBlob.content, oursBlob.content, theirsBlob.content);
+      if (result == null) continue;
+      final backupDir = Directory(conflictBackupsDir(vaultPath));
+      backupDir.createSync(recursive: true);
+      final ts = backupTimestamp();
+      saveBackupUnlessIdentical(backupDir, _conflictBackupName(relPath, 'before auto-merge, phone version', ts),
+          utf8.encode(neutralizeReminderTags(oursBlob.content)));
+      saveBackupUnlessIdentical(backupDir, _conflictBackupName(relPath, 'before auto-merge, desktop version', ts),
+          utf8.encode(neutralizeReminderTags(theirsBlob.content)));
+      File('$vaultPath/$relPath').writeAsStringSync(result);
+      repo.index.add(relPath);
+      merged++;
+    } catch (_) {
+      // Leave this note to the box + Conflicts flow below.
+    }
+  }
+  return merged;
+}
 
 // 2026-08-19: the pure string-transform logic (regexes, dedupe, the
 // nested-conflict flatten fix) moved to conflict_repair.dart so it can

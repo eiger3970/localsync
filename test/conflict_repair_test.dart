@@ -17,6 +17,38 @@ String _markers(String ours, String theirs) =>
     '<<<<<<< HEAD\n$ours\n=======\n$theirs\n>>>>>>> origin/main\n';
 
 void main() {
+  group('consolidateStackedRuns - boxes already in a note around two different dated entries (real 2026-11-10 case)', () {
+    const boxes = '> [!info]- SYNC CONFLICT - yours (review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
+        '> ## 202611101328\n> phone note\n> \n'
+        '\n'
+        '> [!warning]- SYNC CONFLICT - desktop obsidian - 202611101315 (review and delete one) - fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
+        '> ## 202611100815\n> desktop note\n';
+    test('unwrapped into plain entries, newest first, no box left, every line kept', () {
+      final out = consolidateStackedRuns('# Diary\n$boxes\n## 202611090823\nold');
+      expect(out.contains('SYNC CONFLICT'), isFalse);
+      expect(out.contains('> '), isFalse);
+      expect(out.indexOf('## 202611101328') < out.indexOf('## 202611100815'), isTrue);
+      expect(out.contains('phone note') && out.contains('desktop note') && out.contains('## 202611090823\nold'), isTrue);
+    });
+    test('the same dated heading with different text keeps its boxes', () {
+      final same = boxes.replaceFirst('## 202611101328', '## 202611100815');
+      expect(consolidateStackedRuns(same).contains('SYNC CONFLICT'), isTrue);
+    });
+    test('boxes around ordinary text keep their boxes', () {
+      final text = boxes.replaceAll('## 202611101328', 'phone heading').replaceAll('## 202611100815', 'desktop heading');
+      expect(consolidateStackedRuns(text).contains('SYNC CONFLICT'), isTrue);
+    });
+  });
+
+  group('mergeThreeWayLines - everyday edits that git calls conflicts', () {
+    test('two different lines changed next to each other are both kept', () {
+      expect(mergeThreeWayLines('one\ntwo\nthree\nfour', 'one\nTWO desk\nthree\nfour', 'one\ntwo\nTHREE phone\nfour'), 'one\nTWO desk\nTHREE phone\nfour');
+    });
+    test('two different list items added at the end are both kept', () {
+      expect(mergeThreeWayLines('- a\n- b', '- a\n- b\n- desk item', '- a\n- b\n- phone item'), '- a\n- b\n- desk item\n- phone item');
+    });
+  });
+
   group('repairConflictMarkers - two different dated diary entries (real 2026-11-10 case)', () {
     test('both kept as normal entries, newest first, no SYNC CONFLICT callout', () {
       final content = '# Diary\n${_markers('## 202611100815\ndesktop note', '## 202611101328\nphone note')}## 202611090823\nold entry';

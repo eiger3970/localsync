@@ -820,6 +820,20 @@ final _stackedRunPattern = RegExp(
   r'(?:> .*\n?)*\n?){2,}',
 );
 
+/// All [versions] are different dated entries (`## 202611100815`) - their text, newest first, as plain entries; else
+/// null (a real dispute, e.g. the same heading with different text, keeps its boxes).
+String? _unwrapDatedEntries(List<StackedVersion> versions) {
+  final heads = <String>[];
+  for (final v in versions) {
+    final h = _datedEntryHeading(v.body);
+    if (h == null) return null;
+    heads.add(h);
+  }
+  if (heads.toSet().length != heads.length) return null;
+  final order = List<int>.generate(versions.length, (i) => i)..sort((a, b) => heads[b].compareTo(heads[a]));
+  return '${order.map((i) => versions[i].body.trimRight()).join('\n\n')}\n';
+}
+
 String consolidateStackedRuns(String content) {
   return content.replaceAllMapped(_stackedRunPattern, (m) {
     final found = extractStackedVersions(m.group(0)!);
@@ -827,6 +841,11 @@ String consolidateStackedRuns(String content) {
     final versions = dedupeVersions(found);
     // 2026-09-27: every stacked copy was identical - resolved, plain text.
     if (versions.length == 1) return '${versions.single.body}\n';
+    // 2026-11-10 owner: "not just my diary" - boxes already sitting in a note (written before the merge learned that
+    // two different dated entries are not a dispute): when every stacked version starts with its own, different dated
+    // heading, nothing is in conflict - unwrap them into normal entries, newest first, every word kept.
+    final unwrapped = _unwrapDatedEntries(versions);
+    if (unwrapped != null) return unwrapped;
     final blocks = <String>[];
     for (var i = 0; i < versions.length; i++) {
       final kind = i == 0 ? '!info' : '!warning';
