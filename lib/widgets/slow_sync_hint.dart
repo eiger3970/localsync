@@ -58,8 +58,13 @@ class SlowSyncHint extends StatefulWidget {
   State<SlowSyncHint> createState() => _SlowSyncHintState();
 }
 
-class _SlowSyncHintState extends State<SlowSyncHint> {
+class _SlowSyncHintState extends State<SlowSyncHint>
+    with SingleTickerProviderStateMixin {
   Timer? _tick;
+  // Owner: the dog needs movement so the user knows the app isn't frozen.
+  late final AnimationController _bounce = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 450))
+    ..repeat(reverse: true);
 
   @override
   void initState() {
@@ -72,6 +77,7 @@ class _SlowSyncHintState extends State<SlowSyncHint> {
   @override
   void dispose() {
     _tick?.cancel();
+    _bounce.dispose();
     super.dispose();
   }
 
@@ -86,7 +92,15 @@ class _SlowSyncHintState extends State<SlowSyncHint> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const DogFigure(height: 24),
+            AnimatedBuilder(
+              animation: _bounce,
+              builder: (_, child) => Transform.translate(
+                offset: Offset(0, -5 * Curves.easeInOut.transform(_bounce.value)),
+                child: Transform.rotate(
+                    angle: 0.12 * (_bounce.value - 0.5), child: child),
+              ),
+              child: const DogFigure(height: 24),
+            ),
             const SizedBox(width: 10),
             Flexible(
               child: Text('Big note or slow connection - still working.',
