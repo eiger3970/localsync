@@ -39,20 +39,32 @@ class _SlowSyncHintState extends State<SlowSyncHint> {
   @override
   Widget build(BuildContext context) {
     if (!_show) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const DogFigure(height: 22),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              'Big note or slow connection - still working.\nNothing is lost.',
-              style: TextStyle(color: kTextMid, fontSize: 11, height: 1.3),
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: kSurface,
+          border: Border(top: BorderSide(color: kGreen, width: 2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const DogFigure(height: 40),
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                'Big note or slow connection.\nStill working - nothing is lost.',
+                style: TextStyle(
+                    color: kStar,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

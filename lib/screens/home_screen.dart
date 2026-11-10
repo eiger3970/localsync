@@ -467,6 +467,15 @@ class HomeScreen extends StatelessWidget {
       // wraps every screen the same way (FlagFrame + FlagBackdrop),
       // not just this one body. Removed here to avoid double-applying
       // it.
+      bottomSheet: Consumer<RepositoryProvider>(
+        builder: (_, provider, __) {
+          final r = provider.selectedRepo;
+          if (r == null || r.status != SyncStatus.syncing) {
+            return const SizedBox.shrink();
+          }
+          return const SlowSyncHint();
+        },
+      ),
       body: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
           if (provider.loading) {
@@ -2541,7 +2550,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                               style: TextStyle(color: kTextMid, fontSize: 10)),
                         ),
                       ],
-                    ),                  if (isSyncing) const SlowSyncHint(),
+                    ),
                   // 2026-08-28: real feedback, live - "remove the synced
                   // just now" - dropped the idle-state "synced Xm ago"
                   // line entirely; error/syncing status above are
