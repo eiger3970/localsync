@@ -13,4 +13,13 @@ void main() {
     final u = diagnosticsContactUri(r);
     expect(u.queryParameters['msg'], r);
   });
+
+  test('verdict and ratable merge', () {
+    const d = DiagnosticsInput(
+        appVersion: 'v', platform: 'p', step: 's', verdict: 'user says NOT right');
+    expect(buildDiagnosticsReport(d), contains('Merge result: user says NOT right'));
+    expect(isRatableMerge('Merged. 2 notes changed on both - combined'), isTrue);
+    expect(isRatableMerge('Merged in changes from desktop.'), isFalse);
+    expect(kDiagnosticsPrivacy, contains('anonymous'));
+  });
 }

@@ -12,12 +12,14 @@ class DiagnosticsInput {
   final String step;
   final String? error;
   final String? debug;
+  final String? verdict;
   const DiagnosticsInput({
     required this.appVersion,
     required this.platform,
     required this.step,
     this.error,
     this.debug,
+    this.verdict,
   });
 }
 
@@ -28,6 +30,7 @@ String buildDiagnosticsReport(DiagnosticsInput d, {String? helperName}) {
     ..writeln('Device: ${d.platform}')
     ..writeln('Step: ${d.step}');
   if (d.error != null) b.writeln('What happened: ${d.error}');
+  if (d.verdict != null) b.writeln('Merge result: ${d.verdict}');
   if (d.debug != null) b.writeln('Technical: ${d.debug}');
   final name = (helperName ?? '').trim();
   b.writeln('Credit me as: ${name.isEmpty ? '(leave blank to stay anonymous)' : name}');
@@ -37,3 +40,13 @@ String buildDiagnosticsReport(DiagnosticsInput d, {String? helperName}) {
 Uri diagnosticsContactUri(String report) =>
     Uri.parse('https://kworld.space/contact?help=1&app=localsync&msg='
         '${Uri.encodeComponent(report)}');
+
+const kDiagnosticsPrivacy =
+    'Secure and anonymous. Only diagnostics are sent: app version, device '
+    'system, the step that failed and the error text. No notes, no file '
+    'contents, no account, no tracking. Nothing is sent unless you tap Send.';
+
+/// True when a sync result is a merge the user may want to rate.
+bool isRatableMerge(String message) =>
+    message.startsWith('Merged.') &&
+    (message.contains('combined') || message.contains('kept'));

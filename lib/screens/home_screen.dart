@@ -1496,10 +1496,42 @@ Future<void> _runAndShow(
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       backgroundColor: kSurface,
-      content: Center(
-        child: Text(syncResultMessage(result),
-            textAlign: TextAlign.center,
-            style: TextStyle(color: kStar, fontSize: 16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Center(
+            child: Text(syncResultMessage(result),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: kStar, fontSize: 16)),
+          ),
+          if (result is SyncOk && repo != null && isRatableMerge(result.message))
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Is the result right?',
+                    style: TextStyle(color: kTextMid, fontSize: 14)),
+                TextButton(
+                  onPressed: () {
+                    final m = ScaffoldMessenger.of(context);
+                    m.hideCurrentSnackBar();
+                    m.showSnackBar(SnackBar(
+                        backgroundColor: kSurface,
+                        content: Text('Thanks - good to know.',
+                            style: TextStyle(color: kStar, fontSize: 16))));
+                  },
+                  child: Text('Yes', style: TextStyle(color: kGreen, fontSize: 15)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    _sendDetails(context, repo, verdict: 'user says NOT right');
+                  },
+                  child: Text('No',
+                      style: TextStyle(color: Colors.redAccent, fontSize: 15)),
+                ),
+              ],
+            ),
+        ],
       ),
       duration: const Duration(seconds: 12),
     ),
@@ -1567,7 +1599,8 @@ bool _looksLikePathProblem(String msg) =>
 // fields through the same labeled DiagCard layout the setup flow's
 // _FailedView already used (linking_screen.dart) - both places now
 // look identical or a real inconsistency, not just this bug.
-Future<void> _sendDetails(BuildContext context, Repository repo) async {
+Future<void> _sendDetails(BuildContext context, Repository repo,
+    {String? verdict}) async {
   final info = await PackageInfo.fromPlatform();
   final report = buildDiagnosticsReport(DiagnosticsInput(
     appVersion: '${info.version} (${info.buildNumber})',
@@ -1575,7 +1608,51 @@ Future<void> _sendDetails(BuildContext context, Repository repo) async {
     step: repo.syncPhase.label,
     error: repo.lastError,
     debug: repo.lastErrorDebug,
+    verdict: verdict,
   ));
+  if (!context.mounted) return;
+  final send = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: kSurface,
+      title: Text('Send details', style: TextStyle(color: kStar, fontSize: 16)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.lock_outline, color: kGreen, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(kDiagnosticsPrivacy,
+                    style: TextStyle(color: kGreen, fontSize: 13, height: 1.35)),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Text('This is everything that will be sent:',
+                style: TextStyle(color: kTextMid, fontSize: 12)),
+            const SizedBox(height: 6),
+            SelectableText(report,
+                style: TextStyle(color: kStar, fontSize: 12, height: 1.35)),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text('Cancel', style: TextStyle(color: kStar, fontSize: 15)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text('Send',
+              style: TextStyle(
+                  color: kGreen, fontSize: 15, fontWeight: FontWeight.w700)),
+        ),
+      ],
+    ),
+  );
+  if (send != true || !context.mounted) return;
   await Clipboard.setData(ClipboardData(text: report));
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
