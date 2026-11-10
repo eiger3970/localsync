@@ -467,11 +467,15 @@ class HomeScreen extends StatelessWidget {
       // wraps every screen the same way (FlagFrame + FlagBackdrop),
       // not just this one body. Removed here to avoid double-applying
       // it.
-      bottomSheet: Consumer<RepositoryProvider>(
-        builder: (_, provider, __) => SlowSyncHint(
-            syncing: provider.selectedRepo?.status == SyncStatus.syncing),
-      ),
-      body: Consumer<RepositoryProvider>(
+      body: Column(
+        children: [
+          Consumer<RepositoryProvider>(
+            builder: (_, provider, __) => SlowSyncHint(
+                syncing:
+                    provider.selectedRepo?.status == SyncStatus.syncing),
+          ),
+          Expanded(
+            child: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
           if (provider.loading) {
             return Center(
@@ -738,6 +742,9 @@ class HomeScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }

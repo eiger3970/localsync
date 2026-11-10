@@ -87,7 +87,7 @@ class _SlowSyncHintState extends State<SlowSyncHint> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: kSurface,
-          border: Border(top: BorderSide(color: kGreen, width: 2)),
+          border: Border(bottom: BorderSide(color: kGreen, width: 2)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
