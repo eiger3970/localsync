@@ -311,7 +311,19 @@ except OSError as e:
 import subprocess
 
 def _diff_lines(a, b):
+    # only the lines between the shared start and the shared end can differ (a 9,500-line note was minutes of work)
+    pre = 0
+    while pre < len(a) and pre < len(b) and a[pre] == b[pre]:
+        pre += 1
+    suf = 0
+    while suf < len(a) - pre and suf < len(b) - pre and a[len(a) - 1 - suf] == b[len(b) - 1 - suf]:
+        suf += 1
+    if pre or suf:
+        mid = _diff_lines(a[pre:len(a) - suf], b[pre:len(b) - suf])
+        return [('eq', x) for x in a[:pre]] + mid + [('eq', x) for x in a[len(a) - suf:]]
     n, m = len(a), len(b)
+    if n * m > 4000000:
+        raise ValueError('changed part too large to merge safely')
     dp = [[0] * (m + 1) for _ in range(n + 1)]
     for i in range(n - 1, -1, -1):
         for j in range(m - 1, -1, -1):

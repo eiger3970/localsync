@@ -408,6 +408,24 @@ enum _LineOp { equal, baseOnly, otherOnly }
 /// base, gone from the other side" (a deletion/replacement), otherOnly
 /// means "new in the other side, not in base" (an insertion).
 List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
+  // 2026-11-10: real note of 9,500 lines made the full table 90 million cells (minutes on a desktop, far too much memory
+  // on a phone). Only the lines between the shared start and the shared end can differ, so only those are compared.
+  var pre = 0;
+  while (pre < a.length && pre < b.length && a[pre] == b[pre]) {
+    pre++;
+  }
+  var suf = 0;
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] == b[b.length - 1 - suf]) {
+    suf++;
+  }
+  if (pre > 0 || suf > 0) {
+    final mid = _diffLines(a.sublist(pre, a.length - suf), b.sublist(pre, b.length - suf));
+    return [
+      for (var i = 0; i < pre; i++) (_LineOp.equal, a[i]),
+      ...mid,
+      for (var i = a.length - suf; i < a.length; i++) (_LineOp.equal, a[i]),
+    ];
+  }
   final n = a.length, m = b.length;
   final dp = List.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
   for (var i = n - 1; i >= 0; i--) {
@@ -443,6 +461,18 @@ List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
   return result;
 }
 
+int _changedMiddle(List<String> a, List<String> b) {
+  var pre = 0;
+  while (pre < a.length && pre < b.length && a[pre] == b[pre]) {
+    pre++;
+  }
+  var suf = 0;
+  while (suf < a.length - pre && suf < b.length - pre && a[a.length - 1 - suf] == b[b.length - 1 - suf]) {
+    suf++;
+  }
+  return (a.length - pre - suf + 1) * (b.length - pre - suf + 1);
+}
+
 /// 2026-09-06: real gap found live - a phone stuck behind on fetch
 /// finally caught up and surfaced a genuine "ancestor but content
 /// diverged" case (see sync_service.dart's remoteOid==baseOid branch)
@@ -475,6 +505,10 @@ List<(_LineOp, String)> _diffLines(List<String> a, List<String> b) {
 /// overwriting content the other touched, so both are kept, ours first.
 String? mergeThreeWayLines(String base, String ours, String theirs) {
   final baseLines = base.split('\n');
+  // Even after trimming, two huge rewritten middles are not worth guessing at - deferred like any other doubt.
+  if (_changedMiddle(baseLines, ours.split('\n')) > 4000000 || _changedMiddle(baseLines, theirs.split('\n')) > 4000000) {
+    return null;
+  }
   final oursDiff = _diffLines(baseLines, ours.split('\n'));
   final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
 
