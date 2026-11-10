@@ -6,6 +6,7 @@ import '../services/rescue_service.dart' show kRescueEnabled;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -22,6 +23,8 @@ import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
+import '../widgets/slow_sync_hint.dart';
+import '../services/diagnostics_report.dart';
 import '../widgets/floating_hearts.dart';
 import '../widgets/flowing_data_animation.dart';
 import '../widgets/free_tier_banner_ad.dart';
@@ -1564,6 +1567,23 @@ bool _looksLikePathProblem(String msg) =>
 // fields through the same labeled DiagCard layout the setup flow's
 // _FailedView already used (linking_screen.dart) - both places now
 // look identical or a real inconsistency, not just this bug.
+Future<void> _sendDetails(BuildContext context, Repository repo) async {
+  final info = await PackageInfo.fromPlatform();
+  final report = buildDiagnosticsReport(DiagnosticsInput(
+    appVersion: '${info.version} (${info.buildNumber})',
+    platform: Platform.operatingSystemVersion,
+    step: repo.syncPhase.label,
+    error: repo.lastError,
+    debug: repo.lastErrorDebug,
+  ));
+  await Clipboard.setData(ClipboardData(text: report));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Details copied. Opening the form - paste if empty.')));
+  await launchUrl(diagnosticsContactUri(report),
+      mode: LaunchMode.externalApplication);
+}
+
 void _showFullError(BuildContext context, Repository repo) {
   // 2026-08-21: real bug, live - "I tapped TRY AGAIN but the text is
   // dead." HOW TO FIX IT's resolution strings all say "Tap TRY AGAIN"
@@ -1626,6 +1646,11 @@ void _showFullError(BuildContext context, Repository repo) {
               Text('Close', style: TextStyle(color: kStar, fontSize: 15)),
             ],
           ),
+        ),
+        TextButton(
+          onPressed: () => _sendDetails(context, repo),
+          child: Text('Send details',
+              style: TextStyle(color: kStar, fontSize: 15)),
         ),
         TextButton(
           onPressed: () {
@@ -2439,7 +2464,7 @@ class _AppBarRepoStatus extends StatelessWidget {
                               style: TextStyle(color: kTextMid, fontSize: 10)),
                         ),
                       ],
-                    ),
+                    ),                  if (isSyncing) const SlowSyncHint(),
                   // 2026-08-28: real feedback, live - "remove the synced
                   // just now" - dropped the idle-state "synced Xm ago"
                   // line entirely; error/syncing status above are
