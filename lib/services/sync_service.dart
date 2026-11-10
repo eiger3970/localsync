@@ -88,7 +88,10 @@ class SyncOk extends SyncResult {
 }
 
 class SyncNoChanges extends SyncResult {
-  const SyncNoChanges();
+  /// 2026-11-10: push step timings (milliseconds spent scanning the vault, reaching the desktop, fetching) - shown in
+  /// a Send details report so a slow "Nothing to sync" can be explained with real numbers.
+  final String? timing;
+  const SyncNoChanges({this.timing});
 }
 
 // 2026-08-19: real user finding, walked through the actual flow live -
@@ -1078,7 +1081,10 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // can't see?" - yes, and now the result says so explicitly (only
     // when a commit actually happened - if the tree was already
     // clean, p.commitMessage was never used, so don't claim it was).
+    final sw = Stopwatch()..start();
+    String lap(String name, int from) => '$name ${((sw.elapsedMilliseconds - from) / 1000).toStringAsFixed(1)}s';
     final committed = commitDirtyTree(repo, p.commitMessage, p.deviceName);
+    final tScan = sw.elapsedMilliseconds;
 
     // 2026-08-30: same real bug/fix as _pullInIsolate above - a fresh
     // bare repo has no branches until something is actually pushed to
@@ -1088,6 +1094,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // skips straight to the push itself instead of a fetch/lookup that
     // can only fail.
     final remoteRefs = remote.ls(callbacks: callbacks);
+    final tLs = sw.elapsedMilliseconds;
     final hasRemoteBranch =
         remoteRefs.any((r) => r.name == 'refs/heads/${p.branch}');
     if (!hasRemoteBranch) {
@@ -1111,6 +1118,8 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       return SyncOk('$base$backupNote$repairNote');
     }
     remote.fetch(callbacks: callbacks);
+    final tFetch = sw.elapsedMilliseconds;
+    final timing = '${lap('scan', 0)}, ${lap('connect', tScan)}, ${lap('fetch', tLs)}';
     final remoteBranch = git.Branch.lookup(
       repo: repo,
       name: 'origin/${p.branch}',
@@ -1129,7 +1138,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
       // reaching localOid == remoteOid now really does mean nothing
       // changed, the normal everyday case, not something to dump
       // internals about.
-      return const SyncNoChanges();
+      return SyncNoChanges(timing: timing);
     }
 
     final baseOid = git.Merge.base(repo, localOid, remoteOid);

@@ -717,6 +717,7 @@ class RepositoryProvider extends ChangeNotifier {
     // real numbers. Kept in memory only; included in a Send details
     // report if the user sends one. No note text.
     final timings = <String>[];
+    String? pushSteps;
     var curPhase = SyncPhase.detecting;
     var curStart = DateTime.now();
     void markPhase(SyncPhase next) {
@@ -724,7 +725,7 @@ class RepositoryProvider extends ChangeNotifier {
       timings.add('${curPhase.name} ${(ms / 1000).toStringAsFixed(1)}s');
       curPhase = next;
       curStart = DateTime.now();
-      _lastTimings[id] = timings.join(', ');
+      _lastTimings[id] = timings.join(', ') + (pushSteps == null ? '' : ' | push steps: $pushSteps');
     }
 
     try {
@@ -752,6 +753,7 @@ class RepositoryProvider extends ChangeNotifier {
           _repos[i] = _repos[i].copyWith(syncProgress: event.progress);
           notifyListeners();
         } else if (event.result case final result?) {
+          if (result case SyncNoChanges(timing: final t?)) pushSteps = t;
           switch (result) {
             case SyncNoChanges():
             case SyncOk():
