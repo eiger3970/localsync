@@ -468,13 +468,8 @@ class HomeScreen extends StatelessWidget {
       // not just this one body. Removed here to avoid double-applying
       // it.
       bottomSheet: Consumer<RepositoryProvider>(
-        builder: (_, provider, __) {
-          final r = provider.selectedRepo;
-          if (r == null || r.status != SyncStatus.syncing) {
-            return const SizedBox.shrink();
-          }
-          return const SlowSyncHint();
-        },
+        builder: (_, provider, __) => SlowSyncHint(
+            syncing: provider.selectedRepo?.status == SyncStatus.syncing),
       ),
       body: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {

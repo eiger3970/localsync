@@ -11,28 +11,69 @@ import '../theme.dart';
 import 'progress_dog.dart';
 
 class SlowSyncHint extends StatefulWidget {
+  final bool syncing;
   final Duration after;
-  const SlowSyncHint({super.key, this.after = const Duration(seconds: 5)});
+  final Duration minVisible;
+  const SlowSyncHint({
+    super.key,
+    required this.syncing,
+    this.after = const Duration(seconds: 5),
+    this.minVisible = const Duration(seconds: 5),
+  });
 
   @override
   State<SlowSyncHint> createState() => _SlowSyncHintState();
 }
 
+// 2026-11-10: owner - hint flashed "in a split second" when the sync
+// ended right after it appeared. Once shown it now stays at least
+// [minVisible] so it can be read.
 class _SlowSyncHintState extends State<SlowSyncHint> {
-  Timer? _timer;
+  Timer? _showTimer;
+  Timer? _hideTimer;
+  DateTime? _shownAt;
   bool _show = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer(widget.after, () {
-      if (mounted) setState(() => _show = true);
+    if (widget.syncing) _start();
+  }
+
+  @override
+  void didUpdateWidget(SlowSyncHint old) {
+    super.didUpdateWidget(old);
+    if (widget.syncing && !old.syncing) _start();
+    if (!widget.syncing && old.syncing) _stop();
+  }
+
+  void _start() {
+    _hideTimer?.cancel();
+    _showTimer?.cancel();
+    if (_show) return;
+    _showTimer = Timer(widget.after, () {
+      if (!mounted) return;
+      setState(() {
+        _show = true;
+        _shownAt = DateTime.now();
+      });
+    });
+  }
+
+  void _stop() {
+    _showTimer?.cancel();
+    if (!_show) return;
+    final left =
+        widget.minVisible - DateTime.now().difference(_shownAt!);
+    _hideTimer = Timer(left.isNegative ? Duration.zero : left, () {
+      if (mounted) setState(() => _show = false);
     });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
     super.dispose();
   }
 
