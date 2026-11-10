@@ -17,6 +17,24 @@ String _markers(String ours, String theirs) =>
     '<<<<<<< HEAD\n$ours\n=======\n$theirs\n>>>>>>> origin/main\n';
 
 void main() {
+  group('repairConflictMarkers - two different dated diary entries (real 2026-11-10 case)', () {
+    test('both kept as normal entries, newest first, no SYNC CONFLICT callout', () {
+      final content = '# Diary\n${_markers('## 202611100815\ndesktop note', '## 202611101328\nphone note')}## 202611090823\nold entry';
+      final out = repairConflictMarkers(content, otherLabel: 'Desktop', otherTime: '202611101315');
+      expect(out.contains('SYNC CONFLICT'), isFalse);
+      expect(out.contains('<<<<<<<'), isFalse);
+      expect(out.indexOf('## 202611101328') < out.indexOf('## 202611100815'), isTrue);
+      expect(out.contains('desktop note'), isTrue);
+      expect(out.contains('phone note'), isTrue);
+      expect(out.contains('## 202611090823\nold entry'), isTrue);
+    });
+
+    test('the same dated heading with different text is still a conflict callout', () {
+      final out = repairConflictMarkers(_markers('## 202611100815\nA', '## 202611100815\nB'), otherLabel: 'Desktop', otherTime: '202611101315');
+      expect(out.contains('SYNC CONFLICT'), isTrue);
+    });
+  });
+
   group('repairConflictMarkers - single round (regression baseline)', () {
     test('wraps ours/theirs in exactly one sibling pair, no nesting', () {
       final content = _markers('line A', 'line B');
@@ -347,6 +365,25 @@ void main() {
       const ours = 'A\nC';
       const theirs = 'A\nC';
       expect(mergeThreeWayLines(base, ours, theirs), isNull);
+    });
+
+    test('2026-11-10 diary: both sides finish the same empty dated heading with their own entry - both kept, newest first, no callouts', () {
+      const base = '# Diary\n## 202611\n## 202611090823\nold entry';
+      const desktop = '# Diary\n## 202611100815\ndesktop note\n## 202611090823\nold entry';
+      const phone = '# Diary\n## 202611101328\nphone note\n## 202611090823\nold entry';
+      const expected = '# Diary\n## 202611101328\nphone note\n## 202611100815\ndesktop note\n## 202611090823\nold entry';
+      expect(mergeThreeWayLines(base, desktop, phone), expected);
+      expect(mergeThreeWayLines(base, phone, desktop), expected);
+    });
+
+    test('a finished dated heading rewritten differently on both sides is still a real conflict', () {
+      const base = '# Diary\n## 202611100815\n## 202611090823';
+      expect(mergeThreeWayLines(base, '# Diary\n## 202611100816\n## 202611090823', '# Diary\n## 202611100817\n## 202611090823'), isNull);
+    });
+
+    test('both sides finish the stub with the very same heading - deferred, not guessed', () {
+      const base = '# Diary\n## 202611\n## 202611090823';
+      expect(mergeThreeWayLines(base, '# Diary\n## 202611100815\nA\n## 202611090823', '# Diary\n## 202611100815\nB\n## 202611090823'), isNull);
     });
 
     test('unrelated additions at the exact same gap are both kept', () {

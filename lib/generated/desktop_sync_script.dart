@@ -433,6 +433,20 @@ def merge_both(m):
         auto_appended[0] += 1
         return f'{merged}\n'
 
+    # 2026-11-10 real case (owner's diary): both devices wrote their OWN new dated entry
+    # (`## 202611100815` / `## 202611101328`) at the same spot. Two different dated headings are two
+    # entries, not one in dispute - both stay as normal entries, newest first, no callout. Mirrors
+    # conflict_repair.dart's _datedEntryHeading rule. Kanban boards keep the old handling.
+    if not is_kanban:
+        dated = re.compile(r'^#{1,6} (\d{8,14})[ \t]*$')
+        oh = dated.match(ours.split('\n')[0])
+        th = dated.match(theirs.split('\n')[0])
+        if oh and th and oh.group(1) != th.group(1) and normalize(theirs) not in normalize(ours) and normalize(ours) not in normalize(theirs):
+            auto_appended[0] += 1
+            if int(th.group(1)) > int(oh.group(1)):
+                return f'{theirs}\n\n{ours}\n'
+            return f'{ours}\n\n{theirs}\n'
+
     if is_kanban:
         other_lines = '\n'.join(
             f'%% CONFLICT-OTHER ({other_label}): {line} %%' for line in theirs.splitlines()

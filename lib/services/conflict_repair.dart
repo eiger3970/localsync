@@ -487,19 +487,38 @@ String? mergeThreeWayLines(String base, String ours, String theirs) {
       List.generate(baseLines.length + 1, (_) => <String>[]);
   _fillFromDiff(theirsDiff, theirsKept, theirsGapInserts);
 
+  // 2026-11-10 real case (owner's diary, Website kworld.space note): the desktop and the phone each turned the same
+  // unfinished heading `## 202611` into their own NEW dated entry (`## 202611100815` / `## 202611101328`, each with its
+  // own text). That is not a fight over one line - the stub held nothing, and both sides finished it with a different
+  // entry - so both entries are kept as normal entries, newest first, with no conflict callouts. Anything else that
+  // touches the same base line (including a stub finished the same way by both sides) is still deferred to the
+  // backup-and-ask flow, exactly as before.
+  final newestFirst = <int>{}; // gaps where theirs' entry is newer than ours' and is written first
   for (var k = 0; k < baseLines.length; k++) {
-    if (!oursKept[k] && !theirsKept[k]) return null;
+    if (!oursKept[k] && !theirsKept[k]) {
+      final stub = _stubHeading.firstMatch(baseLines[k]);
+      final ours = stub == null ? null : _entryHeading(oursGapInserts[k + 1], stub);
+      final theirs = stub == null ? null : _entryHeading(theirsGapInserts[k + 1], stub);
+      if (ours == null || theirs == null || ours == theirs) return null;
+      if (theirs.compareTo(ours) > 0) newestFirst.add(k + 1);
+    }
   }
 
   final out = StringBuffer();
-  void writeGap(int g) {
-    for (final l in oursGapInserts[g]) {
+  void writeLines(List<String> lines) {
+    for (final l in lines) {
       out.write(l);
       out.write('\n');
     }
-    for (final l in theirsGapInserts[g]) {
-      out.write(l);
-      out.write('\n');
+  }
+
+  void writeGap(int g) {
+    if (newestFirst.contains(g)) {
+      writeLines(theirsGapInserts[g]);
+      writeLines(oursGapInserts[g]);
+    } else {
+      writeLines(oursGapInserts[g]);
+      writeLines(theirsGapInserts[g]);
     }
   }
 
@@ -515,6 +534,21 @@ String? mergeThreeWayLines(String base, String ours, String theirs) {
   return result.endsWith('\n')
       ? result.substring(0, result.length - 1)
       : result;
+}
+
+// An unfinished dated heading, e.g. `## 202611` (hashes, then only digits).
+final _stubHeading = RegExp(r'^(#{1,6}) (\d{1,11})$');
+
+/// The digits of the first dated heading in [lines] that finishes [stub] (same heading level, a longer number that
+/// starts with the stub's digits), or null when the replacement is not such an entry.
+String? _entryHeading(List<String> lines, RegExpMatch stub) {
+  for (final l in lines) {
+    final m = RegExp(r'^(#{1,6}) (\d+)\s*$').firstMatch(l);
+    if (m != null && m.group(1) == stub.group(1) && m.group(2)!.length > stub.group(2)!.length && m.group(2)!.startsWith(stub.group(2)!)) {
+      return m.group(2);
+    }
+  }
+  return null;
 }
 
 void _fillFromDiff(List<(_LineOp, String)> diff, List<bool> kept,
@@ -616,6 +650,11 @@ List<StackedVersion> dedupeVersions(List<StackedVersion> versions) {
   ];
 }
 
+// The digits of a block's first line when that line is a dated entry heading (`## 202611100815`: hashes, then 8-14
+// digits - a real date or date + time, so an unfinished stub such as `## 202611` is not one), else null.
+String? _datedEntryHeading(String block) =>
+    RegExp(r'^#{1,6} (\d{8,14})[ \t]*$').firstMatch(block.split('\n').first)?.group(1);
+
 String repairConflictMarkers(String content,
     {required String otherLabel, String? otherTime}) {
   final isKanban = kanbanFrontmatterPattern.hasMatch(content);
@@ -630,6 +669,17 @@ String repairConflictMarkers(String content,
 
     final appended = dedupeAndCheckAppend(ours, theirs);
     if (appended != null) return '$appended\n';
+
+    // 2026-11-10 real case (owner's diary): the desktop and the phone each wrote their OWN new dated entry
+    // (`## 202611100815` and `## 202611101328`) at the same spot. Two different dated headings are two different
+    // entries, not one entry in dispute - nothing to "review and delete", so both stay as normal entries, newest
+    // first, no callout. (Kanban boards and an entry that merely contains the other keep the old handling.)
+    if (!isKanban) {
+      final oursHead = _datedEntryHeading(ours), theirsHead = _datedEntryHeading(theirs);
+      if (oursHead != null && theirsHead != null && oursHead != theirsHead && !oneContainsTheOther(ours, theirs)) {
+        return theirsHead.compareTo(oursHead) > 0 ? '$theirs\n\n$ours\n' : '$ours\n\n$theirs\n';
+      }
+    }
 
     if (isKanban) {
       final otherLines = theirs
