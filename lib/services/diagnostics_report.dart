@@ -13,6 +13,7 @@ class DiagnosticsInput {
   final String? error;
   final String? debug;
   final String? verdict;
+  final String? timings;
   const DiagnosticsInput({
     required this.appVersion,
     required this.platform,
@@ -20,6 +21,7 @@ class DiagnosticsInput {
     this.error,
     this.debug,
     this.verdict,
+    this.timings,
   });
 }
 
@@ -30,6 +32,7 @@ String buildDiagnosticsReport(DiagnosticsInput d, {String? helperName}) {
     ..writeln('Device: ${d.platform}')
     ..writeln('Step: ${d.step}');
   if (d.error != null) b.writeln('What happened: ${d.error}');
+  if (d.timings != null) b.writeln('Step times: ${d.timings}');
   if (d.verdict != null) b.writeln('Merge result: ${d.verdict}');
   if (d.debug != null) b.writeln('Technical: ${d.debug}');
   final name = (helperName ?? '').trim();

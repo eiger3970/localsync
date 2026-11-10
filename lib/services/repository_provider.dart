@@ -713,12 +713,27 @@ class RepositoryProvider extends ChangeNotifier {
     _setPhase(idx, SyncStatus.syncing, SyncPhase.detecting);
     await FileBackupExclusion.keepAwake(true);
 
+    // 2026-11-10: per-step timings, so "why is Nothing to sync slow?" has
+    // real numbers. Kept in memory only; included in a Send details
+    // report if the user sends one. No note text.
+    final timings = <String>[];
+    var curPhase = SyncPhase.detecting;
+    var curStart = DateTime.now();
+    void markPhase(SyncPhase next) {
+      final ms = DateTime.now().difference(curStart).inMilliseconds;
+      timings.add('${curPhase.name} ${(ms / 1000).toStringAsFixed(1)}s');
+      curPhase = next;
+      curStart = DateTime.now();
+      _lastTimings[id] = timings.join(', ');
+    }
+
     try {
       await for (final event in op(service)) {
         final i = _repos.indexWhere((r) => r.id == id);
         if (i == -1) return null;
 
         if (event.phase != null) {
+          markPhase(event.phase!);
           _repos[i] = _repos[i].copyWith(
             status:    SyncStatus.syncing,
             syncPhase: event.phase,
@@ -851,6 +866,7 @@ class RepositoryProvider extends ChangeNotifier {
       // _diagnose() already uses.
       return SyncFailed(LinkingError.unclassifiedError, debugDetail: e.toString());
     } finally {
+      markPhase(SyncPhase.idle);
       await FileBackupExclusion.keepAwake(false);
     }
   }
@@ -901,6 +917,9 @@ class RepositoryProvider extends ChangeNotifier {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  final Map<int, String> _lastTimings = {};
+  String? lastTimings(int id) => _lastTimings[id];
 
   void _setPhase(int idx, SyncStatus status, SyncPhase phase) {
     _repos[idx] = _repos[idx].copyWith(

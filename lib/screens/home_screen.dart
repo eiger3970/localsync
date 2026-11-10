@@ -367,6 +367,15 @@ class HomeScreen extends StatelessWidget {
                     // support (bareRepoPath was likewise a build-time
                     // constant, meaning a second vault could never target
                     // a different bare repo than the first).
+                    if (hasRepo)
+                      const PopupMenuItem(
+                        value: 'send_details',
+                        child: _MenuRow(
+                          icon: Icons.monitor_heart_outlined,
+                          label: 'Send details',
+                          subtitle: 'Secure, anonymous',
+                        ),
+                      ),
                     const PopupMenuItem(
                       value: 'settings',
                       child: _MenuRow(
@@ -756,6 +765,10 @@ class HomeScreen extends StatelessWidget {
   // controller instead of a second, disconnected copy.
   void _onMenuAction(
       BuildContext context, RepositoryProvider provider, String v) {
+    if (v == 'send_details' && provider.selectedRepo != null) {
+      _sendDetails(context, provider.selectedRepo!);
+      return;
+    }
     if (v == 'backups' && provider.selectedRepo != null) {
       Navigator.push(
           context,
@@ -1626,6 +1639,9 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
     error: repo.lastError,
     debug: repo.lastErrorDebug,
     verdict: verdict,
+    timings: repo.id == null
+        ? null
+        : context.read<RepositoryProvider>().lastTimings(repo.id!),
   ));
   if (!context.mounted) return;
   final send = await showDialog<bool>(
