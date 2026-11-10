@@ -1464,6 +1464,12 @@ Future<void> _runAndShow(
   // and the user heard Push and Pull swapped every time.
   SoundEvent? sound,
 }) async {
+  // 2026-11-10: owner - "needs a prompt when an error has been solved".
+  // Remember the error this run starts with; if the run succeeds, offer
+  // Send details once.
+  final priorError = (repo != null && repo.status == SyncStatus.error)
+      ? (repo.lastError, repo.lastErrorDebug)
+      : null;
   var result = await op();
   if (!context.mounted || result == null) return;
   if (result case SyncNeedsConfirmation()) {
@@ -1528,6 +1534,27 @@ Future<void> _runAndShow(
                 textAlign: TextAlign.center,
                 style: TextStyle(color: kStar, fontSize: 16)),
           ),
+          if (priorError != null &&
+              repo != null &&
+              (result is SyncOk || result is SyncNoChanges))
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Problem solved. Help fix it for others?',
+                    style: TextStyle(color: kTextMid, fontSize: 14)),
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    _sendDetails(context, repo,
+                        verdict: 'error solved by retry',
+                        error: priorError.$1,
+                        debug: priorError.$2);
+                  },
+                  child: Text('Send details',
+                      style: TextStyle(color: kGreen, fontSize: 15)),
+                ),
+              ],
+            ),
           if (result is SyncOk && repo != null && isRatableMerge(result.message))
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1630,14 +1657,14 @@ Widget _diagBadge(IconData icon, String label) => Column(children: [
     ]);
 
 Future<void> _sendDetails(BuildContext context, Repository repo,
-    {String? verdict}) async {
+    {String? verdict, String? error, String? debug}) async {
   final info = await PackageInfo.fromPlatform();
   final report = buildDiagnosticsReport(DiagnosticsInput(
     appVersion: '${info.version} (${info.buildNumber})',
     platform: Platform.operatingSystemVersion,
     step: repo.syncPhase.label,
-    error: repo.lastError,
-    debug: repo.lastErrorDebug,
+    error: error ?? repo.lastError,
+    debug: debug ?? repo.lastErrorDebug,
     verdict: verdict,
     timings: repo.id == null
         ? null
