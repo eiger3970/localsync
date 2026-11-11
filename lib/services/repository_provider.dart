@@ -513,7 +513,10 @@ class RepositoryProvider extends ChangeNotifier {
     }
     if (result is SyncOk || result is SyncNoChanges) {
       setPushReminder(false);
-      if (wasReminder) unawaited(_desktopFollowUp(id));
+      // 2026-11-11 owner: new phone notes were on the phone but not yet in desktop Obsidian after a push and the
+      // desktop only caught up on its own 5-minute timer. Every push that sent notes now asks the desktop to sync
+      // right away, not only the push after a fixed conflict.
+      if (wasReminder || result is SyncOk) unawaited(_desktopFollowUp(id));
     }
     return result;
   }
