@@ -33,6 +33,7 @@ import 'binary_conflicts_screen.dart';
 import 'conflict_picker_screen.dart';
 import 'kept_both_screen.dart';
 import '../services/localsync_folder.dart';
+import '../widgets/top_message.dart';
 
 // 2026-08-20: real feedback, live - after sorting most-recent-first, a
 // brand-new conflict and a pile of unrelated older ones still look like
@@ -211,7 +212,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     // user is already back on this list screen, so this is the
     // correct place for the confirmation to land, same SnackBar shape
     // home_screen.dart's own sync-result message already uses.
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Center(
@@ -271,7 +272,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     }
     if (!mounted) return;
     setState(() => _future = _scan());
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Center(
@@ -329,7 +330,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
     // below) - report through the root navigator, not `context`.
     final navContext = rootNavigatorKey.currentContext;
     if (!done && navContext != null) {
-      ScaffoldMessenger.of(navContext).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(navContext).showTopBar(const SnackBar(
           content: Text('Not undone - the note changed since the merge. '
               'The backup is in $kBackupsPlace.')));
     }
@@ -1071,6 +1072,20 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // undiscoverable swipe-down gesture.
                                   // Closes the banner a few seconds after the desktop step has finished (updated, or did not answer).
                                   final followProvider = context.read<RepositoryProvider>();
+                                  // While this banner is up, other messages wait behind it (see top_message.dart).
+                                  // Fuse: never block other messages for more than 2 minutes. A note that did not change has
+                                  // no PUSH step, so that banner closes itself after 8 seconds.
+                                  topBarPersistent = true;
+                                  Timer(const Duration(minutes: 2), () {
+                                    topBarPersistent = false;
+                                  });
+                                  if (!lastResolutionChangedNote) {
+                                    Timer(const Duration(seconds: 8), () {
+                                      final nav = rootNavigatorKey.currentContext;
+                                      if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
+                                      topBarPersistent = false;
+                                    });
+                                  }
                                   void closeAfterFollowUp() {
                                     final f = followProvider.pushFollowUp;
                                     if (f != PushFollowUp.desktopDone && f != PushFollowUp.desktopLate) return;
@@ -1078,6 +1093,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     Timer(const Duration(seconds: 8), () {
                                       final nav = rootNavigatorKey.currentContext;
                                       if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
+                                                  topBarPersistent = false;
                                     });
                                   }
                                   followProvider.addListener(closeAfterFollowUp);
@@ -1294,6 +1310,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                                   ScaffoldMessenger.of(
                                                           navContext)
                                                       .hideCurrentMaterialBanner();
+                                                  topBarPersistent = false;
                                                   await Navigator.push(
                                                     // ignore: use_build_context_synchronously
                                                     navContext,
@@ -1372,6 +1389,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               if (navContext != null) {
                                                 ScaffoldMessenger.of(navContext)
                                                     .hideCurrentMaterialBanner();
+                                                  topBarPersistent = false;
                                               }
                                               _undoKeptBothNow(
                                                   result!.keptBoth!);
@@ -1389,6 +1407,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               if (navContext != null) {
                                                 ScaffoldMessenger.of(navContext)
                                                     .hideCurrentMaterialBanner();
+                                                  topBarPersistent = false;
                                               }
                                               _undoMergeNow(
                                                   result!.mergeUndo!);
@@ -1410,6 +1429,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             if (navContext != null) {
                                               ScaffoldMessenger.of(navContext)
                                                   .hideCurrentMaterialBanner();
+                                                  topBarPersistent = false;
                                             }
                                           },
                                           child: Text('DISMISS',

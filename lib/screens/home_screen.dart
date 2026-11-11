@@ -43,6 +43,7 @@ import 'security_info_screen.dart';
 import 'settings_screen.dart';
 import 'upgrades_screen.dart';
 import '../services/sound_service.dart';
+import '../widgets/top_message.dart';
 
 // 2026-09-18: real bug, found after the SceneDelegate fix still left
 // "DEBUG PULL: anim=true playing=false" but no visible animation - a
@@ -564,8 +565,8 @@ class HomeScreen extends StatelessWidget {
               // not just its exit animation. hideCurrentSnackBar()
               // dismisses the old one immediately so this one doesn't
               // wait behind it.
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context).hideCurrentTopBar();
+              ScaffoldMessenger.of(context).showTopBar(
                 SnackBar(
                   backgroundColor: kSurface,
                   content: Center(
@@ -1099,8 +1100,8 @@ class _SyncGestureZone extends StatelessWidget {
   // push, pull or the silent auto-sync is still running is refused
   // with this message instead of starting a second one.
   void _showBusy(BuildContext context) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).hideCurrentTopBar();
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Center(
@@ -1116,8 +1117,8 @@ class _SyncGestureZone extends StatelessWidget {
   // 2026-10-01: a swipe during a running sync is queued, not refused -
   // it starts by itself the moment that sync finishes.
   void _showQueued(BuildContext context, String action) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).hideCurrentTopBar();
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Center(
@@ -1326,8 +1327,8 @@ Future<void> _triggerDesktopSyncNow(
   // from a prior push/pull (12s duration) queues this one behind it
   // otherwise - hideCurrentSnackBar() clears it immediately instead of
   // making this wait out that full duration.
-  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  ScaffoldMessenger.of(context).showSnackBar(
+  ScaffoldMessenger.of(context).hideCurrentTopBar();
+  ScaffoldMessenger.of(context).showTopBar(
     SnackBar(
       backgroundColor: kSurface,
       content: const _PulsingSyncStatus(label: 'Desktop syncing...'),
@@ -1347,8 +1348,8 @@ Future<void> _triggerDesktopSyncNow(
   if (!isFailure) {
     unawaited(SoundService.instance.play(SoundEvent.desktopSync));
   }
-  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  ScaffoldMessenger.of(context).showSnackBar(
+  ScaffoldMessenger.of(context).hideCurrentTopBar();
+  ScaffoldMessenger.of(context).showTopBar(
     SnackBar(
       backgroundColor: kSurface,
       content: Row(
@@ -1519,8 +1520,8 @@ Future<void> _runAndShow(
   // message stays for a long time... have to wait for the Pushed
   // message to disappear." hideCurrentSnackBar() so this result
   // doesn't queue behind whatever's still showing from a prior action.
-  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  ScaffoldMessenger.of(context).showSnackBar(
+  ScaffoldMessenger.of(context).hideCurrentTopBar();
+  ScaffoldMessenger.of(context).showTopBar(
     SnackBar(
       backgroundColor: kSurface,
       content: Column(
@@ -1541,7 +1542,7 @@ Future<void> _runAndShow(
                     style: TextStyle(color: kTextMid, fontSize: 14)),
                 TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).hideCurrentTopBar();
                     _sendDetails(context, repo,
                         verdict: 'error solved by retry',
                         error: priorError.$1,
@@ -1561,8 +1562,8 @@ Future<void> _runAndShow(
                 TextButton(
                   onPressed: () {
                     final m = ScaffoldMessenger.of(context);
-                    m.hideCurrentSnackBar();
-                    m.showSnackBar(SnackBar(
+                    m.hideCurrentTopBar();
+                    m.showTopBar(SnackBar(
                         backgroundColor: kSurface,
                         content: Text('Thanks - good to know.',
                             style: TextStyle(color: kStar, fontSize: 16))));
@@ -1571,7 +1572,7 @@ Future<void> _runAndShow(
                 ),
                 TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).hideCurrentTopBar();
                     _sendDetails(context, repo, verdict: 'user says NOT right');
                   },
                   child: Text('No',
@@ -1596,8 +1597,8 @@ Future<void> _runAndShow(
         .checkDesktopStatus(repo!.id!)
         .then((msg) {
       if (msg == null) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(
+      messenger.hideCurrentTopBar();
+      messenger.showTopBar(SnackBar(
         backgroundColor: kSurface,
         content: Center(
           child: Text(msg,
@@ -1714,7 +1715,7 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
   if (send != true || !context.mounted) return;
   await Clipboard.setData(ClipboardData(text: report));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+  ScaffoldMessenger.of(context).showTopBar(const SnackBar(
       content: Text('Details copied. Opening the form - paste if empty.')));
   await launchUrl(diagnosticsContactUri(report),
       mode: LaunchMode.externalApplication);
@@ -2238,7 +2239,7 @@ Future<void> _showAbout(BuildContext context, {required bool paidTier}) async {
               onTap: () {
                 Clipboard.setData(const ClipboardData(
                     text: 'steamyice42@walletofsatoshi.com'));
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(context).showTopBar(
                   const SnackBar(content: Text('Lightning address copied')),
                 );
               },

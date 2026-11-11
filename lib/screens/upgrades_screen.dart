@@ -15,6 +15,7 @@ import 'paywall_conflict_picker_screen.dart';
 import 'paywall_keep_both_cleanup_screen.dart';
 import 'paywall_obsidian_screen.dart';
 import 'rescue_screen.dart';
+import '../widgets/top_message.dart';
 
 class UpgradesScreen extends StatefulWidget {
   const UpgradesScreen({super.key});
@@ -151,7 +152,7 @@ class _UpgradesScreenState extends State<UpgradesScreen> {
                 final info = await purchases.restorePurchases();
                 if (!context.mounted) return;
                 final n = info?.entitlements.active.length ?? 0;
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                ScaffoldMessenger.of(context).showTopBar(SnackBar(
                     content: Text(n > 0
                         ? 'Restored $n purchase${n == 1 ? '' : 's'}'
                         : purchases.restoreFailed

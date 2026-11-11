@@ -40,6 +40,7 @@ import '../services/sync_service.dart' show SyncOk;
 import '../services/theme_service.dart';
 import '../services/discovery_service.dart';
 import '../services/purchase_service.dart' show kIsStoreBuild;
+import '../widgets/top_message.dart';
 
 class SettingsScreen extends StatefulWidget {
   // 2026-08-30: real device feedback - "the yellow warning label is
@@ -439,7 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       }
       if (!mounted || !_continuing) return;
       Navigator.pop(context);
-      messenger.showSnackBar(
+      messenger.showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Row(
@@ -482,7 +483,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   void _useSuggestedPath() {
     final user = _userCtrl.text.trim();
     if (user.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Text('Fill in Desktop username above first',
@@ -914,7 +915,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               // register at a glance - bolded and given a real
               // checkmark, not just folded into the same-size
               // explanatory sentence after it.
-              ScaffoldMessenger.of(context).showSnackBar(
+              ScaffoldMessenger.of(context).showTopBar(
                 SnackBar(
                   backgroundColor: kSurface,
                   content: Text.rich(
@@ -1040,7 +1041,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     setState(() => _interestSelected = price);
     await context.read<RepositoryProvider>().setAutoDiscoveryInterest(price);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Text(
@@ -1142,7 +1143,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       // 2026-09-27: a found address replaces whatever red "Not a valid
       // IP address" an earlier save left under the field.
       setState(() => _ipError = null);
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Text('Found desktop at $ip',
@@ -3001,7 +3002,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     final repo = context.read<RepositoryProvider>().selectedRepo;
     if (repo == null || repo.vaultBookmark.isEmpty) return;
     if (sanitizeLocalSyncFolder(_lsFolderCtrl.text) == null) {
-      messenger.showSnackBar(const SnackBar(
+      messenger.showTopBar(const SnackBar(
           content: Text('Use a folder inside the vault, like '
               'Projects/LocalSync - no "..", no leading "/" and no '
               'names starting with a dot.')));
@@ -3027,7 +3028,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         _lsFolderCtrl.text = saved;
       }
     });
-    messenger.showSnackBar(SnackBar(
+    messenger.showTopBar(SnackBar(
         content: Text(saved == null
             ? 'Could not save - LocalSync could not open the vault folder.'
             : saved == previous
@@ -3105,7 +3106,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       _desktopScheduleBusy = false;
       if (!ok) _desktopSchedule = previous;
     });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showTopBar(SnackBar(
         content: Text(ok
             ? 'Desktop sync: ${s.label.toLowerCase()}'
             : 'Could not reach the desktop - nothing changed. Is it awake '

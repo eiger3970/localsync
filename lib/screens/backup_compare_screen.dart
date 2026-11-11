@@ -24,6 +24,7 @@ import '../services/backup_compare.dart';
 import '../services/vault_folder_service.dart';
 import '../services/word_diff.dart';
 import '../services/localsync_folder.dart';
+import '../widgets/top_message.dart';
 
 // 2026-09-06: same brighter red conflict_picker_screen.dart's own
 // _kBrightRed uses for its "other side" panel - Material's default
@@ -182,7 +183,7 @@ class _BackupCompareListScreenState extends State<BackupCompareListScreen> {
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Text(text, style: TextStyle(color: kStar, fontSize: 14)),

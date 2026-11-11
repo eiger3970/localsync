@@ -10,6 +10,7 @@ import '../models/repository.dart';
 import '../services/deleted_files.dart';
 import '../services/repository_provider.dart';
 import '../theme.dart';
+import '../widgets/top_message.dart';
 
 class DeletedFilesScreen extends StatefulWidget {
   final Repository repo;
@@ -49,12 +50,12 @@ class _DeletedFilesScreenState extends State<DeletedFilesScreen> {
           .withRepoFolder(widget.repo, (path) => restoreDeletedFile(path, f));
       if (!mounted || written == null) return;
       setState(() => _restored.add(f.path));
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      ScaffoldMessenger.of(context).showTopBar(SnackBar(
           content: Text('Restored: $written - swipe PUSH to send it to the desktop')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not restore: $e')));
+          .showTopBar(SnackBar(content: Text('Could not restore: $e')));
     }
   }
 

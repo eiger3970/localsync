@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../services/backup_reminder_service.dart';
 import '../services/purchase_service.dart' show kIsStoreBuild;
 import '../services/repository_provider.dart';
+import '../widgets/top_message.dart';
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -126,7 +127,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     message = 'Could not schedule: $e';
                   }
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(context).showTopBar(
                     SnackBar(
                         content: Text(message),
                         duration: const Duration(seconds: 8)),
@@ -155,7 +156,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
                     message = 'Could not send: $e';
                   }
                   if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(context).showTopBar(
                     SnackBar(
                         content: Text(message),
                         duration: const Duration(seconds: 6)),

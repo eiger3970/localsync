@@ -41,6 +41,7 @@ import 'settings_screen.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/folder_route_view.dart';
 import '../services/files_app_path.dart';
+import '../widgets/top_message.dart';
 
 // 2026-08-17: real device crash - "I tap X and app stays stuck in a
 // black screen" / "I swiped right [LOCALSYNC HOME] and blackscreen".
@@ -102,7 +103,7 @@ void _showSshHelp(BuildContext context) {
     Clipboard.setData(ClipboardData(text: command));
     // 2026-09-04: real feedback, live - "the tick and Copied text is
     // too small" (same fix on the website's own copy buttons).
-    ScaffoldMessenger.of(ctx).showSnackBar(
+    ScaffoldMessenger.of(ctx).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Text('✓ Command copied',
@@ -789,7 +790,7 @@ class _IdleViewState extends State<_IdleView>
     // random skipping with zero explanation, including the consent
     // screen never showing up - confusing, even though nothing risky
     // happened. A brief note instead of silence.
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         content: Text('Already paired with this desktop - skipping ahead',
             style: TextStyle(color: kVoid, fontWeight: FontWeight.w600)),
@@ -2821,7 +2822,7 @@ class _CompleteViewState extends State<_CompleteView>
       // underlying case (wanting a second vault to sync to a different
       // repo) is Settings -> Git bare repo path, set before linking.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showTopBar(
           SnackBar(
             backgroundColor: kSurface,
             content: Text(
@@ -2855,7 +2856,7 @@ class _CompleteViewState extends State<_CompleteView>
     if (kIsWeb) return;
     if (vaultPath == null || vaultBookmark == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showTopBar(
           SnackBar(
             backgroundColor: kSurface,
             content: Text(
@@ -2916,7 +2917,7 @@ class _CompleteViewState extends State<_CompleteView>
       ));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showTopBar(
           SnackBar(
             backgroundColor: kSurface,
             content: Text(
@@ -3292,7 +3293,7 @@ class _FailedViewState extends State<_FailedView> {
       // connection that doesn't exist yet - that's a real prerequisite,
       // not a gap. What was fixable: "check it's on the same network"
       // was vague. Names the two actual things to check instead.
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Text(

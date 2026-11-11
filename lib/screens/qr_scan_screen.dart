@@ -14,6 +14,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../theme.dart';
+import '../widgets/top_message.dart';
 
 class QrScanScreen extends StatefulWidget {
   // 2026-09-04: shown in the app bar so a user scanning field 4 right
@@ -60,7 +61,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
         : null;
     if (value == null || value.isEmpty) return;
     if (_obviouslyNotAPathPattern.hasMatch(value.trim())) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         const SnackBar(
           content: Text(
               "That QR code isn't a path - it looks like a terminal "

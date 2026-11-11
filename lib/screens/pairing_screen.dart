@@ -25,6 +25,7 @@ import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import 'linking_screen.dart';
 import 'security_info_screen.dart';
+import '../widgets/top_message.dart';
 
 class PairingScreen extends StatefulWidget {
   final String desktopUser;
@@ -663,7 +664,7 @@ class _PairingScreenState extends State<PairingScreen> {
     if (!mounted) return;
     setState(() => _discovering = false);
     if (ip == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context).showTopBar(
         SnackBar(
           backgroundColor: kSurface,
           content: Text(
@@ -686,7 +687,7 @@ class _PairingScreenState extends State<PairingScreen> {
         ..onDesktopIpChanged = _saveFoundDesktopIp;
       _ctrl.addListener(_onChange);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Text('Found desktop at $ip - re-enter your password to retry',

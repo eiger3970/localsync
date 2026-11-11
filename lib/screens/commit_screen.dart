@@ -11,6 +11,7 @@ import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../widgets/gif_swipe_trigger.dart';
 import '../widgets/sync_confirm_dialog.dart';
+import '../widgets/top_message.dart';
 
 class CommitScreen extends StatefulWidget {
   final Repository repo;
@@ -217,7 +218,7 @@ class _CommitScreenState extends State<CommitScreen> {
       _afterCommit();
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context).showTopBar(
       SnackBar(
         backgroundColor: kSurface,
         content: Text(syncResultMessage(result),
