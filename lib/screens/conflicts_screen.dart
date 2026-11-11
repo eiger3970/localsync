@@ -1069,11 +1069,29 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // dismissed, no timer to fight, with a
                                   // real DISMISS action instead of an
                                   // undiscoverable swipe-down gesture.
+                                  // Closes the banner a few seconds after the desktop step has finished (updated, or did not answer).
+                                  final followProvider = context.read<RepositoryProvider>();
+                                  void closeAfterFollowUp() {
+                                    final f = followProvider.pushFollowUp;
+                                    if (f != PushFollowUp.desktopDone && f != PushFollowUp.desktopLate) return;
+                                    followProvider.removeListener(closeAfterFollowUp);
+                                    Timer(const Duration(seconds: 8), () {
+                                      final nav = rootNavigatorKey.currentContext;
+                                      if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
+                                    });
+                                  }
+                                  followProvider.addListener(closeAfterFollowUp);
                                   ScaffoldMessenger.of(context)
                                       .showMaterialBanner(
                                     MaterialBanner(
                                       backgroundColor: kSurface,
-                                      content: Text.rich(
+                                      content: ListenableBuilder(
+                                        listenable: context.read<RepositoryProvider>(),
+                                        builder: (_, __) => Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                      Text.rich(
                                         TextSpan(
                                           style: TextStyle(
                                               color: kStar, fontSize: 15),
@@ -1144,7 +1162,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.check_circle,
                                                   color: kGreen, size: 16),
                                             ),
-                                            const TextSpan(text: ' Resolved  '),
+                                            const TextSpan(text: ' Conflict fixed  '),
                                             // 2026-09-18: real feedback,
                                             // live - "Conflict resolved.
                                             // Swipe PUSH, then PULL on
@@ -1158,15 +1176,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // PULL" step naming, instead
                                             // of leading with the phone's
                                             // own gesture ("Swipe").
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
-                                              child: Icon(Icons.upload_rounded,
-                                                  color: kStar, size: 16),
-                                            ),
-                                            // 2026-11-11 owner: one clear next step. The desktop pulls by itself every few minutes; its DESKTOP SYNC
-                                            // menu item only makes that sooner, so it is not part of the steps.
-                                            const TextSpan(text: ' PUSH  '),
+                                            
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1317,6 +1327,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // this exact note.
                                           ],
                                         ),
+                                      ),
+                                      _pushStepLine(context.read<RepositoryProvider>()),
+                                      ]),
                                       ),
                                       // 2026-09-08: real feedback, live -
                                       // "confusing, build an easier
@@ -2325,4 +2338,38 @@ class _SafetyPoint extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The one next step under "Conflict fixed": PUSH, then the desktop update, then done.
+Widget _pushStepLine(RepositoryProvider p) {
+  IconData icon;
+  Color color;
+  String text;
+  switch (p.pushFollowUp) {
+    case PushFollowUp.desktopSyncing:
+      icon = Icons.sync;
+      color = kStar;
+      text = 'Pushed. Updating desktop...';
+    case PushFollowUp.desktopDone:
+      icon = Icons.check_circle;
+      color = kGreen;
+      text = 'Desktop updated. Old text in Obsidian? Reopen the note';
+    case PushFollowUp.desktopLate:
+      icon = Icons.schedule;
+      color = kStar;
+      text = 'Pushed. Desktop updates itself within 5 min';
+    case PushFollowUp.none:
+      if (!p.pushReminder) return const SizedBox.shrink();
+      icon = Icons.upload_rounded;
+      color = kGreen;
+      text = 'Swipe up on PUSH';
+  }
+  return Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Row(children: [
+      Icon(icon, color: color, size: 16),
+      const SizedBox(width: 6),
+      Flexible(child: Text(text, style: TextStyle(color: kStar, fontSize: 15))),
+    ]),
+  );
 }

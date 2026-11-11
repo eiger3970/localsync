@@ -20,6 +20,8 @@ import 'sound_service.dart';
 import 'ssh_key_paths.dart';
 import 'vault_folder_service.dart';
 
+enum PushFollowUp { none, desktopSyncing, desktopDone, desktopLate }
+
 class RepositoryProvider extends ChangeNotifier {
   final _db = DatabaseService();
 
@@ -458,19 +460,45 @@ class RepositoryProvider extends ChangeNotifier {
   bool _pushReminder = false;
   bool get pushReminder => _pushReminder;
   void setPushReminder(bool on) {
+    if (on) _pushFollowUp = PushFollowUp.none;
     if (_pushReminder == on) return;
     _pushReminder = on;
     notifyListeners();
   }
 
+  // 2026-11-11 owner: "within 5 minutes isn't good enough, users check for immediate solutions." After the push that
+  // follows a fixed conflict, the desktop is asked to sync right away (same action as Desktop sync in the menu), so
+  // the fix reaches Obsidian now. desktopLate = the desktop did not answer; its own 5-minute timer still covers it.
+  PushFollowUp _pushFollowUp = PushFollowUp.none;
+  PushFollowUp get pushFollowUp => _pushFollowUp;
+  void _setFollowUp(PushFollowUp v) {
+    if (_pushFollowUp == v) return;
+    _pushFollowUp = v;
+    notifyListeners();
+  }
+
+  Future<void> _desktopFollowUp(int id) async {
+    _setFollowUp(PushFollowUp.desktopSyncing);
+    try {
+      final r = await triggerDesktopSyncNow(id).timeout(const Duration(seconds: 90));
+      _setFollowUp(r is SyncOk || r is SyncNoChanges ? PushFollowUp.desktopDone : PushFollowUp.desktopLate);
+    } catch (_) {
+      _setFollowUp(PushFollowUp.desktopLate);
+    }
+  }
+
   Future<SyncResult?> pushRepository(int id,
       {String? commitMessage, bool confirmed = false, bool background = false}) async {
     _lastActionWasPush[id] = true;
+    final wasReminder = _pushReminder;
     final result = await _asUser(
         background,
         () => _run(id, (service) =>
             service.push(commitMessage: commitMessage, confirmed: confirmed)));
-    if (result is SyncOk || result is SyncNoChanges) setPushReminder(false);
+    if (result is SyncOk || result is SyncNoChanges) {
+      setPushReminder(false);
+      if (wasReminder) unawaited(_desktopFollowUp(id));
+    }
     return result;
   }
 
