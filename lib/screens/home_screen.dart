@@ -23,7 +23,6 @@ import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
-import '../widgets/slow_sync_hint.dart';
 import '../services/diagnostics_report.dart';
 import '../widgets/floating_hearts.dart';
 import '../widgets/flowing_data_animation.dart';
@@ -478,11 +477,8 @@ class HomeScreen extends StatelessWidget {
       // it.
       body: Column(
         children: [
-          Consumer<RepositoryProvider>(
-            builder: (_, provider, __) => SlowSyncHint(
-                syncing:
-                    provider.selectedRepo?.status == SyncStatus.syncing),
-          ),
+          // 2026-11-11 owner: a normal 10-20 s sync is not "slow", and notes at the top plus the bottom is messy -
+          // progress and the result stay in one place (the bottom message). SlowSyncHint is no longer shown.
           Expanded(
             child: Consumer<RepositoryProvider>(
         builder: (_, provider, __) {
