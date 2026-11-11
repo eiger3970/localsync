@@ -304,6 +304,13 @@ Future<void> _settleSameTime(ConflictEntry e) async {
   } catch (_) {}
 }
 
+double _wordOverlap(String x, String y) {
+  Set<String> words(String t) => RegExp(r"[a-z']+").allMatches(t.toLowerCase()).map((m) => m.group(0)!).where((w) => w.length >= 4).toSet();
+  final a = words(x), b = words(y);
+  if (a.length < 3 || b.length < 3) return 0;
+  return a.intersection(b).length / (a.length < b.length ? a.length : b.length);
+}
+
 String _sameTimeNorm(String t) => t.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
 
 List<ConflictEntry> sameTimeEntries(String relPath, String content, Set<String> settled) {
@@ -330,6 +337,9 @@ List<ConflictEntry> sameTimeEntries(String relPath, String content, Set<String> 
     final a = paras[j], b = paras[i];
     final na = _sameTimeNorm(a.text), nb = _sameTimeNorm(b.text);
     if (na == nb || na.contains(nb) || nb.contains(na)) continue; // plain duplicate - the dedupe passes own that
+    // Same minute is common for two DIFFERENT events (real Jun 27th / Mar 12th entries overlap ~0.1); the same event
+    // worded twice (real Nov 10th 0803) overlaps ~0.86. Only the second kind is a conflict.
+    if (_wordOverlap(a.text, b.text) < 0.5) continue;
     final sig = '$relPath|$key|${na.hashCode}|${nb.hashCode}';
     if (settled.contains(sig)) continue;
     final between = content.substring(a.end, b.start);

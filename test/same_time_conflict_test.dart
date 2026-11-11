@@ -39,5 +39,13 @@ void main() {
     expect(sameTimeEntries('a.md', note, {e.sameTimeSig!}), isEmpty);
     expect(sameTimeEntries('a.md', '1400 same text\n\n1400 same text\n', {}), isEmpty);
     expect(sameTimeEntries('a.md', '1400 one\n\n1401 two\n', {}), isEmpty);
+    // real Jun 27th / Mar 12th shape: two different events in the same minute are NOT a conflict
+    expect(
+        sameTimeEntries(
+            'a.md',
+            '2100 African thug sitting at table yelling and being aggressive, lady next to him\n\n2100 left and as I passed the thug I said inside voice here pretending\n',
+            {}),
+        isEmpty);
+    expect(sameTimeEntries('a.md', '1000 1000 x 1000 x 40mm high density\n\n1000 x 1000 mm sheet\n', {}), isEmpty);
   });
 }
