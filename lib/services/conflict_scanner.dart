@@ -25,6 +25,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'conflict_repair.dart'
     show
         cleanUpJournalNote,
@@ -63,6 +64,9 @@ class ConflictEntry {
   // kPendingFolder (see scanPendingConflicts). Absolute paths of that pair's files, moved to resolved/ once the
   // user has chosen. Empty for every box-based conflict.
   final List<String> pendingPaths;
+  // 2026-11-11: set for "same time, different wording" entries (see sameTimeEntries); remembered as settled once the
+  // user has acted on it, so Keep both (two real entries in one minute) stops listing it.
+  final String? sameTimeSig;
   const ConflictEntry({
     required this.filePath,
     required this.versions,
@@ -70,6 +74,7 @@ class ConflictEntry {
     required this.matchStart,
     required this.matchEnd,
     this.pendingPaths = const [],
+    this.sameTimeSig,
   });
 
   String get ours => versions.first.body;
@@ -143,6 +148,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
   final skipFolders = localSyncFolders(vaultPath);
+  final settledSigs = await _loadSettledSameTime();
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
@@ -174,6 +180,9 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
     }
     if (!content.contains('SYNC CONFLICT') &&
         !content.contains('CONFLICT-OTHER')) {
+      if (!relPath.split('/').any((seg) => seg.startsWith('.'))) {
+        entries.addAll(sameTimeEntries(relPath, content, settledSigs));
+      }
       continue;
     }
     final isKanban = _kanbanFrontmatterPattern.hasMatch(content);
@@ -264,6 +273,80 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   }
   entries.addAll(await scanPendingConflicts(vaultPath));
   return entries;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 2026-11-11 real case (owner's Nov 10th diary): the phone's linking merge joined two different wordings of the SAME
+// entry ("0803 backpack missing..." / "0803 unpacking backpack...") as plain text, raised no conflict, and Conflicts
+// said "No unresolved conflicts" - so the app gave no way to fix it. Two paragraphs that start with the same HHMM
+// but say different things are now listed as a conflict: left = the note without the second one, right = the note
+// without the first one, over the span from the first to the second paragraph, so any text between them is kept
+// whichever side is chosen. Picking one side leaves one entry; Keep both settles it (two real entries in a minute).
+final _hhmmStart = RegExp(r'^([01]\d|2[0-3])[0-5]\d(?=\s)');
+const _kSettledSameTimeKey = 'settled_same_time_v1';
+
+Future<Set<String>> _loadSettledSameTime() async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    return (p.getStringList(_kSettledSameTimeKey) ?? const <String>[]).toSet();
+  } catch (_) {
+    return <String>{};
+  }
+}
+
+Future<void> _settleSameTime(ConflictEntry e) async {
+  final sig = e.sameTimeSig;
+  if (sig == null) return;
+  try {
+    final p = await SharedPreferences.getInstance();
+    final list = (p.getStringList(_kSettledSameTimeKey) ?? <String>[]).toList()..add(sig);
+    await p.setStringList(_kSettledSameTimeKey, list);
+  } catch (_) {}
+}
+
+String _sameTimeNorm(String t) => t.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+
+List<ConflictEntry> sameTimeEntries(String relPath, String content, Set<String> settled) {
+  if (_kanbanFrontmatterPattern.hasMatch(content)) return const [];
+  final out = <ConflictEntry>[];
+  // Paragraph spans in the raw content.
+  final paras = <({int start, int end, String text})>[];
+  var pos = 0;
+  for (final part in content.split('\n\n')) {
+    final end = pos + part.length;
+    if (part.trim().isNotEmpty) paras.add((start: pos, end: end, text: part));
+    pos = end + 2;
+  }
+  final firstAt = <String, int>{};
+  for (var i = 0; i < paras.length; i++) {
+    final m = _hhmmStart.firstMatch(paras[i].text.trimLeft());
+    if (m == null) continue;
+    final key = m.group(0)!;
+    final j = firstAt[key];
+    if (j == null) {
+      firstAt[key] = i;
+      continue;
+    }
+    final a = paras[j], b = paras[i];
+    final na = _sameTimeNorm(a.text), nb = _sameTimeNorm(b.text);
+    if (na == nb || na.contains(nb) || nb.contains(na)) continue; // plain duplicate - the dedupe passes own that
+    final sig = '$relPath|$key|${na.hashCode}|${nb.hashCode}';
+    if (settled.contains(sig)) continue;
+    final between = content.substring(a.end, b.start);
+    out.add(ConflictEntry(
+      filePath: relPath,
+      versions: [
+        ConflictVersion(who: 'yours', body: '${a.text}$between'.trimRight()),
+        ConflictVersion(who: 'desktop obsidian', body: '$between${b.text}'.trimLeft()),
+      ],
+      isKanban: false,
+      matchStart: a.start,
+      matchEnd: b.end,
+      sameTimeSig: sig,
+    ));
+    firstAt.remove(key); // one pair per time per pass
+  }
+  return out;
 }
 
 /// Hidden, synced folder where the desktop's unattended sync leaves a clash it cannot decide (no box in the note).
@@ -778,6 +861,7 @@ Future<String> resolveConflict(
   // on device.
   await VaultFolderService().coordinatedWrite(filePath, updated);
   await settlePendingConflict(entry);
+  await _settleSameTime(entry);
   return backupRelPath;
 }
 
@@ -918,6 +1002,8 @@ List<String> dedupeKanbanCards(List<String> cards) {
 
 KeepBothResult applyKeepBoth(String content, ConflictEntry entry,
     {bool cleanUp = false}) {
+  // 2026-11-11: a same-time pair already sits in the note as two plain entries - keeping both changes nothing.
+  if (entry.sameTimeSig != null) return KeepBothResult(content, '');
   // 2026-09-28: real Sep 28th journal - the desktop box held "1030 ...",
   // already sitting as plain text at the top of the note, so KEEP BOTH
   // wrote it twice. A side whose whole text is already elsewhere in the
@@ -1189,6 +1275,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   await VaultFolderService().coordinatedWrite(filePath, result.content);
   await settlePendingConflict(entry);
+  await _settleSameTime(entry);
   if (cleanUp) {
     return (
       backupRelPath: backupRelPath,
