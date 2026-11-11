@@ -1144,7 +1144,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.check_circle,
                                                   color: kGreen, size: 16),
                                             ),
-                                            const TextSpan(text: ' Resolved   '),
+                                            const TextSpan(text: ' Resolved  '),
                                             // 2026-09-18: real feedback,
                                             // live - "Conflict resolved.
                                             // Swipe PUSH, then PULL on
@@ -1161,18 +1161,12 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
-                                              child: Icon(Icons.phone_iphone,
-                                                  color: kGreen, size: 16),
-                                            ),
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
                                             // 2026-11-11 owner: one clear next step. The desktop pulls by itself every few minutes; its DESKTOP SYNC
                                             // menu item only makes that sooner, so it is not part of the steps.
-                                            const TextSpan(text: ' PUSH   '),
+                                            const TextSpan(text: ' PUSH  '),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1191,7 +1185,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             ),
                                             const TextSpan(text: ' '),
                                             TextSpan(
-                                              text: 'View backup',
+                                              text: 'Backup',
                                               style: TextStyle(
                                                 color: kGreen,
                                                 fontWeight: FontWeight.bold,

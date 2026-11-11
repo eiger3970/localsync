@@ -232,7 +232,7 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
                             const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         child: Text(widget.caption,
                             style: TextStyle(
-                                color: kTextMid,
+                                color: widget.glowing && !_playing ? kGreen : kTextMid,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 2)),
