@@ -313,7 +313,19 @@ double _wordOverlap(String x, String y) {
 
 String _sameTimeNorm(String t) => t.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
 
+final _timeParaQuick = RegExp(r'(?:^|\n\n)\s*((?:[01]\d|2[0-3])[0-5]\d)(?=\s)');
+
 List<ConflictEntry> sameTimeEntries(String relPath, String content, Set<String> settled) {
+  // Cheap exit for almost every note: no time appears at the start of two paragraphs.
+  final seen = <String>{};
+  var repeated = false;
+  for (final m in _timeParaQuick.allMatches(content)) {
+    if (!seen.add(m.group(1)!)) {
+      repeated = true;
+      break;
+    }
+  }
+  if (!repeated) return const [];
   if (_kanbanFrontmatterPattern.hasMatch(content)) return const [];
   final out = <ConflictEntry>[];
   // Paragraph spans in the raw content.

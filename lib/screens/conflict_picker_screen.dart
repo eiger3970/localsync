@@ -158,7 +158,14 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
     _resolveMyDeviceName();
     _loadKeepLeftoverSetting();
     _loadPrecedingContext();
+    // 2026-11-11: a big note made the first frame (two long panels plus a text diff) slow, which showed as a blank
+    // white and black screen. Paint a "Loading note..." frame first, then build the real screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _ready = true);
+    });
   }
+
+  bool _ready = false;
 
   // 2026-10-14: user - first real conflict on a new install? Practise on the
   // sample first (30 seconds, real files untouched), then come back.
@@ -1034,6 +1041,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: kVoid,
+          title: Text(widget.entry.filePath, style: TextStyle(color: kStar, fontSize: 16)),
+        ),
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            CircularProgressIndicator(color: kGreen),
+            const SizedBox(height: 16),
+            Text('Loading note...', style: TextStyle(color: kStar, fontSize: 16)),
+          ]),
+        ),
+      );
+    }
     // Re-measures after every build (cheap - two RenderBox reads, and
     // _equalizeDisputedHeights itself no-ops once the padding is
     // already correct) so a rotation, a font-size change, or the very
