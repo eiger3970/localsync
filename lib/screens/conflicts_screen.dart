@@ -1169,25 +1169,9 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.upload_rounded,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' PUSH -> '),
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
-                                              child: Icon(Icons.computer,
-                                                  color: kBlue, size: 16),
-                                            ),
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
-                                              child: Icon(Icons.download_rounded,
-                                                  color: kStar, size: 16),
-                                            ),
-                                            // 2026-10-02: user - "After PULL another progress
-                                            // arrow -> for the Obsidian note reboot (if
-                                            // needed)." Step 3 on the next line: reopen the Obsidian tab if the text is old.
-                                            // 2026-10-13: owner - "PULL" read as the phone's pull; the
-                                            // computer step is the kebab menu's Desktop sync.
-                                            const TextSpan(text: ' DESKTOP SYNC ->\n'),
+                                            // 2026-11-11 owner: one clear next step. The desktop pulls by itself every few minutes; its DESKTOP SYNC
+                                            // menu item only makes that sooner, so it is not part of the steps.
+                                            const TextSpan(text: ' PUSH\n'),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
@@ -1197,23 +1181,16 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             // your phone pushes - "in
                                             // Obsidian" alone didn't say
                                             // which one.
-                                            WidgetSpan(
-                                              alignment:
-                                                  PlaceholderAlignment.middle,
-                                              child: Icon(Icons.tab,
-                                                  color: kStar, size: 16),
-                                            ),
-                                            const TextSpan(
-                                                text: ' Old text still showing? Reopen the Obsidian tab\n'),
+                                            
                                             WidgetSpan(
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.restore,
                                                   color: kStar, size: 16),
                                             ),
-                                            const TextSpan(text: ' Backup: '),
+                                            const TextSpan(text: ' '),
                                             TextSpan(
-                                              text: backupFileName,
+                                              text: 'View backup',
                                               style: TextStyle(
                                                 color: kGreen,
                                                 fontWeight: FontWeight.bold,
