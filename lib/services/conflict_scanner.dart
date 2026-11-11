@@ -1305,6 +1305,8 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   await settlePendingConflict(entry);
   await _settleSameTime(entry);
   if (cleanUp) {
+    // Nothing changed (KEEP BOTH & CLEAN UP on an already-tidy note): there is nothing to undo, so no UNDO button.
+    if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null);
     return (
       backupRelPath: backupRelPath,
       undo: MergeUndo(entry.filePath, content, result.content),
