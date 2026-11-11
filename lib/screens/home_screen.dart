@@ -1143,6 +1143,17 @@ class _SyncGestureZone extends StatelessWidget {
       if (provider.isUserSyncBusy) _showQueued(context, action);
       await run();
     }
+    // 2026-11-11: a push running over 20 s says why, once, at the top.
+    if (context.watch<RepositoryProvider>().pushSlow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showTopBar(SnackBar(
+          content: Text('Still pushing. Big notes or a slow network take longer.',
+              style: TextStyle(color: kTextMid, fontSize: 15)),
+          duration: const Duration(seconds: 10),
+        ));
+      });
+    }
     return Column(
       children: [
         Expanded(

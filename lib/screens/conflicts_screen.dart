@@ -1080,7 +1080,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     topBarPersistent = false;
                                   });
                                   if (!lastResolutionChangedNote) {
-                                    Timer(const Duration(seconds: 8), () {
+                                    Timer(const Duration(seconds: 25), () {
                                       final nav = rootNavigatorKey.currentContext;
                                       if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
                                       topBarPersistent = false;

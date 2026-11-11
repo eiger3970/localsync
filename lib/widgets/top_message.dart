@@ -28,9 +28,11 @@ extension TopMessages on ScaffoldMessengerState {
             },
             child: Text(action.label, style: TextStyle(color: action.textColor ?? kGreen)),
           ),
-        TextButton(
+        // 2026-11-11 owner: "is the OK still needed?" - the bar closes itself; a banner must have one action, so a
+        // small close icon stays, no word.
+        IconButton(
           onPressed: hideCurrentMaterialBanner,
-          child: Text('OK', style: TextStyle(color: kTextDim)),
+          icon: Icon(Icons.close, color: kTextDim, size: 20),
         ),
       ],
     ));

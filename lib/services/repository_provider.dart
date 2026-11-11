@@ -458,6 +458,9 @@ class RepositoryProvider extends ChangeNotifier {
   // 2026-11-11 owner: after a conflict is fixed the one next step is PUSH, so the Home Screen's PUSH pulses until a
   // push has succeeded. One flag for the app: set when a conflict is resolved, cleared by a successful push.
   bool _pushReminder = false;
+  /// 2026-11-11 owner: a long PUSH said nothing. True once a push has run more than 20 seconds (big notes or a slow
+  /// network); the Home Screen shows one top message. 20 s, not 5 s: the old 5 s hint fired on every normal sync.
+  bool pushSlow = false;
   bool get pushReminder => _pushReminder;
   void setPushReminder(bool on) {
     if (on) _pushFollowUp = PushFollowUp.none;
@@ -491,10 +494,23 @@ class RepositoryProvider extends ChangeNotifier {
       {String? commitMessage, bool confirmed = false, bool background = false}) async {
     _lastActionWasPush[id] = true;
     final wasReminder = _pushReminder;
-    final result = await _asUser(
-        background,
-        () => _run(id, (service) =>
-            service.push(commitMessage: commitMessage, confirmed: confirmed)));
+    final slowTimer = Timer(const Duration(seconds: 20), () {
+      pushSlow = true;
+      notifyListeners();
+    });
+    final SyncResult? result;
+    try {
+      result = await _asUser(
+          background,
+          () => _run(id, (service) =>
+              service.push(commitMessage: commitMessage, confirmed: confirmed)));
+    } finally {
+      slowTimer.cancel();
+      if (pushSlow) {
+        pushSlow = false;
+        notifyListeners();
+      }
+    }
     if (result is SyncOk || result is SyncNoChanges) {
       setPushReminder(false);
       if (wasReminder) unawaited(_desktopFollowUp(id));
