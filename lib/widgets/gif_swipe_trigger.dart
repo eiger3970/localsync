@@ -204,9 +204,7 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
-            _PulseGlow(
-              on: widget.glowing && !_playing,
-              child: Container(
+            Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: kVoid,
@@ -227,7 +225,9 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
                     alignment: Alignment.center,
                     children: [
                       if (!_playing) const Positioned.fill(child: SparkleBackground()),
-                      Padding(
+                      _PulseGlow(
+                        on: widget.glowing && !_playing,
+                        child: Padding(
                         padding:
                             const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         child: Text(widget.caption,
@@ -237,11 +237,11 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 2)),
                       ),
+                      ),
                     ],
                   ),
                 ],
               ),
-            ),
             ),
           ],
         ),
@@ -293,6 +293,7 @@ class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMi
       child: widget.child,
       builder: (_, child) => DecoratedBox(
         decoration: BoxDecoration(
+          color: kVoid, // opaque inside, so the glow only shows around the label, never behind it
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(

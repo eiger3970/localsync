@@ -986,7 +986,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 ),
                               );
                               if (result?.resolved == true) {
-                                if (mounted) context.read<RepositoryProvider>().setPushReminder(true);
+                                if (mounted) context.read<RepositoryProvider>().setPushReminder(lastResolutionChangedNote);
                                 setState(() {
                                   _pushReminderGlowing = true;
                                   _newestWhenAtLastResolve = entries.isNotEmpty
@@ -2359,7 +2359,13 @@ Widget _pushStepLine(RepositoryProvider p) {
       color = kStar;
       text = 'Pushed. Desktop updates itself within 5 min';
     case PushFollowUp.none:
-      if (!p.pushReminder) return const SizedBox.shrink();
+      if (!p.pushReminder) {
+        if (lastResolutionChangedNote) return const SizedBox.shrink();
+        icon = Icons.check_circle;
+        color = kGreen;
+        text = 'Note unchanged. Nothing to push, Obsidian is fine';
+        break;
+      }
       icon = Icons.upload_rounded;
       color = kGreen;
       text = 'Swipe up on PUSH';

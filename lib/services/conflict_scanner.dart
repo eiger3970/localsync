@@ -371,6 +371,10 @@ List<ConflictEntry> sameTimeEntries(String relPath, String content, Set<String> 
   return out;
 }
 
+/// 2026-11-11: false when the last resolve left the note exactly as it was (KEEP BOTH on a same-time pair), so the
+/// screen does not ask for a PUSH that would have nothing to send.
+bool lastResolutionChangedNote = true;
+
 /// Hidden, synced folder where the desktop's unattended sync leaves a clash it cannot decide (no box in the note).
 const kPendingFolder = '.localsync_pending';
 
@@ -876,6 +880,7 @@ Future<String> resolveConflict(
   final keepLeftover = await DatabaseService().getKeepLeftoverInNote();
   final updated =
       applyResolution(content, entry, chosen, keepLeftoverInNote: keepLeftover);
+  lastResolutionChangedNote = updated != content;
   // 2026-08-19: coordinated (not plain) write - see
   // vault_folder_service.dart's coordinatedWrite for why: a resolution
   // written the plain way was found silently reverted by Obsidian's own
@@ -1295,6 +1300,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
     return (backupRelPath: backupRelPath, undo: null); // file changed since scan
   }
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
+  lastResolutionChangedNote = result.content != content;
   await VaultFolderService().coordinatedWrite(filePath, result.content);
   await settlePendingConflict(entry);
   await _settleSameTime(entry);
