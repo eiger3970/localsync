@@ -1909,12 +1909,19 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
     try {
       final entry = conflicts[relPath]!;
       final anc = entry.ancestor, our = entry.our, their = entry.their;
-      if (anc == null || our == null || their == null) continue;
-      final baseBlob = git.Blob.lookup(repo: repo, oid: anc.oid);
+      if (our == null || their == null) continue;
       final oursBlob = git.Blob.lookup(repo: repo, oid: our.oid);
       final theirsBlob = git.Blob.lookup(repo: repo, oid: their.oid);
-      if (baseBlob.isBinary || oursBlob.isBinary || theirsBlob.isBinary) continue;
-      final attempt = mergeThreeWayLinesOrReason(baseBlob.content, oursBlob.content, theirsBlob.content);
+      if (oursBlob.isBinary || theirsBlob.isBinary) continue;
+      ({String? merged, bool tooLarge}) attempt;
+      if (anc == null) {
+        // No common ancestor (e.g. after re-linking a phone): merge on the lines both versions share.
+        attempt = (merged: mergeTwoWayLines(oursBlob.content, theirsBlob.content), tooLarge: false);
+      } else {
+        final baseBlob = git.Blob.lookup(repo: repo, oid: anc.oid);
+        if (baseBlob.isBinary) continue;
+        attempt = mergeThreeWayLinesOrReason(baseBlob.content, oursBlob.content, theirsBlob.content);
+      }
       final result = attempt.merged;
       if (result == null && !attempt.tooLarge) continue;
       final backupDir = Directory(conflictBackupsDir(vaultPath));

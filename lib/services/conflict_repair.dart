@@ -564,6 +564,24 @@ List<(_LineOp, String)> _myers(List<String> a, List<String> b) {
 /// Pure insertions (new lines with no base counterpart) landing at the
 /// same gap from both sides are NOT a collision - neither side is
 /// overwriting content the other touched, so both are kept, ours first.
+/// 2026-11-11 real case (owner's Nov 11th diary, after re-linking the phone): both devices only ADDED lines to the same
+/// note, yet there was no common ancestor to merge against, so the whole note was boxed. With no ancestor, the lines both
+/// versions already share stand in for it: everything else is an insertion from one side, and insertions are all kept
+/// (ours first). Nothing is dropped or reworded; a line both sides reworded stays as two separate lines (the same-time
+/// check in conflict_scanner.dart lists those). Null when too different to compare safely.
+String? mergeTwoWayLines(String ours, String theirs) {
+  try {
+    final ol = ours.split('\n'), tl = theirs.split('\n');
+    final common = <String>[
+      for (final (op, line) in _diffLines(ol, tl))
+        if (op == _LineOp.equal) line
+    ];
+    return _mergeThreeWayLines(common.join('\n'), ours, theirs);
+  } on DiffTooLarge {
+    return null;
+  }
+}
+
 String? mergeThreeWayLines(String base, String ours, String theirs) => mergeThreeWayLinesOrReason(base, ours, theirs).merged;
 
 /// Same merge, but says WHY nothing was merged: [tooLarge] is true when the two versions differ in too many places to

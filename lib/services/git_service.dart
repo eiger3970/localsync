@@ -10,6 +10,7 @@ import 'sync_service.dart'
         createInitialCommit,
         labelForCommit,
         repairAllConflictsOnDisk,
+        autoMergeMarkdownConflicts,
         repairBinaryConflictsOnDisk,
         recoverInterruptedMerge,
         finishMergeCommit,
@@ -707,6 +708,9 @@ class GitServiceImpl implements GitService {
         var unresolvedCount = 0;
         if (repo.index.hasConflicts) {
           final other = labelForCommit(repo, remoteOid);
+          // 2026-11-11: same automatic merge the everyday sync tries first; re-linking used to skip it and box every
+          // note that differed, even when each device had only added lines.
+          autoMergeMarkdownConflicts(repo, localVaultPath);
           unresolvedCount = repairAllConflictsOnDisk(localVaultPath,
               otherLabel: other.label,
               otherTime: other.time.isEmpty ? null : other.time);
