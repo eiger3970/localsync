@@ -16,7 +16,7 @@ class SlowSyncHint extends StatefulWidget {
   const SlowSyncHint({super.key, required this.syncing});
 
   static const after = Duration(seconds: 5);
-  static const lingerAfterDone = Duration(seconds: 15);
+  static const lingerAfterDone = Duration.zero; // 2026-11-11 owner: it looked like an error that never went away (was 15 s)
 
   static DateTime? _syncStart;
   static DateTime? _shownAt;
