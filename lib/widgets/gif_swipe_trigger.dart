@@ -21,6 +21,7 @@ class GifSwipeTrigger extends StatefulWidget {
   // real asset path and never touch animationBuilder.
   final String? assetPath;
   final String caption;
+  final bool glowing; // pulses until the user does this action
   final bool swipeDown; // true = swipe down triggers, false = swipe up
   final double gifHeight;
   final bool alignTop;
@@ -57,6 +58,7 @@ class GifSwipeTrigger extends StatefulWidget {
     super.key,
     this.assetPath,
     required this.caption,
+    this.glowing = false,
     required this.swipeDown,
     required this.gifHeight,
     this.alignTop = false,
@@ -202,7 +204,9 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
               : MainAxisAlignment.center,
           children: [
             if (widget.alignTop) const SizedBox(height: 12),
-            Container(
+            _PulseGlow(
+              on: widget.glowing && !_playing,
+              child: Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 color: kVoid,
@@ -238,8 +242,66 @@ class GifSwipeTriggerState extends State<GifSwipeTrigger> {
                 ],
               ),
             ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Green pulsing halo around [child] while [on]; still and invisible otherwise.
+class _PulseGlow extends StatefulWidget {
+  final bool on;
+  final Widget child;
+  const _PulseGlow({required this.on, required this.child});
+  @override
+  State<_PulseGlow> createState() => _PulseGlowState();
+}
+
+class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.on) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_PulseGlow old) {
+    super.didUpdateWidget(old);
+    if (widget.on && !_c.isAnimating) {
+      _c.repeat(reverse: true);
+    } else if (!widget.on && _c.isAnimating) {
+      _c.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.on) return widget.child;
+    return AnimatedBuilder(
+      animation: _c,
+      child: widget.child,
+      builder: (_, child) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+                color: kGreen.withValues(alpha: 0.25 + 0.6 * _c.value),
+                blurRadius: 8 + 22 * _c.value,
+                spreadRadius: 1 + 5 * _c.value),
+          ],
+        ),
+        child: child,
       ),
     );
   }

@@ -453,13 +453,25 @@ class RepositoryProvider extends ChangeNotifier {
         () => _run(id, (service) => service.pull(confirmed: confirmed)));
   }
 
+  // 2026-11-11 owner: after a conflict is fixed the one next step is PUSH, so the Home Screen's PUSH pulses until a
+  // push has succeeded. One flag for the app: set when a conflict is resolved, cleared by a successful push.
+  bool _pushReminder = false;
+  bool get pushReminder => _pushReminder;
+  void setPushReminder(bool on) {
+    if (_pushReminder == on) return;
+    _pushReminder = on;
+    notifyListeners();
+  }
+
   Future<SyncResult?> pushRepository(int id,
-      {String? commitMessage, bool confirmed = false, bool background = false}) {
+      {String? commitMessage, bool confirmed = false, bool background = false}) async {
     _lastActionWasPush[id] = true;
-    return _asUser(
+    final result = await _asUser(
         background,
         () => _run(id, (service) =>
             service.push(commitMessage: commitMessage, confirmed: confirmed)));
+    if (result is SyncOk || result is SyncNoChanges) setPushReminder(false);
+    return result;
   }
 
   // 2026-09-17: real gap found, live - "run it sooner yourself if you

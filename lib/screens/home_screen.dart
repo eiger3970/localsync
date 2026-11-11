@@ -1189,6 +1189,7 @@ class _SyncGestureZone extends StatelessWidget {
             isBusy: isBusy,
             onBusy: () => _showBusy(context),
             caption: 'PUSH',
+            glowing: context.watch<RepositoryProvider>().pushReminder,
             swipeDown: false,
             gifHeight: 198,
             onConfirm: () => queued('Push', onPush),

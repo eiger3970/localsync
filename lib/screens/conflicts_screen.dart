@@ -986,6 +986,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                 ),
                               );
                               if (result?.resolved == true) {
+                                if (mounted) context.read<RepositoryProvider>().setPushReminder(true);
                                 setState(() {
                                   _pushReminderGlowing = true;
                                   _newestWhenAtLastResolve = entries.isNotEmpty
@@ -1143,7 +1144,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               child: Icon(Icons.check_circle,
                                                   color: kGreen, size: 16),
                                             ),
-                                            const TextSpan(text: ' Resolved\n'),
+                                            const TextSpan(text: ' Resolved   '),
                                             // 2026-09-18: real feedback,
                                             // live - "Conflict resolved.
                                             // Swipe PUSH, then PULL on
@@ -1171,7 +1172,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             ),
                                             // 2026-11-11 owner: one clear next step. The desktop pulls by itself every few minutes; its DESKTOP SYNC
                                             // menu item only makes that sooner, so it is not part of the steps.
-                                            const TextSpan(text: ' PUSH\n'),
+                                            const TextSpan(text: ' PUSH   '),
                                             // 2026-09-15: real feedback,
                                             // live - "should this be
                                             // Desktop Obsidian?" This
