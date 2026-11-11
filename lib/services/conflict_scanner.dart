@@ -59,12 +59,17 @@ class ConflictEntry {
   final bool isKanban;
   final int matchStart;
   final int matchEnd;
+  // 2026-11-11: the desktop's unattended run no longer writes boxes into the note; it leaves a pending pair in
+  // kPendingFolder (see scanPendingConflicts). Absolute paths of that pair's files, moved to resolved/ once the
+  // user has chosen. Empty for every box-based conflict.
+  final List<String> pendingPaths;
   const ConflictEntry({
     required this.filePath,
     required this.versions,
     required this.isKanban,
     required this.matchStart,
     required this.matchEnd,
+    this.pendingPaths = const [],
   });
 
   String get ours => versions.first.body;
@@ -257,7 +262,70 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
       }
     }
   }
+  entries.addAll(await scanPendingConflicts(vaultPath));
   return entries;
+}
+
+/// Hidden, synced folder where the desktop's unattended sync leaves a clash it cannot decide (no box in the note).
+const kPendingFolder = '.localsync_pending';
+
+/// 2026-11-11 owner: "if the app can't fix it, don't dump text on the desktop; fix it in the moment on the phone."
+/// The desktop script keeps its own wording in the note and writes `<quoted note path>.<stamp>.desktop.md` (the
+/// wording that sits in the note) and `....phone.md` (the phone's wording) here. Each pair becomes one ordinary
+/// ConflictEntry - index 0 "yours" (phone), then "desktop obsidian" - whose span is where the desktop wording sits in
+/// the note, so every existing resolve action works unchanged. A pair whose desktop wording is no longer in the note
+/// is stale (already resolved elsewhere) and is skipped.
+Future<List<ConflictEntry>> scanPendingConflicts(String vaultPath) async {
+  final out = <ConflictEntry>[];
+  final dir = Directory('$vaultPath/$kPendingFolder');
+  if (!await dir.exists()) return out;
+  await for (final f in dir.list(followLinks: false)) {
+    if (f is! File || !f.path.endsWith('.desktop.md')) continue;
+    final base = f.path.substring(0, f.path.length - '.desktop.md'.length);
+    final phoneFile = File('$base.phone.md');
+    if (!await phoneFile.exists()) continue;
+    try {
+      final name = base.substring(base.lastIndexOf('/') + 1);
+      final dot = name.lastIndexOf('.'); // stamp
+      if (dot <= 0) continue;
+      final rel = Uri.decodeComponent(name.substring(0, dot));
+      final note = File('$vaultPath/$rel');
+      if (!await note.exists()) continue;
+      final content = await note.readAsString();
+      final desktop = (await f.readAsString()).trim();
+      final phone = (await phoneFile.readAsString()).trim();
+      if (desktop.isEmpty || phone.isEmpty) continue;
+      final at = content.indexOf(desktop);
+      if (at == -1) continue;
+      out.add(ConflictEntry(
+        filePath: rel,
+        versions: [
+          ConflictVersion(who: 'yours', body: phone),
+          ConflictVersion(who: 'desktop obsidian', body: desktop),
+        ],
+        isKanban: false,
+        matchStart: at,
+        matchEnd: at + desktop.length,
+        pendingPaths: [f.path, phoneFile.path],
+      ));
+    } catch (_) {
+      continue; // unreadable or oddly named - leave it alone
+    }
+  }
+  return out;
+}
+
+/// Moves a resolved pending pair into resolved/ (never deleted).
+Future<void> settlePendingConflict(ConflictEntry entry) async {
+  for (final path in entry.pendingPaths) {
+    try {
+      final f = File(path);
+      if (!await f.exists()) continue;
+      final d = Directory('${f.parent.path}/resolved');
+      await d.create(recursive: true);
+      await f.rename('${d.path}/${f.uri.pathSegments.last}');
+    } catch (_) {}
+  }
 }
 
 /// 2026-08-18: "fear of tapping an irreversible action and losing
@@ -709,6 +777,7 @@ Future<String> resolveConflict(
   // cache on a real device, this is the best-available fix, unconfirmed
   // on device.
   await VaultFolderService().coordinatedWrite(filePath, updated);
+  await settlePendingConflict(entry);
   return backupRelPath;
 }
 
@@ -1119,6 +1188,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   }
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   await VaultFolderService().coordinatedWrite(filePath, result.content);
+  await settlePendingConflict(entry);
   if (cleanUp) {
     return (
       backupRelPath: backupRelPath,

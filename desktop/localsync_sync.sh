@@ -667,47 +667,35 @@ def merge_both(m):
         if not kept:
             deduped[0] += 1
             return f'{ours}\n'
-        # 2026-09-07: real feedback, live - "too verbose... just
-        # succinctly say Conflict... tapping it links to LocalSync
-        # Conflicts." Matches conflict_repair.dart's own same-day fix:
-        # collapsed by default (+ -> -) instead of always-expanded, and
-        # the header now names exactly where to go to resolve it.
-        theirs_block = '\n'.join(
-            f'> [!warning]- SYNC CONFLICT — {lab} (review and delete one) '
-            f'- fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
-            + ''.join(f'> {line}\n' for line in body.splitlines())
-            for lab, body in kept
-        )
-        theirs = kept[0][1] if len(kept) == 1 else theirs
-        # 2026-09-07: real feedback, live - if both sides are journal
-        # entries with a leading HHMM time (this user's real convention),
-        # show the earlier one first instead of always ours-first - see
-        # chronologically_ordered_if_journal's own comment above. Still
-        # two separate callouts for manual review, never silently
-        # combined - only the display order changes, and only when both
-        # sides genuinely have a leading time to compare.
-        ours_m = JOURNAL_TIME_RE.match(ours)
-        theirs_m = JOURNAL_TIME_RE.match(theirs)
-        # 2026-10-25: real Oct 25th journal - this wrote "ours" as bare
-        # text plus ONE callout, but the phone's Conflicts scanner needs
-        # every side in its own callout (>= 2) and skipped the note as
-        # malformed, so the screen showed only the sample. Wrap "ours"
-        # the same way the phone's own repair does, unless it already
-        # carries callouts of its own (then the run is already >= 2).
-        if CALLOUT_HEADER_RE.search(re.sub(r'(?m)^(> ?)+', '', ours)):
-            ours_block = ours
-        else:
-            ours_block = (
-                '> [!info]- SYNC CONFLICT — yours (review and delete one) '
-                '- fix on your phone: LocalSync -> ⋮ -> Conflicts\n'
-                + ''.join(f'> {line}\n' for line in ours.splitlines())
-            )
-        if ours_m and theirs_m and journal_time_of(theirs) < journal_time_of(ours):
-            return f'{theirs_block}\n{ours_block}\n'
-        return (
-            f'{ours_block}\n'
-            f'{theirs_block}\n'
-        )
+        # 2026-11-11 owner: "if the app can't, don't dump verbose text on the desktop". Nobody is at the screen
+        # when this unattended run finds a clash, and it cannot know which wording is wanted. So the note gets NO
+        # box and NO extra text: this desktop's wording stays as plain text, and BOTH wordings of the clash are saved
+        # whole in the backups folder as "pending" copies for the phone's left/right screen. Nothing is lost.
+        _bk = os.environ.get('SYNCO_BACKUP_DIR', '').strip()
+        if _bk:
+            os.makedirs(_bk, exist_ok=True)
+            _stem = os.path.basename(path)[:-3] if path.endswith('.md') else os.path.basename(path)
+            _ts = __import__('datetime').datetime.now().strftime('%Y%m%d%H%M')
+            _phone = '\n\n'.join(body for _lab, body in kept)
+            for _lab, _txt in (('pending, desktop wording', ours), ('pending, phone wording', _phone)):
+                _f = os.path.join(_bk, f'{_stem} - {_lab} - {_ts}.md')
+                if not os.path.exists(_f):
+                    with open(_f, 'w', encoding='utf-8') as _h:
+                        _h.write(_txt + '\n')
+        # The phone reads the clash from a hidden, synced folder (the backups folder stays on this desktop only).
+        # File name = url-quoted note path + stamp + side; the phone shows them left/right and moves them to
+        # resolved/ once the user picks.
+        _pd = os.environ.get('SYNCO_PENDING_DIR', '').strip()
+        if _pd:
+            from urllib.parse import quote as _q
+            _vault = os.environ.get('SYNCO_VAULT', '').strip() or os.getcwd()
+            _rel = os.path.relpath(os.path.abspath(path), _vault)
+            os.makedirs(_pd, exist_ok=True)
+            _key = _q(_rel, safe='') + '.' + __import__('datetime').datetime.now().strftime('%Y%m%d%H%M%S')
+            for _side, _txt in (('desktop', ours), ('phone', '\n\n'.join(body for _lab, body in kept))):
+                with open(os.path.join(_pd, f'{_key}.{_side}.md'), 'w', encoding='utf-8') as _h:
+                    _h.write(_txt + '\n')
+        return f'{ours}\n'
 
 fixed = full_pattern.sub(merge_both, content)
 
@@ -787,7 +775,7 @@ repair_md_conflicts() {
   local repaired=0
   while IFS= read -r -d '' file; do
     log "  ⚠ Conflict markers: $file"
-    rc=0; SYNCO_BACKUP_DIR="$VAULT/$HIDDEN_BACKUPS/Conflict Backups" python3 "$REPAIR_PY" "$file" || rc=$?
+    rc=0; SYNCO_VAULT="$VAULT" SYNCO_PENDING_DIR="$VAULT/.localsync_pending" SYNCO_BACKUP_DIR="$VAULT/$HIDDEN_BACKUPS/Conflict Backups" python3 "$REPAIR_PY" "$file" || rc=$?
     if [[ "$rc" = "2" ]]; then
       log "  ✓ Repaired: $file"
       repaired=1
