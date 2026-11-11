@@ -1086,7 +1086,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     MaterialBanner(
                                       backgroundColor: kSurface,
                                       content: ListenableBuilder(
-                                        listenable: context.read<RepositoryProvider>(),
+                                        listenable: followProvider,
                                         builder: (_, __) => Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.min,
@@ -1328,7 +1328,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                           ],
                                         ),
                                       ),
-                                      _pushStepLine(context.read<RepositoryProvider>()),
+                                      _pushStepLine(followProvider),
                                       ]),
                                       ),
                                       // 2026-09-08: real feedback, live -
