@@ -65,9 +65,13 @@ class ShreddingPasswordField extends StatefulWidget {
   /// Port of the website's ConfirmEmailInput `first` prop: true for the first password field, whose partner may be
   /// unfinished, so it only reports once the two lengths are within 1.
   final bool markIsFirst;
+
+  /// The partner field's focus node: while the user is typing in the partner, only the characters it has reached are marked.
+  final FocusNode? partnerFocus;
   const ShreddingPasswordField({
     this.markAgainst,
     this.markIsFirst = false,
+    this.partnerFocus,
     super.key,
     required this.controller,
     this.enabled = true,
@@ -192,56 +196,43 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     }
   }
 
-  /// (mismatch, marked positions, finished) for [value] against the partner field. 2026-11-12 owner: underlines stay
-  /// until resolved, so every differing character in the overlap is marked at all times. [finished] = both texts have
-  /// settled and are within one character of each other, the only time a highlight (and the select-to-replace) may
-  /// happen, so a half-typed field is never overwritten.
-  (Mismatch?, List<int>, bool) _calc(String value) {
+  /// The edits still needed on [value] to match the partner field, and whether typing has finished. 2026-11-12 owner:
+  /// underlines stay until resolved. [finished] = both texts settled, the partner is not being typed in, and this field
+  /// is not a focused field shorter than its partner: the only time a highlight (and the select-to-replace) may happen.
+  (List<MmOp>, bool) _calc(String value) {
     final w = widget.markAgainst ?? '';
-    if (value.isEmpty || w.isEmpty || value == w) return (null, const [], false);
+    if (value.isEmpty || w.isEmpty || value == w) return (const [], false);
+    final focused = _focus.hasFocus;
+    final partnerBusy = widget.partnerFocus?.hasFocus ?? false;
+    var ops = diffOps(value, w);
+    if (focused) ops = ops.where((o) => !(o.kind == MismatchKind.missing && o.i == value.length)).toList();
+    if (partnerBusy) ops = ops.where((o) => o.i < w.length).toList();
     final settled = _sv == value && _sw == w;
-    // a focused field that is shorter than its partner is probably still being typed: never highlight it
-    final finished = settled && (value.length - w.length).abs() <= 1 && !(_focus.hasFocus && value.length < w.length);
-    if (finished) {
-      final full = textMismatch(value, w);
-      if (full != null) {
-        if (full.kind == MismatchKind.sub) {
-          return (full, [for (var i = 0; i < value.length; i++) if (i < w.length && value[i] != w[i]) i], true);
-        }
-        return (full, [full.idx], true);
-      }
-    }
-    final subs = [for (var i = 0; i < value.length && i < w.length; i++) if (value[i] != w[i]) i];
-    if (subs.isEmpty) return (null, const [], false);
-    return (Mismatch(MismatchKind.sub, subs.first), subs, finished);
+    final finished = ops.isNotEmpty && settled && !partnerBusy && !(focused && value.length < w.length);
+    return (ops, finished);
   }
 
   void _sel() {
     if (!mounted || !_focus.hasFocus || widget.markAgainst == null) return;
     final c = widget.controller;
-    final (mm, marks, finished) = _calc(c.text);
-    if (mm == null || marks.isEmpty || !finished) return;
-    final h = marks.first.clamp(0, c.text.length);
+    final (ops, finished) = _calc(c.text);
+    if (ops.isEmpty || !finished) return;
+    final o = ops.first;
+    final h = o.i.clamp(0, c.text.length);
     c.selection = TextSelection(
         baseOffset: h,
-        extentOffset: mm.kind == MismatchKind.missing ? h : (h + 1).clamp(0, c.text.length));
+        extentOffset: o.kind == MismatchKind.missing ? h : (h + 1).clamp(0, c.text.length));
   }
 
   void _onChanged(String nv) {
     _lastIn = DateTime.now();
-    // a typed letter that replaces exactly the highlighted one: stay armed, so the next suspect character is
-    // highlighted and selected. Any other edit drops back to underline.
-    final (_, marks, _) = _calc(_prev);
-    final h = marks.isEmpty ? null : marks.first;
-    final replacedHot = _armed &&
-        h != null &&
-        nv.length == _prev.length &&
-        h < nv.length &&
-        nv[h] != _prev[h] &&
-        [for (var i = 0; i < nv.length; i++) if (i != h) nv[i] == _prev[i]].every((x) => x);
+    // an edit that fixes exactly the highlighted character (replaced, deleted or inserted): stay armed, so the next
+    // wrong character is highlighted and selected. Any other edit drops back to underline.
+    final (ops, _) = _calc(_prev);
+    final replacedHot = _armed && fixedFirst(_prev, nv, ops.isEmpty ? null : ops.first);
     if (!replacedHot) _armed = false;
-    // 2026-11-12 owner: only the first highlight waits for a pause. While the user is fixing characters one after another
-    // the next one is highlighted with no delay (fast typists): treat both texts as settled right now.
+    // only the first highlight waits for a pause: while the user fixes characters one after another the next one is
+    // highlighted with no delay (fast typists): treat both texts as settled right now.
     if (replacedHot) {
       _sv = nv;
       _sw = widget.markAgainst ?? '';
@@ -381,11 +372,11 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
 
   final _fieldKey = GlobalKey();
   final _stackKey = GlobalKey();
-  List<Rect> _rects = const [];
+  List<(Rect, bool, bool)> _rects = const []; // rect, dashed (a missing character), first op
 
   /// 2026-11-12 owner: the marks sit exactly on the field's own characters. Their rectangles are read from the
   /// TextField's RenderEditable (so any font, size, prefix icon or scale lines up) instead of being guessed.
-  void _measure(List<int> idx) {
+  void _measure(List<(int, bool, bool)> idx) {
     if (!mounted) return;
     EditableTextState? es;
     void visit(Element e) {
@@ -399,14 +390,14 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
 
     _fieldKey.currentContext?.visitChildElements(visit);
     final box = _stackKey.currentContext?.findRenderObject();
-    final out = <Rect>[];
+    final out = <(Rect, bool, bool)>[];
     if (es != null && box is RenderBox && box.hasSize) {
       final re = es!.renderEditable;
-      for (final i in idx) {
+      for (final (i, dashed, first) in idx) {
         if (i < 0 || i >= widget.controller.text.length) continue;
         final bs = re.getBoxesForSelection(TextSelection(baseOffset: i, extentOffset: i + 1));
         if (bs.isEmpty) continue;
-        out.add(MatrixUtils.transformRect(re.getTransformTo(box), bs.first.toRect()));
+        out.add((MatrixUtils.transformRect(re.getTransformTo(box), bs.first.toRect()), dashed, first));
       }
     }
     if (out.length != _rects.length || [for (var i = 0; i < out.length; i++) out[i] != _rects[i]].contains(true)) {
@@ -420,15 +411,20 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
       animation: widget.controller,
       builder: (_, __) {
         final typed = widget.controller.text;
-        final (mm, marks, finished) = _calc(typed);
-        final hot = _armed && finished && mm != null;
+        final (ops, finished) = _calc(typed);
+        final hot = _armed && finished;
         // the characters to mark: a missing character is shown on its two neighbours, dashed
-        final idx = mm == null
-            ? <int>[]
-            : mm.kind == MismatchKind.missing
-                ? [mm.idx - 1, mm.idx]
-                : marks;
-        final sig = '$hot|${mm?.kind}|${idx.join(',')}|$_sv|$_sw|$typed|$_obscure';
+        final idx = <(int, bool, bool)>[];
+        for (var k = 0; k < ops.length; k++) {
+          final o = ops[k];
+          if (o.kind == MismatchKind.missing) {
+            idx.add((o.i - 1, true, k == 0));
+            idx.add((o.i, true, k == 0));
+          } else {
+            idx.add((o.i, false, k == 0));
+          }
+        }
+        final sig = '$hot|${idx.join(',')}|$_sv|$_sw|$typed|$_obscure';
         if (sig != _sig) {
           _sig = sig;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -444,7 +440,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
-                  painter: _MarkPainter(_rects, hot, mm?.kind == MismatchKind.missing, _amber),
+                  painter: _MarkPainter(_rects, hot, _amber),
                 ),
               ),
             )
@@ -459,16 +455,15 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
 /// Underline under every marked character; the highlight (focused field once typing has finished) is a translucent
 /// amber block over it, so the character stays readable.
 class _MarkPainter extends CustomPainter {
-  final List<Rect> rects;
-  final bool hot, dashed;
+  final List<(Rect, bool, bool)> rects;
+  final bool hot;
   final Color color;
-  _MarkPainter(this.rects, this.hot, this.dashed, this.color);
+  _MarkPainter(this.rects, this.hot, this.color);
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var n = 0; n < rects.length; n++) {
-      final r = rects[n];
-      if (hot && n == 0) {
+    for (final (r, dashed, first) in rects) {
+      if (hot && first && !dashed) {
         // only the FIRST wrong character is highlighted; the others stay underlined until the highlight reaches them
         canvas.drawRRect(RRect.fromRectAndRadius(r.inflate(1), const Radius.circular(2)),
             Paint()..color = color.withValues(alpha: 0.4));
@@ -489,5 +484,5 @@ class _MarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.rects != rects || old.hot != hot || old.dashed != dashed;
+  bool shouldRepaint(_MarkPainter old) => old.rects != rects || old.hot != hot;
 }

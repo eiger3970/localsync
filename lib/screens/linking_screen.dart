@@ -1430,6 +1430,7 @@ class _IdleViewState extends State<_IdleView>
                           controller: _passwordCtrl,
                           markAgainst: _confirmCtrl.text,
                           markIsFirst: true,
+                          partnerFocus: _confirmFocusNode,
                           enabled: !_pairing,
                           // 2026-08-28: real feedback, live - "field1
                           // stars should disappear once password field1
@@ -1532,6 +1533,7 @@ class _IdleViewState extends State<_IdleView>
                         key: _shredKey2,
                         controller: _confirmCtrl,
                         markAgainst: _passwordCtrl.text,
+                        partnerFocus: _passwordFocusNode,
                         enabled: !_pairing,
                         // 2026-08-30: real device bug, screenshots
                         // confirmed - this field's own default focused

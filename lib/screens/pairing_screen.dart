@@ -262,6 +262,7 @@ class _PairingScreenState extends State<PairingScreen> {
                           controller: _passwordCtrl,
                           markAgainst: _confirmCtrl.text,
                           markIsFirst: true,
+                          partnerFocus: _confirmFocusNode,
                           enabled: !_ctrl.isRunning,
                           focusNode: _passwordFocusNode,
                           textInputAction: TextInputAction.next,
@@ -445,6 +446,7 @@ class _PairingScreenState extends State<PairingScreen> {
                             key: _shredKey2,
                             controller: _confirmCtrl,
                             markAgainst: _passwordCtrl.text,
+                            partnerFocus: _passwordFocusNode,
                             enabled: !_ctrl.isRunning,
                             showOwnBorder: false,
                             showSparkle: _passwordCtrl.text.isNotEmpty &&

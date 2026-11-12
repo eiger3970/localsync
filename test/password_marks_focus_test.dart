@@ -4,6 +4,7 @@ import 'package:localsync/widgets/shredding_password_field.dart';
 
 void main() {
   keepsFocus();
+  passphraseExtras();
   noEarlyOverwrite();
   testWidgets('focus selects the first wrong character; typing over it moves on', (t) async {
     final c = TextEditingController(text: 'tord');
@@ -22,6 +23,25 @@ void main() {
     await t.enterText(find.byType(TextField), 'word');
     await t.pump(const Duration(milliseconds: 400));
     expect(c.text, 'word');
+  });
+}
+
+void passphraseExtras() {
+  testWidgets('passphrase with 3 inserted digits: first extra selected, Delete moves to the next', (t) async {
+    const want = 'Passphrase1-word-word-word';
+    final c = TextEditingController(text: 'Passphrase1-word1-word2-word3');
+    final f = FocusNode();
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(body: ShreddingPasswordField(controller: c, focusNode: f, markAgainst: want, showOwnBorder: false)),
+    ));
+    await t.pump(const Duration(milliseconds: 400));
+    f.requestFocus();
+    await t.pump(const Duration(milliseconds: 2000));
+    expect([c.selection.baseOffset, c.selection.extentOffset], [16, 17]);
+    // Delete removes the highlighted digit: the next extra is selected at once (no pause)
+    await t.enterText(find.byType(TextField), 'Passphrase1-word-word2-word3');
+    await t.pump(const Duration(milliseconds: 60));
+    expect([c.selection.baseOffset, c.selection.extentOffset], [21, 22]);
   });
 }
 
