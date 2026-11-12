@@ -10,6 +10,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import 'password_mismatch_marks.dart';
 
 class ShreddingPasswordField extends StatefulWidget {
   final TextEditingController controller;
@@ -54,7 +55,13 @@ class ShreddingPasswordField extends StatefulWidget {
   // of this widget is unaffected.
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
+
+  /// 2026-11-12 owner: the confirm field passes the first password here. Wrong characters get a red underline (the
+  /// first one a highlight) drawn over the field's own dots; the characters themselves show only when the user taps
+  /// the eye. Null = no marks and the old layout.
+  final String? markAgainst;
   const ShreddingPasswordField({
+    this.markAgainst,
     super.key,
     required this.controller,
     this.enabled = true,
@@ -142,7 +149,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, child) => Opacity(opacity: 1 - _ctrl.value, child: child),
-      child: TextField(
+      child: _withMarks(context, TextField(
         controller: widget.controller,
         focusNode: widget.focusNode,
         obscureText: _obscure,
@@ -164,6 +171,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
         // locally rather than changed in theme.dart, since other
         // fields' hints weren't flagged and shouldn't shift too.
         decoration: InputDecoration(
+          contentPadding: widget.markAgainst != null ? _markPad : null,
           hintText: 'Desktop password…',
           hintStyle: TextStyle(color: kTextMid, fontSize: 14),
           border: widget.showOwnBorder ? null : InputBorder.none,
@@ -224,7 +232,63 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             onPressed: () => setState(() => _obscure = !_obscure),
           ),
         ),
-      ),
+      )),
+    );
+  }
+
+  static const _markPad = EdgeInsets.symmetric(horizontal: 12, vertical: 14);
+
+  Widget _withMarks(BuildContext context, TextField field) {
+    final want = widget.markAgainst;
+    if (want == null) return field;
+    return AnimatedBuilder(
+      animation: widget.controller,
+      builder: (_, __) {
+        final typed = widget.controller.text;
+        final mm = textMismatch(typed, want);
+        if (mm == null) return field;
+        final theme = Theme.of(context);
+        final base = (theme.useMaterial3 ? theme.textTheme.bodyLarge : theme.textTheme.titleMedium)
+            ?.merge(TextStyle(color: kStar));
+        const clear = Colors.transparent;
+        final spans = <InlineSpan>[];
+        for (var i = 0; i < typed.length; i++) {
+          final bad = mm.kind == MismatchKind.missing
+              ? (i == mm.idx || i == mm.idx - 1)
+              : (mm.kind == MismatchKind.sub ? i < want.length && typed[i] != want[i] : i == mm.idx);
+          final first = bad && i == (mm.kind == MismatchKind.missing ? mm.idx - 1 : mm.idx) ||
+              (bad && mm.kind == MismatchKind.missing && mm.idx == 0);
+          spans.add(TextSpan(
+            text: _obscure ? '\u2022' : typed[i],
+            style: TextStyle(
+              color: clear,
+              decoration: bad ? TextDecoration.underline : null,
+              decorationColor: Colors.redAccent,
+              decorationThickness: 2,
+              decorationStyle: mm.kind == MismatchKind.missing ? TextDecorationStyle.dashed : TextDecorationStyle.solid,
+              backgroundColor: first ? Colors.redAccent.withValues(alpha: 0.35) : null,
+            ),
+          ));
+        }
+        return Stack(
+          children: [
+            field,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                      left: _markPad.left + (widget.showSparkle ? 48 : 0), right: 48),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(TextSpan(style: base, children: spans),
+                        maxLines: 1, overflow: TextOverflow.clip, softWrap: false),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

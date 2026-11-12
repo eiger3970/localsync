@@ -1529,6 +1529,7 @@ class _IdleViewState extends State<_IdleView>
                       child: ShreddingPasswordField(
                         key: _shredKey2,
                         controller: _confirmCtrl,
+                        markAgainst: _passwordCtrl.text,
                         enabled: !_pairing,
                         // 2026-08-30: real device bug, screenshots
                         // confirmed - this field's own default focused
@@ -1585,7 +1586,8 @@ class _IdleViewState extends State<_IdleView>
                         : Padding(
                             key: const ValueKey('matchRow'),
                             padding: const EdgeInsets.only(top: 6),
-                            child: Row(
+                            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
@@ -1607,6 +1609,7 @@ class _IdleViewState extends State<_IdleView>
                                         fontSize: 12)),
                               ],
                             ),
+]),
                           ),
                   ),
                   if (_pairingFailure != null) ...[

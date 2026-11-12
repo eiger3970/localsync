@@ -442,6 +442,7 @@ class _PairingScreenState extends State<PairingScreen> {
                           child: ShreddingPasswordField(
                             key: _shredKey2,
                             controller: _confirmCtrl,
+                            markAgainst: _passwordCtrl.text,
                             enabled: !_ctrl.isRunning,
                             showOwnBorder: false,
                             showSparkle: _passwordCtrl.text.isNotEmpty &&
@@ -481,7 +482,8 @@ class _PairingScreenState extends State<PairingScreen> {
                             key: const ValueKey('matchRow'),
                             padding:
                                 const EdgeInsets.only(top: 6, left: 36),
-                            child: Row(
+                            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
@@ -504,6 +506,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                         fontSize: 12)),
                               ],
                             ),
+]),
                           ),
                   ),
                   // 2026-08-16: wrapped as one single Keyed block
