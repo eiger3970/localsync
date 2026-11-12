@@ -435,7 +435,7 @@ class _PairingScreenState extends State<PairingScreen> {
                                   ? Colors.transparent
                                   : (_passwordsMatch
                                       ? kGreen
-                                      : Colors.redAccent),
+                                      : const Color(0xFFF59E0B)),
                               width: 1.5,
                             ),
                             borderRadius: BorderRadius.circular(6),

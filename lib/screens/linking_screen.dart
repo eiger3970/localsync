@@ -1510,7 +1510,7 @@ class _IdleViewState extends State<_IdleView>
                         border: Border.all(
                           color: _confirmCtrl.text.isEmpty
                               ? Colors.transparent
-                              : (_passwordsMatch ? kGreen : Colors.redAccent),
+                              : (_passwordsMatch ? kGreen : const Color(0xFFF59E0B)),
                           width: 1.5,
                         ),
                         borderRadius: BorderRadius.circular(6),

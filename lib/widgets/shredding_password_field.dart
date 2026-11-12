@@ -363,6 +363,8 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
 
   @visibleForTesting
   static Color markTextColor = Colors.transparent;
+  // the website's mismatch colour (#f59e0b): amber, never red
+  static const _amber = Color(0xFFF59E0B);
   static const _markPad = EdgeInsets.symmetric(horizontal: 12, vertical: 14);
 
   Widget _withMarks(BuildContext context, TextField field) {
@@ -394,13 +396,13 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
           spans.add(TextSpan(
             text: _obscure ? '\u2022' : typed[i],
             style: TextStyle(
-              color: markTextColor,
+              color: bad && hot && markTextColor == Colors.transparent ? kVoid : markTextColor,
               decoration: bad && !hot ? TextDecoration.underline : null,
-              decorationColor: Colors.redAccent,
-              decorationThickness: 2,
+              decorationColor: _amber,
+              decorationThickness: 3,
               decorationStyle:
                   mm.kind == MismatchKind.missing ? TextDecorationStyle.dashed : TextDecorationStyle.solid,
-              backgroundColor: bad && hot ? Colors.redAccent.withValues(alpha: 0.35) : null,
+              backgroundColor: bad && hot ? _amber.withValues(alpha: 0.8) : null,
             ),
           ));
         }
