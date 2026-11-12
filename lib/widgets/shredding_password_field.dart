@@ -372,9 +372,11 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
       builder: (_, __) {
         final typed = widget.controller.text;
         final (mm, marks) = _calc(typed);
+        // The Stack is always returned: swapping the bare field for a Stack re-creates the TextField, which drops
+        // focus and hides the keyboard mid-edit.
         if (mm == null) {
           _sig = '';
-          return field;
+          return Stack(children: [field, const SizedBox.shrink()]);
         }
         final hot = _armed;
         final sig = '$_armed|${mm.kind}|${marks.join(',')}|$_sv|$_sw';
