@@ -1428,6 +1428,8 @@ class _IdleViewState extends State<_IdleView>
                         ShreddingPasswordField(
                           key: _shredKey1,
                           controller: _passwordCtrl,
+                          markAgainst: _confirmCtrl.text,
+                          markIsFirst: true,
                           enabled: !_pairing,
                           // 2026-08-28: real feedback, live - "field1
                           // stars should disappear once password field1

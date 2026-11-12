@@ -7,6 +7,7 @@
 // is genuinely underway) and the typed text fades out instead of just
 // clearing, then the field resets for a retry if pairing fails.
 
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme.dart';
@@ -60,8 +61,13 @@ class ShreddingPasswordField extends StatefulWidget {
   /// first one a highlight) drawn over the field's own dots; the characters themselves show only when the user taps
   /// the eye. Null = no marks and the old layout.
   final String? markAgainst;
+
+  /// Port of the website's ConfirmEmailInput `first` prop: true for the first password field, whose partner may be
+  /// unfinished, so it only reports once the two lengths are within 1.
+  final bool markIsFirst;
   const ShreddingPasswordField({
     this.markAgainst,
+    this.markIsFirst = false,
     super.key,
     required this.controller,
     this.enabled = true,
@@ -106,9 +112,26 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   bool _obscure = true;
   bool _shredding = false;
 
+  // 2026-11-12 owner: wrong-character marks are a port of the website's confirm_email_input.tsx (+ email_mismatch.ts):
+  // every differing character is UNDERLINED live; when focus moves INTO a field the suspect characters turn
+  // HIGHLIGHTED and the first is selected, so the next key replaces it. Typing drops back to underline unless the key
+  // replaced exactly the highlighted character. The marks only settle after SETTLE_MS without typing in either field.
+  static const _settleMs = 350;
+  FocusNode? _ownFocus;
+  FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
+  bool _armed = false;
+  DateTime _focusAt = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _settleT;
+  String _sv = '', _sw = '', _prev = '', _ctlText = '';
+  String _sig = '';
+
   @override
   void initState() {
     super.initState();
+    _sv = _prev = _ctlText = widget.controller.text;
+    _sw = widget.markAgainst ?? '';
+    widget.controller.addListener(_onCtl);
+    _focus.addListener(_onFocus);
     _ctrl = AnimationController(vsync: this, duration: _duration);
     _phaseSeed1 = _rand.nextDouble();
     _phaseSeed2 = _rand.nextDouble();
@@ -121,7 +144,103 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   }
 
   @override
+  void didUpdateWidget(ShreddingPasswordField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.markAgainst != widget.markAgainst) _scheduleSettle();
+  }
+
+  void _scheduleSettle() {
+    _settleT?.cancel();
+    _settleT = Timer(const Duration(milliseconds: _settleMs), () {
+      if (!mounted) return;
+      setState(() {
+        _sv = widget.controller.text;
+        _sw = widget.markAgainst ?? '';
+      });
+    });
+  }
+
+  void _onCtl() {
+    if (widget.controller.text == _ctlText) return; // selection-only change
+    _ctlText = widget.controller.text;
+    _scheduleSettle();
+  }
+
+  void _onFocus() {
+    if (widget.markAgainst == null) return;
+    if (_focus.hasFocus) {
+      _focusAt = DateTime.now();
+      setState(() => _armed = true);
+      Future.delayed(const Duration(milliseconds: 40), _sel);
+      Future.delayed(const Duration(milliseconds: 160), _sel);
+    } else {
+      setState(() => _armed = false);
+    }
+  }
+
+  /// (mismatch, marked positions) for [value] against the partner field, as in the website component.
+  (Mismatch?, List<int>) _calc(String value) {
+    final w = widget.markAgainst ?? '';
+    final settled = _sv == value && _sw == w;
+    Mismatch? full;
+    if (settled &&
+        value.isNotEmpty &&
+        w.isNotEmpty &&
+        (!widget.markIsFirst || (value.length - w.length).abs() <= 1)) {
+      full = textMismatch(value, w);
+    }
+    Mismatch? live;
+    if (!settled && value.isNotEmpty && w.isNotEmpty) {
+      for (var i = 0; i < value.length && i < w.length; i++) {
+        if (value[i] != w[i]) {
+          live = Mismatch(MismatchKind.sub, i);
+          break;
+        }
+      }
+    }
+    final mm = full ?? live;
+    if (mm == null) return (null, const []);
+    if (mm.kind == MismatchKind.sub) {
+      return (
+        mm,
+        [for (var i = 0; i < value.length; i++) if (i < w.length && value[i] != w[i]) i]
+      );
+    }
+    return (mm, [mm.idx]);
+  }
+
+  void _sel() {
+    if (!mounted || !_focus.hasFocus || widget.markAgainst == null) return;
+    final c = widget.controller;
+    final (mm, marks) = _calc(c.text);
+    if (mm == null || marks.isEmpty) return;
+    final h = marks.first.clamp(0, c.text.length);
+    c.selection = TextSelection(
+        baseOffset: h,
+        extentOffset: mm.kind == MismatchKind.missing ? h : (h + 1).clamp(0, c.text.length));
+  }
+
+  void _onChanged(String nv) {
+    // a typed letter that replaces exactly the highlighted one: stay armed, so the next suspect character is
+    // highlighted and selected. Any other edit drops back to underline.
+    final (_, marks) = _calc(_prev);
+    final h = marks.isEmpty ? null : marks.first;
+    final replacedHot = _armed &&
+        h != null &&
+        nv.length == _prev.length &&
+        h < nv.length &&
+        nv[h] != _prev[h] &&
+        [for (var i = 0; i < nv.length; i++) if (i != h) nv[i] == _prev[i]].every((x) => x);
+    if (!replacedHot) _armed = false;
+    _prev = nv;
+  }
+
+  @override
   void dispose() {
+    _settleT?.cancel();
+    widget.controller.removeListener(_onCtl);
+    _focus.removeListener(_onFocus);
+    _ownFocus?.dispose();
     _ctrl.dispose();
     _sparkleCtrl.dispose();
     _sparkleCtrl2.dispose();
@@ -151,7 +270,13 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
       builder: (_, child) => Opacity(opacity: 1 - _ctrl.value, child: child),
       child: _withMarks(context, TextField(
         controller: widget.controller,
-        focusNode: widget.focusNode,
+        focusNode: _focus,
+        onChanged: widget.markAgainst == null ? null : _onChanged,
+        onTap: widget.markAgainst == null
+            ? null
+            : () {
+                if (DateTime.now().difference(_focusAt).inMilliseconds < 500) Future(_sel);
+              },
         obscureText: _obscure,
         enabled: widget.enabled && !_shredding,
         textInputAction: widget.textInputAction,
@@ -236,37 +361,44 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     );
   }
 
+  @visibleForTesting
+  static Color markTextColor = Colors.transparent;
   static const _markPad = EdgeInsets.symmetric(horizontal: 12, vertical: 14);
 
   Widget _withMarks(BuildContext context, TextField field) {
-    final want = widget.markAgainst;
-    if (want == null) return field;
+    if (widget.markAgainst == null) return field;
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (_, __) {
         final typed = widget.controller.text;
-        final mm = textMismatch(typed, want);
-        if (mm == null) return field;
+        final (mm, marks) = _calc(typed);
+        if (mm == null) {
+          _sig = '';
+          return field;
+        }
+        final hot = _armed;
+        final sig = '$_armed|${mm.kind}|${marks.join(',')}|$_sv|$_sw';
+        if (sig != _sig) {
+          _sig = sig;
+          if (_armed && _focus.hasFocus) WidgetsBinding.instance.addPostFrameCallback((_) => _sel());
+        }
         final theme = Theme.of(context);
         final base = (theme.useMaterial3 ? theme.textTheme.bodyLarge : theme.textTheme.titleMedium)
             ?.merge(TextStyle(color: kStar));
-        const clear = Colors.transparent;
         final spans = <InlineSpan>[];
         for (var i = 0; i < typed.length; i++) {
-          final bad = mm.kind == MismatchKind.missing
-              ? (i == mm.idx || i == mm.idx - 1)
-              : (mm.kind == MismatchKind.sub ? i < want.length && typed[i] != want[i] : i == mm.idx);
-          final first = bad && i == (mm.kind == MismatchKind.missing ? mm.idx - 1 : mm.idx) ||
-              (bad && mm.kind == MismatchKind.missing && mm.idx == 0);
+          // a missing character has no mark of its own: its two neighbours carry a dashed mark instead
+          final bad = mm.kind == MismatchKind.missing ? (i == mm.idx || i == mm.idx - 1) : marks.contains(i);
           spans.add(TextSpan(
             text: _obscure ? '\u2022' : typed[i],
             style: TextStyle(
-              color: clear,
-              decoration: bad ? TextDecoration.underline : null,
+              color: markTextColor,
+              decoration: bad && !hot ? TextDecoration.underline : null,
               decorationColor: Colors.redAccent,
               decorationThickness: 2,
-              decorationStyle: mm.kind == MismatchKind.missing ? TextDecorationStyle.dashed : TextDecorationStyle.solid,
-              backgroundColor: first ? Colors.redAccent.withValues(alpha: 0.35) : null,
+              decorationStyle:
+                  mm.kind == MismatchKind.missing ? TextDecorationStyle.dashed : TextDecorationStyle.solid,
+              backgroundColor: bad && hot ? Colors.redAccent.withValues(alpha: 0.35) : null,
             ),
           ));
         }
@@ -276,8 +408,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
             Positioned.fill(
               child: IgnorePointer(
                 child: Padding(
-                  padding: EdgeInsets.only(
-                      left: _markPad.left + (widget.showSparkle ? 48 : 0), right: 48),
+                  padding: EdgeInsets.only(left: widget.showSparkle ? 52 : _markPad.left, right: 48),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text.rich(TextSpan(style: base, children: spans),

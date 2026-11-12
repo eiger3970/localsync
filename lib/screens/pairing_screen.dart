@@ -260,6 +260,8 @@ class _PairingScreenState extends State<PairingScreen> {
                         child: ShreddingPasswordField(
                           key: _shredKey1,
                           controller: _passwordCtrl,
+                          markAgainst: _confirmCtrl.text,
+                          markIsFirst: true,
                           enabled: !_ctrl.isRunning,
                           focusNode: _passwordFocusNode,
                           textInputAction: TextInputAction.next,
