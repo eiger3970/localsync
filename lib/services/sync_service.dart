@@ -355,7 +355,7 @@ String? desktopStatusMessage(String raw) {
   final when = parts[1];
   final reason = parts.length > 2 ? parts.sublist(2).join(' ').trim() : '';
   final plain = reason.contains('index.lock')
-      ? 'A git lock file was stuck. It clears by itself within 10 minutes.'
+      ? 'A git lock file was stuck. It clears by itself within 10min.'
       : reason.contains('SYNC PAUSED')
           ? 'The notes folder on the desktop moved or changed, so nothing was '
               'synced. Tap FIX PATHS and check Bare repo path and Desktop '
@@ -1082,7 +1082,7 @@ Future<SyncResult> _pushInIsolate(_SyncParams p) async {
     // when a commit actually happened - if the tree was already
     // clean, p.commitMessage was never used, so don't claim it was).
     final sw = Stopwatch()..start();
-    String lap(String name, int from) => '$name ${((sw.elapsedMilliseconds - from) / 1000).toStringAsFixed(1)}s';
+    String lap(String name, int from) => '$name ${((sw.elapsedMilliseconds - from) / 1000).toStringAsFixed(1)}sec';
     final committed = commitDirtyTree(repo, p.commitMessage, p.deviceName);
     final tScan = sw.elapsedMilliseconds;
 

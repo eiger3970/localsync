@@ -451,8 +451,20 @@ class RepositoryProvider extends ChangeNotifier {
   Future<SyncResult?> pullRepository(int id,
       {bool confirmed = false, bool background = false}) {
     _lastActionWasPush[id] = false;
+    // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
+    final slowTimer = Timer(const Duration(seconds: 20), () {
+      pushSlow = true;
+      notifyListeners();
+    });
     return _asUser(background,
-        () => _run(id, (service) => service.pull(confirmed: confirmed)));
+            () => _run(id, (service) => service.pull(confirmed: confirmed)))
+        .whenComplete(() {
+      slowTimer.cancel();
+      if (pushSlow) {
+        pushSlow = false;
+        notifyListeners();
+      }
+    });
   }
 
   // 2026-11-11 owner: after a conflict is fixed the one next step is PUSH, so the Home Screen's PUSH pulses until a
@@ -781,7 +793,7 @@ class RepositoryProvider extends ChangeNotifier {
     var curStart = DateTime.now();
     void markPhase(SyncPhase next) {
       final ms = DateTime.now().difference(curStart).inMilliseconds;
-      timings.add('${curPhase.name} ${(ms / 1000).toStringAsFixed(1)}s');
+      timings.add('${curPhase.name} ${(ms / 1000).toStringAsFixed(1)}sec');
       curPhase = next;
       curStart = DateTime.now();
       _lastTimings[id] = timings.join(', ') + (pushSteps == null ? '' : ' | push steps: $pushSteps');

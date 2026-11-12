@@ -1143,19 +1143,11 @@ class _SyncGestureZone extends StatelessWidget {
       if (provider.isUserSyncBusy) _showQueued(context, action);
       await run();
     }
-    // 2026-11-11: a push running over 20 s says why, once, at the top.
-    if (context.watch<RepositoryProvider>().pushSlow) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showTopBar(SnackBar(
-          content: Text('Still pushing. Big notes or a slow network take longer.',
-              style: TextStyle(color: kTextMid, fontSize: 15)),
-          duration: const Duration(seconds: 10),
-        ));
-      });
-    }
+    // 2026-11-12 owner: the message stayed too short; it now stays until the push or pull completes.
+    final slow = context.watch<RepositoryProvider>().pushSlow;
     return Column(
       children: [
+        _SlowSyncBanner(show: slow),
         Expanded(
           child: GifSwipeTrigger(
             key: pullKey,
@@ -1211,6 +1203,61 @@ class _SyncGestureZone extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 2026-11-12 owner: "Still pushing. Big notes or a slow network..." with a flowing ellipse, kept until the
+/// push or pull completes, so the app does not look frozen.
+class _SlowSyncBanner extends StatefulWidget {
+  final bool show;
+  const _SlowSyncBanner({required this.show});
+  @override
+  State<_SlowSyncBanner> createState() => _SlowSyncBannerState();
+}
+
+class _SlowSyncBannerState extends State<_SlowSyncBanner> {
+  Timer? _t;
+  int _n = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_SlowSyncBanner old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  void _sync() {
+    if (widget.show && _t == null) {
+      _t = Timer.periodic(const Duration(milliseconds: 450), (_) {
+        if (mounted) setState(() => _n = (_n + 1) % 4);
+      });
+    } else if (!widget.show) {
+      _t?.cancel();
+      _t = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.show) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      color: kSurface,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Text('Still pushing. Big notes or a slow network${'.' * _n}',
+          style: TextStyle(color: kTextMid, fontSize: 15)),
     );
   }
 }

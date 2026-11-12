@@ -2377,7 +2377,7 @@ Widget _pushStepLine(RepositoryProvider p) {
     case PushFollowUp.desktopLate:
       icon = Icons.schedule;
       color = kStar;
-      text = 'Pushed. Desktop updates itself within 5 min';
+      text = 'Pushed. Desktop updates itself within 5min';
     case PushFollowUp.none:
       if (!p.pushReminder) {
         if (lastResolutionChangedNote) return const SizedBox.shrink();

@@ -42,7 +42,7 @@ void main() {
           const SizedBox(height: 16),
           banner(Icons.check_circle, kGreen, 'Desktop updated. Old text in Obsidian? Reopen the note'),
           const SizedBox(height: 16),
-          banner(Icons.schedule, kStar, 'Pushed. Desktop updates itself within 5 min'),
+          banner(Icons.schedule, kStar, 'Pushed. Desktop updates itself within 5min'),
         ]),
       ),
     ));

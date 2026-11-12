@@ -183,7 +183,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
           Expanded(child: Text('Practice first', style: TextStyle(color: kStar))),
         ]),
         content: Text(
-            'Try the sample conflict once - it takes 30 seconds and your real files are never touched. '
+            'Try the sample conflict once - it takes 30sec and your real files are never touched. '
             'Then come back to this one.',
             style: TextStyle(color: kTextMid)),
         actions: [

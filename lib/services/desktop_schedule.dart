@@ -16,7 +16,7 @@ const _kDesktopScheduleKey = 'desktop_sync_schedule';
 
 extension DesktopScheduleLabel on DesktopSchedule {
   String get label => switch (this) {
-        DesktopSchedule.every5min => 'Every 5 minutes',
+        DesktopSchedule.every5min => 'Every 5min',
         DesktopSchedule.hourly => 'Every hour',
         DesktopSchedule.manual => 'Only when I tap Desktop sync',
       };

@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'backups_screen.dart';
 import '../theme.dart';
 import '../constants.dart';
 import '../features/linking/linking_state.dart';
@@ -1084,17 +1086,25 @@ class _IdleViewState extends State<_IdleView>
             // (kTextMid, 13px, 16px icon); kTextDim dropped from this
             // block entirely. Only kStar (the one heading) and kTextMid
             // (everything else) remain.
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.shield_outlined, color: kTextMid, size: 16),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                      'No other files on this phone are read or changed.',
-                      style: TextStyle(color: kTextMid, fontSize: 13)),
-                ),
-              ],
+            // 2026-11-12 owner: the shield line links to kworld.space/security.
+            InkWell(
+              onTap: () => launchUrl(Uri.parse('https://kworld.space/security'),
+                  mode: LaunchMode.externalApplication),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.shield_outlined, color: kGreen, size: 16),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                        'No other files on this phone are read or changed.',
+                        style: TextStyle(
+                            color: kTextMid,
+                            fontSize: 13,
+                            decoration: TextDecoration.underline)),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             Row(
@@ -4011,18 +4021,30 @@ class BackupReminderCard extends StatelessWidget {
 
   @override
   // 2026-10-06: centred under the centred heading (Kevin: "doesn't look centered").
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shield_outlined, color: kGreen, size: 18),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text('Earlier files kept: LocalSync -> Menu -> Backups',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kTextMid, fontSize: 14)),
-          ),
-        ],
+  // 2026-11-12 owner: the line opens Backups.
+  Widget build(BuildContext context) => InkWell(
+        onTap: () {
+          final repo = context.read<RepositoryProvider>().selectedRepo;
+          if (repo == null) return;
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => BackupsScreen(repo: repo)));
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shield_outlined, color: kGreen, size: 18),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text('Earlier files kept: LocalSync -> Menu -> Backups',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: kTextMid,
+                      fontSize: 14,
+                      decoration: TextDecoration.underline)),
+            ),
+          ],
+        ),
       );
 }
 
