@@ -240,6 +240,12 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
         nv[h] != _prev[h] &&
         [for (var i = 0; i < nv.length; i++) if (i != h) nv[i] == _prev[i]].every((x) => x);
     if (!replacedHot) _armed = false;
+    // 2026-11-12 owner: only the first highlight waits for a pause. While the user is fixing characters one after another
+    // the next one is highlighted with no delay (fast typists): treat both texts as settled right now.
+    if (replacedHot) {
+      _sv = nv;
+      _sw = widget.markAgainst ?? '';
+    }
     _prev = nv;
   }
 
