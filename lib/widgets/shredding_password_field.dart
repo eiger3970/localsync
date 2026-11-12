@@ -123,6 +123,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
   bool _armed = false;
   DateTime _focusAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastIn = DateTime.fromMillisecondsSinceEpoch(0); // focus-time selections must never fire after typing started
   Timer? _settleT;
   String _sv = '', _sw = '', _prev = '', _ctlText = '';
   String _sig = '';
@@ -181,8 +182,11 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     if (_focus.hasFocus) {
       _focusAt = DateTime.now();
       setState(() => _armed = true);
-      Future.delayed(const Duration(milliseconds: 40), _sel);
-      Future.delayed(const Duration(milliseconds: 160), _sel);
+      void early() {
+        if (!_lastIn.isAfter(_focusAt)) _sel();
+      }
+      Future.delayed(const Duration(milliseconds: 40), early);
+      Future.delayed(const Duration(milliseconds: 160), early);
     } else {
       setState(() => _armed = false);
     }
@@ -224,6 +228,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   }
 
   void _onChanged(String nv) {
+    _lastIn = DateTime.now();
     // a typed letter that replaces exactly the highlighted one: stay armed, so the next suspect character is
     // highlighted and selected. Any other edit drops back to underline.
     final (_, marks, _) = _calc(_prev);
@@ -280,7 +285,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
         onTap: widget.markAgainst == null
             ? null
             : () {
-                if (DateTime.now().difference(_focusAt).inMilliseconds < 500) Future(_sel);
+                if (DateTime.now().difference(_focusAt).inMilliseconds < 500 && !_lastIn.isAfter(_focusAt)) Future(_sel);
               },
         obscureText: _obscure,
         enabled: widget.enabled && !_shredding,
@@ -455,11 +460,12 @@ class _MarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final r in rects) {
-      if (hot) {
-        // highlight replaces the underline (never both); same amber as the website's .mismatch-ch
+    for (var n = 0; n < rects.length; n++) {
+      final r = rects[n];
+      if (hot && n == 0) {
+        // only the FIRST wrong character is highlighted; the others stay underlined until the highlight reaches them
         canvas.drawRRect(RRect.fromRectAndRadius(r.inflate(1), const Radius.circular(2)),
-            Paint()..color = color.withValues(alpha: 0.85));
+            Paint()..color = color.withValues(alpha: 0.4));
         continue;
       }
       final y = r.bottom + 1;
