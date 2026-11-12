@@ -117,6 +117,8 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   // HIGHLIGHTED and the first is selected, so the next key replaces it. Typing drops back to underline unless the key
   // replaced exactly the highlighted character. The marks only settle after SETTLE_MS without typing in either field.
   static const _settleMs = 350;
+  static const _armMs = 1500;
+  Timer? _armT;
   FocusNode? _ownFocus;
   FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
   bool _armed = false;
@@ -156,10 +158,15 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
       setState(() {
         _sv = widget.controller.text;
         _sw = widget.markAgainst ?? '';
-        // 2026-11-12 owner: "highlight the current field the cursor is live, when the typing has finished, so the
-        // user can type a correct word."
-        if (_focus.hasFocus && widget.markAgainst != null) _armed = true;
       });
+    });
+    // 2026-11-12 owner: "highlight the current field the cursor is live, when the typing has finished" - but the
+    // first version armed after 350 ms and the next key overwrote a character while the user was still typing
+    // (test@mest.co). The highlight now waits for a real pause.
+    _armT?.cancel();
+    _armT = Timer(const Duration(milliseconds: _armMs), () {
+      if (!mounted) return;
+      if (_focus.hasFocus && widget.markAgainst != null) setState(() => _armed = true);
     });
   }
 
@@ -189,7 +196,8 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
     final w = widget.markAgainst ?? '';
     if (value.isEmpty || w.isEmpty || value == w) return (null, const [], false);
     final settled = _sv == value && _sw == w;
-    final finished = settled && (value.length - w.length).abs() <= 1;
+    // a focused field that is shorter than its partner is probably still being typed: never highlight it
+    final finished = settled && (value.length - w.length).abs() <= 1 && !(_focus.hasFocus && value.length < w.length);
     if (finished) {
       final full = textMismatch(value, w);
       if (full != null) {
@@ -233,6 +241,7 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
   @override
   void dispose() {
     _settleT?.cancel();
+    _armT?.cancel();
     widget.controller.removeListener(_onCtl);
     _focus.removeListener(_onFocus);
     _ownFocus?.dispose();
@@ -448,8 +457,10 @@ class _MarkPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final r in rects) {
       if (hot) {
+        // highlight replaces the underline (never both); same amber as the website's .mismatch-ch
         canvas.drawRRect(RRect.fromRectAndRadius(r.inflate(1), const Radius.circular(2)),
-            Paint()..color = color.withValues(alpha: 0.55));
+            Paint()..color = color.withValues(alpha: 0.85));
+        continue;
       }
       final y = r.bottom + 1;
       final p = Paint()
