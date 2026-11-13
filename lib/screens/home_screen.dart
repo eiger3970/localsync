@@ -157,17 +157,6 @@ class HomeScreen extends StatelessWidget {
           // not be deep and buried." One tap to every upgrade.
           // 2026-10-14: user - on Auto merge & clean up (the top package) the
           // ribbon leaves the top bar: less distraction, more room for the title.
-          ValueListenableBuilder<bool>(
-            valueListenable: context.read<PurchaseService>().autoMergeOwned,
-            builder: (context, owned, _) => owned
-                ? const SizedBox.shrink()
-                : IconButton(
-                    tooltip: 'Upgrades',
-                    icon: const Icon(Icons.workspace_premium, color: Colors.amber),
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const UpgradesScreen())),
-                  ),
-          ),
           // Fixed 2026-08-09: two bare icon buttons (key, phone) with only
           // a long-press tooltip for explanation - on iOS a tap doesn't
           // show the tooltip at all, so neither icon was actually self-
@@ -460,9 +449,20 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.help_outline, color: kGreen),
             tooltip: 'Help',
-            padding: const EdgeInsets.only(left: 0, right: 12),
             constraints: const BoxConstraints(),
             onPressed: () => showHelpWizard(context, 'A'),
+          ),
+          // 2026-11-14 owner: top bar order is menu, help, upgrades.
+          ValueListenableBuilder<bool>(
+            valueListenable: context.read<PurchaseService>().autoMergeOwned,
+            builder: (context, owned, _) => owned
+                ? const SizedBox.shrink()
+                : IconButton(
+                    tooltip: 'Upgrades',
+                    icon: const Icon(Icons.workspace_premium, color: Colors.amber),
+                    onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const UpgradesScreen())),
+                  ),
           ),
         ],
       ),
