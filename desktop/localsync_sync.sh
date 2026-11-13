@@ -444,6 +444,15 @@ def _time_ordered_gap(ours, theirs):
         lines.append('')
     return lines
 
+def times_out_of_order_by_merge(inputs, merged):
+    # 2026-11-13 owner: a merge that puts a timed entry in the wrong place is a conflict for the person.
+    # Mirrors timesOutOfOrderByMerge in conflict_repair.dart.
+    def times(t):
+        return [_jtime_of(l) for l in t.split('\n') if _JTIME_RE.match(l)]
+    def in_order(x):
+        return all(x[i] >= x[i - 1] for i in range(1, len(x)))
+    return all(in_order(times(i)) for i in inputs) and not in_order(times(merged))
+
 def merge_three_way_lines(base, ours, theirs):
     bl = base.split('\n')
     ok = [True] * len(bl); tk = [True] * len(bl)
@@ -471,7 +480,8 @@ def merge_three_way_lines(base, ours, theirs):
         if ok[k] and tk[k]:
             out.append(bl[k])
         gap(k + 1)
-    return '\n'.join(out)
+    _text = '\n'.join(out)
+    return None if times_out_of_order_by_merge([ours, theirs], _text) else _text
 
 def _git_stage(n):
     rel = path if path.startswith('./') else './' + path
@@ -621,6 +631,8 @@ def dedupe_and_check_append(ours, theirs):
         theirs_remaining = "\n".join(remaining).strip()
         ordered = chronologically_ordered_if_journal(ours, theirs_remaining)
         merged = ordered if ordered is not None else ours + "\n\n" + theirs_remaining
+        if ordered is None and times_out_of_order_by_merge([ours, theirs_remaining], merged):
+            return None, False   # 2026-11-13: would put a timed entry in the wrong place -> a conflict for the person
         return merged, True
     return None, False
 

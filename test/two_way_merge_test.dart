@@ -29,4 +29,13 @@ void main() {
     final m = mergeThreeWayLines(base, 'a\nours line', 'a\ntheirs line')!;
     expect(m, 'a\nours line\ntheirs line');
   });
+
+  test('3-way: merge would put a time in the wrong place -> null, a conflict for the person (2026-11-13)', () {
+    const base = '0900 a';
+    const ours = '0900 a\n\nMetro thoughts.\n\n2000 c';
+    const theirs = '0900 a\n\n1900 d';
+    expect(mergeThreeWayLines(base, ours, theirs), isNull);
+    expect(timesOutOfOrderByMerge([ours, theirs], '0900 a\n2000 c\n1900 d'), isTrue);
+    expect(timesOutOfOrderByMerge(['1900 x\n2000 y', 'junk'], '1900 x\n2000 y\njunk'), isFalse);
+  });
 }

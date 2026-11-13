@@ -88,8 +88,10 @@ String? dedupeAndCheckAppend(String ours, String theirs) {
   if (remainingNonBlank.isNotEmpty &&
       remainingNonBlank.every((l) => !oursSet.contains(l.trim()))) {
     final theirsRemaining = remaining.join('\n').trim();
-    return chronologicallyOrderedIfJournal(ours, theirsRemaining) ??
-        '$ours\n\n$theirsRemaining';
+    final ordered = chronologicallyOrderedIfJournal(ours, theirsRemaining);
+    if (ordered != null) return ordered;
+    final joined = '$ours\n\n$theirsRemaining';
+    return timesOutOfOrderByMerge([ours, theirsRemaining], joined) ? null : joined;
   }
   return null;
 }
@@ -653,9 +655,29 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
     writeGap(k + 1);
   }
   final result = out.toString();
-  return result.endsWith('\n')
+  final text = result.endsWith('\n')
       ? result.substring(0, result.length - 1)
       : result;
+  return timesOutOfOrderByMerge([ours, theirs], text) ? null : text;
+}
+
+/// 2026-11-13 owner: "the code should see the merge placing times in wrong places, and if it can't merge with correct
+/// data, it's a conflict for human intervention." The clock times that start lines (see [_journalTimePattern]), top to
+/// bottom. When every input version has its times in order but the merged text does not, the merge itself put an entry
+/// in the wrong place: true, and the caller returns null so the note goes to the person (backup-and-ask flow).
+/// Mirrors times_out_of_order_by_merge in desktop/localsync_sync.sh.
+bool timesOutOfOrderByMerge(List<String> inputs, String merged) {
+  List<int> times(String t) => [
+        for (final l in t.split('\n'))
+          if (_journalTimePattern.hasMatch(l)) _journalTimeOf(l)
+      ];
+  bool inOrder(List<int> x) {
+    for (var i = 1; i < x.length; i++) {
+      if (x[i] < x[i - 1]) return false;
+    }
+    return true;
+  }
+  return inputs.every((i) => inOrder(times(i))) && !inOrder(times(merged));
 }
 
 /// 2026-11-13 real case (owner's diary): the phone added 1500-2145 entries and the desktop added 1235 and 1247 in the
