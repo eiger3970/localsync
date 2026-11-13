@@ -55,39 +55,41 @@ List<MmOp> diffOps(String typed, String want) {
       if (m > n) MmOp(MismatchKind.missing, n),
     ];
   }
-  final d = List.generate(n + 1, (_) => List<int>.filled(m + 1, 0));
-  for (var i = 0; i <= n; i++) {
-    d[i][0] = i;
+  // 2026-11-13 owner: typed "t" against "test@rest.cno" marked the t as wrong. The suffix distances are walked forward
+  // from the start, so when two alignments cost the same, characters match as far LEFT as possible.
+  final d = List.generate(n + 2, (_) => List<int>.filled(m + 2, 0));
+  for (var i = n; i >= 0; i--) {
+    d[i][m] = n - i;
   }
-  for (var j = 0; j <= m; j++) {
-    d[0][j] = j;
+  for (var j = m; j >= 0; j--) {
+    d[n][j] = m - j;
   }
-  for (var i = 1; i <= n; i++) {
-    for (var j = 1; j <= m; j++) {
-      final a = d[i - 1][j - 1] + (typed[i - 1] == want[j - 1] ? 0 : 1);
-      final b = d[i - 1][j] + 1, c = d[i][j - 1] + 1;
+  for (var i = n - 1; i >= 0; i--) {
+    for (var j = m - 1; j >= 0; j--) {
+      final a = d[i + 1][j + 1] + (typed[i] == want[j] ? 0 : 1);
+      final b = d[i + 1][j] + 1, c = d[i][j + 1] + 1;
       d[i][j] = a < b ? (a < c ? a : c) : (b < c ? b : c);
     }
   }
   final ops = <MmOp>[];
-  var i = n, j = m;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && typed[i - 1] == want[j - 1] && d[i][j] == d[i - 1][j - 1]) {
-      i--;
-      j--;
-    } else if (i > 0 && j > 0 && d[i][j] == d[i - 1][j - 1] + 1) {
-      ops.add(MmOp(MismatchKind.sub, i - 1));
-      i--;
-      j--;
-    } else if (i > 0 && d[i][j] == d[i - 1][j] + 1) {
-      ops.add(MmOp(MismatchKind.extra, i - 1));
-      i--;
+  var i = 0, j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && typed[i] == want[j] && d[i][j] == d[i + 1][j + 1]) {
+      i++;
+      j++;
+    } else if (i < n && j < m && d[i][j] == d[i + 1][j + 1] + 1) {
+      ops.add(MmOp(MismatchKind.sub, i));
+      i++;
+      j++;
+    } else if (i < n && d[i][j] == d[i + 1][j] + 1) {
+      ops.add(MmOp(MismatchKind.extra, i));
+      i++;
     } else {
       ops.add(MmOp(MismatchKind.missing, i));
-      j--;
+      j++;
     }
   }
-  return ops.reversed.toList();
+  return ops;
 }
 
 /// Did the edit prev -> next fix exactly the first op? Then the highlight carries on with no delay.
