@@ -19,4 +19,11 @@ void main() {
     expect(ops('test@test.com', 'test@test.come'), ['missing13']);
     expect(ops('test@rest.cno', 'test@test.cno'), ['sub5']);
   });
+
+  test('2026-11-13: a doubled letter at the end - the LAST one is the extra (real password case)', () {
+    List<String> ops(String a, String b) => [for (final o in diffOps(a, b)) '${o.kind.name}${o.i}'];
+    expect(ops('camee', 'came'), ['extra4']);
+    expect(ops('came', 'camee'), ['missing4']);
+    expect(ops('caame', 'came'), ['extra2']);
+  });
 }
