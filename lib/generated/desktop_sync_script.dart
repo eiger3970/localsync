@@ -41,6 +41,10 @@ set -euo pipefail
 # default, vault.git, still lands in ~/Documents/LocalSync/vault), and one
 # lock per repo, so two schedules never skip each other's runs.
 BARE_REPO="${LOCALSYNC_BARE_REPO:-$HOME/Documents/Git/LocalSync/vault.git}"
+# 2026-11-13 real case: the phone named the repo through a symlinked folder, the schedule through the real one. Two
+# spellings meant two different locks, so two runs worked on the same vault at once and git stopped on its lock
+# ("A git lock file was stuck"). One real path = one lock.
+_bare_real=$(cd "$BARE_REPO" 2>/dev/null && pwd -P) && BARE_REPO="$_bare_real"
 # 2026-09-25: LOCALSYNC_NAME (the phone folder's name, sent by the app)
 # names the default folder, so it matches the phone - the repo id was used
 # before ("LocalSync_free_test_1790344809012").
