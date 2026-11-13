@@ -723,8 +723,29 @@ class _IdleViewState extends State<_IdleView>
   // to _passwordsMatch alone; the "too high" complaint was about the
   // scroll DISTANCE/position, not about which signal triggers it -
   // don't conflate the two again.
+  // 2026-11-13 owner: typing field 2 passes through an exact match on the way to a typo (the password, then one extra
+  // "e"), and the screen had already scrolled down to the next step. The scroll now waits for the match to hold
+  // for 1.2 s; any change in between cancels it, so a typo with a match error never scrolls.
+  Timer? _stage3Hold;
   void _revealStage3IfUnlocked() {
-    if (_stage3Revealed || !(_paired && _passwordsMatch)) return;
+    if (_stage3Revealed) return;
+    if (!(_paired && _passwordsMatch)) {
+      _stage3Hold?.cancel();
+      _stage3Hold = null;
+      return;
+    }
+    if (_stage3Hold != null) return;
+    final held = _confirmCtrl.text;
+    _stage3Hold = Timer(const Duration(milliseconds: 1200), () {
+      _stage3Hold = null;
+      if (!mounted || _stage3Revealed) return;
+      if (_confirmCtrl.text == held && _paired && _passwordsMatch) {
+        _doRevealStage3();
+      }
+    });
+  }
+
+  void _doRevealStage3() {
     _stage3Revealed = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 2026-09-09, round 11: this used to poll
@@ -866,6 +887,7 @@ class _IdleViewState extends State<_IdleView>
   void dispose() {
     _pulseCtrl.dispose();
     _passwordCtrl.dispose();
+    _stage3Hold?.cancel();
     _confirmCtrl.dispose();
     _passwordFocusNode.dispose();
     _confirmFocusNode.dispose();
