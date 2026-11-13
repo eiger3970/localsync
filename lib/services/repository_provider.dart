@@ -477,6 +477,10 @@ class RepositoryProvider extends ChangeNotifier {
             () => _run(id, (service) => service.pull(confirmed: confirmed)))
         .then((r) {
       SyncLog.add('PULL end ($kind) ${_resultKind(r)} ${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
+      if (r is SyncOk || r is SyncNoChanges) {
+        syncsDone++;
+        notifyListeners();
+      }
       return r;
     }).whenComplete(() {
       slowTimer.cancel();
@@ -497,6 +501,11 @@ class RepositoryProvider extends ChangeNotifier {
   /// 2026-11-13 owner: backup size shown in the menu; past [kBackupsAmberBytes] the Backups item and the kebab turn
   /// amber. Measured after each automatic sync and whenever the Backups screen loads.
   int backupBytes = 0;
+  /// 2026-11-13 owner: the backup size check ran only after the hidden automatic sync. Counts every finished sync
+  /// (the person's PULL/PUSH too), so AutoSyncOnResume can check backups after any of them.
+  int syncsDone = 0;
+  /// True while any sync holds the lock (the backup message waits until nothing is running).
+  bool get syncBusy => _inFlight != null;
   static const kBackupsAmberBytes = 500 << 20;
   bool get backupsBig => backupBytes >= kBackupsAmberBytes;
   void setBackupBytes(int b) {
@@ -582,6 +591,7 @@ class RepositoryProvider extends ChangeNotifier {
     }
     SyncLog.add('PUSH end ($kind) ${_resultKind(result)} ${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
     if (result is SyncOk || result is SyncNoChanges) {
+      syncsDone++;
       setPushReminder(false);
       // 2026-11-11 owner: new phone notes were on the phone but not yet in desktop Obsidian after a push and the
       // desktop only caught up on its own 5-minute timer. Every push that sent notes now asks the desktop to sync

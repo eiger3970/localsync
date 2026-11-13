@@ -73,10 +73,35 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // COLD LAUNCH path - it resolves once, at startup, so it's already
     // complete on every later resume-from-background call below.
     WidgetsBinding.instance.addPostFrameCallback((_) => _gatedAutoSync());
+    // 2026-11-13 owner: the backup check also follows the person's own PULL/PUSH, not only the hidden automatic
+    // sync. Runs 2 s after a sync finishes, once nothing else is syncing.
+    _provider = context.read<RepositoryProvider>()..addListener(_onProvider);
+    _seenSyncs = _provider!.syncsDone;
+  }
+
+  RepositoryProvider? _provider;
+  int _seenSyncs = 0;
+  bool _checking = false;
+  void _onProvider() {
+    final p = _provider!;
+    if (p.syncsDone == _seenSyncs) return;
+    _seenSyncs = p.syncsDone;
+    if (_syncing || _checking) return;
+    _checking = true;
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        final repo = p.selectedRepo;
+        if (mounted && !_syncing && !p.syncBusy && repo?.id != null) await _offerToFreeSpace(p, repo!);
+      } catch (_) {
+      } finally {
+        _checking = false;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _provider?.removeListener(_onProvider);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
