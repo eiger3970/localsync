@@ -220,12 +220,26 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
           Text(old.length == 1 ? 'Delete an old backup?' : 'Delete ${old.length} old backups?',
               style: TextStyle(color: kStar, fontSize: 17)),
         ]),
-        content: Text(
-            'LocalSync copied your $what when this phone was linked ($when). '
-            'Deleting ${old.length == 1 ? 'the copy' : 'the copies'} frees ${formatBytes(total)} '
-            'on this phone - your $what stay as they are. Unsure? Keep. '
-            'Asked once - later: LocalSync -> ⋮ -> Backups.',
-            style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.45)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in [
+              'LocalSync made ${old.length == 1 ? 'this copy' : 'these copies'} when this phone was linked ($when).',
+              'DELETE frees ${formatBytes(total)} on this phone.',
+              'Your $what stay as they are.',
+              'Not sure? Tap KEEP.',
+              'Later: LocalSync -> ⋮ -> Backups.',
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('•  ', style: TextStyle(color: kTextMid, fontSize: 14.5)),
+                  Expanded(child: Text(line, style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.35))),
+                ]),
+              ),
+          ],
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(c, false),

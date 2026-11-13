@@ -454,6 +454,7 @@ class RepositoryProvider extends ChangeNotifier {
     // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
     final slowTimer = Timer(const Duration(seconds: 20), () {
       pushSlow = true;
+      slowWhat = background ? 'syncing' : 'pulling';
       notifyListeners();
     });
     return _asUser(background,
@@ -473,6 +474,8 @@ class RepositoryProvider extends ChangeNotifier {
   /// 2026-11-11 owner: a long PUSH said nothing. True once a push has run more than 20 seconds (big notes or a slow
   /// network); the Home Screen shows one top message. 20 s, not 5 s: the old 5 s hint fired on every normal sync.
   bool pushSlow = false;
+  /// 2026-11-13: what the slow message says is still running: pulling, pushing, or syncing (an automatic background sync).
+  String slowWhat = 'pushing';
   bool get pushReminder => _pushReminder;
   void setPushReminder(bool on) {
     if (on) _pushFollowUp = PushFollowUp.none;
@@ -508,6 +511,7 @@ class RepositoryProvider extends ChangeNotifier {
     final wasReminder = _pushReminder;
     final slowTimer = Timer(const Duration(seconds: 20), () {
       pushSlow = true;
+      slowWhat = background ? 'syncing' : 'pushing';
       notifyListeners();
     });
     final SyncResult? result;

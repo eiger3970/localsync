@@ -1144,10 +1144,11 @@ class _SyncGestureZone extends StatelessWidget {
       await run();
     }
     // 2026-11-12 owner: the message stayed too short; it now stays until the push or pull completes.
-    final slow = context.watch<RepositoryProvider>().pushSlow;
-    return Column(
+    final slowProvider = context.watch<RepositoryProvider>();
+    final slow = slowProvider.pushSlow;
+    // 2026-11-13 owner: messages must not push the PULL and PUSH icons down - the slow message floats over the page.
+    final body = Column(
       children: [
-        _SlowSyncBanner(show: slow),
         Expanded(
           child: GifSwipeTrigger(
             key: pullKey,
@@ -1204,6 +1205,10 @@ class _SyncGestureZone extends StatelessWidget {
         ),
       ],
     );
+    return Stack(children: [
+      body,
+      Positioned(top: 0, left: 0, right: 0, child: _SlowSyncBanner(show: slow, what: slowProvider.slowWhat)),
+    ]);
   }
 }
 
@@ -1211,7 +1216,8 @@ class _SyncGestureZone extends StatelessWidget {
 /// push or pull completes, so the app does not look frozen.
 class _SlowSyncBanner extends StatefulWidget {
   final bool show;
-  const _SlowSyncBanner({required this.show});
+  final String what;
+  const _SlowSyncBanner({required this.show, this.what = 'pushing'});
   @override
   State<_SlowSyncBanner> createState() => _SlowSyncBannerState();
 }
@@ -1256,7 +1262,7 @@ class _SlowSyncBannerState extends State<_SlowSyncBanner> {
       width: double.infinity,
       color: kSurface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Text('Still pushing. Big notes or a slow network${'.' * _n}',
+      child: Text('Still ${widget.what}. Big notes or a slow network${'.' * _n}',
           style: TextStyle(color: kTextMid, fontSize: 15)),
     );
   }
