@@ -72,6 +72,11 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     final r = widget.result;
+    // 2026-11-13 owner: removing the old .obsidian-backup folder (76 settings files) said "76 notes would disappear".
+    // Files inside a hidden folder (.obsidian-backup, .trash, ...) are settings, not notes: counted apart, and only
+    // notes the person can see raise the Rescue line.
+    final hidden = r.removedFiles.where(isHiddenPath).length;
+    final visible = r.removedFiles.length - hidden;
     // 2026-08-18: "no change with this version" - the outer Align/
     // Padding anchoring the ROUTE's position was correct, but AlertDialog
     // itself (via Dialog.build()) wraps its own content in a second,
@@ -98,7 +103,8 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
               // Alphabetical: add, change, remove - per house naming rule.
               if (r.filesAdded > 0) _Bullet('add ${r.filesAdded} file${r.filesAdded == 1 ? '' : 's'}'),
               if (r.filesModified > 0) _Bullet('change ${r.filesModified} file${r.filesModified == 1 ? '' : 's'}'),
-              if (r.filesRemoved > 0) _Bullet('remove ${r.filesRemoved} file${r.filesRemoved == 1 ? '' : 's'}'),
+              if (visible > 0) _Bullet('remove $visible note${visible == 1 ? '' : 's'} or file${visible == 1 ? '' : 's'}'),
+              if (hidden > 0) _Bullet('remove $hidden settings file${hidden == 1 ? '' : 's'} (hidden folders) - notes not touched'),
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
@@ -117,7 +123,7 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
               // 2026-09-29: user - Rescue trouble alert: 20+ notes about to
               // disappear at once is where a beginner loses everything.
               // Not syncing + Rescue is one tap from here.
-              if (kRescueEnabled && widget.result.removedFiles.length >= 20) ...[
+              if (kRescueEnabled && visible >= 20) ...[
                 const SizedBox(height: 10),
                 Material(
                   color: const Color(0xFFFF2D3D).withValues(alpha: 0.12),
@@ -138,7 +144,7 @@ class _SyncConfirmDialogState extends State<_SyncConfirmDialog> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                              '${widget.result.removedFiles.length} notes would disappear. '
+                              '$visible notes would disappear. '
                               'Not you? Tap for Rescue - nothing is synced.',
                               style: TextStyle(
                                   color: kStar, fontSize: 13.5, height: 1.35)),
@@ -246,6 +252,10 @@ class _Bullet extends StatelessWidget {
     );
   }
 }
+
+/// True for a file inside a hidden folder or a hidden file (any part starting with "."): Obsidian settings, trash, old
+/// copies - never a note the person sees in Obsidian.
+bool isHiddenPath(String path) => path.split('/').any((p) => p.startsWith('.'));
 
 class _FileList extends StatelessWidget {
   final SyncNeedsConfirmation result;
