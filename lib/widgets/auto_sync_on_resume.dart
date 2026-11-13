@@ -1,3 +1,5 @@
+import 'dart:isolate';
+import 'dart:io';
 // widgets/auto_sync_on_resume.dart
 //
 // 2026-09-06: real feedback, live - "how does a user avoid this issue?"
@@ -180,8 +182,14 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     // 2026-11-14 owner: "I keep getting this message, I have to keep tapping KEEP every time". One answer on this
     // phone (KEEP or DELETE) now ends the question for good; the copies stay in LocalSync -> menu -> Backups.
     if (prefs.getBool('offered_free_answered') == true) return;
-    final folders =
-        await provider.withRepoFolder(repo, (path) => listBackupFolders(path));
+    // 2026-11-14 owner: the question came back after KEEP on a new build (the phone's saved settings did not survive
+    // the reinstall). The answer is now also written next to the copy itself (a tiny .localsync_asked file), so it
+    // holds as long as the copy exists.
+    // 2026-11-14: counting every file of a 51 MB copy froze the screen for 10 s - done off the screen's thread now.
+    final folders = await provider.withRepoFolder(repo, (path) => Isolate.run(() => [
+          for (final f in listBackupFolders(path))
+            if (!File('$path/${f.relPath}/.localsync_asked').existsSync()) f
+        ]));
     if (folders == null || !mounted) return;
     final weekAgo = DateTime.now().subtract(const Duration(days: 7));
     // 2026-10-13: owner - the prompt "keeps appearing every few minutes, even
@@ -256,6 +264,15 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
       ),
     );
     await prefs.setBool('offered_free_answered', true);
+    if (ok != true) {
+      await provider.withRepoFolder(repo, (path) {
+        for (final f in old) {
+          try {
+            File('$path/${f.relPath}/.localsync_asked').writeAsStringSync('KEEP\n');
+          } catch (_) {}
+        }
+      });
+    }
     if (ok == true) {
       await provider.withRepoFolder(repo, (path) {
         for (final f in old) {

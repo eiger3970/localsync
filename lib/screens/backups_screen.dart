@@ -1,3 +1,4 @@
+import 'dart:isolate';
 // screens/backups_screen.dart
 //
 // 2026-09-29: user - Backups: every LocalSync safety-copy folder with its
@@ -47,7 +48,7 @@ class _BackupsScreenState extends State<BackupsScreen> {
     try {
       final f = await context
           .read<RepositoryProvider>()
-          .withRepoFolder(widget.repo, (path) => listBackupFolders(path));
+          .withRepoFolder(widget.repo, (path) => Isolate.run(() => listBackupFolders(path)));
       if (mounted) setState(() => _folders = f ?? []);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');

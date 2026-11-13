@@ -465,7 +465,7 @@ class RepositoryProvider extends ChangeNotifier {
     // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
     // 2026-11-14 owner: "Still syncing" for an automatic background sync was noise - only the person's own swipe
     // (which waits behind it and has its own timer) shows the slow message.
-    final slowTimer = Timer(Duration(seconds: background ? 100000 : 20), () {
+    final slowTimer = Timer(Duration(seconds: background ? 100000 : 30), () {
       pushSlow = true;
       slowWhat = pushFlow ? 'pushing' : 'pulling';
       SyncLog.add('slow message ON (${slowWhat})');
@@ -548,7 +548,7 @@ class RepositoryProvider extends ChangeNotifier {
     final kind = background ? 'background' : 'you';
     final sw = Stopwatch()..start();
     SyncLog.add('PUSH start ($kind)');
-    final slowTimer = Timer(Duration(seconds: background ? 100000 : 20), () {
+    final slowTimer = Timer(Duration(seconds: background ? 100000 : 30), () {
       pushSlow = true;
       slowWhat = 'pushing';
       SyncLog.add('slow message ON (${slowWhat})');
