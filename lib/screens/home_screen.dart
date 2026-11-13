@@ -25,6 +25,8 @@ import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../services/diagnostics_report.dart';
 import '../services/sync_log.dart';
+import '../services/storage_report.dart';
+import '../services/vault_folder_service.dart';
 import '../widgets/floating_hearts.dart';
 import '../widgets/flowing_data_animation.dart';
 import '../widgets/free_tier_banner_ad.dart';
@@ -1745,6 +1747,20 @@ Widget _diagBadge(IconData icon, String label) => Column(children: [
       Text(label, style: TextStyle(color: kStar, fontSize: 12)),
     ]);
 
+/// Folder sizes inside the person's vault (Obsidian's folder, reached through the saved bookmark, never localPath).
+Future<String> _storageFor(Repository repo) async {
+  final vf = VaultFolderService();
+  final path = await vf.startAccessing(repo.vaultBookmark);
+  if (path == null) return 'Storage: no access to the notes folder';
+  try {
+    return await storageReport(path);
+  } catch (_) {
+    return 'Storage: could not measure';
+  } finally {
+    await vf.stopAccessing(repo.vaultBookmark);
+  }
+}
+
 Future<void> _sendDetails(BuildContext context, Repository repo,
     {String? verdict, String? error, String? debug}) async {
   final info = await PackageInfo.fromPlatform();
@@ -1759,6 +1775,7 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
         ? null
         : context.read<RepositoryProvider>().lastTimings(repo.id!),
     log: await SyncLog.tail(n: 60),
+    storage: await _storageFor(repo),
   ));
   if (!context.mounted) return;
   final send = await showDialog<bool>(

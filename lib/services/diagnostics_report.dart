@@ -16,6 +16,8 @@ class DiagnosticsInput {
   final String? timings;
   /// Recent sync log lines (events and times only, see sync_log.dart).
   final String? log;
+  /// 2026-11-13: folder sizes (storage_report.dart), folder names only.
+  final String? storage;
   const DiagnosticsInput({
     required this.appVersion,
     required this.platform,
@@ -25,6 +27,7 @@ class DiagnosticsInput {
     this.verdict,
     this.timings,
     this.log,
+    this.storage,
   });
 }
 
@@ -38,6 +41,7 @@ String buildDiagnosticsReport(DiagnosticsInput d, {String? helperName}) {
   if (d.timings != null) b.writeln('Step times: ${d.timings}');
   if (d.verdict != null) b.writeln('Merge result: ${d.verdict}');
   if (d.debug != null) b.writeln('Technical: ${d.debug}');
+  if (d.storage != null) b.writeln(d.storage);
   if (d.log != null && d.log!.isNotEmpty) b
     ..writeln('Recent sync log (events and times only):')
     ..writeln(d.log);
@@ -52,7 +56,7 @@ Uri diagnosticsContactUri(String report) =>
 
 const kDiagnosticsPrivacy =
     'Only diagnostics are sent: app version, device system, the step that '
-    'failed and the error text. No notes, no file contents, no tracking. '
+    'failed, the error text and folder sizes. No notes, no file contents, no tracking. '
     'Nothing is sent unless you tap Send.';
 
 /// True when a sync result is a merge the user may want to rate.

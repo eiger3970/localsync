@@ -3,7 +3,9 @@
 import 'file_backup_exclusion.dart';
 import 'desktop_schedule.dart';
 import 'dart:async';
+import 'dart:io';
 import 'sync_log.dart';
+import 'storage_report.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -771,7 +773,9 @@ class RepositoryProvider extends ChangeNotifier {
     _inFlight = completer.future;
     if (prior != null) await prior.catchError((_) {});
     try {
-      return await _runLocked(id, op);
+      final r = await _runLocked(id, op);
+      await _maybeCompact(id, r);
+      return r;
     } finally {
       // 2026-09-22: real crash, live, from an actual .ips log AGAIN -
       // two DartWorker threads both inside git_remote_connect's SSH
@@ -805,6 +809,35 @@ class RepositoryProvider extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 400));
       completer.complete();
       if (identical(_inFlight, completer.future)) _inFlight = null;
+    }
+  }
+
+  /// 2026-11-13 owner: Obsidian on the phone was 2.81 GB for ~20 MB of notes, and a full phone blocked installs.
+  /// After a sync that did not fail, still inside the sync lock (no git work runs alongside), packs the phone's
+  /// unpacked sync history. At most once a day; storage_report.dart removes nothing until the new pack is checked.
+  Future<void> _maybeCompact(int id, SyncResult? r) async {
+    if (r == null || r is SyncFailed) return;
+    final i = _repos.indexWhere((x) => x.id == id);
+    if (i == -1) return;
+    final bookmark = _repos[i].vaultBookmark;
+    final vf = VaultFolderService();
+    final path = await vf.startAccessing(bookmark);
+    if (path == null) return;
+    final marker = File('$path/.git/localsync_compacted');
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    try {
+      if (marker.existsSync() && marker.readAsStringSync().trim() == today) return;
+      final sw = Stopwatch()..start();
+      final c = await compactGitStore(path);
+      marker.writeAsStringSync(today);
+      if (c != null) {
+        SyncLog.add('history packed ${formatBytes(c.beforeBytes)} -> ${formatBytes(c.afterBytes)} '
+            '${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
+      }
+    } catch (e) {
+      SyncLog.add('history pack failed (nothing removed): ${e.runtimeType}');
+    } finally {
+      await vf.stopAccessing(bookmark);
     }
   }
 
