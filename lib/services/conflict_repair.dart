@@ -639,8 +639,8 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
       writeLines(theirsGapInserts[g]);
       writeLines(oursGapInserts[g]);
     } else {
-      writeLines(oursGapInserts[g]);
-      writeLines(theirsGapInserts[g]);
+      writeLines(_timeOrderedGap(oursGapInserts[g], theirsGapInserts[g]) ??
+          [...oursGapInserts[g], ...theirsGapInserts[g]]);
     }
   }
 
@@ -656,6 +656,26 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
   return result.endsWith('\n')
       ? result.substring(0, result.length - 1)
       : result;
+}
+
+/// 2026-11-13 real case (owner's diary): the phone added 1500-2145 entries and the desktop added 1235 and 1247 in the
+/// same gap, and the merge wrote ours then theirs, so 1235 landed under 2145. When both sides add in the same gap and
+/// every paragraph of both additions starts with a journal time, the paragraphs are sorted by time. Anything else (an
+/// untimed paragraph, only one side adding) returns null and keeps ours-then-theirs. Mirrors _time_ordered_gap in
+/// desktop/localsync_sync.sh.
+List<String>? _timeOrderedGap(List<String> ours, List<String> theirs) {
+  if (ours.isEmpty || theirs.isEmpty) return null;
+  final paras = [..._splitParagraphs(ours.join('\n')), ..._splitParagraphs(theirs.join('\n'))];
+  if (paras.isEmpty || !paras.every((q) => _journalTimePattern.hasMatch(q))) return null;
+  final sorted = [...paras]..sort((a, b) => _journalTimeOf(a).compareTo(_journalTimeOf(b)));
+  final lines = <String>[];
+  if (ours.first.trim().isEmpty || theirs.first.trim().isEmpty) lines.add('');
+  for (var i = 0; i < sorted.length; i++) {
+    if (i > 0) lines.add('');
+    lines.addAll(sorted[i].split('\n'));
+  }
+  if (ours.last.trim().isEmpty || theirs.last.trim().isEmpty) lines.add('');
+  return lines;
 }
 
 // An unfinished dated heading, e.g. `## 202611` (hashes, then only digits).
