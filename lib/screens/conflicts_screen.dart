@@ -2390,12 +2390,13 @@ Widget _pushStepLine(RepositoryProvider p) {
       color = kGreen;
       text = 'Swipe up on PUSH';
   }
+  // 2026-11-14 owner: "ticks still a different size". The "Conflict fixed" tick sits inside its text line, which the
+  // phone's text size setting enlarges; this one was a separate icon, which it does not. Both are now inside text.
   return Padding(
     padding: const EdgeInsets.only(top: 4),
-    child: Row(children: [
-      Icon(icon, color: color, size: 18), // 2026-11-14 owner: one tick size (was a small and a big tick)
-      const SizedBox(width: 6),
-      Flexible(child: Text(text, style: TextStyle(color: kStar, fontSize: 15))),
-    ]),
+    child: Text.rich(TextSpan(style: TextStyle(color: kStar, fontSize: 15), children: [
+      WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(icon, color: color, size: 18)),
+      TextSpan(text: ' $text'),
+    ])),
   );
 }
