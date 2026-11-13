@@ -492,8 +492,17 @@ def merge_three_way_lines(base, ours, theirs):
     _fill(_diff_lines(bl, ours.split('\n')), ok, og)
     _fill(_diff_lines(bl, theirs.split('\n')), tk, tg)
     newest_first = set()
+    shared = [[] for _ in range(len(bl) + 1)]
     for k in range(len(bl)):
         if not ok[k] and not tk[k]:
+            # 2026-11-14: the same edit on both sides is agreement (mirrors conflict_repair.dart)
+            o, t = og[k + 1], tg[k + 1]
+            n = 0
+            while n < len(o) and n < len(t) and o[n] == t[n]:
+                n += 1
+            if not _STUB.match(bl[k]) and ((not o and not t) or n > 0):
+                shared[k + 1].extend(o[:n]); del o[:n]; del t[:n]
+                continue
             stub = _STUB.match(bl[k])
             oh = _entry_heading(og[k + 1], stub) if stub else None
             th = _entry_heading(tg[k + 1], stub) if stub else None
@@ -503,6 +512,7 @@ def merge_three_way_lines(base, ours, theirs):
                 newest_first.add(k + 1)
     out = []
     def gap(g):
+        out.extend(shared[g])
         if g in newest_first:
             out.extend(tg[g]); out.extend(og[g])
         else:

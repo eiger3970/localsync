@@ -618,8 +618,24 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
   // touches the same base line (including a stub finished the same way by both sides) is still deferred to the
   // backup-and-ask flow, exactly as before.
   final newestFirst = <int>{}; // gaps where theirs' entry is newer than ours' and is written first
+  // 2026-11-14 real case (owner's Nov 13th diary): both devices had made the SAME edit to one line (a trailing space
+  // became a full stop) and then each added its own entries. That identical edit counted as a fight, so the whole note
+  // was boxed. Both sides removing a line and putting back the same text is agreement: the shared replacement is
+  // written once, and whatever each side added after it is merged as usual.
+  final shared = List.generate(baseLines.length + 1, (_) => <String>[]);
   for (var k = 0; k < baseLines.length; k++) {
     if (!oursKept[k] && !theirsKept[k]) {
+      final o = oursGapInserts[k + 1], t = theirsGapInserts[k + 1];
+      var n = 0;
+      while (n < o.length && n < t.length && o[n] == t[n]) {
+        n++;
+      }
+      if (_stubHeading.firstMatch(baseLines[k]) == null && ((o.isEmpty && t.isEmpty) || n > 0)) {
+        shared[k + 1].addAll(o.sublist(0, n));
+        o.removeRange(0, n);
+        t.removeRange(0, n);
+        continue;
+      }
       final stub = _stubHeading.firstMatch(baseLines[k]);
       final ours = stub == null ? null : _entryHeading(oursGapInserts[k + 1], stub);
       final theirs = stub == null ? null : _entryHeading(theirsGapInserts[k + 1], stub);
@@ -637,6 +653,7 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
   }
 
   void writeGap(int g) {
+    writeLines(shared[g]);
     if (newestFirst.contains(g)) {
       writeLines(theirsGapInserts[g]);
       writeLines(oursGapInserts[g]);
