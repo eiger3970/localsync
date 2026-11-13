@@ -254,27 +254,28 @@ fi
 # by setup.sh, so every existing install gets it on its next run. A hook the
 # person wrote themselves (no LocalSync marker) is never touched.
 install_push_hook() {
-  local hook="$BARE_REPO/hooks/post-receive" self want
+  # 2026-11-13: real case - two desktop folders synced with ONE bare repo, and each run rewrote the hook with only its
+  # own folder, so a phone push often updated the other folder and the real vault waited for cron. The hook now holds
+  # one line per folder and runs them one after another (they share one lock, so in parallel one would skip).
+  local hook="$BARE_REPO/hooks/post-receive" self line tmp
   [[ -d "$BARE_REPO/hooks" ]] || return 0
   self=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null) || return 0
-  want=$(cat <<HOOK
-#!/bin/bash
-# LocalSync post-receive hook (written by localsync_sync.sh - edits are overwritten)
-export HOME=$(printf '%q' "$HOME") PATH=/usr/local/bin:/usr/bin:/bin
-export LOCALSYNC_BARE_REPO=$(printf '%q' "$BARE_REPO") LOCALSYNC_VAULT=$(printf '%q' "$VAULT")
-export LOCALSYNC_BRANCH=$(printf '%q' "$BRANCH") LOCALSYNC_LOG=$(printf '%q' "$LOG")
-export LOCALSYNC_BACKUP_ROOT=$(printf '%q' "${LOCALSYNC_BACKUP_ROOT:-$HOME/Documents/LocalSync Backups}")
-${LOCALSYNC_NAME:+export LOCALSYNC_NAME=$(printf '%q' "$LOCALSYNC_NAME")}
-unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
-setsid nohup bash -c 'sleep 2; exec "\$0"' $(printf '%q' "$self") >/dev/null 2>&1 </dev/null &
-exit 0
-HOOK
-)
+  line="env HOME=$(printf '%q' "$HOME") PATH=/usr/local/bin:/usr/bin:/bin LOCALSYNC_BARE_REPO=$(printf '%q' "$BARE_REPO") LOCALSYNC_VAULT=$(printf '%q' "$VAULT") LOCALSYNC_BRANCH=$(printf '%q' "$BRANCH") LOCALSYNC_LOG=$(printf '%q' "$LOG") LOCALSYNC_BACKUP_ROOT=$(printf '%q' "${LOCALSYNC_BACKUP_ROOT:-$HOME/Documents/LocalSync Backups}")${LOCALSYNC_NAME:+ LOCALSYNC_NAME=$(printf '%q' "$LOCALSYNC_NAME")} $(printf '%q' "$self")   # vault: $VAULT"
   if [[ -e "$hook" ]]; then
     grep -q "^# LocalSync post-receive hook" "$hook" 2>/dev/null || { log "  Push hook skipped: $hook is not LocalSync's own"; return 0; }
-    [[ "$(cat "$hook")" == "$want" ]] && return 0
+    grep -qxF -- "$line" "$hook" && return 0
   fi
-  printf '%s\n' "$want" > "$hook" && chmod +x "$hook" && log "  Push hook installed: phone pushes now sync within seconds"
+  tmp="$hook.tmp.$$"
+  {
+    printf '%s\n' '#!/bin/bash' \
+      '# LocalSync post-receive hook (written by localsync_sync.sh - one line per desktop folder that syncs with this repo)' \
+      'unset GIT_DIR GIT_WORK_TREE GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES' \
+      'if [[ "$1" != --run ]]; then setsid nohup "$0" --run >/dev/null 2>&1 </dev/null & exit 0; fi' \
+      'sleep 2'
+    # keep the other folders' lines (a stale line for this same folder is replaced)
+    [[ -e "$hook" ]] && grep -E '^env .*   # vault: ' "$hook" | grep -vF -- "   # vault: $VAULT" || true
+    printf '%s\n' "$line" 'exit 0'
+  } > "$tmp" && chmod +x "$tmp" && mv "$tmp" "$hook" && log "  Push hook installed: phone pushes now sync within seconds"
 }
 install_push_hook || true
 # 2026-09-27: a vault folder linked to a DIFFERENT bare repo than this

@@ -1044,10 +1044,13 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // 2026-11-14 owner: "2 text blocks blue and orange ... meaningless and a distraction - this should just say fix
       // Conflict on LocalSync". A clash the merge cannot decide no longer writes boxes into the note: the note keeps
       // the desktop's wording, the phone's wording goes to the pending folder, and the Conflicts screen shows both.
-      final deferred = deferConflictsToPending(p.vaultPath);
+      // 2026-11-13: only the notes still in conflict are read (a 3,950-note vault was read twice: 3 minutes per PULL).
+      final only = {for (final k in repo.index.conflicts.keys) if (k.endsWith('.md')) k};
+      final deferred = deferConflictsToPending(p.vaultPath, only: only);
       unresolvedCount = deferred + repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
-          otherTime: other.time.isEmpty ? null : other.time);
+          otherTime: other.time.isEmpty ? null : other.time,
+          only: only);
       // 2026-10-05: user - "if I edit a text file on phone and desktop, then
       // sync, does it break?" It did: this everyday pull only repaired .md,
       // so any other file changed on both sides (every file in a free
@@ -1960,11 +1963,14 @@ final _markerHunk = RegExp(r'^<<<<<<< [^\n]*\n([\s\S]*?)^=======\n([\s\S]*?)^>>>
 /// the note, `....phone.md` = this phone's wording. Notes the existing repair settles on its own (identical sides,
 /// a clean append) are left to it. Both full versions are also saved to the backups place first. Returns how many
 /// notes now wait in the Conflicts screen. Nothing is dropped: if a pair cannot be written, the note is not touched.
-int deferConflictsToPending(String vaultPath) {
+int deferConflictsToPending(String vaultPath, {Set<String>? only}) {
   var count = 0;
   final dir = Directory(vaultPath);
   final pending = Directory('$vaultPath/.localsync_pending');
-  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+  final files = only == null
+      ? dir.listSync(recursive: true, followLinks: false)
+      : [for (final r in only) File('$vaultPath/$r')];
+  for (final entity in files) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
     if (entity.path.contains('/.localsync_')) continue;
     try {
@@ -2017,10 +2023,13 @@ int deferConflictsToPending(String vaultPath) {
 // nothing happened or three files just went into conflict - see this
 // session's own mermaid flowchart of the flow this replaces.
 int repairAllConflictsOnDisk(String path,
-    {String otherLabel = 'other device', String? otherTime}) {
+    {String otherLabel = 'other device', String? otherTime, Set<String>? only}) {
   var unresolvedCount = 0;
   final dir = Directory(path);
-  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+  final files = only == null
+      ? dir.listSync(recursive: true, followLinks: false)
+      : [for (final r in only) File('$path/$r')];
+  for (final entity in files) {
     if (entity is! File) continue;
     if (!entity.path.endsWith('.md')) continue;
     try {
