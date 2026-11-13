@@ -412,6 +412,42 @@ def _entry_heading(lines, stub):
             return m.group(2)
     return None
 
+_JTIME_RE = re.compile(r'^[~\u2248]?\s?((?:[01]\d|2[0-3])[0-5]\d)(?:ish\b|[ap]\.?m\b\.?|hrs?\b|h\b|[?~]|\b)', re.I)
+
+def _jtime_of(text):
+    hhmm = int(_JTIME_RE.match(text).group(1))
+    ap = re.match(r'^[~\u2248]?\s?\d{4}\s?([ap])\.?m\b', text, re.I)
+    if ap:
+        h = hhmm // 100
+        pm = ap.group(1).lower() == 'p'
+        if h == 12:
+            h = 12 if pm else 0
+        elif pm and h < 12:
+            h += 12
+        hhmm = h * 100 + hhmm % 100
+    return hhmm
+
+def _time_ordered_gap(ours, theirs):
+    # 2026-11-13: both sides added in the same gap and every paragraph starts with a journal time -> sort by time.
+    # Mirrors _timeOrderedGap in conflict_repair.dart. Anything else returns None (ours then theirs).
+    if not ours or not theirs:
+        return None
+    paras = [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(ours)) if q.strip()] + \
+            [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(theirs)) if q.strip()]
+    if not paras or not all(_JTIME_RE.match(q) for q in paras):
+        return None
+    paras.sort(key=_jtime_of)
+    lines = []
+    if not ours[0].strip() or not theirs[0].strip():
+        lines.append('')
+    for i, q in enumerate(paras):
+        if i:
+            lines.append('')
+        lines.extend(q.split('\n'))
+    if not ours[-1].strip() or not theirs[-1].strip():
+        lines.append('')
+    return lines
+
 def merge_three_way_lines(base, ours, theirs):
     bl = base.split('\n')
     ok = [True] * len(bl); tk = [True] * len(bl)
@@ -433,7 +469,7 @@ def merge_three_way_lines(base, ours, theirs):
         if g in newest_first:
             out.extend(tg[g]); out.extend(og[g])
         else:
-            out.extend(og[g]); out.extend(tg[g])
+            out.extend(_time_ordered_gap(og[g], tg[g]) or (og[g] + tg[g]))
     gap(0)
     for k in range(len(bl)):
         if ok[k] and tk[k]:
