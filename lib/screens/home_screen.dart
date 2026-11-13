@@ -599,12 +599,20 @@ class HomeScreen extends StatelessWidget {
           // 2026-08-20: acts on the selected repo (see app-bar
           // dropdown), not always the first one, now that multiple can
           // genuinely exist.
-          Future<void> onPull() => _runAndShow(
+          Future<void> onPullInner() => _runAndShow(
               context,
               ({bool confirmed = false}) =>
                   provider.pullRepository(repo.id!, confirmed: confirmed),
               repo: repo,
               sound: SoundEvent.pull);
+          Future<void> onPull() async {
+            provider.setUserFlow('pull');
+            try {
+              await onPullInner();
+            } finally {
+              provider.setUserFlow(null);
+            }
+          }
           // 2026-09-15: real feedback, live - "when a user with no
           // claudeai has this error, will it be fixed by the app?"
           // Fixed for the Conflicts screen's own PUSH button
@@ -616,6 +624,7 @@ class HomeScreen extends StatelessWidget {
           // exact same auto-pull-then-retry into _runAndShow itself.
           Future<void> onPush() async {
             provider.setPushFlow(true);
+            provider.setUserFlow('push');
             try {
               await _runAndShow(
                   context,
@@ -627,6 +636,7 @@ class HomeScreen extends StatelessWidget {
                       provider.pullRepository(repo.id!, confirmed: confirmed));
             } finally {
               provider.setPushFlow(false);
+              provider.setUserFlow(null);
             }
           }
           // 2026-09-16: same pattern as pendingConflictRepoId just above -
@@ -2686,10 +2696,11 @@ class _AppBarRepoStatus extends StatelessWidget {
                         const SizedBox(width: 20),
                         Expanded(
                           child: Text(
-                              context.watch<RepositoryProvider>().pushFlow &&
-                                      repo.syncPhase != SyncPhase.done
-                                  ? 'uploading notes'
-                                  : repo.syncPhase.label,
+                              switch (context.watch<RepositoryProvider>().userFlow) {
+                                'push' => 'uploading notes',
+                                'pull' => 'downloading notes',
+                                _ => repo.syncPhase.label,
+                              },
                               textAlign: TextAlign.center,
                               style: TextStyle(color: kTextMid, fontSize: 10)),
                         ),

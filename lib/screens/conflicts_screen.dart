@@ -2373,7 +2373,7 @@ Widget _pushStepLine(RepositoryProvider p) {
     case PushFollowUp.desktopDone:
       icon = Icons.check_circle;
       color = kGreen;
-      text = 'Desktop updated. Old text in Obsidian? Reopen the note';
+      text = 'Desktop updated.\nOld text in Obsidian? Reopen the note';
     case PushFollowUp.desktopLate:
       icon = Icons.schedule;
       color = kStar;

@@ -54,9 +54,16 @@ VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/${LOCALSYNC_NAME:-$(basename
 # with this same bare repo somewhere else (here: ~/Documents/PKM/Vault) - so a push updated a copy nobody opens.
 # Now, when no path is given, the vault Obsidian itself knows (open one first), or one a schedule names, whose git
 # origin IS this bare repo wins. Nothing found: the old default, unchanged.
-if [[ -z "${LOCALSYNC_VAULT:-}" ]]; then
-  _real() { (cd "$1" 2>/dev/null && pwd -P); }
-  _want=$(_real "$BARE_REPO")
+# Also when a saved path went stale (the person moved or renamed the vault folder, or the path points at a folder
+# linked to another repo): the same search runs, and a match replaces the stale path for this run.
+_real() { (cd "$1" 2>/dev/null && pwd -P); }
+_want=$(_real "$BARE_REPO")
+_stale=0
+if [[ -n "${LOCALSYNC_VAULT:-}" && -n "$_want" ]]; then
+  _vo=$(git -C "$VAULT" remote get-url origin 2>/dev/null || true)
+  if [[ ! -d "$VAULT/.git" ]] || { [[ "$_vo" == /* ]] && [[ "$(_real "$_vo")" != "$_want" ]]; }; then _stale=1; fi
+fi
+if [[ -z "${LOCALSYNC_VAULT:-}" || "$_stale" == 1 ]]; then
   if [[ -n "$_want" ]]; then
     _cands=$(
       for _cfg in "$HOME/.config/obsidian/obsidian.json" "$HOME/Library/Application Support/obsidian/obsidian.json" \

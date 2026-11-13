@@ -463,9 +463,11 @@ class RepositoryProvider extends ChangeNotifier {
     final sw = Stopwatch()..start();
     SyncLog.add('PULL start ($kind)');
     // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
-    final slowTimer = Timer(const Duration(seconds: 20), () {
+    // 2026-11-14 owner: "Still syncing" for an automatic background sync was noise - only the person's own swipe
+    // (which waits behind it and has its own timer) shows the slow message.
+    final slowTimer = Timer(Duration(seconds: background ? 100000 : 20), () {
       pushSlow = true;
-      slowWhat = background ? 'syncing' : (pushFlow ? 'pushing' : 'pulling');
+      slowWhat = pushFlow ? 'pushing' : 'pulling';
       SyncLog.add('slow message ON (${slowWhat})');
       notifyListeners();
     });
@@ -498,6 +500,15 @@ class RepositoryProvider extends ChangeNotifier {
   void setPushFlow(bool v) {
     if (pushFlow == v) return;
     pushFlow = v;
+    notifyListeners();
+  }
+
+  /// 2026-11-14 owner: a PULL swipe read "uploading notes" (an automatic background push was running). The line under
+  /// the vault name now follows the swipe the person made: 'pull', 'push', or null (no swipe running).
+  String? userFlow;
+  void setUserFlow(String? v) {
+    if (userFlow == v) return;
+    userFlow = v;
     notifyListeners();
   }
   bool get pushReminder => _pushReminder;
@@ -537,9 +548,9 @@ class RepositoryProvider extends ChangeNotifier {
     final kind = background ? 'background' : 'you';
     final sw = Stopwatch()..start();
     SyncLog.add('PUSH start ($kind)');
-    final slowTimer = Timer(const Duration(seconds: 20), () {
+    final slowTimer = Timer(Duration(seconds: background ? 100000 : 20), () {
       pushSlow = true;
-      slowWhat = background ? 'syncing' : 'pushing';
+      slowWhat = 'pushing';
       SyncLog.add('slow message ON (${slowWhat})');
       notifyListeners();
     });
