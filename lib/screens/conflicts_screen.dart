@@ -1176,7 +1176,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                               alignment:
                                                   PlaceholderAlignment.middle,
                                               child: Icon(Icons.check_circle,
-                                                  color: kGreen, size: 16),
+                                                  color: kGreen, size: 18),
                                             ),
                                             const TextSpan(text: ' Conflict fixed  '),
                                             // 2026-09-18: real feedback,
@@ -2393,7 +2393,7 @@ Widget _pushStepLine(RepositoryProvider p) {
   return Padding(
     padding: const EdgeInsets.only(top: 4),
     child: Row(children: [
-      Icon(icon, color: color, size: 16),
+      Icon(icon, color: color, size: 18), // 2026-11-14 owner: one tick size (was a small and a big tick)
       const SizedBox(width: 6),
       Flexible(child: Text(text, style: TextStyle(color: kStar, fontSize: 15))),
     ]),

@@ -148,7 +148,7 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
   final dir = Directory(vaultPath);
   if (!await dir.exists()) return entries;
   final skipFolders = localSyncFolders(vaultPath);
-  final settledSigs = await _loadSettledSameTime();
+  final settledSigs = await _loadSettledSameTime(vaultPath);
 
   await for (final entity in dir.list(recursive: true, followLinks: false)) {
     if (entity is! File || !entity.path.endsWith('.md')) continue;
@@ -285,16 +285,27 @@ Future<List<ConflictEntry>> scanForConflicts(String vaultPath) async {
 final _hhmmStart = RegExp(r'^([01]\d|2[0-3])[0-5]\d(?=\s)');
 const _kSettledSameTimeKey = 'settled_same_time_v1';
 
-Future<Set<String>> _loadSettledSameTime() async {
+// 2026-11-14 owner: a fixed Nov 11th same-time pair came back in Conflicts. The "settled" list lived only in the
+// phone's saved settings, which a reinstall wipes. It is now also kept in the vault ([kPendingFolder]/
+// settled_same_time.txt, one signature per line), read and written alongside the old setting.
+File _settledFile(String vaultPath) => File('$vaultPath/$kPendingFolder/settled_same_time.txt');
+
+Future<Set<String>> _loadSettledSameTime([String? vaultPath]) async {
+  final out = <String>{};
   try {
     final p = await SharedPreferences.getInstance();
-    return (p.getStringList(_kSettledSameTimeKey) ?? const <String>[]).toSet();
-  } catch (_) {
-    return <String>{};
+    out.addAll(p.getStringList(_kSettledSameTimeKey) ?? const <String>[]);
+  } catch (_) {}
+  if (vaultPath != null) {
+    try {
+      final f = _settledFile(vaultPath);
+      if (await f.exists()) out.addAll((await f.readAsLines()).where((l) => l.trim().isNotEmpty));
+    } catch (_) {}
   }
+  return out;
 }
 
-Future<void> _settleSameTime(ConflictEntry e) async {
+Future<void> _settleSameTime(ConflictEntry e, [String? vaultPath]) async {
   final sig = e.sameTimeSig;
   if (sig == null) return;
   try {
@@ -302,6 +313,13 @@ Future<void> _settleSameTime(ConflictEntry e) async {
     final list = (p.getStringList(_kSettledSameTimeKey) ?? <String>[]).toList()..add(sig);
     await p.setStringList(_kSettledSameTimeKey, list);
   } catch (_) {}
+  if (vaultPath != null && !sig.contains('\n')) {
+    try {
+      final f = _settledFile(vaultPath);
+      await f.parent.create(recursive: true);
+      await f.writeAsString('$sig\n', mode: FileMode.append);
+    } catch (_) {}
+  }
 }
 
 double _wordOverlap(String x, String y) {
@@ -888,7 +906,7 @@ Future<String> resolveConflict(
   // on device.
   await VaultFolderService().coordinatedWrite(filePath, updated);
   await settlePendingConflict(entry);
-  await _settleSameTime(entry);
+  await _settleSameTime(entry, vaultPath);
   return backupRelPath;
 }
 
@@ -1303,7 +1321,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   lastResolutionChangedNote = result.content != content;
   await VaultFolderService().coordinatedWrite(filePath, result.content);
   await settlePendingConflict(entry);
-  await _settleSameTime(entry);
+  await _settleSameTime(entry, vaultPath);
   if (cleanUp) {
     // Nothing changed (KEEP BOTH & CLEAN UP on an already-tidy note): there is nothing to undo, so no UNDO button.
     if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null);

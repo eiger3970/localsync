@@ -38,4 +38,13 @@ void main() {
     expect(timesOutOfOrderByMerge([ours, theirs], '0900 a\n2000 c\n1900 d'), isTrue);
     expect(timesOutOfOrderByMerge(['1900 x\n2000 y', 'junk'], '1900 x\n2000 y\njunk'), isFalse);
   });
+
+  test('2026-11-14 real Test C: desktop already out of order, merge must not add a new wrong order', () {
+    const base = '0626 x\n\n2145 two';
+    const phone = '0626 x\n\n2145 two\n\nMetro thoughts.\n2000 test phone';
+    const desk = '0626 x\n\n2145 two\n\n1900 test desktop';
+    expect(mergeThreeWayLines(base, phone, desk), isNull);
+    // an order that was already wrong on one device stays allowed
+    expect(timesOutOfOrderByMerge(['2145 a\n1900 b'], '2145 a\n1900 b'), isFalse);
+  });
 }

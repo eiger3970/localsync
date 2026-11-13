@@ -484,13 +484,26 @@ def _time_ordered_gap(ours, theirs):
     return lines
 
 def times_out_of_order_by_merge(inputs, merged):
-    # 2026-11-13 owner: a merge that puts a timed entry in the wrong place is a conflict for the person.
+    # 2026-11-14: a wrong-order pair the merge created (not already in an input) is a conflict for the person.
     # Mirrors timesOutOfOrderByMerge in conflict_repair.dart.
-    def times(t):
-        return [_jtime_of(l) for l in t.split('\n') if _JTIME_RE.match(l)]
-    def in_order(x):
-        return all(x[i] >= x[i - 1] for i in range(1, len(x)))
-    return all(in_order(times(i)) for i in inputs) and not in_order(times(merged))
+    def timed(t):
+        return [(_jtime_of(l), l) for l in t.split('\n') if _JTIME_RE.match(l)]
+    def inversions(x):
+        out = set()
+        if len(x) > 400:
+            return out
+        for i in range(len(x)):
+            for j in range(i + 1, len(x)):
+                if x[j][0] < x[i][0]:
+                    out.add((x[i][1], x[j][1]))
+        return out
+    m = timed(merged)
+    if len(m) > 400:
+        return False
+    known = set()
+    for i in inputs:
+        known |= inversions(timed(i))
+    return any(p not in known for p in inversions(m))
 
 def merge_three_way_lines(base, ours, theirs):
     bl = base.split('\n')

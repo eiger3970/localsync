@@ -1342,7 +1342,9 @@ class _SpinningSyncState extends State<_SpinningSync>
       // static _StatusDot's 7px - that extra 15px was exactly enough
       // to tip the row over during syncing specifically, even after
       // the vault-name width was capped. Shrunk to stay proportionate.
-      child: Icon(Icons.sync, color: kGreen, size: 14),
+      // 2026-11-14 owner: the arrows pointed anticlockwise while the icon spun clockwise. Mirrored, so the arrows
+      // point the way it turns (clockwise, as asked 2026-08-30).
+      child: Transform.flip(flipX: true, child: Icon(Icons.sync, color: kGreen, size: 14)),
     );
   }
 }
@@ -2595,7 +2597,10 @@ class _AppBarRepoStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSyncing = repo.status == SyncStatus.syncing;
+    // 2026-11-14 owner: "red dot appears sometimes" during a PUSH - the first push attempt is refused, the app pulls and
+    // pushes again on its own. While the person's swipe is still running, that refusal is not an error to show.
+    final swipeRunning = context.watch<RepositoryProvider>().userFlow != null;
+    final isSyncing = repo.status == SyncStatus.syncing || (swipeRunning && repo.status == SyncStatus.error);
     // Fixed 2026-08-09, relocated here 2026-08-17: full error text
     // (diagnosis + resolution + raw exception) was getting truncated
     // to one line with no way to see the rest - tapping while an

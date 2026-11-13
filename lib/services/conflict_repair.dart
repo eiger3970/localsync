@@ -684,17 +684,28 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
 /// in the wrong place: true, and the caller returns null so the note goes to the person (backup-and-ask flow).
 /// Mirrors times_out_of_order_by_merge in desktop/localsync_sync.sh.
 bool timesOutOfOrderByMerge(List<String> inputs, String merged) {
-  List<int> times(String t) => [
+  // 2026-11-14 real Test C: the desktop copy was already out of order (2145 then 1900), so "every input in order"
+  // never held and the merge silently put "2000 test phone" above "1900 test desktop". Now every wrong-order pair in
+  // the merged text must already be a wrong-order pair (same two lines, same order) in one of the inputs; a pair
+  // the merge itself created is a conflict for the person.
+  List<(int, String)> timed(String t) => [
         for (final l in t.split('\n'))
-          if (_journalTimePattern.hasMatch(l)) _journalTimeOf(l)
+          if (_journalTimePattern.hasMatch(l)) (_journalTimeOf(l), l)
       ];
-  bool inOrder(List<int> x) {
-    for (var i = 1; i < x.length; i++) {
-      if (x[i] < x[i - 1]) return false;
+  Set<String> inversions(List<(int, String)> x) {
+    final out = <String>{};
+    if (x.length > 400) return out;
+    for (var i = 0; i < x.length; i++) {
+      for (var j = i + 1; j < x.length; j++) {
+        if (x[j].$1 < x[i].$1) out.add('${x[i].$2}\u0000${x[j].$2}');
+      }
     }
-    return true;
+    return out;
   }
-  return inputs.every((i) => inOrder(times(i))) && !inOrder(times(merged));
+  final m = timed(merged);
+  if (m.length > 400) return false;
+  final known = <String>{for (final i in inputs) ...inversions(timed(i))};
+  return inversions(m).any((p) => !known.contains(p));
 }
 
 /// 2026-11-13 real case (owner's diary): the phone added 1500-2145 entries and the desktop added 1235 and 1247 in the
