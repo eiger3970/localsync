@@ -465,7 +465,7 @@ class RepositoryProvider extends ChangeNotifier {
     // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
     final slowTimer = Timer(const Duration(seconds: 20), () {
       pushSlow = true;
-      slowWhat = background ? 'syncing' : 'pulling';
+      slowWhat = background ? 'syncing' : (pushFlow ? 'pushing' : 'pulling');
       SyncLog.add('slow message ON (${slowWhat})');
       notifyListeners();
     });
@@ -492,6 +492,14 @@ class RepositoryProvider extends ChangeNotifier {
   bool pushSlow = false;
   /// 2026-11-13: what the slow message says is still running: pulling, pushing, or syncing (an automatic background sync).
   String slowWhat = 'pushing';
+  /// 2026-11-14 owner: a PUSH that first has to fetch the desktop's notes said "downloading notes" and "Still
+  /// pulling". True for the whole PUSH swipe, so every step of it reads as uploading.
+  bool pushFlow = false;
+  void setPushFlow(bool v) {
+    if (pushFlow == v) return;
+    pushFlow = v;
+    notifyListeners();
+  }
   bool get pushReminder => _pushReminder;
   void setPushReminder(bool on) {
     if (on) _pushFollowUp = PushFollowUp.none;

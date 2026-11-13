@@ -177,6 +177,9 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
   // with the size: one tap frees it. Asked once per copy, never again.
   Future<void> _offerToFreeSpace(RepositoryProvider provider, Repository repo) async {
     final prefs = await SharedPreferences.getInstance();
+    // 2026-11-14 owner: "I keep getting this message, I have to keep tapping KEEP every time". One answer on this
+    // phone (KEEP or DELETE) now ends the question for good; the copies stay in LocalSync -> menu -> Backups.
+    if (prefs.getBool('offered_free_answered') == true) return;
     final folders =
         await provider.withRepoFolder(repo, (path) => listBackupFolders(path));
     if (folders == null || !mounted) return;
@@ -252,6 +255,7 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
         ],
       ),
     );
+    await prefs.setBool('offered_free_answered', true);
     if (ok == true) {
       await provider.withRepoFolder(repo, (path) {
         for (final f in old) {

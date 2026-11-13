@@ -1041,7 +1041,11 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       final auto = autoMergeMarkdownConflicts(repo, p.vaultPath);
       autoMergedCount = auto.merged;
       keptOneCount = auto.keptOne;
-      unresolvedCount = repairAllConflictsOnDisk(p.vaultPath,
+      // 2026-11-14 owner: "2 text blocks blue and orange ... meaningless and a distraction - this should just say fix
+      // Conflict on LocalSync". A clash the merge cannot decide no longer writes boxes into the note: the note keeps
+      // the desktop's wording, the phone's wording goes to the pending folder, and the Conflicts screen shows both.
+      final deferred = deferConflictsToPending(p.vaultPath);
+      unresolvedCount = deferred + repairAllConflictsOnDisk(p.vaultPath,
           otherLabel: other.label,
           otherTime: other.time.isEmpty ? null : other.time);
       // 2026-10-05: user - "if I edit a text file on phone and desktop, then
@@ -1946,6 +1950,54 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
     }
   }
   return (merged: merged, keptOne: keptOne);
+}
+
+final _markerHunk = RegExp(r'^<<<<<<< [^\n]*\n([\s\S]*?)^=======\n([\s\S]*?)^>>>>>>> [^\n]*(?:\n|$)', multiLine: true);
+
+/// 2026-11-14: every conflicted note that would otherwise get SYNC CONFLICT boxes is written with the desktop's
+/// wording only (no markers, no boxes); each clash becomes a pending pair in [kPendingFolder]-style files that the
+/// Conflicts screen already reads (scanPendingConflicts): `<encoded path>.<stamp>.desktop.md` = the wording now in
+/// the note, `....phone.md` = this phone's wording. Notes the existing repair settles on its own (identical sides,
+/// a clean append) are left to it. Both full versions are also saved to the backups place first. Returns how many
+/// notes now wait in the Conflicts screen. Nothing is dropped: if a pair cannot be written, the note is not touched.
+int deferConflictsToPending(String vaultPath) {
+  var count = 0;
+  final dir = Directory(vaultPath);
+  final pending = Directory('$vaultPath/.localsync_pending');
+  for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+    if (entity is! File || !entity.path.endsWith('.md')) continue;
+    if (entity.path.contains('/.localsync_')) continue;
+    try {
+      final content = entity.readAsStringSync();
+      if (!hasConflictMarkers(content)) continue;
+      final repaired = repairConflictMarkers(content, otherLabel: 'desktop');
+      if (!repaired.contains('SYNC CONFLICT') && !repaired.contains('CONFLICT-OTHER')) continue; // settles itself
+      final hunks = _markerHunk.allMatches(content).toList();
+      if (hunks.isEmpty) continue;
+      if (hunks.any((m) => m.group(1)!.trim().isEmpty || m.group(2)!.trim().isEmpty)) continue; // a deletion: old flow
+      final rel = entity.path.substring(vaultPath.length + 1);
+      final ts = backupTimestamp();
+      final backupDir = Directory(conflictBackupsDir(vaultPath))..createSync(recursive: true);
+      final phoneWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(1)!);
+      final deskWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(2)!);
+      saveBackupUnlessIdentical(backupDir, _conflictBackupName(rel, 'before conflict, phone version', ts),
+          utf8.encode(neutralizeReminderTags(phoneWhole)));
+      saveBackupUnlessIdentical(backupDir, _conflictBackupName(rel, 'before conflict, desktop version', ts),
+          utf8.encode(neutralizeReminderTags(deskWhole)));
+      pending.createSync(recursive: true);
+      final enc = Uri.encodeComponent(rel);
+      for (var i = 0; i < hunks.length; i++) {
+        final stamp = '${DateTime.now().millisecondsSinceEpoch}$i';
+        File('${pending.path}/$enc.$stamp.desktop.md').writeAsStringSync(hunks[i].group(2)!.trim());
+        File('${pending.path}/$enc.$stamp.phone.md').writeAsStringSync(hunks[i].group(1)!.trim());
+      }
+      entity.writeAsStringSync(deskWhole);
+      count++;
+    } catch (_) {
+      // leave this note to the old flow
+    }
+  }
+  return count;
 }
 
 // 2026-08-19: the pure string-transform logic (regexes, dedupe, the

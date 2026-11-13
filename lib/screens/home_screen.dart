@@ -607,14 +607,21 @@ class HomeScreen extends StatelessWidget {
           // other would leave the far more frequent case still showing
           // a bare error with no self-recovery. pullFallback wires the
           // exact same auto-pull-then-retry into _runAndShow itself.
-          Future<void> onPush() => _runAndShow(
-              context,
-              ({bool confirmed = false}) =>
-                  provider.pushRepository(repo.id!, confirmed: confirmed),
-              repo: repo,
-              sound: SoundEvent.push,
-              pullFallback: ({bool confirmed = false}) =>
-                  provider.pullRepository(repo.id!, confirmed: confirmed));
+          Future<void> onPush() async {
+            provider.setPushFlow(true);
+            try {
+              await _runAndShow(
+                  context,
+                  ({bool confirmed = false}) =>
+                      provider.pushRepository(repo.id!, confirmed: confirmed),
+                  repo: repo,
+                  sound: SoundEvent.push,
+                  pullFallback: ({bool confirmed = false}) =>
+                      provider.pullRepository(repo.id!, confirmed: confirmed));
+            } finally {
+              provider.setPushFlow(false);
+            }
+          }
           // 2026-09-16: same pattern as pendingConflictRepoId just above -
           // main.dart's QuickActions().initialize callback sets this
           // (real Home Screen "Pull"/"Push" long-press actions) with no
@@ -2671,7 +2678,11 @@ class _AppBarRepoStatus extends StatelessWidget {
                         // row doesn't have, landing visibly left of it.
                         const SizedBox(width: 20),
                         Expanded(
-                          child: Text(repo.syncPhase.label,
+                          child: Text(
+                              context.watch<RepositoryProvider>().pushFlow &&
+                                      repo.syncPhase != SyncPhase.done
+                                  ? 'uploading notes'
+                                  : repo.syncPhase.label,
                               textAlign: TextAlign.center,
                               style: TextStyle(color: kTextMid, fontSize: 10)),
                         ),
