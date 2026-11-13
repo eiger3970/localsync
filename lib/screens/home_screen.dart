@@ -250,7 +250,14 @@ class HomeScreen extends StatelessWidget {
                 // then measured the real remaining gap (18dp vs Help's
                 // 15dp) and closed just that small real difference.
                 padding: const EdgeInsets.only(left: 0, right: 6),
-                icon: Icon(Icons.more_vert, color: kGreen, size: 22),
+                // 2026-11-14 owner: green, amber whenever the Conflicts item inside is amber.
+                icon: Icon(Icons.more_vert,
+                    color: (provider.selectedRepo != null &&
+                                provider.hasConflicts(provider.selectedRepo!.id!)) ||
+                            DemoConflict.triesLeft.value
+                        ? Colors.amber
+                        : kGreen,
+                    size: 22),
                 onSelected: (v) => _onMenuAction(context, provider, v),
                 // 2026-08-18: full menu cleanup per explicit list - one
                 // flat alphabetical order (About, Conflicts, Connection,
