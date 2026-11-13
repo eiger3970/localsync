@@ -3,6 +3,7 @@
 import 'file_backup_exclusion.dart';
 import 'desktop_schedule.dart';
 import 'dart:async';
+import 'sync_log.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -448,21 +449,36 @@ class RepositoryProvider extends ChangeNotifier {
     }
   }
 
+  /// Result kind only (never the message: it can hold file names).
+  String _resultKind(SyncResult? r) => r == null
+      ? 'none'
+      : r is SyncFailed
+          ? 'SyncFailed(${r.error.name})'
+          : r.runtimeType.toString();
+
   Future<SyncResult?> pullRepository(int id,
       {bool confirmed = false, bool background = false}) {
     _lastActionWasPush[id] = false;
+    final kind = background ? 'background' : 'you';
+    final sw = Stopwatch()..start();
+    SyncLog.add('PULL start ($kind)');
     // 2026-11-12 owner: the slow message also covers a long PULL, and stays until it completes.
     final slowTimer = Timer(const Duration(seconds: 20), () {
       pushSlow = true;
       slowWhat = background ? 'syncing' : 'pulling';
+      SyncLog.add('slow message ON (${slowWhat})');
       notifyListeners();
     });
     return _asUser(background,
             () => _run(id, (service) => service.pull(confirmed: confirmed)))
-        .whenComplete(() {
+        .then((r) {
+      SyncLog.add('PULL end ($kind) ${_resultKind(r)} ${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
+      return r;
+    }).whenComplete(() {
       slowTimer.cancel();
       if (pushSlow) {
         pushSlow = false;
+        SyncLog.add('slow message OFF');
         notifyListeners();
       }
     });
@@ -491,6 +507,7 @@ class RepositoryProvider extends ChangeNotifier {
   PushFollowUp get pushFollowUp => _pushFollowUp;
   void _setFollowUp(PushFollowUp v) {
     if (_pushFollowUp == v) return;
+    SyncLog.add('desktop follow-up: ${v.name}');
     _pushFollowUp = v;
     notifyListeners();
   }
@@ -509,9 +526,13 @@ class RepositoryProvider extends ChangeNotifier {
       {String? commitMessage, bool confirmed = false, bool background = false}) async {
     _lastActionWasPush[id] = true;
     final wasReminder = _pushReminder;
+    final kind = background ? 'background' : 'you';
+    final sw = Stopwatch()..start();
+    SyncLog.add('PUSH start ($kind)');
     final slowTimer = Timer(const Duration(seconds: 20), () {
       pushSlow = true;
       slowWhat = background ? 'syncing' : 'pushing';
+      SyncLog.add('slow message ON (${slowWhat})');
       notifyListeners();
     });
     final SyncResult? result;
@@ -524,9 +545,11 @@ class RepositoryProvider extends ChangeNotifier {
       slowTimer.cancel();
       if (pushSlow) {
         pushSlow = false;
+        SyncLog.add('slow message OFF');
         notifyListeners();
       }
     }
+    SyncLog.add('PUSH end ($kind) ${_resultKind(result)} ${(sw.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
     if (result is SyncOk || result is SyncNoChanges) {
       setPushReminder(false);
       // 2026-11-11 owner: new phone notes were on the phone but not yet in desktop Obsidian after a push and the

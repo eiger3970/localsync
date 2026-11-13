@@ -14,6 +14,8 @@ class DiagnosticsInput {
   final String? debug;
   final String? verdict;
   final String? timings;
+  /// Recent sync log lines (events and times only, see sync_log.dart).
+  final String? log;
   const DiagnosticsInput({
     required this.appVersion,
     required this.platform,
@@ -22,6 +24,7 @@ class DiagnosticsInput {
     this.debug,
     this.verdict,
     this.timings,
+    this.log,
   });
 }
 
@@ -35,6 +38,9 @@ String buildDiagnosticsReport(DiagnosticsInput d, {String? helperName}) {
   if (d.timings != null) b.writeln('Step times: ${d.timings}');
   if (d.verdict != null) b.writeln('Merge result: ${d.verdict}');
   if (d.debug != null) b.writeln('Technical: ${d.debug}');
+  if (d.log != null && d.log!.isNotEmpty) b
+    ..writeln('Recent sync log (events and times only):')
+    ..writeln(d.log);
   final name = (helperName ?? '').trim();
   b.writeln('Credit me as: ${name.isEmpty ? '(leave blank to stay anonymous)' : name}');
   return b.toString();
