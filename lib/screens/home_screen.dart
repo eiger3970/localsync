@@ -346,14 +346,6 @@ class HomeScreen extends StatelessWidget {
                           subtitle: 'Files with unresolved sync conflicts',
                         ),
                       ),
-                    const PopupMenuItem(
-                      value: 'copy_sync_log',
-                      child: _MenuRow(
-                        icon: Icons.receipt_long_outlined,
-                        label: 'Copy sync log',
-                        subtitle: 'Times only, no notes',
-                      ),
-                    ),
                     // 2026-08-18: device-level, not repo-scoped - used as
                     // the git commit author so a sync conflict can say who
                     // made a change, not just when (see sync_service.dart's
@@ -771,17 +763,6 @@ class HomeScreen extends StatelessWidget {
   // controller instead of a second, disconnected copy.
   void _onMenuAction(
       BuildContext context, RepositoryProvider provider, String v) {
-    if (v == 'copy_sync_log') {
-      SyncLog.tail(n: 400).then((text) async {
-        await Clipboard.setData(ClipboardData(text: text.isEmpty ? '(no sync events yet)' : text));
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showTopBar(SnackBar(
-              content: Text('Sync log copied. Paste it into a message.'),
-              duration: const Duration(seconds: 6)));
-        }
-      });
-      return;
-    }
     if (v == 'send_details' && provider.selectedRepo != null) {
       _sendDetails(context, provider.selectedRepo!);
       return;
@@ -1751,7 +1732,7 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
     timings: repo.id == null
         ? null
         : context.read<RepositoryProvider>().lastTimings(repo.id!),
-    log: await SyncLog.tail(n: 40),
+    log: await SyncLog.tail(n: 60),
   ));
   if (!context.mounted) return;
   final send = await showDialog<bool>(
@@ -1787,6 +1768,15 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
           child: Text('Cancel', style: TextStyle(color: kStar, fontSize: 15)),
+        ),
+        TextButton(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: report));
+            Navigator.pop(ctx, false);
+            ScaffoldMessenger.of(context).showTopBar(const SnackBar(
+                content: Text('Details and log copied.'), duration: Duration(seconds: 5)));
+          },
+          child: Text('Copy', style: TextStyle(color: kStar, fontSize: 15)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(ctx, true),
