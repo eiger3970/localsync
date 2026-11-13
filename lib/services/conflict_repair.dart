@@ -630,7 +630,7 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
       while (n < o.length && n < t.length && o[n] == t[n]) {
         n++;
       }
-      if (_stubHeading.firstMatch(baseLines[k]) == null && ((o.isEmpty && t.isEmpty) || n > 0)) {
+      if (_stubHeading.firstMatch(baseLines[k]) == null && n > 0) {
         shared[k + 1].addAll(o.sublist(0, n));
         o.removeRange(0, n);
         t.removeRange(0, n);

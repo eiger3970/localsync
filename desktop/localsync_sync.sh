@@ -496,7 +496,7 @@ def merge_three_way_lines(base, ours, theirs):
             n = 0
             while n < len(o) and n < len(t) and o[n] == t[n]:
                 n += 1
-            if not _STUB.match(bl[k]) and ((not o and not t) or n > 0):
+            if not _STUB.match(bl[k]) and n > 0:
                 shared[k + 1].extend(o[:n]); del o[:n]; del t[:n]
                 continue
             stub = _STUB.match(bl[k])
