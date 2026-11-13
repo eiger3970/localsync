@@ -567,7 +567,11 @@ class GitServiceImpl implements GitService {
       // side holds (empty, older, different), nothing on this phone can be
       // lost. The desktop makes its own full copy before it takes in a
       // link (localsync_sync.sh).
-      final relinkBackup = await backupVaultIfNotEmpty(localVaultPath);
+      // 2026-11-13 owner: Obsidian was 2.4 GB on the phone - 36 full 51 MB copies, one per reinstall/relink, while
+      // nothing had changed. When every file is already in a commit (clean folder), the sync history holds all of
+      // it, so a copy adds nothing: skip it. Any uncommitted or new file still gets the full copy first.
+      final relinkBackup =
+          _allCommitted(localVaultPath) ? null : await backupVaultIfNotEmpty(localVaultPath);
       if (relinkBackup != null) lastBackupRelPath = relinkBackup;
       final repo = Repository.open(localVaultPath);
       try {
@@ -851,3 +855,20 @@ Future<String?> desktopVaultOrigin({
   }
 }
 
+
+/// True when the folder has commits and every file in it is committed (nothing changed, nothing new). Anything
+/// unclear (no .git, no commit yet, an error) is false, so the caller makes the backup.
+bool _allCommitted(String vaultPath) {
+  if (!Directory('$vaultPath/.git').existsSync()) return false;
+  try {
+    final repo = Repository.open(vaultPath);
+    try {
+      repo.head.target; // throws when there is no commit yet
+      return repo.status.isEmpty;
+    } finally {
+      repo.free();
+    }
+  } catch (_) {
+    return false;
+  }
+}

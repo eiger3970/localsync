@@ -34,6 +34,7 @@ String formatBytes(int b) {
 }
 
 final _hex2 = RegExp(r'^[0-9a-f]{2}$');
+const kBackupsDir = '.localsync_backups';
 
 /// Loose object count and bytes in [gitDir]/objects.
 (int, int) looseObjects(String gitDir) {
@@ -57,53 +58,66 @@ final _hex2 = RegExp(r'^[0-9a-f]{2}$');
 String _storageReportSync(String vaultPath) {
   final root = Directory(vaultPath);
   if (!root.existsSync()) return 'Storage: folder not found';
-  final rows = <(String, int)>[];
-  var notes = 0;
-  for (final e in root.listSync(followLinks: false)) {
-    final name = e.uri.pathSegments.where((s) => s.isNotEmpty).last;
-    if (e is Directory) {
-      if (name.startsWith('.')) {
-        rows.add((name, _dirBytes(e)));
-      } else {
-        notes += _dirBytes(e);
-      }
-    } else if (e is File) {
-      try {
-        notes += e.lengthSync();
-      } catch (_) {}
-    }
-  }
-  rows.add(('notes and attachments (all visible folders)', notes));
-  rows.sort((a, b) => b.$2.compareTo(a.$2));
-  final total = rows.fold<int>(0, (s, r) => s + r.$2);
-  final b = StringBuffer('Storage: ${formatBytes(total)} in total\n');
-  for (final r in rows) {
-    b.writeln('- ${r.$1}: ${formatBytes(r.$2)}');
-    if (r.$1 == '.git') {
-      final (n, lb) = looseObjects('$vaultPath/.git');
-      final packs = _dirBytes(Directory('$vaultPath/.git/objects/pack'));
-      b.writeln('  - sync history, unpacked: ${formatBytes(lb)} ($n items)');
-      b.writeln('  - sync history, packed: ${formatBytes(packs)}');
-    }
-    if (r.$1 == '.localsync_backups') {
-      final d = Directory('$vaultPath/.localsync_backups');
-      for (final s in d.listSync(followLinks: false).whereType<Directory>()) {
-        b.writeln('  - ${s.uri.pathSegments.where((x) => x.isNotEmpty).last}: ${formatBytes(_dirBytes(s))}');
-      }
-    }
-  }
-  // The 10 biggest folders at any depth (own files only, not subfolders), so a heavy folder deep inside shows up.
+  // One walk over every file (a big vault has hundreds of thousands): top-level totals, .git split, backups per
+  // folder, and each folder's own files.
+  final top = <String, int>{};
+  final backups = <String, int>{};
   final own = <String, int>{};
+  var looseN = 0, looseB = 0, packB = 0, files = 0;
+  final cut = vaultPath.length + 1;
   try {
     for (final e in root.listSync(recursive: true, followLinks: false)) {
       if (e is! File) continue;
-      final rel = e.parent.path.length > vaultPath.length ? e.parent.path.substring(vaultPath.length + 1) : '(top)';
-      if (rel.startsWith('.git/objects/')) continue; // already counted above
+      int len;
       try {
-        own[rel] = (own[rel] ?? 0) + e.lengthSync();
-      } catch (_) {}
+        len = e.lengthSync();
+      } catch (_) {
+        continue;
+      }
+      files++;
+      final rel = e.path.substring(cut);
+      final slash = rel.indexOf('/');
+      final first = slash == -1 ? '' : rel.substring(0, slash);
+      final key = first.startsWith('.') ? first : 'notes and attachments (all visible folders)';
+      top[key] = (top[key] ?? 0) + len;
+      if (first == '.git') {
+        if (rel.startsWith('.git/objects/pack/')) {
+          packB += len;
+        } else if (rel.length > 15 && _hex2.hasMatch(rel.substring(13, 15)) && rel[15] == '/' &&
+            rel.startsWith('.git/objects/')) {
+          looseN++;
+          looseB += len;
+        }
+        if (rel.startsWith('.git/objects/')) continue;
+      }
+      if (first == kBackupsDir) {
+        final rest = rel.substring(slash + 1);
+        final s2 = rest.indexOf('/');
+        if (s2 != -1) {
+          final b = rest.substring(0, s2);
+          backups[b] = (backups[b] ?? 0) + len;
+        }
+      }
+      final dirRel = e.parent.path.length > vaultPath.length ? e.parent.path.substring(cut) : '(top)';
+      own[dirRel] = (own[dirRel] ?? 0) + len;
     }
   } catch (_) {}
+  final rows = top.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+  final total = rows.fold<int>(0, (s, r) => s + r.value);
+  final b = StringBuffer('Storage: ${formatBytes(total)} in total, $files files\n');
+  for (final r in rows) {
+    b.writeln('- ${r.key}: ${formatBytes(r.value)}');
+    if (r.key == '.git') {
+      b.writeln('  - sync history, unpacked: ${formatBytes(looseB)} ($looseN items)');
+      b.writeln('  - sync history, packed: ${formatBytes(packB)}');
+    }
+    if (r.key == kBackupsDir) {
+      final bl = backups.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+      for (final x in bl) {
+        b.writeln('  - ${x.key}: ${formatBytes(x.value)}');
+      }
+    }
+  }
   final big = own.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
   b.writeln('Biggest folders:');
   for (final e in big.take(10)) {

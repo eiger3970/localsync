@@ -6,7 +6,7 @@ import '../services/rescue_service.dart' show kRescueEnabled;
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -27,6 +27,7 @@ import '../services/diagnostics_report.dart';
 import '../services/sync_log.dart';
 import '../services/storage_report.dart';
 import '../services/vault_folder_service.dart';
+import 'package:path_provider/path_provider.dart';
 import '../widgets/floating_hearts.dart';
 import '../widgets/flowing_data_animation.dart';
 import '../widgets/free_tier_banner_ad.dart';
@@ -1747,13 +1748,33 @@ Widget _diagBadge(IconData icon, String label) => Column(children: [
       Text(label, style: TextStyle(color: kStar, fontSize: 12)),
     ]);
 
+/// 2026-11-13 owner: "user needs a note to inform Send details is working ... and an estimate on how soon it
+/// finishes". How long the last measure took, kept on this phone, is the next countdown's start (60 s first time).
+Future<File?> _measureSecsFile() async {
+  try {
+    return File('${(await getApplicationSupportDirectory()).path}/storage_measure_secs.txt');
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<int> _storageEstimateSecs() async {
+  final f = await _measureSecsFile();
+  final v = f != null && f.existsSync() ? int.tryParse(f.readAsStringSync().trim()) : null;
+  return v ?? 60;
+}
+
 /// Folder sizes inside the person's vault (Obsidian's folder, reached through the saved bookmark, never localPath).
 Future<String> _storageFor(Repository repo) async {
   final vf = VaultFolderService();
   final path = await vf.startAccessing(repo.vaultBookmark);
   if (path == null) return 'Storage: no access to the notes folder';
   try {
-    return await storageReport(path);
+    final sw = Stopwatch()..start();
+    final r = await storageReport(path);
+    final secs = (sw.elapsedMilliseconds / 1000).ceil() + 2;
+    (await _measureSecsFile())?.writeAsStringSync('$secs');
+    return r;
   } catch (_) {
     return 'Storage: could not measure';
   } finally {
@@ -1764,7 +1785,7 @@ Future<String> _storageFor(Repository repo) async {
 Future<void> _sendDetails(BuildContext context, Repository repo,
     {String? verdict, String? error, String? debug}) async {
   final info = await PackageInfo.fromPlatform();
-  final report = buildDiagnosticsReport(DiagnosticsInput(
+  final base = buildDiagnosticsReport(DiagnosticsInput(
     appVersion: '${info.version} (${info.buildNumber})',
     platform: Platform.operatingSystemVersion,
     step: repo.syncPhase.label,
@@ -1775,9 +1796,14 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
         ? null
         : context.read<RepositoryProvider>().lastTimings(repo.id!),
     log: await SyncLog.tail(n: 60),
-    storage: await _storageFor(repo),
   ));
   if (!context.mounted) return;
+  // 2026-11-13 owner: "I tap Send details and nothing happens" - measuring a 2.4 GB vault took long enough to look
+  // dead. The dialog opens at once; folder sizes fill in when measured, and Copy/Send take whatever is there.
+  final storage = ValueNotifier<String?>(null);
+  final estimate = await _storageEstimateSecs();
+  final storageF = _storageFor(repo)..then((v) => storage.value = v);
+  Future<String> report() async => '$base\n${await storageF}';
   final send = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -1797,8 +1823,14 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
               ],
             ),
             const SizedBox(height: 14),
-            SelectableText(report,
+            SelectableText(base,
                 style: TextStyle(color: kStar, fontSize: 12, height: 1.35)),
+            ValueListenableBuilder<String?>(
+              valueListenable: storage,
+              builder: (_, v, __) => v == null
+                  ? _MeasuringLine(estimateSecs: estimate)
+                  : SelectableText(v, style: TextStyle(color: kStar, fontSize: 12, height: 1.35)),
+            ),
             const SizedBox(height: 10),
             Center(
               child: Text('Sent only when you tap Send.',
@@ -1813,8 +1845,9 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
           child: Text('Cancel', style: TextStyle(color: kStar, fontSize: 15)),
         ),
         TextButton(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: report));
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: await report()));
+            if (!ctx.mounted) return;
             Navigator.pop(ctx, false);
             ScaffoldMessenger.of(context).showTopBar(const SnackBar(
                 content: Text('Details and log copied.'), duration: Duration(seconds: 5)));
@@ -1831,12 +1864,55 @@ Future<void> _sendDetails(BuildContext context, Repository repo,
     ),
   );
   if (send != true || !context.mounted) return;
-  await Clipboard.setData(ClipboardData(text: report));
+  final full = await report();
+  await Clipboard.setData(ClipboardData(text: full));
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showTopBar(const SnackBar(
       content: Text('Details copied. Opening the form - paste if empty.')));
-  await launchUrl(diagnosticsContactUri(report),
+  await launchUrl(diagnosticsContactUri(full),
       mode: LaunchMode.externalApplication);
+}
+
+/// Spinner plus a countdown while Send details measures storage. At 0 it says it is still working, never stops.
+class _MeasuringLine extends StatefulWidget {
+  final int estimateSecs;
+  const _MeasuringLine({required this.estimateSecs});
+  @override
+  State<_MeasuringLine> createState() => _MeasuringLineState();
+}
+
+class _MeasuringLineState extends State<_MeasuringLine> {
+  late int _left = widget.estimateSecs;
+  late final Timer _t = Timer.periodic(const Duration(seconds: 1), (_) {
+    if (mounted && _left > 0) setState(() => _left--);
+  });
+  @override
+  void initState() {
+    super.initState();
+    _t;
+  }
+
+  @override
+  void dispose() {
+    _t.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Row(children: [
+          SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                _left > 0
+                    ? 'Measuring storage, about $_left s left. Copy waits for it.'
+                    : 'Big folders take longer, still measuring. Keep this open.',
+                style: TextStyle(color: kTextMid, fontSize: 12)),
+          ),
+        ]),
+      );
 }
 
 void _showFullError(BuildContext context, Repository repo) {
