@@ -189,6 +189,30 @@ class _BackupsScreenState extends State<BackupsScreen> {
           const SizedBox(width: 8),
           Text('Backups', style: TextStyle(color: kStar, fontSize: 17)),
         ]),
+        // 2026-11-13 owner: "I see no Delete All" (it sat below 36 copies), then "easily missed, move to top".
+        // Pinned under the title: always visible, never scrolls away.
+        bottom: (folders == null || folders.isEmpty || _error != null)
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(40),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 8, 4),
+                  // 2026-11-13 owner: "too big, more subtle with just the total size and a regular delete all".
+                  child: Row(children: [
+                    Expanded(
+                      child: Text('Total ${formatBytes(total)}',
+                          style: TextStyle(color: kTextMid, fontSize: 14)),
+                    ),
+                    _busy
+                        ? SizedBox(
+                            width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen))
+                        : TextButton(
+                            onPressed: () => _delete(folders, 'Delete all backups?'),
+                            child: Text('Delete all', style: TextStyle(color: kGreen, fontSize: 15)),
+                          ),
+                  ]),
+                ),
+              ),
       ),
       body: _error != null
           ? Padding(
@@ -215,29 +239,6 @@ class _BackupsScreenState extends State<BackupsScreen> {
                             style: TextStyle(color: kTextMid)),
                       ),
                     for (final f in folders) _row(f),
-                    if (folders.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _delete(folders, 'Delete all backups?'),
-                        style: FilledButton.styleFrom(
-                            backgroundColor: kGreen,
-                            foregroundColor: kVoid,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14))),
-                        child: _busy
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2.5, color: kVoid))
-                            : Text('Delete all - free ${formatBytes(total)}',
-                                style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w800)),
-                      ),
-                    ],
                   ],
                 ),
     );
