@@ -30,12 +30,14 @@ import 'dart:io';
 // push/pull gets a chance to run at all.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/repository.dart';
 import '../services/localsync_cleanup.dart';
 import '../services/repository_provider.dart';
 import '../theme.dart';
 import '../services/widget_action.dart';
+import '../screens/backups_screen.dart';
+import '../services/vault_backup.dart' show kFullBackupsFolder;
+import 'package:url_launcher/url_launcher.dart';
 
 class AutoSyncOnResume extends StatefulWidget {
   final Widget child;
@@ -174,73 +176,134 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
     }
   }
 
-  // 2026-09-30: user - instead of "delete it once your notes look right" (a
-  // job users must remember), ask once, a week after the phone was linked,
-  // with the size: one tap frees it. Asked once per copy, never again.
+  // 2026-11-13 owner: "when the user is seeing phone storage full errors, the user doesn't know where to go ... deletes
+  // [the app] ... negative reviews". The old one-copy question (asked once, a week after linking) let 36 copies, 1.78 GB,
+  // pile up silently after a single KEEP. Now LocalSync watches the size: once its backups pass 500 MB it says how much,
+  // where iPhone shows it (under Obsidian, not LocalSync), and offers DELETE ALL. Asked again only after another 500 MB.
+  // The answer is kept next to the backups (.size_asked), so a reinstall does not ask again. Nothing is deleted without
+  // the person's tap.
+  static const _askStep = 500 << 20;
+
   Future<void> _offerToFreeSpace(RepositoryProvider provider, Repository repo) async {
-    final prefs = await SharedPreferences.getInstance();
-    // 2026-11-14 owner: "I keep getting this message, I have to keep tapping KEEP every time". One answer on this
-    // phone (KEEP or DELETE) now ends the question for good; the copies stay in LocalSync -> menu -> Backups.
-    if (prefs.getBool('offered_free_answered') == true) return;
-    // 2026-11-14 owner: the question came back after KEEP on a new build (the phone's saved settings did not survive
-    // the reinstall). The answer is now also written next to the copy itself (a tiny .localsync_asked file), so it
-    // holds as long as the copy exists.
-    // 2026-11-14: counting every file of a 51 MB copy froze the screen for 10 s - done off the screen's thread now.
-    final folders = await provider.withRepoFolder(repo, (path) => Isolate.run(() => [
-          for (final f in listBackupFolders(path))
-            if (!File('$path/${f.relPath}/.localsync_asked').existsSync()) f
-        ]));
-    if (folders == null || !mounted) return;
-    final weekAgo = DateTime.now().subtract(const Duration(days: 7));
-    // 2026-10-13: owner - the prompt "keeps appearing every few minutes, even
-    // after I tap KEEP". After several relinks the phone holds several old
-    // copies and this asked about ONE per app open, so KEEP only silenced
-    // that one. Now one question covers every old copy, and the answer
-    // (KEEP or DELETE) silences them all.
-    final old = [
-      for (final f in folders.where((f) => f.phoneOnly))
-        if (fullBackupDate(f.name) case final d?
-            when !d.isAfter(weekAgo) &&
-                prefs.getBool('offered_free_${repo.id}_${f.name}') != true)
-          f
-    ];
-    if (old.isEmpty) return;
-    for (final f in old) {
-      await prefs.setBool('offered_free_${repo.id}_${f.name}', true);
+    final info = await provider.withRepoFolder(repo, (path) => Isolate.run(() {
+          final folders = listBackupFolders(path);
+          final total = folders.fold<int>(0, (n, f) => n + f.bytes);
+          final mark = File('$path/$kFullBackupsFolder/.size_asked');
+          final asked = mark.existsSync() ? int.tryParse(mark.readAsStringSync().trim()) ?? 0 : 0;
+          final monthAgo = DateTime.now().subtract(const Duration(days: 30));
+          final old = [
+            for (final f in folders.where((f) => f.phoneOnly))
+              if (fullBackupDate(f.name) case final d?
+                  when d.isBefore(monthAgo) && !File('$path/${f.relPath}/.localsync_asked').existsSync())
+                f
+          ];
+          return (folders, total, asked, old);
+        }));
+    if (info == null || !mounted) return;
+    final (folders, total, asked, old) = info;
+    provider.setBackupBytes(total);
+    if (total < _askStep || total < asked + _askStep) {
+      if (old.isNotEmpty) await _offerOldCopies(provider, repo, old);
+      return;
     }
-    if (!mounted) return;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
-        'Sep', 'Oct', 'Nov', 'Dec'];
-    final dates = old.map((f) => fullBackupDate(f.name)!).toList()..sort();
-    final first = dates.first, last = dates.last;
-    final when = old.length == 1
-        ? '${first.day} ${months[first.month - 1]}'
-        : '${first.day} ${months[first.month - 1]} - ${last.day} ${months[last.month - 1]}';
-    final total = old.fold<int>(0, (n, f) => n + f.bytes);
-    // 2026-10-05: user - free syncs hold files, not notes.
     final what = repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes';
-    final ok = await showDialog<bool>(
+    final answer = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
         backgroundColor: kSurface,
         title: Row(children: [
-          Icon(Icons.delete_outline, color: kStar, size: 22),
+          Icon(Icons.sd_storage_outlined, color: Colors.amber, size: 22),
           const SizedBox(width: 8),
-          // 2026-10-13: owner read "Free 50 MB?" as a price - the title now
-          // says what the tap does.
-          Text(old.length == 1 ? 'Delete an old backup?' : 'Delete ${old.length} old backups?',
-              style: TextStyle(color: kStar, fontSize: 17)),
+          Expanded(
+            child: Text('Backups use ${formatBytes(total)}',
+                style: TextStyle(color: kStar, fontSize: 17)),
+          ),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final line in [
-              'LocalSync made ${old.length == 1 ? 'this copy' : 'these copies'} when this phone was linked ($when).',
-              'DELETE frees ${formatBytes(total)} on this phone.',
-              'Your $what stay as they are.',
-              'Not sure? Tap KEEP.',
-              'Later: LocalSync -> ⋮ -> Backups.',
+              'Backups: ${folders.length} safety copies LocalSync made on this phone',
+              'Your $what: not touched, also kept in the sync history',
+              'iPhone Storage: shows this space under Obsidian, not LocalSync',
+              'Obsidian app: do not delete it to free space, that removes your $what from this phone',
+              'Later: LocalSync -> ⋮ -> Backups -> Delete all',
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('•  ', style: TextStyle(color: kTextMid, fontSize: 14.5)),
+                  Expanded(child: Text(line, style: TextStyle(color: kTextMid, fontSize: 14.5, height: 1.35))),
+                ]),
+              ),
+            TextButton(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+              onPressed: () => launchUrl(Uri.parse('https://kworld.space/localsync/help#backups-clean-up'),
+                  mode: LaunchMode.externalApplication),
+              child: Text('Help: freeing phone space', style: TextStyle(color: kBlue, fontSize: 14.5)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, 'later'),
+              child: Text('LATER', style: TextStyle(color: kTextDim))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, 'see'),
+              child: Text('SEE BACKUPS', style: TextStyle(color: kStar))),
+          TextButton(
+              onPressed: () => Navigator.pop(c, 'delete'),
+              child: Text('DELETE ALL',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+    await provider.withRepoFolder(repo, (path) {
+      try {
+        Directory('$path/$kFullBackupsFolder').createSync(recursive: true);
+        File('$path/$kFullBackupsFolder/.size_asked')
+            .writeAsStringSync('${answer == 'delete' ? 0 : total}\n');
+      } catch (_) {}
+    });
+    if (!mounted) return;
+    if (answer == 'see') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => BackupsScreen(repo: repo)));
+    } else if (answer == 'delete') {
+      await provider.withRepoFolder(repo, (path) => deleteBackupFolders(path, folders));
+      provider.setBackupBytes(0);
+      // Backups from before 2026-09-30 could sit in the synced LocalSync folder: send the removal to the desktop too.
+      if (folders.any((f) => !f.relPath.startsWith('.')) && repo.id != null) {
+        await provider.pushRepository(repo.id!, commitMessage: 'Delete LocalSync backups', confirmed: true);
+      }
+    }
+  }
+
+  /// 2026-11-13 owner: copies older than 30 days, once everything has synced (this runs right after a sync), are offered
+  /// for deletion with one tap. Asked once per copy (.localsync_asked next to it).
+  Future<void> _offerOldCopies(RepositoryProvider provider, Repository repo, List<BackupFolder> old) async {
+    final bytes = old.fold<int>(0, (n, f) => n + f.bytes);
+    final what = repo.syncMode == SyncMode.genericFolder ? 'files' : 'notes';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Row(children: [
+          Icon(Icons.history, color: kStar, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(old.length == 1 ? 'Old backup, ${formatBytes(bytes)}' : 'Old backups, ${formatBytes(bytes)}',
+                style: TextStyle(color: kStar, fontSize: 17)),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final line in [
+              'Backups: ${old.length == 1 ? '1 copy' : '${old.length} copies'} over 30 days old',
+              'Your $what: synced, not touched',
+              'Delete: frees ${formatBytes(bytes)} on this phone',
             ])
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -252,34 +315,25 @@ class _AutoSyncOnResumeState extends State<AutoSyncOnResume>
           ],
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(c, false),
-              child: Text('KEEP', style: TextStyle(color: kTextDim))),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text('KEEP', style: TextStyle(color: kTextDim))),
           TextButton(
               onPressed: () => Navigator.pop(c, true),
-              child: Text('DELETE',
-                  style: TextStyle(
-                      color: Colors.redAccent, fontWeight: FontWeight.w700))),
+              child: Text('DELETE', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700))),
         ],
       ),
     );
-    await prefs.setBool('offered_free_answered', true);
-    if (ok != true) {
-      await provider.withRepoFolder(repo, (path) {
-        for (final f in old) {
+    await provider.withRepoFolder(repo, (path) {
+      for (final f in old) {
+        if (ok == true) {
+          deleteFullBackup(path, f);
+        } else {
           try {
             File('$path/${f.relPath}/.localsync_asked').writeAsStringSync('KEEP\n');
           } catch (_) {}
         }
-      });
-    }
-    if (ok == true) {
-      await provider.withRepoFolder(repo, (path) {
-        for (final f in old) {
-          deleteFullBackup(path, f);
-        }
-      });
-    }
+      }
+    });
+    if (ok == true) provider.setBackupBytes(provider.backupBytes - bytes);
   }
 
   @override

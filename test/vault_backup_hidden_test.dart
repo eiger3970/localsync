@@ -28,6 +28,24 @@ void main() {
         contains('/$kFullBackupsFolder/'));
   });
 
+  test('full copy leaves out plugin program code, keeps settings and notes', () async {
+    w('Journal/today.md');
+    w('.obsidian/plugins/quickadd/main.js');
+    w('.obsidian/plugins/quickadd/data.json');
+    w('.obsidian/plugins/quickadd/manifest.json');
+    w('.obsidian-backup/plugins/quickadd/main.js');
+    w('Code/main.js'); // a note folder's own main.js is kept
+
+    final rel = await backupVaultIfNotEmpty(v);
+
+    expect(File('$v/$rel/Journal/today.md').existsSync(), isTrue);
+    expect(File('$v/$rel/.obsidian/plugins/quickadd/main.js').existsSync(), isFalse);
+    expect(File('$v/$rel/.obsidian-backup/plugins/quickadd/main.js').existsSync(), isFalse);
+    expect(File('$v/$rel/.obsidian/plugins/quickadd/data.json').existsSync(), isTrue);
+    expect(File('$v/$rel/.obsidian/plugins/quickadd/manifest.json').existsSync(), isTrue);
+    expect(File('$v/$rel/Code/main.js').existsSync(), isTrue);
+  });
+
   test('older backups move out of LocalSync, nothing else does', () {
     w('LocalSync/Backup 202609291652/a.md');
     w('LocalSync/Vault Backup 202608201906/b.md');

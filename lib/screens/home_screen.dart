@@ -246,7 +246,8 @@ class HomeScreen extends StatelessWidget {
                 icon: Icon(Icons.more_vert,
                     color: (provider.selectedRepo != null &&
                                 provider.hasConflicts(provider.selectedRepo!.id!)) ||
-                            DemoConflict.triesLeft.value
+                            DemoConflict.triesLeft.value ||
+                            provider.backupsBig
                         ? Colors.amber
                         : kGreen,
                     size: 22),
@@ -306,12 +307,16 @@ class HomeScreen extends StatelessWidget {
                     // arbitrary one (see house naming rule).
                     // 2026-09-29: user - Backups: sizes + one-tap Clean up.
                     if (hasRepo)
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'backups',
+                        // 2026-11-13 owner: size shown here, amber past 500 MB (the kebab turns amber with it).
                         child: _MenuRow(
                           icon: Icons.history,
+                          iconColor: provider.backupsBig ? Colors.amber : null,
                           label: 'Backups',
-                          subtitle: 'Sizes and Clean up',
+                          subtitle: provider.backupBytes > 0
+                              ? '${formatBytes(provider.backupBytes)} - Sizes and Clean up'
+                              : 'Sizes and Clean up',
                         ),
                       ),
                     if (hasRepo)

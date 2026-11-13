@@ -46,9 +46,9 @@ class _BackupsScreenState extends State<BackupsScreen> {
 
   Future<void> _load() async {
     try {
-      final f = await context
-          .read<RepositoryProvider>()
-          .withRepoFolder(widget.repo, (path) => Isolate.run(() => listBackupFolders(path)));
+      final provider = context.read<RepositoryProvider>();
+      final f = await provider.withRepoFolder(widget.repo, (path) => Isolate.run(() => listBackupFolders(path)));
+      if (f != null) provider.setBackupBytes(f.fold<int>(0, (n, x) => n + x.bytes));
       if (mounted) setState(() => _folders = f ?? []);
     } catch (e) {
       if (mounted) setState(() => _error = '$e');

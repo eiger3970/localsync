@@ -494,6 +494,16 @@ class RepositoryProvider extends ChangeNotifier {
   /// 2026-11-11 owner: a long PUSH said nothing. True once a push has run more than 20 seconds (big notes or a slow
   /// network); the Home Screen shows one top message. 20 s, not 5 s: the old 5 s hint fired on every normal sync.
   bool pushSlow = false;
+  /// 2026-11-13 owner: backup size shown in the menu; past [kBackupsAmberBytes] the Backups item and the kebab turn
+  /// amber. Measured after each automatic sync and whenever the Backups screen loads.
+  int backupBytes = 0;
+  static const kBackupsAmberBytes = 500 << 20;
+  bool get backupsBig => backupBytes >= kBackupsAmberBytes;
+  void setBackupBytes(int b) {
+    if (b == backupBytes) return;
+    backupBytes = b;
+    notifyListeners();
+  }
   /// 2026-11-13: what the slow message says is still running: pulling, pushing, or syncing (an automatic background sync).
   String slowWhat = 'pushing';
   /// 2026-11-14 owner: a PUSH that first has to fetch the desktop's notes said "downloading notes" and "Still

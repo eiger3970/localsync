@@ -305,6 +305,10 @@ Future<void> _copyDirectoryContents(
     // The old vault still had its .git, the backup copied it, and git
     // refuses a repository nested inside the vault. Never copy .git.
     if (name == '.git') continue;
+    // 2026-11-13 owner: "Size is critical to keep small and efficient". A 51 MB copy was ~40 MB plugin program code
+    // (main.js in each plugins folder), which Obsidian downloads again from its plugin list. Settings (data.json),
+    // manifests and styles stay, so a restored copy keeps every note and every plugin setting.
+    if (entity is File && name == 'main.js' && entity.parent.parent.path.endsWith('/plugins')) continue;
     final destPath = '${dest.path}/$name';
     if (entity is Directory) {
       await _copyDirectoryContents(entity, Directory(destPath),
