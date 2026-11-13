@@ -41,6 +41,33 @@ BARE_REPO="${LOCALSYNC_BARE_REPO:-$HOME/Documents/Git/LocalSync/vault.git}"
 # names the default folder, so it matches the phone - the repo id was used
 # before ("LocalSync_free_test_1790344809012").
 VAULT="${LOCALSYNC_VAULT:-$HOME/Documents/LocalSync/${LOCALSYNC_NAME:-$(basename "$BARE_REPO" .git)}}"
+# 2026-11-13 owner: "the auto install default is not picking up the correct path". With no vault path set on the
+# phone, the folder was always ~/Documents/LocalSync/<name>, even when the person's real Obsidian vault already syncs
+# with this same bare repo somewhere else (here: ~/Documents/PKM/Vault) - so a push updated a copy nobody opens.
+# Now, when no path is given, the vault Obsidian itself knows (open one first), or one a schedule names, whose git
+# origin IS this bare repo wins. Nothing found: the old default, unchanged.
+if [[ -z "${LOCALSYNC_VAULT:-}" ]]; then
+  _real() { (cd "$1" 2>/dev/null && pwd -P); }
+  _want=$(_real "$BARE_REPO")
+  if [[ -n "$_want" ]]; then
+    _cands=$(
+      for _cfg in "$HOME/.config/obsidian/obsidian.json" "$HOME/Library/Application Support/obsidian/obsidian.json" \
+                  "$HOME/.var/app/md.obsidian.Obsidian/config/obsidian/obsidian.json"; do
+        [[ -f "$_cfg" ]] && command -v python3 >/dev/null && python3 -c '
+import json,sys
+v=json.load(open(sys.argv[1])).get("vaults",{}).values()
+for x in sorted(v,key=lambda x:not x.get("open")): print(x.get("path",""))' "$_cfg" 2>/dev/null
+      done
+      crontab -l 2>/dev/null | grep -o "LOCALSYNC_VAULT='[^']*'" | sed "s/^LOCALSYNC_VAULT='//; s/'\$//"
+    )
+    while IFS= read -r _c; do
+      [[ -n "$_c" && -d "$_c/.git" ]] || continue
+      _o=$(git -C "$_c" remote get-url origin 2>/dev/null) || continue
+      [[ "$_o" == /* ]] || continue
+      if [[ "$(_real "$_o")" == "$_want" ]]; then VAULT="$_c"; break; fi
+    done <<< "$_cands"
+  fi
+fi
 BRANCH="${LOCALSYNC_BRANCH:-main}"
 LOG="${LOCALSYNC_LOG:-$HOME/.localsync_sync.log}"
 LOCK="/tmp/localsync_sync_$(printf '%s' "$BARE_REPO" | cksum | cut -d' ' -f1).lock"
