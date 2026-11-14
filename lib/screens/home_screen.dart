@@ -2774,7 +2774,8 @@ class _AppBarRepoStatus extends StatelessWidget {
                         // row doesn't have, landing visibly left of it.
                         const SizedBox(width: 20),
                         Expanded(
-                          child: Text(
+                          // 2026-11-14 owner: "uploading notes... with flowing ellipse? same for downloading notes"
+                          child: FlowingEllipsis(
                               switch (context.watch<RepositoryProvider>().userFlow) {
                                 'push' => 'uploading notes',
                                 'pull' => 'downloading notes',

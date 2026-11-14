@@ -22,6 +22,7 @@ import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/resolved_watchlist.dart';
 import '../services/vault_folder_service.dart';
+import '../widgets/flowing_ellipsis.dart';
 import '../widgets/conflict_picker_upsell.dart';
 import '../services/demo_conflict.dart';
 import '../widgets/demo_conflict_card.dart';
@@ -1090,7 +1091,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     final f = followProvider.pushFollowUp;
                                     if (f != PushFollowUp.desktopDone && f != PushFollowUp.desktopLate) return;
                                     followProvider.removeListener(closeAfterFollowUp);
-                                    Timer(const Duration(seconds: 8), () {
+                                    // 2026-11-14 owner: 8 s was "too fast disappeared to read". 30 s, or DISMISS.
+                                    Timer(const Duration(seconds: 30), () {
                                       final nav = rootNavigatorKey.currentContext;
                                       if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
                                                   topBarPersistent = false;
@@ -1211,7 +1213,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                             ),
                                             const TextSpan(text: ' '),
                                             TextSpan(
-                                              text: 'Backup',
+                                              // 2026-11-14 owner: "Backup" read like a job still to do; "Backed up" says it is done
+                                              text: 'Backed up',
                                               style: TextStyle(
                                                 color: kGreen,
                                                 fontWeight: FontWeight.bold,
@@ -2396,7 +2399,13 @@ Widget _pushStepLine(RepositoryProvider p) {
     padding: const EdgeInsets.only(top: 4),
     child: Text.rich(TextSpan(style: TextStyle(color: kStar, fontSize: 15), children: [
       WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(icon, color: color, size: 18)),
-      TextSpan(text: ' $text'),
+      // 2026-11-14: a waiting step ("Updating desktop") gets the app-wide flowing dots
+      if (p.pushFollowUp == PushFollowUp.desktopSyncing)
+        WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: FlowingEllipsis(' $text', style: TextStyle(color: kStar, fontSize: 15)))
+      else
+        TextSpan(text: ' $text'),
     ])),
   );
 }

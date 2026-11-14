@@ -322,6 +322,19 @@ Future<void> _settleSameTime(ConflictEntry e, [String? vaultPath]) async {
   }
 }
 
+// 2026-11-14 owner: "Conflicts still showing Nov 14th there, after the conflict resolution and push." KEEP BOTH on
+// "1107 ... edited on phone" / "1107 ... edited on computer" left two entries at the same minute with near-identical
+// wording, which sameTimeEntries then listed as a new conflict. The user just chose to keep both, so any same-time
+// pair made only of text from the versions they kept is settled too. Other same-time pairs in the note still show.
+Future<void> _settleKeptPairs(String vaultPath, ConflictEntry entry, String newContent) async {
+  final kept = _sameTimeNorm(entry.versions.map((v) => v.body).join('\n\n'));
+  for (final e in sameTimeEntries(entry.filePath, newContent, const {})) {
+    final a = _sameTimeNorm(e.versions.first.body.split('\n\n').first);
+    final b = _sameTimeNorm(e.versions.last.body.split('\n\n').last);
+    if (kept.contains(a) && kept.contains(b)) await _settleSameTime(e, vaultPath);
+  }
+}
+
 double _wordOverlap(String x, String y) {
   Set<String> words(String t) => RegExp(r"[a-z']+").allMatches(t.toLowerCase()).map((m) => m.group(0)!).where((w) => w.length >= 4).toSet();
   final a = words(x), b = words(y);
@@ -1322,6 +1335,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   await VaultFolderService().coordinatedWrite(filePath, result.content);
   await settlePendingConflict(entry);
   await _settleSameTime(entry, vaultPath);
+  await _settleKeptPairs(vaultPath, entry, result.content);
   if (cleanUp) {
     // Nothing changed (KEEP BOTH & CLEAN UP on an already-tidy note): there is nothing to undo, so no UNDO button.
     if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null);
