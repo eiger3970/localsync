@@ -25,6 +25,8 @@ import '../services/repository_provider.dart';
 import '../features/pairing/pairing_controller.dart';
 import '../widgets/content_above_drag_canvas.dart';
 import '../widgets/exploding_letter.dart';
+import '../widgets/flowing_ellipsis.dart';
+import '../widgets/swipe_up_hand.dart';
 import '../widgets/pulsing_glow.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
@@ -726,6 +728,7 @@ class _IdleViewState extends State<_IdleView>
   // 2026-11-13 owner: typing field 2 passes through an exact match on the way to a typo (the password, then one extra
   // "e"), and the screen had already scrolled down to the next step. The scroll now waits for the match to hold
   // for 1.2 s; any change in between cancels it, so a typo with a match error never scrolls.
+  // 2026-11-14 owner: 1.2 s "too slow, can this be reduced to 1000ms?" and flowing dots while it waits.
   Timer? _stage3Hold;
   void _revealStage3IfUnlocked() {
     if (_stage3Revealed) return;
@@ -736,7 +739,7 @@ class _IdleViewState extends State<_IdleView>
     }
     if (_stage3Hold != null) return;
     final held = _confirmCtrl.text;
-    _stage3Hold = Timer(const Duration(milliseconds: 1200), () {
+    _stage3Hold = Timer(const Duration(milliseconds: 1000), () {
       _stage3Hold = null;
       if (!mounted || _stage3Revealed) return;
       if (_confirmCtrl.text == held && _paired && _passwordsMatch) {
@@ -746,7 +749,8 @@ class _IdleViewState extends State<_IdleView>
   }
 
   void _doRevealStage3() {
-    _stage3Revealed = true;
+    // setState: the "Passwords match" dots stop once the next step shows
+    setState(() => _stage3Revealed = true);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // 2026-09-09, round 11: this used to poll
       // MediaQuery.viewInsets.bottom waiting for it to hit 0 (keyboard
@@ -1624,7 +1628,7 @@ Row(
                                         _passwordsMatch ? kGreen : Colors.amber,
                                     size: 16),
                                 const SizedBox(width: 6),
-                                Text(
+                                (_passwordsMatch && !_stage3Revealed ? FlowingEllipsis.new : Text.new)(
                                     _passwordsMatch
                                         ? 'Passwords match'
                                         : 'Passwords should match',
@@ -2725,42 +2729,13 @@ class _SwipeChecklistRowState extends State<_SwipeChecklistRow> {
                   // 2026-10-06: Kevin - "I liked your swipe up svg image before.
                   // Perhaps this can fit in somewhere with my stars hint". A
                   // finger swiping up, gently bouncing, next to the stars.
-                  if (!_done) const _BounceUp(child: Icon(Icons.swipe_up, size: 30)),
+                  // 2026-11-14 owner: "can that be swiping up like the PUSH hand swipe up after a Conflict, too?"
+                  if (!_done) const SwipeUpHand(size: 30),
                 ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BounceUp extends StatefulWidget {
-  final Widget child;
-  const _BounceUp({required this.child});
-  @override
-  State<_BounceUp> createState() => _BounceUpState();
-}
-
-class _BounceUpState extends State<_BounceUp> with SingleTickerProviderStateMixin {
-  late final AnimationController _c =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final still = MediaQuery.of(context).disableAnimations;
-    return IconTheme(
-      data: IconThemeData(color: kGreen),
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (_, child) => Transform.translate(offset: Offset(0, still ? 0 : -6 * Curves.easeInOut.transform(_c.value)), child: child),
-        child: widget.child,
       ),
     );
   }

@@ -4,7 +4,9 @@ import '../theme.dart';
 /// 2026-11-11 owner: the PUSH zone must not glow like a button (PUSH is a swipe up, not a tap). A hand that swipes
 /// up, fading and glowing green, sits above the normal PUSH label until the push has been done.
 class SwipeUpHand extends StatefulWidget {
-  const SwipeUpHand({super.key});
+  // 2026-11-14: size for the setup screen's hand next to its text line (same motion as PUSH, smaller).
+  final double size;
+  const SwipeUpHand({super.key, this.size = 38});
   @override
   State<SwipeUpHand> createState() => _SwipeUpHandState();
 }
@@ -23,7 +25,7 @@ class _SwipeUpHandState extends State<SwipeUpHand> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     final still = MediaQuery.of(context).disableAnimations;
     return SizedBox(
-      height: 64,
+      height: widget.size + 26,
       child: Center(
         child: AnimatedBuilder(
           animation: _c,
@@ -32,10 +34,10 @@ class _SwipeUpHandState extends State<SwipeUpHand> with SingleTickerProviderStat
             final fade = still ? 1.0 : (t < 0.2 ? t / 0.2 : (t > 0.8 ? (1 - t) / 0.2 : 1.0));
             return Opacity(
               opacity: fade.clamp(0.0, 1.0),
-              child: Transform.translate(offset: Offset(0, 18 - 36 * t), child: child),
+              child: Transform.translate(offset: Offset(0, widget.size * (0.47 - 0.95 * t)), child: child),
             );
           },
-          child: Icon(Icons.swipe_up, size: 38, color: kGreen, shadows: [
+          child: Icon(Icons.swipe_up, size: widget.size, color: kGreen, shadows: [
             Shadow(color: kGreen.withValues(alpha: 0.9), blurRadius: 14),
           ]),
         ),
