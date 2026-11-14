@@ -654,6 +654,27 @@ class RepositoryProvider extends ChangeNotifier {
   Future<SyncResult?> triggerDesktopSyncNow(int id) =>
       _asUser(false, () => _desktopSyncLocked(id));
 
+  /// 2026-11-14 owner, real test: "desktop doesn't show phone entry". ⋮ → Desktop sync only ran the computer's script:
+  /// the phone's own typing was never sent first, and the computer's changes never came back. The menu's Desktop sync
+  /// now does the whole round, one step after another: phone sends (push), computer syncs, phone receives (pull).
+  /// (The automatic desktop step after a PUSH still calls triggerDesktopSyncNow alone - the push already happened.)
+  Future<SyncResult?> syncWithDesktopNow(int id) => _asUser(false, () async {
+        SyncLog.add('DESKTOP SYNC round start');
+        final up = await _run(id, (service) => service.push());
+        if (up is SyncFailed || up is SyncNeedsConfirmation) return up;
+        final desk = await _desktopSyncLocked(id);
+        if (desk is SyncFailed) return desk;
+        final down = await _run(id, (service) => service.pull());
+        SyncLog.add('DESKTOP SYNC round end ${_resultKind(up)} / ${_resultKind(desk)} / ${_resultKind(down)}');
+        if (down is SyncFailed || down is SyncNeedsConfirmation || down is SyncOkWithConflicts) return down;
+        if (up is SyncOkWithConflicts) return up;
+        if (down is SyncOk || up is SyncOk) {
+          syncsDone++;
+          notifyListeners();
+        }
+        return desk;
+      });
+
   // Same lock as push/pull: waits for any sync still running (e.g. the
   // silent one on app open), so "Desktop sync complete" means everything
   // is finished and the next swipe runs straight away.

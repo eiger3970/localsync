@@ -1437,7 +1437,8 @@ Future<void> _triggerDesktopSyncNow(
       duration: const Duration(minutes: 3),
     ),
   );
-  final result = await provider.triggerDesktopSyncNow(repoId);
+  // 2026-11-14: the whole round (phone sends, computer syncs, phone receives) - see syncWithDesktopNow
+  final result = await provider.syncWithDesktopNow(repoId);
   if (!context.mounted || result == null) return;
   // 2026-09-18: real bug, caught while adding the success gif below -
   // this SnackBar showed the same green bolt + green text for BOTH a
