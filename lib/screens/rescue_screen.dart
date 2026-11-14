@@ -17,6 +17,7 @@ import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/rescue_service.dart';
 import '../theme.dart';
+import '../widgets/flowing_ellipsis.dart';
 
 const _red = Color(0xFFFF2D3D);
 
@@ -265,7 +266,8 @@ class _RescueScreenState extends State<RescueScreen>
                       builder: (_, __) =>
                           CustomPaint(painter: _FilesHomePainter(_files.value)))),
             const SizedBox(height: 4),
-            Text(
+            // 2026-11-14: waiting stages get the app-wide flowing dots (FlowingEllipsis), the rest stays still
+            (_stage == _Stage.paying || _stage == _Stage.rescuing ? FlowingEllipsis.new : Text.new)(
               switch (_stage) {
                 _Stage.paying => 'Opening payment...',
                 _Stage.rescuing => _step.isEmpty ? 'Rescuing...' : '$_step...',

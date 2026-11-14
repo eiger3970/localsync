@@ -21,6 +21,7 @@ import '../services/purchase_service.dart';
 import '../services/repository_provider.dart';
 import '../services/sync_service.dart';
 import '../features/linking/linking_state.dart' show LinkingError;
+import '../widgets/flowing_ellipsis.dart';
 import '../widgets/controllable_gif.dart';
 import '../widgets/diag_card.dart';
 import '../services/diagnostics_report.dart';
@@ -1508,45 +1509,20 @@ class _PulsingSyncStatus extends StatefulWidget {
   State<_PulsingSyncStatus> createState() => _PulsingSyncStatusState();
 }
 
-class _PulsingSyncStatusState extends State<_PulsingSyncStatus>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
+class _PulsingSyncStatusState extends State<_PulsingSyncStatus> {
+  // 2026-11-14: owner - "I prefer the flowing ellips, easier on the eye". The whole-row fade is gone; the bolt
+  // stays still and the dots flow, the same waiting effect as everywhere else in the app (FlowingEllipsis).
+  // White (kStar), not amber: a long sync is fine, not a warning (2026-09-18 feedback).
   @override
   Widget build(BuildContext context) {
-    // 2026-09-18: real feedback, live - "Desktop syncing change from
-    // amber to white, as long syncs look like there's a problem."
-    // Amber reads as a warning/caution color, wrong signal for an
-    // in-progress-but-fine operation that can legitimately take a
-    // while - kStar (white) still pulses the same way, just without
-    // the alarm framing.
-    return FadeTransition(
-      opacity: Tween(begin: 0.35, end: 1.0).animate(_ctrl),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.bolt, color: kStar, size: 28),
-          const SizedBox(width: 10),
-          Text(widget.label,
-              style: TextStyle(
-                  color: kStar, fontSize: 16, fontWeight: FontWeight.w600)),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.bolt, color: kStar, size: 28),
+        const SizedBox(width: 10),
+        FlowingEllipsis(widget.label,
+            style: TextStyle(color: kStar, fontSize: 16, fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }

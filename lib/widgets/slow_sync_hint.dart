@@ -8,6 +8,8 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+import 'flowing_ellipsis.dart';
 import '../theme.dart';
 import 'progress_dog.dart';
 
@@ -84,7 +86,6 @@ class _SlowSyncHintState extends State<SlowSyncHint>
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final dots = 1 + (now.millisecondsSinceEpoch ~/ 400) % 3;
     final show = SlowSyncHint.step(widget.syncing, now);
     if (!show) return const SizedBox.shrink();
     return GestureDetector(
@@ -105,18 +106,8 @@ class _SlowSyncHintState extends State<SlowSyncHint>
             ),
             const SizedBox(width: 10),
             Flexible(
-              child: Text.rich(
-                TextSpan(children: [
-                  const TextSpan(text: 'Big note or slow connection'),
-                  // flowing ellipsis: 1-3 dots, rest invisible so the
-                  // text doesn't jump.
-                  TextSpan(text: '.' * dots),
-                  TextSpan(
-                      text: '.' * (3 - dots),
-                      style: const TextStyle(color: Colors.transparent)),
-                ]),
-                style: TextStyle(color: kStar, fontSize: 14),
-              ),
+              child: FlowingEllipsis('Big note or slow connection',
+                  style: TextStyle(color: kStar, fontSize: 14)),
             ),
           ],
         ),
