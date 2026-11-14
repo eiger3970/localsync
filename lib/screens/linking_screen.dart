@@ -1643,6 +1643,26 @@ Row(
                                         fontSize: 12)),
                               ],
                             ),
+                            // 2026-11-14 owner: dots alone flow once in 1 s, "another effect that might indicate to
+                            // fast users that the app is working?" A thin green line fills over the same 1 s hold,
+                            // then the next step opens.
+                            if (_paired && _passwordsMatch && !_stage3Revealed)
+                              TweenAnimationBuilder<double>(
+                                key: ValueKey(_confirmCtrl.text),
+                                tween: Tween(begin: 0, end: 1),
+                                duration: const Duration(milliseconds: 1000),
+                                builder: (_, v, __) => Padding(
+                                  padding: const EdgeInsets.only(top: 4, left: 22),
+                                  child: SizedBox(
+                                    width: 120,
+                                    child: LinearProgressIndicator(
+                                        value: v,
+                                        minHeight: 2,
+                                        color: kGreen,
+                                        backgroundColor: kBorder),
+                                  ),
+                                ),
+                              ),
 ]),
                           ),
                   ),
