@@ -462,16 +462,19 @@ def _jtime_of(text):
         hhmm = h * 100 + hhmm % 100
     return hhmm
 
-def _time_ordered_gap(ours, theirs):
+def _time_ordered_gap(ours, theirs, theirs_first=False):
     # 2026-11-13: both sides added in the same gap and every paragraph starts with a journal time -> sort by time.
     # Mirrors _timeOrderedGap in conflict_repair.dart. Anything else returns None (ours then theirs).
     if not ours or not theirs:
         return None
-    paras = [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(ours)) if q.strip()] + \
-            [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(theirs)) if q.strip()]
+    op = [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(ours)) if q.strip()]
+    paras = op + [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(theirs)) if q.strip()]
     if not paras or not all(_JTIME_RE.match(q) for q in paras):
         return None
-    paras.sort(key=_jtime_of)
+    # 2026-11-14 owner: same time on both sides -> the side that saved its change earlier goes first
+    # (theirs_first, from the commits' author times); within one side the typed order stays.
+    paras = [q for _, _, _, q in sorted((_jtime_of(q), 0 if (i < len(op)) != theirs_first else 1, i, q)
+                                        for i, q in enumerate(paras))]
     lines = []
     if not ours[0].strip() or not theirs[0].strip():
         lines.append('')
@@ -505,7 +508,7 @@ def times_out_of_order_by_merge(inputs, merged):
         known |= inversions(timed(i))
     return any(p not in known for p in inversions(m))
 
-def merge_three_way_lines(base, ours, theirs):
+def merge_three_way_lines(base, ours, theirs, theirs_first=False):
     bl = base.split('\n')
     ok = [True] * len(bl); tk = [True] * len(bl)
     og = [[] for _ in range(len(bl) + 1)]; tg = [[] for _ in range(len(bl) + 1)]
@@ -536,7 +539,7 @@ def merge_three_way_lines(base, ours, theirs):
         if g in newest_first:
             out.extend(tg[g]); out.extend(og[g])
         else:
-            out.extend(_time_ordered_gap(og[g], tg[g]) or (og[g] + tg[g]))
+            out.extend(_time_ordered_gap(og[g], tg[g], theirs_first) or (og[g] + tg[g]))
     gap(0)
     for k in range(len(bl)):
         if ok[k] and tk[k]:
@@ -544,6 +547,14 @@ def merge_three_way_lines(base, ours, theirs):
         gap(k + 1)
     _text = '\n'.join(out)
     return None if times_out_of_order_by_merge([ours, theirs], _text) else _text
+
+def _theirs_saved_earlier():
+    # The other device's commit was saved earlier than ours (author time = newest file save time, see the commit step).
+    def _at(ref):
+        r = subprocess.run(['git', 'log', '-1', '--format=%at', ref], capture_output=True, text=True)
+        return int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else None
+    o, t = _at('HEAD'), _at('MERGE_HEAD')
+    return o is not None and t is not None and t < o
 
 def _git_stage(n):
     rel = path if path.startswith('./') else './' + path
@@ -555,7 +566,7 @@ try:
     if _base is not None and _ours is not None and _theirs is not None and '<<<<<<< ' in content:
         _too_large = False
         try:
-            _merged = merge_three_way_lines(_base, _ours, _theirs)
+            _merged = merge_three_way_lines(_base, _ours, _theirs, _theirs_saved_earlier())
         except DiffTooLarge:
             _merged, _too_large = None, True
         if _too_large:
@@ -1103,7 +1114,14 @@ git rm -r -q --cached --ignore-unmatch -- "$HIDDEN_BACKUPS" >/dev/null
 if git diff --cached --quiet; then
   log "No desktop changes to commit"
 else
-  git commit -m "Desktop sync $(date '+%Y-%m-%d %H:%M:%S')"
+  # 2026-11-14: author time = newest save time of the changed files (a merge puts the earlier-saved side first)
+  # (LocalSync/ files are written by this script, not saved by the user, so they don't count)
+  newest_save=$(git diff --cached --name-only --diff-filter=AMR -z -- . ':(exclude)LocalSync/' | xargs -0 -r stat -c %Y -- 2>/dev/null | sort -n | tail -1)
+  if [[ -n "$newest_save" ]]; then
+    GIT_AUTHOR_DATE="@$newest_save" git commit -m "Desktop sync $(date '+%Y-%m-%d %H:%M:%S')"
+  else
+    git commit -m "Desktop sync $(date '+%Y-%m-%d %H:%M:%S')"
+  fi
   log "Committed desktop changes"
 fi
 

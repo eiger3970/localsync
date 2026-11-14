@@ -571,33 +571,37 @@ List<(_LineOp, String)> _myers(List<String> a, List<String> b) {
 /// versions already share stand in for it: everything else is an insertion from one side, and insertions are all kept
 /// (ours first). Nothing is dropped or reworded; a line both sides reworded stays as two separate lines (the same-time
 /// check in conflict_scanner.dart lists those). Null when too different to compare safely.
-String? mergeTwoWayLines(String ours, String theirs) {
+String? mergeTwoWayLines(String ours, String theirs, {bool theirsFirst = false}) {
   try {
     final ol = ours.split('\n'), tl = theirs.split('\n');
     final common = <String>[
       for (final (op, line) in _diffLines(ol, tl))
         if (op == _LineOp.equal) line
     ];
-    return _mergeThreeWayLines(common.join('\n'), ours, theirs);
+    return _mergeThreeWayLines(common.join('\n'), ours, theirs, theirsFirst: theirsFirst);
   } on DiffTooLarge {
     return null;
   }
 }
 
-String? mergeThreeWayLines(String base, String ours, String theirs) => mergeThreeWayLinesOrReason(base, ours, theirs).merged;
+String? mergeThreeWayLines(String base, String ours, String theirs, {bool theirsFirst = false}) =>
+    mergeThreeWayLinesOrReason(base, ours, theirs, theirsFirst: theirsFirst).merged;
 
 /// Same merge, but says WHY nothing was merged: [tooLarge] is true when the two versions differ in too many places to
 /// compare safely (the caller then keeps one version whole and saves the other, with a clear message - never a box
 /// around thousands of lines).
-({String? merged, bool tooLarge}) mergeThreeWayLinesOrReason(String base, String ours, String theirs) {
+({String? merged, bool tooLarge}) mergeThreeWayLinesOrReason(String base, String ours, String theirs,
+    {bool theirsFirst = false}) {
   try {
-    return (merged: _mergeThreeWayLines(base, ours, theirs), tooLarge: false);
+    return (merged: _mergeThreeWayLines(base, ours, theirs, theirsFirst: theirsFirst), tooLarge: false);
   } on DiffTooLarge {
     return (merged: null, tooLarge: true);
   }
 }
 
-String? _mergeThreeWayLines(String base, String ours, String theirs) {
+/// [theirsFirst]: the other device saved its change earlier, so where both sides added entries with the SAME journal
+/// time, its entries go first (2026-11-14 owner: "put the side whose changes happened earlier").
+String? _mergeThreeWayLines(String base, String ours, String theirs, {bool theirsFirst = false}) {
   final baseLines = base.split('\n');
   final oursDiff = _diffLines(baseLines, ours.split('\n'));
   final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
@@ -658,7 +662,7 @@ String? _mergeThreeWayLines(String base, String ours, String theirs) {
       writeLines(theirsGapInserts[g]);
       writeLines(oursGapInserts[g]);
     } else {
-      writeLines(_timeOrderedGap(oursGapInserts[g], theirsGapInserts[g]) ??
+      writeLines(_timeOrderedGap(oursGapInserts[g], theirsGapInserts[g], theirsFirst: theirsFirst) ??
           [...oursGapInserts[g], ...theirsGapInserts[g]]);
     }
   }
@@ -713,11 +717,17 @@ bool timesOutOfOrderByMerge(List<String> inputs, String merged) {
 /// every paragraph of both additions starts with a journal time, the paragraphs are sorted by time. Anything else (an
 /// untimed paragraph, only one side adding) returns null and keeps ours-then-theirs. Mirrors _time_ordered_gap in
 /// desktop/localsync_sync.sh.
-List<String>? _timeOrderedGap(List<String> ours, List<String> theirs) {
+List<String>? _timeOrderedGap(List<String> ours, List<String> theirs, {bool theirsFirst = false}) {
   if (ours.isEmpty || theirs.isEmpty) return null;
-  final paras = [..._splitParagraphs(ours.join('\n')), ..._splitParagraphs(theirs.join('\n'))];
+  final op = _splitParagraphs(ours.join('\n')), tp = _splitParagraphs(theirs.join('\n'));
+  final paras = [...op, ...tp];
   if (paras.isEmpty || !paras.every((q) => _journalTimePattern.hasMatch(q))) return null;
-  final sorted = [...paras]..sort((a, b) => _journalTimeOf(a).compareTo(_journalTimeOf(b)));
+  // Same time on both sides: the side that saved its change earlier goes first; within one side, typed order stays.
+  final keyed = [
+    for (var i = 0; i < paras.length; i++)
+      (t: _journalTimeOf(paras[i]), side: (i < op.length) == !theirsFirst ? 0 : 1, i: i, p: paras[i])
+  ]..sort((a, b) => a.t != b.t ? a.t.compareTo(b.t) : a.side != b.side ? a.side.compareTo(b.side) : a.i.compareTo(b.i));
+  final sorted = [for (final k in keyed) k.p];
   final lines = <String>[];
   if (ours.first.trim().isEmpty || theirs.first.trim().isEmpty) lines.add('');
   for (var i = 0; i < sorted.length; i++) {

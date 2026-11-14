@@ -925,7 +925,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
               final theirsBlob = git.Blob.lookup(repo: repo, oid: remoteEntryOid);
               if (!baseBlob.isBinary && !oursBlob.isBinary && !theirsBlob.isBinary) {
                 final merged = mergeThreeWayLines(
-                    baseBlob.content, oursBlob.content, theirsBlob.content);
+                    baseBlob.content, oursBlob.content, theirsBlob.content,
+                    theirsFirst: theirsSavedEarlier(repo, localOid, remoteOid));
                 if (merged != null) {
                   // 2026-09-06: mergeThreeWayLines's own safety is "defer
                   // to a human on any real ambiguity," but it's still an
@@ -1414,7 +1415,7 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final parent = git.Commit.lookup(repo: repo, oid: headOid);
   final tree = _stageAndWriteTree(repo);
   if (tree.oid == parent.tree.oid) return false;
-  final signature = _signatureFor(deviceName);
+  final signature = _signatureFor(deviceName, time: _newestSaveTime(repo, parent.tree, tree));
   git.Commit.create(
     repo: repo,
     updateRef: 'HEAD',
@@ -1794,9 +1795,41 @@ git.Tree _stageAndWriteTree(git.Repository repo) {
 // only when. Falls back to "Localsync" if the user hasn't set a device
 // name yet (kebab menu -> Device name), same as before for anyone who
 // never touches the setting.
-git.Signature _signatureFor(String deviceName) => git.Signature.create(
+git.Signature _signatureFor(String deviceName, {int? time}) => git.Signature.create(
     name: deviceName.trim().isEmpty ? 'Localsync' : deviceName.trim(),
-    email: 'localsync@device.local');
+    email: 'localsync@device.local',
+    time: time,
+    offset: DateTime.now().timeZoneOffset.inMinutes);
+
+/// 2026-11-14 owner: two entries with the same journal time on both devices -> "put the side whose changes happened
+/// earlier". A commit is made at sync time, not when the note was typed, so the author time is set to the newest
+/// save time (file modified time) of the files this commit changes. Null when none can be read.
+int? _newestSaveTime(git.Repository repo, git.Tree? oldTree, git.Tree newTree) {
+  try {
+    final dir = repo.workdir;
+    var newest = 0;
+    for (final d in git.Diff.treeToTree(repo: repo, oldTree: oldTree, newTree: newTree).deltas) {
+      if (d.status == git.GitDelta.deleted) continue;
+      final f = File('$dir${d.newFile.path}');
+      if (!f.existsSync()) continue;
+      final t = f.lastModifiedSync().millisecondsSinceEpoch ~/ 1000;
+      if (t > newest) newest = t;
+    }
+    return newest > 0 ? newest : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// True when the other side's change was saved earlier than ours (author times, see [_newestSaveTime]).
+bool theirsSavedEarlier(git.Repository repo, git.Oid ours, git.Oid theirs) {
+  try {
+    return git.Commit.lookup(repo: repo, oid: theirs).author.time <
+        git.Commit.lookup(repo: repo, oid: ours).author.time;
+  } catch (_) {
+    return false;
+  }
+}
 
 /// Push with one retry on non-fast-forward rejection (remote moved
 /// between our fetch and this push - re-fetch and fast-forward if
@@ -1911,6 +1944,11 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
   var merged = 0;
   var keptOne = 0;
   final conflicts = repo.index.conflicts;
+  var theirsFirst = false;
+  try {
+    theirsFirst = theirsSavedEarlier(
+        repo, repo.head.target, git.Reference.lookup(repo: repo, name: 'MERGE_HEAD').target);
+  } catch (_) {/* not mid-merge: ours first, as before */}
   for (final relPath in conflicts.keys.toList()) {
     if (!relPath.endsWith('.md')) continue;
     try {
@@ -1923,11 +1961,11 @@ git.Signature _signatureFor(String deviceName) => git.Signature.create(
       ({String? merged, bool tooLarge}) attempt;
       if (anc == null) {
         // No common ancestor (e.g. after re-linking a phone): merge on the lines both versions share.
-        attempt = (merged: mergeTwoWayLines(oursBlob.content, theirsBlob.content), tooLarge: false);
+        attempt = (merged: mergeTwoWayLines(oursBlob.content, theirsBlob.content, theirsFirst: theirsFirst), tooLarge: false);
       } else {
         final baseBlob = git.Blob.lookup(repo: repo, oid: anc.oid);
         if (baseBlob.isBinary) continue;
-        attempt = mergeThreeWayLinesOrReason(baseBlob.content, oursBlob.content, theirsBlob.content);
+        attempt = mergeThreeWayLinesOrReason(baseBlob.content, oursBlob.content, theirsBlob.content, theirsFirst: theirsFirst);
       }
       final result = attempt.merged;
       if (result == null && !attempt.tooLarge) continue;
