@@ -1305,8 +1305,12 @@ class _IdleViewState extends State<_IdleView>
                     // broke the shield once any text existed. The
                     // auto-collapse-once-typing-starts behavior lives
                     // there now; this only needs the toggle itself.
+                    // 2026-11-14 owner: "Tapping anywhere in the password info should fold up the tips."
                     child: _showPasswordInfo
-                        ? Padding(
+                        ? GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => setState(() => _showPasswordInfo = false),
+                            child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
                             child: Container(
                               padding: const EdgeInsets.all(12),
@@ -1421,7 +1425,7 @@ class _IdleViewState extends State<_IdleView>
                                 ],
                               ),
                             ),
-                          )
+                          ))
                         : const SizedBox(width: double.infinity),
                   ),
                   const SizedBox(height: 16),
