@@ -58,6 +58,7 @@
 
 import 'desktop_schedule.dart';
 import 'git_service.dart' show sshRepoUrl, lookupOrigin;
+import 'pre_pull_marker.dart';
 import 'dart:async' show StreamController;
 import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
@@ -1410,14 +1411,13 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
 // the computer's text gone from the note (only in history). Every pull now notes the phone's commit from before the
 // pull; before committing, a note whose new text dropped EVERY line the pull added (it was written from the old copy)
 // is committed on top of that old commit and git merges it (2026-11-14 owner: "build code using git").
-const _kPrePullFile = 'localsync_pre_pull_head';
 const _kStaleWindow = Duration(minutes: 15);
 
 String _gitDir(git.Repository repo) => repo.path.endsWith('/') ? repo.path : '${repo.path}/';
 
 void notePrePull(git.Repository repo, git.Oid prior) {
   try {
-    File('${_gitDir(repo)}$_kPrePullFile')
+    File('${_gitDir(repo)}$kPrePullFile')
         .writeAsStringSync('${prior.sha}\n${DateTime.now().millisecondsSinceEpoch}\n');
   } catch (_) {}
 }
@@ -1428,7 +1428,7 @@ void notePrePull(git.Repository repo, git.Oid prior) {
 /// Never throws: on any doubt the save is committed as before.
 bool mergeStaleSavesWithGit(git.Repository repo, git.Commit head, String deviceName, String message) {
   try {
-    final f = File('${_gitDir(repo)}$_kPrePullFile');
+    final f = File('${_gitDir(repo)}$kPrePullFile');
     if (!f.existsSync()) return false;
     final lines = f.readAsLinesSync();
     if (lines.length < 2) return false;

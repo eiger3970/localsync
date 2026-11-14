@@ -23,6 +23,7 @@
 // the eventual "apply my pick" step replaces exactly that span with
 // whichever side won, nothing fuzzier than a direct substring replace.
 
+import 'pre_pull_marker.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -903,6 +904,7 @@ Future<String> resolveConflict(
   ConflictEntry entry,
   String chosen,
 ) async {
+  clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
@@ -1281,6 +1283,7 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
 /// undoReferenceCallout: nothing is discarded, the exact original
 /// content is simply restored from the marker's own embedded data.
 Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
+  clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) return; // file changed since scan
@@ -1310,6 +1313,7 @@ class MergeUndo {
 /// (and writes nothing) if the note changed since the merge - never
 /// overwrite newer edits.
 Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
+  clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
   final file = File('$vaultPath/${undo.filePath}');
   if (await file.readAsString() != undo.after) return false;
   await VaultFolderService().coordinatedWrite(file.path, undo.before);
@@ -1324,6 +1328,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   ConflictEntry entry, {
   bool cleanUp = false,
 }) async {
+  clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
   final backupRelPath = await _backupConflictBeforeResolving(vaultPath, entry);
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();

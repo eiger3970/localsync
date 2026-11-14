@@ -98,4 +98,31 @@ void main() {
       await d.delete(recursive: true);
     }
   });
+
+  test('pick made in Conflicts is kept: not treated as an old Obsidian copy', () async {
+    // 15:58 real shape: the pull's merge parked the clash (note = computer's line, phone's line in the pending folder)
+    const prior = '1107 one\n\n1109 test phone two, phone again\n\n1109 test computer two\n';
+    const pulled = '1107 one\n\n1109 test phone two, computer again\n\n1109 test computer two\n';
+    final d = await _repo(prior, pulled);
+    try {
+      final pd = Directory('${d.path}/$kPendingFolder')..createSync();
+      final key = '${Uri.encodeComponent('Journal/Nov 14th.md')}.17946683081970';
+      File('${pd.path}/$key.desktop.md').writeAsStringSync('1109 test phone two, computer again');
+      File('${pd.path}/$key.phone.md').writeAsStringSync('1109 test phone two, phone again');
+      final found = await scanForConflicts(d.path);
+      expect(found.length, 1);
+      final phone = found.single.versions.firstWhere((v) => v.body.contains('phone again'));
+      await resolveConflict(d.path, found.single, phone.body);
+      final repo = git.Repository.open(d.path);
+      expect(commitDirtyTree(repo, '202611141601', 'iPhone'), isTrue);
+      expect(_git(d.path, ['log', '-1', '--format=%P']).split(' ').length, 1, reason: 'ordinary commit, no merge');
+      final note = File('${d.path}/Journal/Nov 14th.md').readAsStringSync();
+      expect(note.contains('phone again'), isTrue, reason: note);
+      expect(note.contains('computer again'), isFalse, reason: note);
+      expect(await scanForConflicts(d.path), isEmpty);
+      repo.free();
+    } finally {
+      await d.delete(recursive: true);
+    }
+  });
 }
