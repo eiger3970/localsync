@@ -1449,12 +1449,15 @@ bool mergeStaleSavesWithGit(git.Repository repo, git.Commit head, String deviceN
       if (isStaleSave(b.content, saved, t.content)) stale[d.newFile.path] = (saved: saved, pulled: t.content);
     }
     if (stale.isEmpty) return false;
-    // Obsidian's save as a commit whose parent is the copy it was based on
-    final idx = git.Index.newInMemory()..readTree(prior.tree);
+    // Obsidian's save as a commit whose parent is the copy it was based on: the prior tree with those notes staged
+    // from disk, then the index goes back to the current commit. (An in-memory index crashed libgit2 on lookup.)
+    final idx = repo.index..readTree(prior.tree);
     for (final e in stale.entries) {
-      idx.addFromBuffer(entry: idx[e.key], buffer: e.value.saved);
+      idx.add(e.key);
     }
-    final tree = git.Tree.lookup(repo: repo, oid: idx.writeTree(repo));
+    final tree = git.Tree.lookup(repo: repo, oid: idx.writeTree());
+    idx.readTree(head.tree);
+    idx.write();
     const ref = 'refs/localsync/late-save';
     try {
       git.Reference.delete(repo: repo, name: ref);
