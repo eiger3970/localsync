@@ -40,7 +40,6 @@ import '../services/purchase_service.dart';
 import 'home_screen.dart';
 import '../widgets/auto_sync_on_resume.dart';
 import 'pairing_screen.dart';
-import 'security_info_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/app_badge.dart';
 import '../widgets/folder_route_view.dart';
@@ -1402,11 +1401,11 @@ class _IdleViewState extends State<_IdleView>
                                   // explanation fits better than
                                   // inventing new jargon here.
                                   InkWell(
-                                    onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SecurityInfoScreen())),
+                                    // 2026-11-14 owner: the full password security info lives on the website
+                                    // (kworld style), the tips here stay short so setup is not interrupted.
+                                    onTap: () => launchUrl(
+                                        Uri.parse('https://kworld.space/website-security#transfers/localsync-password'),
+                                        mode: LaunchMode.externalApplication),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [

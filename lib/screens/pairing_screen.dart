@@ -6,6 +6,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../theme.dart';
@@ -24,7 +25,6 @@ import '../services/database_service.dart';
 import '../services/discovery_service.dart';
 import '../services/repository_provider.dart';
 import 'linking_screen.dart';
-import 'security_info_screen.dart';
 import '../widgets/top_message.dart';
 
 class PairingScreen extends StatefulWidget {
@@ -389,11 +389,11 @@ class _PairingScreenState extends State<PairingScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   InkWell(
-                                    onTap: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) =>
-                                                const SecurityInfoScreen())),
+                                    // 2026-11-14 owner: the full password security info lives on the website
+                                    // (kworld style), the tips here stay short so setup is not interrupted.
+                                    onTap: () => launchUrl(
+                                        Uri.parse('https://kworld.space/website-security#transfers/localsync-password'),
+                                        mode: LaunchMode.externalApplication),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
