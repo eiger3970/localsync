@@ -805,6 +805,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
       // reason not yet understood), just not narrated.
       backupFilesAboutToChange(
           repo, p.vaultPath, localOid, remoteOid, 'before pull reset');
+      notePrePull(repo, localOid);
       repo.reset(oid: remoteOid, resetType: git.GitReset.hard);
       // 2026-09-06: real device bug found live - a hard reset's own
       // checkout silently failed to actually write at least one real
@@ -1028,6 +1029,7 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     // Diverged - three-way merge, conflicts repaired in place (both
     // versions kept), never aborted or silently dropped.
     final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
+    notePrePull(repo, localOid);
     git.Merge.commit(repo: repo, commit: annotated);
     var unresolvedCount = 0;
     var bothKeptCount = 0;
@@ -1413,6 +1415,7 @@ bool recoverInterruptedMerge(
 bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
   final parent = git.Commit.lookup(repo: repo, oid: headOid);
+  rescueStaleSaves(repo, parent);
   final tree = _stageAndWriteTree(repo);
   if (tree.oid == parent.tree.oid) return false;
   final signature = _signatureFor(deviceName, time: _newestSaveTime(repo, parent.tree, tree));
@@ -1426,6 +1429,94 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
     parents: [parent],
   );
   return true;
+}
+
+// ── Stale editor saves ────────────────────────────────────────────────────────
+// 2026-11-14 owner, real test: "1109 test phone two, edited on computer" vanished. Desktop sync brought the
+// computer's edit to the phone at 12:41 while Obsidian on the phone still held unsaved typing based on the OLD line;
+// at 12:43 Obsidian saved that over the computer's edit, and the next sync saw a normal phone change - no conflict,
+// the computer's text gone from the note (only in history). Every pull now notes the phone's commit from before the
+// pull; before committing, a note whose new text dropped EVERY line the pull added (it was written from the old copy)
+// is merged three ways (old copy, what Obsidian saved, what the pull brought) so both edits stay.
+const _kPrePullFile = 'localsync_pre_pull_head';
+const _kStaleWindow = Duration(minutes: 15);
+
+String _gitDir(git.Repository repo) => repo.path.endsWith('/') ? repo.path : '${repo.path}/';
+
+void notePrePull(git.Repository repo, git.Oid prior) {
+  try {
+    File('${_gitDir(repo)}$_kPrePullFile')
+        .writeAsStringSync('${prior.sha}\n${DateTime.now().millisecondsSinceEpoch}\n');
+  } catch (_) {}
+}
+
+/// Returns the notes it rewrote (relative paths). Never throws: on any doubt the save is committed as before.
+List<String> rescueStaleSaves(git.Repository repo, git.Commit head) {
+  final fixed = <String>[];
+  try {
+    final f = File('${_gitDir(repo)}$_kPrePullFile');
+    if (!f.existsSync()) return fixed;
+    final lines = f.readAsLinesSync();
+    if (lines.length < 2) return fixed;
+    final at = DateTime.fromMillisecondsSinceEpoch(int.parse(lines[1].trim()));
+    if (DateTime.now().difference(at) > _kStaleWindow) return fixed;
+    final prior = git.Commit.lookup(repo: repo, oid: git.Oid.fromSHA(repo, lines[0].trim()));
+    if (prior.oid == head.oid) return fixed;
+    final dir = repo.workdir.endsWith('/') ? repo.workdir : '${repo.workdir}/';
+    for (final d in git.Diff.treeToTree(repo: repo, oldTree: prior.tree, newTree: head.tree).deltas) {
+      if (d.status != git.GitDelta.modified) continue;
+      final rel = d.newFile.path;
+      if (!rel.endsWith('.md')) continue;
+      final file = File('$dir$rel');
+      if (!file.existsSync()) continue;
+      final b = git.Blob.lookup(repo: repo, oid: d.oldFile.oid);
+      final t = git.Blob.lookup(repo: repo, oid: d.newFile.oid);
+      if (b.isBinary || t.isBinary) continue;
+      final base = b.content, theirs = t.content, ours = file.readAsStringSync();
+      if (ours == theirs) continue;
+      final merged = staleSaveMerge(base, ours, theirs);
+      if (merged == null || merged == ours) continue;
+      file.writeAsStringSync(merged);
+      fixed.add(rel);
+    }
+  } catch (e) {
+    debugPrint('LocalSync rescueStaleSaves: $e');
+  }
+  return fixed;
+}
+
+/// Null when [ours] was written from the pulled text (it keeps at least one line the pull added) or the pull only
+/// removed lines. Otherwise [ours] was written from the old copy: both edits merged, or, if they cannot be merged, the
+/// pulled lines that would be lost are added after [ours] - never dropped.
+String? staleSaveMerge(String base, String ours, String theirs) {
+  Set<String> ls(String s) => s.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
+  final added = ls(theirs).difference(ls(base));
+  if (added.isEmpty) return null;
+  final mine = ls(ours);
+  if (added.any(mine.contains)) return null;
+  if (ours == base) return theirs; // nothing typed, the old copy was just written back
+  // the pulled edit was saved before Obsidian's late save, so it goes first (same-time rule)
+  final m = mergeThreeWayLines(base, ours, theirs, theirsFirst: true);
+  if (m != null) return m;
+  // Same line changed on both (the real case): each pulled line goes right after the line it followed in the pulled
+  // text, so the computer's edit sits next to the phone's (computer first: it was saved first).
+  final out = ours.split('\n');
+  String? prev;
+  for (final l in theirs.split('\n')) {
+    final k = l.trim();
+    if (k.isEmpty) continue;
+    if (added.contains(k) && !mine.contains(k)) {
+      final at = prev == null ? -1 : out.indexWhere((x) => x.trim() == prev);
+      if (at < 0) {
+        out.insertAll(0, [l, '']);
+      } else {
+        out.insertAll(at + 1, ['', l]);
+      }
+      mine.add(k);
+    }
+    if (mine.contains(k)) prev = k;
+  }
+  return out.join('\n');
 }
 
 /// Creates the very first commit in a genuinely fresh repo (Repository
@@ -1891,6 +1982,7 @@ bool theirsSavedEarlier(git.Repository repo, git.Oid ours, git.Oid theirs) {
       final backedUp = backupFilesAboutToChange(
           repo, vaultPath, priorOid, remoteBranch.target,
           'before push-retry reset');
+      notePrePull(repo, priorOid);
       repo.reset(oid: remoteBranch.target, resetType: git.GitReset.hard);
       final repaired = verifyAndRepairCheckout(
           repo, vaultPath, priorOid, remoteBranch.target);
