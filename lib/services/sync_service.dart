@@ -1031,39 +1031,8 @@ Future<SyncResult> _pullInIsolate(_SyncParams p) async {
     final annotated = git.AnnotatedCommit.lookup(repo: repo, oid: remoteOid);
     notePrePull(repo, localOid);
     git.Merge.commit(repo: repo, commit: annotated);
-    var unresolvedCount = 0;
-    var bothKeptCount = 0;
-    var autoMergedCount = 0;
-    var keptOneCount = 0;
-    if (repo.index.hasConflicts) {
-      final other = labelForCommit(repo, remoteOid);
-      // 2026-11-10 owner: "not just my diary - all users' text". libgit2 calls any two edits that touch the same or
-      // neighbouring lines a conflict, and the repair below then boxes both. With the real common ancestor in hand,
-      // everything the two sides changed in different places (or added at the same gap) can be combined with no
-      // box at all; only a line BOTH sides rewrote is left for the box + Conflicts screen, exactly as before.
-      final auto = autoMergeMarkdownConflicts(repo, p.vaultPath);
-      autoMergedCount = auto.merged;
-      keptOneCount = auto.keptOne;
-      // 2026-11-14 owner: "2 text blocks blue and orange ... meaningless and a distraction - this should just say fix
-      // Conflict on LocalSync". A clash the merge cannot decide no longer writes boxes into the note: the note keeps
-      // the desktop's wording, the phone's wording goes to the pending folder, and the Conflicts screen shows both.
-      // 2026-11-13: only the notes still in conflict are read (a 3,950-note vault was read twice: 3 minutes per PULL).
-      final only = {for (final k in repo.index.conflicts.keys) if (k.endsWith('.md')) k};
-      final deferred = deferConflictsToPending(p.vaultPath, only: only);
-      unresolvedCount = deferred + repairAllConflictsOnDisk(p.vaultPath,
-          otherLabel: other.label,
-          otherTime: other.time.isEmpty ? null : other.time,
-          only: only);
-      // 2026-10-05: user - "if I edit a text file on phone and desktop, then
-      // sync, does it break?" It did: this everyday pull only repaired .md,
-      // so any other file changed on both sides (every file in a free
-      // "Sync my files" folder - .txt, Word, photos) stayed conflicted and
-      // finishMergeCommit threw mid-merge. Same second pass the other merge
-      // paths already run: phone's copy kept, the desktop's saved to the
-      // backups place - nothing lost.
-      bothKeptCount = repairBinaryConflictsOnDisk(repo, p.vaultPath,
-          otherLabel: other.label);
-    }
+    final (:unresolvedCount, :bothKeptCount, :autoMergedCount, :keptOneCount) =
+        _settleMergeConflicts(repo, p.vaultPath, remoteOid);
     finishMergeCommit(repo, p.deviceName,
         message: 'Merge desktop and phone ${p.commitMessage}');
     repo.stateCleanup();
@@ -1415,7 +1384,10 @@ bool recoverInterruptedMerge(
 bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
   final headOid = repo.head.target;
   final parent = git.Commit.lookup(repo: repo, oid: headOid);
-  rescueStaleSaves(repo, parent);
+  if (mergeStaleSavesWithGit(repo, parent, deviceName, message)) {
+    commitDirtyTree(repo, message, deviceName); // anything else typed since, on top of the merge
+    return true;
+  }
   final tree = _stageAndWriteTree(repo);
   if (tree.oid == parent.tree.oid) return false;
   final signature = _signatureFor(deviceName, time: _newestSaveTime(repo, parent.tree, tree));
@@ -1437,7 +1409,7 @@ bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
 // at 12:43 Obsidian saved that over the computer's edit, and the next sync saw a normal phone change - no conflict,
 // the computer's text gone from the note (only in history). Every pull now notes the phone's commit from before the
 // pull; before committing, a note whose new text dropped EVERY line the pull added (it was written from the old copy)
-// is merged three ways (old copy, what Obsidian saved, what the pull brought) so both edits stay.
+// is committed on top of that old commit and git merges it (2026-11-14 owner: "build code using git").
 const _kPrePullFile = 'localsync_pre_pull_head';
 const _kStaleWindow = Duration(minutes: 15);
 
@@ -1450,73 +1422,121 @@ void notePrePull(git.Repository repo, git.Oid prior) {
   } catch (_) {}
 }
 
-/// Returns the notes it rewrote (relative paths). Never throws: on any doubt the save is committed as before.
-List<String> rescueStaleSaves(git.Repository repo, git.Commit head) {
-  final fixed = <String>[];
+/// A note Obsidian saved from its OLD copy (written over what the pull just brought) is committed the way git sees
+/// it: on top of the commit it was really based on (the phone's commit before the pull), then git merges that commit
+/// with the current one - the same merge and conflict handling as any pull. Returns true if it merged.
+/// Never throws: on any doubt the save is committed as before.
+bool mergeStaleSavesWithGit(git.Repository repo, git.Commit head, String deviceName, String message) {
   try {
     final f = File('${_gitDir(repo)}$_kPrePullFile');
-    if (!f.existsSync()) return fixed;
+    if (!f.existsSync()) return false;
     final lines = f.readAsLinesSync();
-    if (lines.length < 2) return fixed;
+    if (lines.length < 2) return false;
     final at = DateTime.fromMillisecondsSinceEpoch(int.parse(lines[1].trim()));
-    if (DateTime.now().difference(at) > _kStaleWindow) return fixed;
+    if (DateTime.now().difference(at) > _kStaleWindow) return false;
     final prior = git.Commit.lookup(repo: repo, oid: git.Oid.fromSHA(repo, lines[0].trim()));
-    if (prior.oid == head.oid) return fixed;
+    if (prior.oid == head.oid) return false;
     final dir = repo.workdir.endsWith('/') ? repo.workdir : '${repo.workdir}/';
+    final stale = <String, ({String saved, String pulled})>{};
     for (final d in git.Diff.treeToTree(repo: repo, oldTree: prior.tree, newTree: head.tree).deltas) {
-      if (d.status != git.GitDelta.modified) continue;
-      final rel = d.newFile.path;
-      if (!rel.endsWith('.md')) continue;
-      final file = File('$dir$rel');
+      if (d.status != git.GitDelta.modified || !d.newFile.path.endsWith('.md')) continue;
+      final file = File('$dir${d.newFile.path}');
       if (!file.existsSync()) continue;
       final b = git.Blob.lookup(repo: repo, oid: d.oldFile.oid);
       final t = git.Blob.lookup(repo: repo, oid: d.newFile.oid);
       if (b.isBinary || t.isBinary) continue;
-      final base = b.content, theirs = t.content, ours = file.readAsStringSync();
-      if (ours == theirs) continue;
-      final merged = staleSaveMerge(base, ours, theirs);
-      if (merged == null || merged == ours) continue;
-      file.writeAsStringSync(merged);
-      fixed.add(rel);
+      final saved = file.readAsStringSync();
+      if (isStaleSave(b.content, saved, t.content)) stale[d.newFile.path] = (saved: saved, pulled: t.content);
     }
+    if (stale.isEmpty) return false;
+    // Obsidian's save as a commit whose parent is the copy it was based on
+    final idx = git.Index.newInMemory()..readTree(prior.tree);
+    for (final e in stale.entries) {
+      idx.addFromBuffer(entry: idx[e.key], buffer: e.value.saved);
+    }
+    final tree = git.Tree.lookup(repo: repo, oid: idx.writeTree(repo));
+    const ref = 'refs/localsync/late-save';
+    try {
+      git.Reference.delete(repo: repo, name: ref);
+    } catch (_) {}
+    final sig = _signatureFor(deviceName, time: _newestSaveTime(repo, prior.tree, tree));
+    final lateOid = git.Commit.create(
+        repo: repo,
+        updateRef: ref,
+        author: sig,
+        committer: sig,
+        message: 'Obsidian save from before the pull $message',
+        tree: tree,
+        parents: [prior]);
+    // the work tree back to the current commit for those notes (Obsidian's text is safe in the commit), then git merge
+    for (final e in stale.entries) {
+      File('$dir${e.key}').writeAsStringSync(e.value.pulled);
+    }
+    git.Merge.commit(repo: repo, commit: git.AnnotatedCommit.lookup(repo: repo, oid: lateOid));
+    _settleMergeConflicts(repo, dir.substring(0, dir.length - 1), lateOid, oursIsDesktop: true);
+    finishMergeCommit(repo, deviceName, message: 'Merge Obsidian save from before the pull $message');
+    repo.stateCleanup();
+    f.deleteSync();
+    return true;
   } catch (e) {
-    debugPrint('LocalSync rescueStaleSaves: $e');
+    debugPrint('LocalSync mergeStaleSavesWithGit: $e');
+    return false;
   }
-  return fixed;
 }
 
-/// Null when [ours] was written from the pulled text (it keeps at least one line the pull added) or the pull only
-/// removed lines. Otherwise [ours] was written from the old copy: both edits merged, or, if they cannot be merged, the
-/// pulled lines that would be lost are added after [ours] - never dropped.
-String? staleSaveMerge(String base, String ours, String theirs) {
+/// True when [saved] was written from the old copy: it keeps none of the lines the pull added. A save typed on top of
+/// the pulled text keeps at least one of them; a pull that only removed lines has nothing to lose.
+bool isStaleSave(String base, String saved, String pulled) {
+  if (saved == pulled) return false;
   Set<String> ls(String s) => s.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toSet();
-  final added = ls(theirs).difference(ls(base));
-  if (added.isEmpty) return null;
-  final mine = ls(ours);
-  if (added.any(mine.contains)) return null;
-  if (ours == base) return theirs; // nothing typed, the old copy was just written back
-  // the pulled edit was saved before Obsidian's late save, so it goes first (same-time rule)
-  final m = mergeThreeWayLines(base, ours, theirs, theirsFirst: true);
-  if (m != null) return m;
-  // Same line changed on both (the real case): each pulled line goes right after the line it followed in the pulled
-  // text, so the computer's edit sits next to the phone's (computer first: it was saved first).
-  final out = ours.split('\n');
-  String? prev;
-  for (final l in theirs.split('\n')) {
-    final k = l.trim();
-    if (k.isEmpty) continue;
-    if (added.contains(k) && !mine.contains(k)) {
-      final at = prev == null ? -1 : out.indexWhere((x) => x.trim() == prev);
-      if (at < 0) {
-        out.insertAll(0, [l, '']);
-      } else {
-        out.insertAll(at + 1, ['', l]);
-      }
-      mine.add(k);
+  final added = ls(pulled).difference(ls(base));
+  if (added.isEmpty) return false;
+  final mine = ls(saved);
+  return !added.any(mine.contains);
+}
+
+/// The conflict handling of every git merge on the phone (the pull's merge and the late-save merge below): git's
+/// result is kept, a clash git cannot decide goes to the Conflicts screen, nothing is dropped.
+({int unresolvedCount, int bothKeptCount, int autoMergedCount, int keptOneCount}) _settleMergeConflicts(
+    git.Repository repo, String vaultPath, git.Oid remoteOid, {bool oursIsDesktop = false}) {
+    var unresolvedCount = 0;
+    var bothKeptCount = 0;
+    var autoMergedCount = 0;
+    var keptOneCount = 0;
+    if (repo.index.hasConflicts) {
+      final other = labelForCommit(repo, remoteOid);
+      // 2026-11-10 owner: "not just my diary - all users' text". libgit2 calls any two edits that touch the same or
+      // neighbouring lines a conflict, and the repair below then boxes both. With the real common ancestor in hand,
+      // everything the two sides changed in different places (or added at the same gap) can be combined with no
+      // box at all; only a line BOTH sides rewrote is left for the box + Conflicts screen, exactly as before.
+      final auto = autoMergeMarkdownConflicts(repo, vaultPath);
+      autoMergedCount = auto.merged;
+      keptOneCount = auto.keptOne;
+      // 2026-11-14 owner: "2 text blocks blue and orange ... meaningless and a distraction - this should just say fix
+      // Conflict on LocalSync". A clash the merge cannot decide no longer writes boxes into the note: the note keeps
+      // the desktop's wording, the phone's wording goes to the pending folder, and the Conflicts screen shows both.
+      // 2026-11-13: only the notes still in conflict are read (a 3,950-note vault was read twice: 3 minutes per PULL).
+      final only = {for (final k in repo.index.conflicts.keys) if (k.endsWith('.md')) k};
+      final deferred = deferConflictsToPending(vaultPath, only: only, oursIsDesktop: oursIsDesktop);
+      unresolvedCount = deferred + repairAllConflictsOnDisk(vaultPath,
+          otherLabel: other.label,
+          otherTime: other.time.isEmpty ? null : other.time,
+          only: only);
+      // 2026-10-05: user - "if I edit a text file on phone and desktop, then
+      // sync, does it break?" It did: this everyday pull only repaired .md,
+      // so any other file changed on both sides (every file in a free
+      // "Sync my files" folder - .txt, Word, photos) stayed conflicted and
+      // finishMergeCommit threw mid-merge. Same second pass the other merge
+      // paths already run: phone's copy kept, the desktop's saved to the
+      // backups place - nothing lost.
+      bothKeptCount = repairBinaryConflictsOnDisk(repo, vaultPath,
+          otherLabel: other.label);
     }
-    if (mine.contains(k)) prev = k;
-  }
-  return out.join('\n');
+  return (
+      unresolvedCount: unresolvedCount,
+      bothKeptCount: bothKeptCount,
+      autoMergedCount: autoMergedCount,
+      keptOneCount: keptOneCount);
 }
 
 /// Creates the very first commit in a genuinely fresh repo (Repository
@@ -2093,7 +2113,9 @@ final _markerHunk = RegExp(r'^<<<<<<< [^\n]*\n([\s\S]*?)^=======\n([\s\S]*?)^>>>
 /// the note, `....phone.md` = this phone's wording. Notes the existing repair settles on its own (identical sides,
 /// a clean append) are left to it. Both full versions are also saved to the backups place first. Returns how many
 /// notes now wait in the Conflicts screen. Nothing is dropped: if a pair cannot be written, the note is not touched.
-int deferConflictsToPending(String vaultPath, {Set<String>? only}) {
+/// [oursIsDesktop]: the merge's own side holds the desktop's text (the late-save merge: HEAD has what the pull
+/// brought, the merged-in commit is Obsidian's save on the phone), so the two sides swap labels.
+int deferConflictsToPending(String vaultPath, {Set<String>? only, bool oursIsDesktop = false}) {
   var count = 0;
   final dir = Directory(vaultPath);
   final pending = Directory('$vaultPath/.localsync_pending');
@@ -2114,8 +2136,9 @@ int deferConflictsToPending(String vaultPath, {Set<String>? only}) {
       final rel = entity.path.substring(vaultPath.length + 1);
       final ts = backupTimestamp();
       final backupDir = Directory(conflictBackupsDir(vaultPath))..createSync(recursive: true);
-      final phoneWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(1)!);
-      final deskWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(2)!);
+      final ph = oursIsDesktop ? 2 : 1, dk = oursIsDesktop ? 1 : 2;
+      final phoneWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(ph)!);
+      final deskWhole = content.replaceAllMapped(_markerHunk, (m) => m.group(dk)!);
       saveBackupUnlessIdentical(backupDir, _conflictBackupName(rel, 'before conflict, phone version', ts),
           utf8.encode(neutralizeReminderTags(phoneWhole)));
       saveBackupUnlessIdentical(backupDir, _conflictBackupName(rel, 'before conflict, desktop version', ts),
@@ -2124,8 +2147,8 @@ int deferConflictsToPending(String vaultPath, {Set<String>? only}) {
       final enc = Uri.encodeComponent(rel);
       for (var i = 0; i < hunks.length; i++) {
         final stamp = '${DateTime.now().millisecondsSinceEpoch}$i';
-        File('${pending.path}/$enc.$stamp.desktop.md').writeAsStringSync(hunks[i].group(2)!.trim());
-        File('${pending.path}/$enc.$stamp.phone.md').writeAsStringSync(hunks[i].group(1)!.trim());
+        File('${pending.path}/$enc.$stamp.desktop.md').writeAsStringSync(hunks[i].group(dk)!.trim());
+        File('${pending.path}/$enc.$stamp.phone.md').writeAsStringSync(hunks[i].group(ph)!.trim());
       }
       entity.writeAsStringSync(deskWhole);
       count++;
