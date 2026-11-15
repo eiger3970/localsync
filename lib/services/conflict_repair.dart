@@ -719,9 +719,16 @@ bool timesOutOfOrderByMerge(List<String> inputs, String merged) {
 /// desktop/localsync_sync.sh.
 List<String>? _timeOrderedGap(List<String> ours, List<String> theirs, {bool theirsFirst = false}) {
   if (ours.isEmpty || theirs.isEmpty) return null;
-  final op = _splitParagraphs(ours.join('\n')), tp = _splitParagraphs(theirs.join('\n'));
+  // 2026-11-15 real loss (owner's Nov 14th diary): the phone's entries held an untimed paragraph ("Old thug queue
+  // jumper was in queue tonight." under its 2005 entry), so the sort gave up, the merge put the desktop's 1130 under
+  // 2230, the note went to Conflicts and the desktop line was lost by the pick. An untimed paragraph now belongs to the
+  // timed entry above it on the same side and moves with it; only a side whose FIRST paragraph has no time still
+  // returns null.
+  final op = _entriesWithFollowers(_splitParagraphs(ours.join('\n')));
+  final tp = _entriesWithFollowers(_splitParagraphs(theirs.join('\n')));
+  if (op == null || tp == null) return null;
   final paras = [...op, ...tp];
-  if (paras.isEmpty || !paras.every((q) => _journalTimePattern.hasMatch(q))) return null;
+  if (paras.isEmpty) return null;
   // Same time on both sides: the side that saved its change earlier goes first; within one side, typed order stays.
   final keyed = [
     for (var i = 0; i < paras.length; i++)
@@ -736,6 +743,22 @@ List<String>? _timeOrderedGap(List<String> ours, List<String> theirs, {bool thei
   }
   if (ours.last.trim().isEmpty || theirs.last.trim().isEmpty) lines.add('');
   return lines;
+}
+
+/// Paragraphs grouped into entries: each timed paragraph plus the untimed paragraphs under it (joined by a blank
+/// line). Null when the first paragraph has no journal time.
+List<String>? _entriesWithFollowers(List<String> paras) {
+  final out = <String>[];
+  for (final q in paras) {
+    if (_journalTimePattern.hasMatch(q)) {
+      out.add(q);
+    } else if (out.isEmpty) {
+      return null;
+    } else {
+      out[out.length - 1] = '${out.last}\n\n$q';
+    }
+  }
+  return out;
 }
 
 // An unfinished dated heading, e.g. `## 202611` (hashes, then only digits).

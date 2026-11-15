@@ -467,9 +467,23 @@ def _time_ordered_gap(ours, theirs, theirs_first=False):
     # Mirrors _timeOrderedGap in conflict_repair.dart. Anything else returns None (ours then theirs).
     if not ours or not theirs:
         return None
-    op = [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(ours)) if q.strip()]
-    paras = op + [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(theirs)) if q.strip()]
-    if not paras or not all(_JTIME_RE.match(q) for q in paras):
+    # 2026-11-15: an untimed paragraph belongs to the timed entry above it (same side) and moves with it;
+    # a side whose first paragraph has no time still returns None. Mirrors _entriesWithFollowers.
+    def entries(lines):
+        out = []
+        for q in [q.strip() for q in re.split(r'\n\s*\n', '\n'.join(lines)) if q.strip()]:
+            if _JTIME_RE.match(q):
+                out.append(q)
+            elif not out:
+                return None
+            else:
+                out[-1] += '\n\n' + q
+        return out
+    op, tp = entries(ours), entries(theirs)
+    if op is None or tp is None:
+        return None
+    paras = op + tp
+    if not paras:
         return None
     # 2026-11-14 owner: same time on both sides -> the side that saved its change earlier goes first
     # (theirs_first, from the commits' author times); within one side the typed order stays.
