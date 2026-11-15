@@ -1168,3 +1168,19 @@ String cleanUpJournalNote(String content) {
 bool cleanUpWouldChange(String content) =>
     normalizeWhitespace(cleanUpJournalNote(content)) !=
     normalizeWhitespace(content);
+
+/// 2026-11-15: the lines that leave a note when [chosen] is kept and the other [versions] are removed - every
+/// non-blank line of another version that [chosen] does not contain (trimmed, each listed once, in order).
+List<String> linesLostByKeeping(String chosen, List<String> versions) {
+  final kept = {for (final l in chosen.split('\n')) l.trim()};
+  final out = <String>[];
+  for (final v in versions) {
+    if (v == chosen) continue;
+    for (final l in v.split('\n')) {
+      final t = l.trim();
+      if (t.isEmpty || kept.contains(t) || out.contains(t)) continue;
+      out.add(t);
+    }
+  }
+  return out;
+}

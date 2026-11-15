@@ -21,6 +21,7 @@ import '../services/purchase_service.dart';
 import '../services/conflict_repair.dart'
     show
         allHaveLeadingTime,
+        linesLostByKeeping,
         startsWithJournalTime,
         cleanUpJournalNote,
         cleanUpWouldChange,
@@ -651,7 +652,11 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
       if (unlocked != true || !mounted) return;
     }
     final otherCount = widget.entry.versions.length - 1;
-    final proceed = await showDialog<bool>(
+    // 2026-11-15 real loss (owner's Nov 14th diary): "Keep yours" removed the computer's "1130 test computer four",
+    // and the dialog only said "Removes the other text". Now it names every line that would leave the note (lines of
+    // the other texts that the kept text does not have), and when there are any, KEEP BOTH is the first button.
+    final lost = linesLostByKeeping(chosen, [for (final v in widget.entry.versions) v.body]);
+    final proceed = await showDialog<String>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
@@ -694,12 +699,34 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
               // default (switch off), with the switch immediately
               // below it as the one place to change that, instead of
               // two texts trying to describe the same live state.
-              _DialogPoint(
-                  icon: Icons.cancel,
-                  color: _kBrightRed,
-                  text: otherCount == 1
-                      ? 'Removes the other text from this note'
-                      : 'Removes the other $otherCount texts from this note'),
+              if (lost.isEmpty)
+                _DialogPoint(
+                    icon: Icons.check_circle,
+                    color: kGreen,
+                    text: 'Nothing lost: every line of the other '
+                        '${otherCount == 1 ? 'text' : 'texts'} is already in this one')
+              else ...[
+                _DialogPoint(
+                    icon: Icons.cancel,
+                    color: _kBrightRed,
+                    text: lost.length == 1
+                        ? 'Removes 1 line from this note:'
+                        : 'Removes ${lost.length} lines from this note:'),
+                for (final l in lost.take(5))
+                  Padding(
+                    padding: const EdgeInsets.only(left: 34, bottom: 2),
+                    child: Text(l,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _kBrightRed, fontSize: 13)),
+                  ),
+                if (lost.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 34, bottom: 2),
+                    child: Text('and ${lost.length - 5} more',
+                        style: TextStyle(color: kTextMid, fontSize: 13)),
+                  ),
+              ],
               // 2026-09-08: real feedback, live - "gone entirely" (today)
               // vs "I need all or part of that data onto this device"
               // (2026-08-25's own explicit ask) are genuinely opposite
@@ -783,8 +810,21 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (lost.isNotEmpty) ...[
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, 'both'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('KEEP BOTH',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(dialogContext, true),
+                  onPressed: () => Navigator.pop(dialogContext, 'keep'),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: kGreen),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -799,7 +839,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
                 // one. kTextMid is still visibly secondary next to
                 // "Keep $label"'s bright kStar, without looking inert.
                 TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
+                  onPressed: () => Navigator.pop(dialogContext),
                   child: Text('Not now',
                       style: TextStyle(color: kTextMid, fontSize: 15)),
                 ),
@@ -809,7 +849,8 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         ),
       ),
     );
-    if (proceed == true) await _choose(chosen);
+    if (proceed == 'keep') await _choose(chosen);
+    if (proceed == 'both') await _keepBoth();
   }
 
   // 2026-08-19: pop carries the backup note's location, not just

@@ -31,4 +31,15 @@ void main() {
     // ours-then-theirs would put 1130 under 2230: the merge refuses (person decides), nothing silently reordered
     expect(r, isNull);
   });
+
+  test('keeping the phone text names the computer line it removes', () {
+    const phoneText = '1130 test phone four\n\n1649 library';
+    const deskText = '1130 test computer four';
+    expect(linesLostByKeeping(phoneText, [phoneText, deskText]), ['1130 test computer four']);
+  });
+
+  test('nothing lost when the kept text already has every line', () {
+    const a = '1130 one\n\n1140 two';
+    expect(linesLostByKeeping(a, [a, '1140 two']), isEmpty);
+  });
 }

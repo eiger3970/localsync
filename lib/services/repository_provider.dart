@@ -104,12 +104,51 @@ class RepositoryProvider extends ChangeNotifier {
       _reposWithConflicts.remove(repoId);
       unawaited(SoundService.instance.play(SoundEvent.conflictsCleared));
     }
+    _ensureConflictWatch();
     notifyListeners();
   }
 
-  Future<void> refreshConflicts(int repoId) async {
+  // 2026-11-15 owner: "if there are no more conflicts, then the app must refresh the colours, saving the user the job
+  // of going in to check." The re-check after a clean sync ran while the sync (or the next step of a Desktop sync
+  // round) still held the vault folder, failed silently and kept amber. Now: a re-check never runs during a sync (it
+  // waits for it), a failed re-check is tried again, and while any repo is amber a quiet re-check runs every 20 s
+  // until the colour is right - whatever cleared the conflict (a pick, the computer, a pull).
+  Timer? _conflictWatch;
+  void _ensureConflictWatch() {
+    if (_reposWithConflicts.isEmpty) {
+      _conflictWatch?.cancel();
+      _conflictWatch = null;
+      return;
+    }
+    _conflictWatch ??= Timer.periodic(const Duration(seconds: 20), (_) {
+      if (isSyncing) return;
+      for (final id in List.of(_reposWithConflicts)) {
+        unawaited(refreshConflicts(id));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _conflictWatch?.cancel();
+    super.dispose();
+  }
+
+  Future<void> refreshConflicts(int repoId, {int retriesLeft = 2}) async {
+    final inFlight = _inFlight;
+    if (inFlight != null) await inFlight.catchError((_) {});
+    final ok = await _refreshConflictsOnce(repoId);
+    if (!ok && retriesLeft > 0) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      return refreshConflicts(repoId, retriesLeft: retriesLeft - 1);
+    }
+    _ensureConflictWatch();
+  }
+
+  /// False when the vault could not be read (colour left as it was).
+  Future<bool> _refreshConflictsOnce(int repoId) async {
     final repo = _repos.where((r) => r.id == repoId).firstOrNull;
-    if (repo == null) return;
+    if (repo == null) return true;
     final vf = VaultFolderService();
     String? path;
     var accessed = false;
@@ -120,7 +159,7 @@ class RepositoryProvider extends ChangeNotifier {
       } else {
         path = repo.localPath;
       }
-      if (path == null) return;
+      if (path == null) return false;
       final entries = await scanForConflicts(path);
       if (entries.isEmpty) {
         // 2026-09-24: "all conflicts cleared" chime - only on the real
@@ -134,8 +173,10 @@ class RepositoryProvider extends ChangeNotifier {
         _reposWithConflicts.add(repoId);
       }
       notifyListeners();
+      return true;
     } catch (_) {
-      // Best-effort - an unreadable vault keeps the last known colour.
+      // An unreadable vault keeps the last known colour; refreshConflicts tries again.
+      return false;
     } finally {
       if (accessed) await vf.stopAccessing(repo.vaultBookmark);
     }
@@ -666,6 +707,7 @@ class RepositoryProvider extends ChangeNotifier {
         if (desk is SyncFailed) return desk;
         final down = await _run(id, (service) => service.pull());
         SyncLog.add('DESKTOP SYNC round end ${_resultKind(up)} / ${_resultKind(desk)} / ${_resultKind(down)}');
+        unawaited(refreshConflicts(id)); // waits for the round's lock, then sets the colour
         if (down is SyncFailed || down is SyncNeedsConfirmation || down is SyncOkWithConflicts) return down;
         if (up is SyncOkWithConflicts) return up;
         if (down is SyncOk || up is SyncOk) {
@@ -975,6 +1017,7 @@ class RepositoryProvider extends ChangeNotifier {
               // reach here.
               if (result case SyncOkWithConflicts()) {
                 _reposWithConflicts.add(id);
+                _ensureConflictWatch();
               } else {
                 // 2026-09-24: a clean sync can also mean conflicts were
                 // resolved elsewhere (e.g. on the desktop) - re-check so
