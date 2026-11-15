@@ -42,4 +42,15 @@ void main() {
     const a = '1130 one\n\n1140 two';
     expect(linesLostByKeeping(a, [a, '1140 two']), isEmpty);
   });
+
+  test('same note created on both devices, no line in common: both kept in time order', () {
+    // 2026-11-15 real test: Nov 15th made on the computer (1130) and on the phone (1200, untimed, 1400)
+    const phoneText = '1200 phone line\nNo time on this line.\n1400 phone late';
+    const deskText = '1130 computer line';
+    for (final r in [mergeTwoWayLines(phoneText, deskText), mergeTwoWayLines(deskText, phoneText)]) {
+      expect(r, isNotNull);
+      expect(r!.split('\n').where((l) => l.trim().isNotEmpty).toList(),
+          ['1130 computer line', '1200 phone line', 'No time on this line.', '1400 phone late']);
+    }
+  });
 }

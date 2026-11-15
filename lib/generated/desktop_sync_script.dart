@@ -527,7 +527,9 @@ def times_out_of_order_by_merge(inputs, merged):
     return any(p not in known for p in inversions(m))
 
 def merge_three_way_lines(base, ours, theirs, theirs_first=False):
-    bl = base.split('\n')
+    # 2026-11-15: an empty common version has NO lines (split would give one blank line that both sides "changed",
+    # boxing two notes that only added). Mirrors _mergeThreeWayLines.
+    bl = base.split('\n') if base.strip() else []
     ok = [True] * len(bl); tk = [True] * len(bl)
     og = [[] for _ in range(len(bl) + 1)]; tg = [[] for _ in range(len(bl) + 1)]
     _fill(_diff_lines(bl, ours.split('\n')), ok, og)
@@ -581,6 +583,11 @@ def _git_stage(n):
 
 try:
     _base, _ours, _theirs = _git_stage(1), _git_stage(2), _git_stage(3)
+    # 2026-11-15 real test: both devices created the same day's note (Nov 15th) on their own, so git has no common
+    # version (stage 1 missing) and the note was boxed. Same as the phone's mergeTwoWayLines: the lines both copies
+    # share stand in for the common version, everything else is an addition from one side and is kept.
+    if _base is None and _ours is not None and _theirs is not None:
+        _base = '\n'.join(x for op, x in _diff_lines(_ours.split('\n'), _theirs.split('\n')) if op == 'eq')
     if _base is not None and _ours is not None and _theirs is not None and '<<<<<<< ' in content:
         _too_large = False
         try:

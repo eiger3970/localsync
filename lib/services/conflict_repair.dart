@@ -602,7 +602,9 @@ String? mergeThreeWayLines(String base, String ours, String theirs, {bool theirs
 /// [theirsFirst]: the other device saved its change earlier, so where both sides added entries with the SAME journal
 /// time, its entries go first (2026-11-14 owner: "put the side whose changes happened earlier").
 String? _mergeThreeWayLines(String base, String ours, String theirs, {bool theirsFirst = false}) {
-  final baseLines = base.split('\n');
+  // 2026-11-15 real test (Nov 15th note created on both devices, no line in common): an empty common version has NO
+  // lines - split would give one blank line that both sides "changed", and the note was boxed.
+  final baseLines = base.trim().isEmpty ? <String>[] : base.split('\n');
   final oursDiff = _diffLines(baseLines, ours.split('\n'));
   final theirsDiff = _diffLines(baseLines, theirs.split('\n'));
 
