@@ -1374,7 +1374,8 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                         // Home's own real controls -
                                         // removed, same reasoning as the
                                         // wording revert above.
-                                        if (result?.keptBoth != null)
+                                        // never 2 UNDOs: a whole-note undo (mergeUndo) already covers a Keep Both
+                                        if (result?.keptBoth != null && result?.mergeUndo == null)
                                           TextButton(
                                             onPressed: () {
                                               // 2026-09-15: real bug, live -

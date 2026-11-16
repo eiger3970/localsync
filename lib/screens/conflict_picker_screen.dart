@@ -1058,10 +1058,15 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         // message - same underlying undoKeepBoth, just surfaced where
         // it's actually useful: right after the action, not a
         // screen away.
-        final freshlyKept = await scanForKeptBoth(path);
-        keptBoth = freshlyKept
-            .where((k) => k.filePath == widget.entry.filePath)
-            .firstOrNull;
+        // 2026-11-16 owner: "2x UNDOs" after KEEP BOTH & CLEAN UP. Clean up writes no kept-both record (its undo is
+        // mergeUndo, the whole note), so this scan found an OLDER record for the same note - its UNDO would have
+        // undone an earlier, unrelated Keep Both. Only plain KEEP BOTH looks its fresh record up.
+        if (!cleanUp) {
+          final freshlyKept = await scanForKeptBoth(path);
+          keptBoth = freshlyKept
+              .where((k) => k.filePath == widget.entry.filePath)
+              .firstOrNull;
+        }
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
