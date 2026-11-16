@@ -1266,8 +1266,10 @@ class _IdleViewState extends State<_IdleView>
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.5)),
                   const SizedBox(width: 8),
-                  Icon(Icons.shield_outlined,
-                      size: 16, color: _showPasswordInfo ? kGreen : kTextMid),
+                  // 2026-11-16 owner: "shield is grey, shouldn't it be green? Why only green on tap?" - always green
+                  // (it is a tap target, like every green control); open = filled shield
+                  Icon(_showPasswordInfo ? Icons.shield : Icons.shield_outlined,
+                      size: 16, color: kGreen),
                 ],
               ),
             ),
@@ -1451,7 +1453,14 @@ class _IdleViewState extends State<_IdleView>
                     // own left border, field 1 only, same clipBehavior:
                     // Clip.none precedent as _SkinSwatch's badge overflow
                     // in settings_screen.dart.
-                    child: Stack(
+                    // 2026-11-16 owner: field 2's eye sat left of field 1's and its hint text further left. Field 1 now sits
+                    // in the same clear 1.5 px frame as field 2, so both have the same inner width.
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.transparent, width: 1.5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Stack(
                       clipBehavior: Clip.none,
                       children: [
                         ShreddingPasswordField(
@@ -1516,6 +1525,7 @@ class _IdleViewState extends State<_IdleView>
                           ),
                       ],
                     ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   // 2026-08-25: copy-to-confirm button added then
@@ -1557,7 +1567,6 @@ class _IdleViewState extends State<_IdleView>
                       // keeps the border's left-edge breathing room,
                       // drops the right-side inset that was misaligning
                       // the two eyes.
-                      padding: const EdgeInsets.only(left: 4),
                       child: ShreddingPasswordField(
                         key: _shredKey2,
                         controller: _confirmCtrl,

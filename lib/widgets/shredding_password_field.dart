@@ -357,7 +357,9 @@ class ShreddingPasswordFieldState extends State<ShreddingPasswordField>
                     ),
                   ),
                 )
-              : null,
+              // 2026-11-16 owner: field 2's text "jumpscares right" when typing starts in field 1 (its sparkle
+              // appeared and pushed the text). The sparkle's slot is always there, empty when off, so text never moves.
+              : const SizedBox(width: 28),
           suffixIcon: IconButton(
             icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
             onPressed: () => setState(() => _obscure = !_obscure),
