@@ -131,13 +131,16 @@ class _KeptBothTile extends StatelessWidget {
             onPressed: onUndo,
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: kGreen),
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              // 2026-11-16 owner: text and arrow touched the left and right edges, squashed - room on every side
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
             ),
-            icon: Icon(Icons.undo, color: kGreen, size: 16),
+            icon: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(Icons.undo, color: kGreen, size: 18)),
             label: Text('UNDO - MAKE THIS AN ACTIVE CONFLICT AGAIN',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: kGreen, fontSize: 11, fontWeight: FontWeight.w700)),
+                    color: kGreen, fontSize: 12, height: 1.3, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
