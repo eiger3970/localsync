@@ -1077,10 +1077,17 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                   // Fuse: never block other messages for more than 2 minutes. A note that did not change has
                                   // no PUSH step, so that banner closes itself after 8 seconds.
                                   topBarPersistent = true;
-                                  Timer(const Duration(minutes: 2), () {
-                                    topBarPersistent = false;
-                                  });
-                                  if (!lastResolutionChangedNote) {
+                                  // 2026-11-17 owner, real Test E2: "I never tapped UNDO and the button disappeared". After
+                                  // KEEP BOTH & CLEAN UP this banner holds the ONLY UNDO (whole-note undo, not listed in
+                                  // Merged conflicts), and it closed itself 30 s after the desktop step. A banner with an
+                                  // UNDO now stays until UNDO or DISMISS is tapped: no timer closes it, the fuse leaves it.
+                                  final hasUndo = result?.keptBoth != null || result?.mergeUndo != null;
+                                  if (!hasUndo) {
+                                    Timer(const Duration(minutes: 2), () {
+                                      topBarPersistent = false;
+                                    });
+                                  }
+                                  if (!lastResolutionChangedNote && !hasUndo) {
                                     Timer(const Duration(seconds: 25), () {
                                       final nav = rootNavigatorKey.currentContext;
                                       if (nav != null) ScaffoldMessenger.of(nav).hideCurrentMaterialBanner();
@@ -1091,6 +1098,7 @@ class _ConflictsScreenState extends State<ConflictsScreen> {
                                     final f = followProvider.pushFollowUp;
                                     if (f != PushFollowUp.desktopDone && f != PushFollowUp.desktopLate) return;
                                     followProvider.removeListener(closeAfterFollowUp);
+                                    if (hasUndo) return; // stays until UNDO or DISMISS
                                     // 2026-11-14 owner: 8 s was "too fast disappeared to read". 30 s, or DISMISS.
                                     Timer(const Duration(seconds: 30), () {
                                       final nav = rootNavigatorKey.currentContext;
