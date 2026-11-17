@@ -1444,8 +1444,13 @@ bool mergeStaleSavesWithGit(git.Repository repo, git.Commit head, String deviceN
     if (prior.oid == head.oid) return false;
     final dir = repo.workdir.endsWith('/') ? repo.workdir : '${repo.workdir}/';
     final stale = <String, ({String saved, String pulled})>{};
+    final ownTouched = _filesThisDeviceCommitted(repo, head, prior, deviceName);
     for (final d in git.Diff.treeToTree(repo: repo, oldTree: prior.tree, newTree: head.tree).deltas) {
       if (d.status != git.GitDelta.modified || !d.newFile.path.endsWith('.md')) continue;
+      // 2026-11-17 owner, real Test F: the phone's OWN line ("Three", committed by the phone after the pull) counted as
+      // a line "the pull added", so the phone's next edit of that line ("Three phone") looked like an old Obsidian copy
+      // and the same-line clash was merged without a conflict. A note this phone committed since the pull is skipped.
+      if (ownTouched.contains(d.newFile.path)) continue;
       final file = File('$dir${d.newFile.path}');
       if (!file.existsSync()) continue;
       final b = git.Blob.lookup(repo: repo, oid: d.oldFile.oid);
@@ -1491,6 +1496,25 @@ bool mergeStaleSavesWithGit(git.Repository repo, git.Commit head, String deviceN
     debugPrint('LocalSync mergeStaleSavesWithGit: $e');
     return false;
   }
+}
+
+/// Notes changed by this device's own (single-parent) commits between [prior] and [head].
+Set<String> _filesThisDeviceCommitted(git.Repository repo, git.Commit head, git.Commit prior, String deviceName) {
+  final me = deviceName.trim().isEmpty ? 'Localsync' : deviceName.trim();
+  final out = <String>{};
+  try {
+    final walker = git.RevWalk(repo)..sorting({git.GitSort.time});
+    walker.push(head.oid);
+    walker.hide(prior.oid);
+    for (final c in walker.walk(limit: 200)) {
+      if (c.parents.length != 1 || c.author.name != me) continue;
+      final parent = git.Commit.lookup(repo: repo, oid: c.parents.first);
+      for (final d in git.Diff.treeToTree(repo: repo, oldTree: parent.tree, newTree: c.tree).deltas) {
+        out.add(d.newFile.path);
+      }
+    }
+  } catch (_) {}
+  return out;
 }
 
 /// True when [saved] was written from the old copy: it keeps none of the lines the pull added. A save typed on top of
