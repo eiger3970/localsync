@@ -1114,12 +1114,17 @@ class KeptBothEntry {
   // whose matchStart/matchEnd already span the whole marker block and
   // need nothing else to undo. See undoKeepBoth.
   final String? dbId;
+  /// 2026-11-17 owner (choice B): a KEEP BOTH & CLEAN UP fix, undone by putting the whole note back ([undoFile] holds it).
+  final MergeUndo? wholeNote;
+  final String? undoFile;
   const KeptBothEntry({
     required this.filePath,
     required this.versions,
     required this.matchStart,
     required this.matchEnd,
     this.dbId,
+    this.wholeNote,
+    this.undoFile,
   });
 }
 
@@ -1271,6 +1276,7 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
     }
   }
 
+  entries.addAll(_wholeNoteUndoEntries(vaultPath));
   if (records.isNotEmpty || staleIds.isNotEmpty) {
     SyncLog.add('Merged conflicts scan: ${records.length} records, ${staleIds.length} stale, ${entries.length} shown');
   }
@@ -1325,6 +1331,7 @@ Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
   final file = File('$vaultPath/${undo.filePath}');
   if (await file.readAsString() != undo.after) return false;
   await VaultFolderService().coordinatedWrite(file.path, undo.before);
+  _forgetWholeNoteUndo(vaultPath, undo);
   return true;
 }
 
@@ -1353,11 +1360,9 @@ Future<({String backupRelPath, MergeUndo? undo, KeptBothEntry? kept})> mergeConf
   if (cleanUp) {
     // Nothing changed (KEEP BOTH & CLEAN UP on an already-tidy note): there is nothing to undo, so no UNDO button.
     if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null, kept: null);
-    return (
-      backupRelPath: backupRelPath,
-      undo: MergeUndo(entry.filePath, content, result.content),
-      kept: null,
-    );
+    final undo = MergeUndo(entry.filePath, content, result.content);
+    _saveWholeNoteUndo(vaultPath, undo); // listed in Merged conflicts too (2026-11-17 owner, choice B)
+    return (backupRelPath: backupRelPath, undo: undo, kept: null);
   }
   // Every side was already in the note - nothing written to relocate.
   // 2026-11-17 Test F: plain KEEP BOTH showed no Merged conflicts - log whether the UNDO record is written
@@ -1386,4 +1391,60 @@ Future<({String backupRelPath, MergeUndo? undo, KeptBothEntry? kept})> mergeConf
             matchEnd: at + result.mergedText.length,
             dbId: recordId),
   );
+}
+
+
+// ── KEEP BOTH & CLEAN UP undo, kept for Merged conflicts ──────────────────────
+// 2026-11-17 owner, choice B: "I don't tap DISMISS. I just tap Conflicts to go back there." A CLEAN UP fix's UNDO
+// lived only on the banner (gone when the app closes or the next fix replaces the banner). The whole note before
+// and after is now also kept on this phone, inside .git (never synced), and listed in Merged conflicts while the
+// note is still exactly as the fix left it. Last 20 kept.
+Directory _undoDir(String vaultPath) => Directory('$vaultPath/.git/localsync_undo');
+
+void _saveWholeNoteUndo(String vaultPath, MergeUndo u) {
+  try {
+    final d = _undoDir(vaultPath)..createSync(recursive: true);
+    File('${d.path}/${DateTime.now().microsecondsSinceEpoch}.json').writeAsStringSync(jsonEncode(
+        {'path': u.filePath, 'before': u.before, 'after': u.after, 'at': DateTime.now().millisecondsSinceEpoch}));
+    final files = d.listSync().whereType<File>().toList()..sort((a, b) => b.path.compareTo(a.path));
+    for (final old in files.skip(20)) {
+      old.deleteSync();
+    }
+  } catch (_) {}
+}
+
+List<KeptBothEntry> _wholeNoteUndoEntries(String vaultPath) {
+  final out = <KeptBothEntry>[];
+  try {
+    final d = _undoDir(vaultPath);
+    if (!d.existsSync()) return out;
+    for (final f in d.listSync().whereType<File>()) {
+      try {
+        final j = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+        final u = MergeUndo(j['path'] as String, j['before'] as String, j['after'] as String);
+        final note = File('$vaultPath/${u.filePath}');
+        final current = note.existsSync() ? note.readAsStringSync() : null;
+        if (current == u.after) {
+          out.add(KeptBothEntry(
+              filePath: u.filePath, versions: const [], matchStart: 0, matchEnd: 0, wholeNote: u, undoFile: f.path));
+        } else if (DateTime.now().millisecondsSinceEpoch - (j['at'] as int) > const Duration(minutes: 10).inMilliseconds) {
+          f.deleteSync(); // the note changed since the fix: UNDO would overwrite newer typing, so it is offered no more
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return out;
+}
+
+void _forgetWholeNoteUndo(String vaultPath, MergeUndo u) {
+  try {
+    final d = _undoDir(vaultPath);
+    if (!d.existsSync()) return;
+    for (final f in d.listSync().whereType<File>()) {
+      try {
+        final j = jsonDecode(f.readAsStringSync()) as Map<String, dynamic>;
+        if (j['path'] == u.filePath && j['after'] == u.after) f.deleteSync();
+      } catch (_) {}
+    }
+  } catch (_) {}
 }

@@ -53,7 +53,11 @@ class _KeptBothScreenState extends State<KeptBothScreen> {
     final path = await _vaultFolder.startAccessing(widget.repo.vaultBookmark);
     if (path == null) return;
     try {
-      await undoKeepBoth(path, entry);
+      if (entry.wholeNote != null) {
+        await undoMerge(path, entry.wholeNote!); // CLEAN UP fix: the whole note back as before
+      } else {
+        await undoKeepBoth(path, entry);
+      }
     } finally {
       await _vaultFolder.stopAccessing(widget.repo.vaultBookmark);
     }
@@ -122,8 +126,10 @@ class _KeptBothTile extends StatelessWidget {
                   color: kStar, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(
-            '${entry.versions.length} versions merged into this note as '
-            'plain text.',
+            entry.wholeNote != null
+                ? 'Both versions kept and the note cleaned up.'
+                : '${entry.versions.length} versions merged into this note as '
+                    'plain text.',
             style: TextStyle(color: kTextMid, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 12),
@@ -137,7 +143,7 @@ class _KeptBothTile extends StatelessWidget {
             icon: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(Icons.undo, color: kGreen, size: 18)),
-            label: Text('UNDO - MAKE THIS AN ACTIVE CONFLICT AGAIN',
+            label: Text(entry.wholeNote != null ? 'UNDO - PUT THE NOTE BACK AS BEFORE' : 'UNDO - MAKE THIS AN ACTIVE CONFLICT AGAIN',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     color: kGreen, fontSize: 12, height: 1.3, fontWeight: FontWeight.w700)),
