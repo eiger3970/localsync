@@ -1257,7 +1257,8 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
     for (final r in fileRecords) {
       final idx = content.indexOf(r.mergedText);
       if (idx < 0) {
-        staleIds.add(r.id); // merged text edited/removed - nothing to undo
+        // 2026-11-17: a record from the last 10 minutes is never thrown away - the note on disk can lag the write
+        if (DateTime.now().difference(r.resolvedAt) > const Duration(minutes: 10)) staleIds.add(r.id);
         continue;
       }
       entries.add(KeptBothEntry(
@@ -1330,7 +1331,7 @@ Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
 /// 2026-09-28: [undo] is set for KEEP BOTH & CLEAN UP only - it can
 /// move and drop text anywhere in the note, so its undo is the whole
 /// note before/after (same as MERGE TEXT), not a KeptBothRecord.
-Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
+Future<({String backupRelPath, MergeUndo? undo, KeptBothEntry? kept})> mergeConflictKeepingBoth(
   String vaultPath,
   ConflictEntry entry, {
   bool cleanUp = false,
@@ -1340,7 +1341,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) {
-    return (backupRelPath: backupRelPath, undo: null); // file changed since scan
+    return (backupRelPath: backupRelPath, undo: null, kept: null); // file changed since scan
   }
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   lastResolutionChangedNote = result.content != content;
@@ -1351,22 +1352,38 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   await _settleKeptPairs(vaultPath, entry, result.content);
   if (cleanUp) {
     // Nothing changed (KEEP BOTH & CLEAN UP on an already-tidy note): there is nothing to undo, so no UNDO button.
-    if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null);
+    if (!lastResolutionChangedNote) return (backupRelPath: backupRelPath, undo: null, kept: null);
     return (
       backupRelPath: backupRelPath,
       undo: MergeUndo(entry.filePath, content, result.content),
+      kept: null,
     );
   }
   // Every side was already in the note - nothing written to relocate.
   // 2026-11-17 Test F: plain KEEP BOTH showed no Merged conflicts - log whether the UNDO record is written
   SyncLog.add('KEEP BOTH record: merged ${result.mergedText.length} chars${result.mergedText.isEmpty ? ' - none (all sides already in note)' : ''}');
-  if (result.mergedText.isEmpty) return (backupRelPath: backupRelPath, undo: null);
+  if (result.mergedText.isEmpty) return (backupRelPath: backupRelPath, undo: null, kept: null);
+  final recordId = '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}';
   await _saveKeptBothRecord(KeptBothRecord(
-    id: '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}',
+    id: recordId,
     filePath: entry.filePath,
     versions: entry.versions,
     mergedText: result.mergedText,
     resolvedAt: DateTime.now(),
   ));
-  return (backupRelPath: backupRelPath, undo: null);
+  // 2026-11-17 Test F: the UNDO came from re-reading the note from disk, which missed the text just written, so no
+  // UNDO and no Merged conflicts. The UNDO is now built from the text this function wrote.
+  final at = result.content.indexOf(result.mergedText);
+  return (
+    backupRelPath: backupRelPath,
+    undo: null,
+    kept: at < 0
+        ? null
+        : KeptBothEntry(
+            filePath: entry.filePath,
+            versions: entry.versions,
+            matchStart: at,
+            matchEnd: at + result.mergedText.length,
+            dbId: recordId),
+  );
 }

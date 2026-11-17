@@ -31,6 +31,7 @@ import '../services/conflict_repair.dart'
         oneContainsTheOther,
         oneSideSuspiciouslyShort;
 import '../services/conflict_scanner.dart';
+import '../services/sync_log.dart';
 import '../services/demo_conflict.dart';
 import '../services/database_service.dart';
 import '../services/device_name.dart';
@@ -1037,6 +1038,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
             cleanUp: cleanUp);
         backupRelPath = kept.backupRelPath;
         mergeUndo = kept.undo;
+        SyncLog.add('KEEP BOTH${cleanUp ? ' & CLEAN UP' : ''}: undo ${kept.undo != null ? 'whole note' : kept.kept != null ? 'kept-both record' : 'none'}');
         if (DemoConflict.isDemo(widget.repo)) {
           if (cleanUp) await DemoConflict.advancePast(0);
           // 2026-10-06: Kevin - "I tap keep both and clean -> then nothing".
@@ -1061,12 +1063,7 @@ class _ConflictPickerScreenState extends State<ConflictPickerScreen> {
         // 2026-11-16 owner: "2x UNDOs" after KEEP BOTH & CLEAN UP. Clean up writes no kept-both record (its undo is
         // mergeUndo, the whole note), so this scan found an OLDER record for the same note - its UNDO would have
         // undone an earlier, unrelated Keep Both. Only plain KEEP BOTH looks its fresh record up.
-        if (!cleanUp) {
-          final freshlyKept = await scanForKeptBoth(path);
-          keptBoth = freshlyKept
-              .where((k) => k.filePath == widget.entry.filePath)
-              .firstOrNull;
-        }
+        if (!cleanUp) keptBoth = kept.kept; // 2026-11-17: from the write itself, not a re-read of the note
       }
     } finally {
       await vaultFolder.stopAccessing(widget.repo.vaultBookmark);
