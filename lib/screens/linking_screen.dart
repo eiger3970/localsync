@@ -2057,7 +2057,8 @@ class _RunningView extends StatelessWidget {
         children: [
           const _PulsingDots(),
           const SizedBox(height: 32),
-          Text(
+          // 2026-11-17 owner: "First sync... ellipse can it flow?" - same flowing dots as everywhere else.
+          FlowingEllipsis(
             ctrl.stepLabel,
             key: ValueKey(ctrl.step),
             style: TextStyle(
