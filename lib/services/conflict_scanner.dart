@@ -920,6 +920,7 @@ Future<String> resolveConflict(
   // cache on a real device, this is the best-available fix, unconfirmed
   // on device.
   await VaultFolderService().coordinatedWrite(filePath, updated);
+  noteResolution(vaultPath, entry.filePath, content, updated); // guard against Obsidian's old copy (pre_pull_marker)
   await settlePendingConflict(entry);
   await _settleSameTime(entry, vaultPath);
   return backupRelPath;
@@ -1284,6 +1285,7 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
 /// content is simply restored from the marker's own embedded data.
 Future<void> undoKeepBoth(String vaultPath, KeptBothEntry entry) async {
   clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
+  forgetResolution(vaultPath, entry.filePath); // UNDO is deliberate, never re-fixed
   final filePath = '$vaultPath/${entry.filePath}';
   final content = await File(filePath).readAsString();
   if (entry.matchEnd > content.length) return; // file changed since scan
@@ -1314,6 +1316,7 @@ class MergeUndo {
 /// overwrite newer edits.
 Future<bool> undoMerge(String vaultPath, MergeUndo undo) async {
   clearPrePullMarker(vaultPath); // a choice made in Conflicts is deliberate (see pre_pull_marker.dart)
+  forgetResolution(vaultPath, undo.filePath); // UNDO is deliberate, never re-fixed
   final file = File('$vaultPath/${undo.filePath}');
   if (await file.readAsString() != undo.after) return false;
   await VaultFolderService().coordinatedWrite(file.path, undo.before);
@@ -1338,6 +1341,7 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
   final result = applyKeepBoth(content, entry, cleanUp: cleanUp);
   lastResolutionChangedNote = result.content != content;
   await VaultFolderService().coordinatedWrite(filePath, result.content);
+  noteResolution(vaultPath, entry.filePath, content, result.content); // guard against Obsidian's old copy
   await settlePendingConflict(entry);
   await _settleSameTime(entry, vaultPath);
   await _settleKeptPairs(vaultPath, entry, result.content);

@@ -59,6 +59,7 @@
 import 'desktop_schedule.dart';
 import 'git_service.dart' show sshRepoUrl, lookupOrigin;
 import 'pre_pull_marker.dart';
+import 'sync_log.dart';
 import 'dart:async' show StreamController;
 import 'dart:convert' show base64Encode, utf8;
 import 'dart:io';
@@ -1383,6 +1384,11 @@ bool recoverInterruptedMerge(
 }
 
 bool commitDirtyTree(git.Repository repo, String message, String deviceName) {
+  // 2026-11-17: a fix made in Conflicts that Obsidian's old copy overwrote is written again first (pre_pull_marker.dart)
+  final wd = repo.workdir.endsWith('/') ? repo.workdir.substring(0, repo.workdir.length - 1) : repo.workdir;
+  for (final p in restoreStaleResolutionSaves(wd)) {
+    SyncLog.add('FIX KEPT: Obsidian saved its old copy over the Conflicts fix in $p - fix written again');
+  }
   final headOid = repo.head.target;
   final parent = git.Commit.lookup(repo: repo, oid: headOid);
   if (mergeStaleSavesWithGit(repo, parent, deviceName, message)) {
