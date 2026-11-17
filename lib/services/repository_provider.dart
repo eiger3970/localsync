@@ -145,6 +145,20 @@ class RepositoryProvider extends ChangeNotifier {
     _ensureConflictWatch();
   }
 
+  /// 2026-11-17 owner, real test: the Conflict sample came back after reinstalling the app. "Sample done" lived only
+  /// in the app's saved settings, which a reinstall wipes; it is now also a marker in the vault's .git folder (on
+  /// this phone, never synced), and a fresh install that finds it treats the sample as done.
+  Future<void> _keepSampleDoneInVault(String vaultPath) async {
+    try {
+      final marker = File('$vaultPath/.git/localsync_sample_done');
+      if (!DemoConflict.triesLeft.value) {
+        if (!marker.existsSync()) marker.writeAsStringSync('${DateTime.now().toIso8601String()}\n');
+      } else if (marker.existsSync()) {
+        await DemoConflict.advancePast(0);
+      }
+    } catch (_) {}
+  }
+
   /// False when the vault could not be read (colour left as it was).
   Future<bool> _refreshConflictsOnce(int repoId) async {
     final repo = _repos.where((r) => r.id == repoId).firstOrNull;
@@ -160,6 +174,7 @@ class RepositoryProvider extends ChangeNotifier {
         path = repo.localPath;
       }
       if (path == null) return false;
+      await _keepSampleDoneInVault(path);
       final entries = await scanForConflicts(path);
       if (entries.isEmpty) {
         // 2026-09-24: "all conflicts cleared" chime - only on the real

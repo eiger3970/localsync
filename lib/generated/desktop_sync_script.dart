@@ -252,7 +252,15 @@ ensure_repo_name() {
 
 # ── Lock: one run at a time ───────────────────────────────────────────────────
 exec 9>"$LOCK"
-flock -n 9 || { SKIPPED=1; log "Already running — skipping"; exit 0; }
+# 2026-11-17 owner, real test: the phone's Desktop sync arrived while the push hook's own run held the lock, was
+# skipped ("Already running"), and the phone pulled before that run had saved the conflict - so the conflict only
+# reached the phone on a 2nd Desktop sync. A run the phone asked for (LOCALSYNC_WAIT=1) now waits up to 60 seconds
+# for the lock, then does its own full round; cron and the hook still skip.
+if [ "${LOCALSYNC_WAIT:-0}" = 1 ]; then
+  flock -w 60 9 || { SKIPPED=1; log "Still busy after 60 seconds — skipping"; exit 0; }
+else
+  flock -n 9 || { SKIPPED=1; log "Already running — skipping"; exit 0; }
+fi
 
 # ── Backup before the first sync ──────────────────────────────────────────────
 # 2026-09-25: user - "Desktop backup, absolutely, but inform user it actions

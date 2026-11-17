@@ -291,7 +291,7 @@ Future<SyncResult> runDesktopSyncScriptNow({
     final escapedRepo = remotePath.replaceAll("'", r"'\''");
     final vaultEnv = desktopFolderEnv(desktopVaultPath, folderName);
     final runCmd =
-        "LOCALSYNC_BARE_REPO='$escapedRepo' $vaultEnv\"$scriptPath\"";
+        "LOCALSYNC_WAIT=1 LOCALSYNC_BARE_REPO='$escapedRepo' $vaultEnv\"$scriptPath\""; // waits for a running sync
     final runRes = await client.runWithResult(runCmd);
     if (runRes.exitCode != 0) {
       return SyncFailed(LinkingError.connectionRefused,
