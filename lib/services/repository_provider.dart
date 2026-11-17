@@ -713,6 +713,9 @@ class RepositoryProvider extends ChangeNotifier {
           up = await _run(id, (service) => service.push());
         }
         if (up is SyncFailed || up is SyncNeedsConfirmation) return up;
+        // 2026-11-17 owner: "hand still swiping up" after Desktop sync had already sent the fix. Only the PUSH swipe
+        // cleared the reminder; the round's own successful send now clears it too (nothing left to push).
+        setPushReminder(false);
         if (up is! SyncOkWithConflicts && early is SyncOkWithConflicts) up = early;
         final desk = await _desktopSyncLocked(id);
         if (desk is SyncFailed) return desk;
