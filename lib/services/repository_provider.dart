@@ -701,8 +701,19 @@ class RepositoryProvider extends ChangeNotifier {
   /// (The automatic desktop step after a PUSH still calls triggerDesktopSyncNow alone - the push already happened.)
   Future<SyncResult?> syncWithDesktopNow(int id) => _asUser(false, () async {
         SyncLog.add('DESKTOP SYNC round start');
-        final up = await _run(id, (service) => service.push());
+        var up = await _run(id, (service) => service.push());
+        // 2026-11-17 owner, real Test E: same line edited on both devices -> "Cannot push - the remote has
+        // commits your phone does not have yet." The computer had moved on, so the phone's push alone can't
+        // land. Receive first (merge, conflicts go to Conflicts), then send again, then carry on with the round.
+        SyncResult? early;
+        if (up case SyncFailed(error: LinkingError.cannotFastForward)) {
+          SyncLog.add('DESKTOP SYNC push behind - receive first, then send again');
+          early = await _run(id, (service) => service.pull());
+          if (early is SyncFailed || early is SyncNeedsConfirmation) return early;
+          up = await _run(id, (service) => service.push());
+        }
         if (up is SyncFailed || up is SyncNeedsConfirmation) return up;
+        if (up is! SyncOkWithConflicts && early is SyncOkWithConflicts) up = early;
         final desk = await _desktopSyncLocked(id);
         if (desk is SyncFailed) return desk;
         final down = await _run(id, (service) => service.pull());

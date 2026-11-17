@@ -244,14 +244,20 @@ class HomeScreen extends StatelessWidget {
                 // 15dp) and closed just that small real difference.
                 padding: const EdgeInsets.only(left: 0, right: 6),
                 // 2026-11-14 owner: green, amber whenever the Conflicts item inside is amber.
-                icon: Icon(Icons.more_vert,
-                    color: (provider.selectedRepo != null &&
-                                provider.hasConflicts(provider.selectedRepo!.id!)) ||
-                            DemoConflict.triesLeft.value ||
-                            provider.backupsBig
-                        ? Colors.amber
-                        : kGreen,
-                    size: 22),
+                // 2026-11-17 owner: after the Conflict sample the kebab stayed amber ~30 s, then went green.
+                // The sample's state is its own notifier; the kebab only redrew on the next provider change.
+                // Listening to it directly turns the kebab green the moment the sample is done.
+                icon: ValueListenableBuilder<bool>(
+                  valueListenable: DemoConflict.triesLeft,
+                  builder: (_, sampleWaiting, __) => Icon(Icons.more_vert,
+                      color: (provider.selectedRepo != null &&
+                                  provider.hasConflicts(provider.selectedRepo!.id!)) ||
+                              sampleWaiting ||
+                              provider.backupsBig
+                          ? Colors.amber
+                          : kGreen,
+                      size: 22),
+                ),
                 onSelected: (v) => _onMenuAction(context, provider, v),
                 // 2026-08-18: full menu cleanup per explicit list - one
                 // flat alphabetical order (About, Conflicts, Connection,
