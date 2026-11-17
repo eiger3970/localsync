@@ -24,6 +24,7 @@
 // whichever side won, nothing fuzzier than a direct substring replace.
 
 import 'pre_pull_marker.dart';
+import 'sync_log.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1269,6 +1270,9 @@ Future<List<KeptBothEntry>> scanForKeptBoth(String vaultPath) async {
     }
   }
 
+  if (records.isNotEmpty || staleIds.isNotEmpty) {
+    SyncLog.add('Merged conflicts scan: ${records.length} records, ${staleIds.length} stale, ${entries.length} shown');
+  }
   if (staleIds.isNotEmpty) {
     final remaining = records.where((r) => !staleIds.contains(r.id)).toList();
     await DatabaseService()
@@ -1354,6 +1358,8 @@ Future<({String backupRelPath, MergeUndo? undo})> mergeConflictKeepingBoth(
     );
   }
   // Every side was already in the note - nothing written to relocate.
+  // 2026-11-17 Test F: plain KEEP BOTH showed no Merged conflicts - log whether the UNDO record is written
+  SyncLog.add('KEEP BOTH record: merged ${result.mergedText.length} chars${result.mergedText.isEmpty ? ' - none (all sides already in note)' : ''}');
   if (result.mergedText.isEmpty) return (backupRelPath: backupRelPath, undo: null);
   await _saveKeptBothRecord(KeptBothRecord(
     id: '${entry.filePath}#${DateTime.now().microsecondsSinceEpoch}',
